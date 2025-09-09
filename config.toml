@@ -17,8 +17,7 @@ user_offset = 0
 
 # List of specific user IDs to process
 _test_users = [
-  "0040872d-333a-4ace-8c5a-b2fcd056e65a", # very noisy, no clear trend
-  "020dc804-0750-4743-ac76-eaac385e7d49", # a few low outliers early that are accepted leading to real values rejected later
+  "0093a653-476b-4401-bbec-33a89abc2b18", # User with sparse historical data
 ]
 
 [processing]
@@ -50,12 +49,6 @@ observation_covariance = 1.5  # was 1.0
 reset_gap_days = 30
 
 [visualization]
-# Maximum number of user visualizations to generate
-max_visualizations = 9999
-
-# Minimum data points required for visualization
-min_data_points = 0
-
 # Dashboard settings
 dashboard_dpi = 100
 dashboard_figsize = [16, 10]

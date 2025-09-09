@@ -27,13 +27,13 @@ def load_config(config_path: str = "config.toml") -> dict:
 def process_daily_cleanup(day, user_measurements, config, db):
     """
     Process daily cleanup for users with multiple measurements.
-    
+
     Args:
         day: The date to process
         user_measurements: Dict of user_id -> list of measurements
         config: Configuration dict
         db: Database instance
-        
+
     Returns:
         Stats about the cleanup
     """
@@ -43,10 +43,10 @@ def process_daily_cleanup(day, user_measurements, config, db):
         'reprocessed_users': 0,
         'total_rejected': 0
     }
-    
+
     for user_id, measurements in user_measurements.items():
         stats['users_checked'] += 1
-        
+
         if len(measurements) > 1:
             # Multiple measurements for this user on this day
             result = WeightReprocessor.process_daily_batch(
@@ -57,11 +57,11 @@ def process_daily_cleanup(day, user_measurements, config, db):
                 kalman_config=config["kalman"],
                 db=db
             )
-            
+
             if result.get('rejected'):
                 stats['reprocessed_users'] += 1
                 stats['total_rejected'] += len(result['rejected'])
-    
+
     return stats
 
 
@@ -78,11 +78,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
     processors = {}
     results = defaultdict(list)
+    raw_measurements = defaultdict(list)  # Track ALL raw measurements for viz
     seen_users = set()
     skipped_users = set()
     processed_users = set()
     users_with_insufficient_init_data = set()
-    
+
     # Track daily data for cleanup
     current_day = None
     daily_measurements = defaultdict(lambda: defaultdict(list))
@@ -102,7 +103,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     max_users = config["data"].get("max_users", 0)
     user_offset = config["data"].get("user_offset", 0)
     test_users = config["data"].get("test_users", [])
-    
+
     test_mode = bool(test_users)
     if test_mode:
         test_users_set = set(test_users)
@@ -159,14 +160,11 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             if test_mode:
                 if user_id not in test_users_set:
                     continue
-                
+
                 if user_id not in seen_users:
                     seen_users.add(user_id)
                     processed_users.add(user_id)
                     stats["processed_users"] = len(processed_users)
-                    
-                    if len(processed_users) == len(test_users):
-                        print(f"\n  Found all {len(test_users)} test users, stopping early...")
             else:
                 if user_id not in seen_users:
                     seen_users.add(user_id)
@@ -207,13 +205,13 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
             # Check for day change and run cleanup if needed
             measurement_day = timestamp.date()
-            
+
             if current_day is not None and measurement_day != current_day:
                 # Day has changed - process previous day's data
                 if current_day in daily_measurements:
-                    print(f"\n  Day changed: Processing cleanup for {current_day}")
+                    # print(f"\n  Day changed: Processing cleanup for {current_day}")
                     cleanup_stats = process_daily_cleanup(
-                        current_day, 
+                        current_day,
                         daily_measurements[current_day],
                         config,
                         db
@@ -221,14 +219,21 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                     if cleanup_stats['reprocessed_users']:
                         print(f"    Cleaned up {cleanup_stats['reprocessed_users']} users, "
                               f"rejected {cleanup_stats['total_rejected']} bad measurements")
-                    
+
                     # Clear processed day from memory
                     del daily_measurements[current_day]
-            
+
             current_day = measurement_day
-            
+
             # Store measurement for potential cleanup
             daily_measurements[measurement_day][user_id].append({
+                'weight': weight,
+                'timestamp': timestamp,
+                'source': source
+            })
+
+            # Store ALL raw measurements for visualization
+            raw_measurements[user_id].append({
                 'weight': weight,
                 'timestamp': timestamp,
                 'source': source
@@ -244,7 +249,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 kalman_config=config["kalman"],
                 db=db
             )
-            
+
             # Track unique users
             if user_id not in processors:
                 processors[user_id] = True
@@ -262,9 +267,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 if user_id not in users_with_insufficient_init_data:
                     users_with_insufficient_init_data.add(user_id)
 
-            if test_mode and len(processed_users) == len(test_users):
-                break
-            elif (
+            if (
                 not test_mode
                 and max_users > 0
                 and len(processed_users) >= max_users
@@ -279,7 +282,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     if current_day is not None and current_day in daily_measurements:
         print(f"\n  Processing final day cleanup for {current_day}")
         cleanup_stats = process_daily_cleanup(
-            current_day, 
+            current_day,
             daily_measurements[current_day],
             config,
             db
@@ -333,20 +336,23 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
     min_data_points = config["visualization"].get("min_data_points", 10)
     max_visualizations = config["visualization"].get("max_visualizations", 50)
-    
+
     viz_candidates = [
         (user_id, user_results)
         for user_id, user_results in results.items()
         if len(user_results) >= min_data_points
     ]
-    
+
     users_insufficient_data = len(results) - len(viz_candidates)
-    
+
     viz_count = 0
     for user_id, user_results in viz_candidates[:max_visualizations]:
         try:
+            # Get raw data for this user
+            user_raw_data = raw_measurements.get(user_id, [])
             create_dashboard(
-                user_id, user_results, str(viz_dir), config["visualization"]
+                user_id, user_results, str(viz_dir), config["visualization"],
+                raw_data=user_raw_data
             )
             viz_count += 1
         except Exception as e:

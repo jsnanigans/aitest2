@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: dict):
+def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: dict, raw_data: list = None):
     """
     Create a processor evaluation dashboard for a single user.
 
@@ -20,12 +20,13 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         results: List of processed weight measurements
         output_dir: Directory to save the dashboard
         viz_config: Visualization configuration dictionary
+        raw_data: Optional list of all raw measurements including initialization data
     """
     all_results = [r for r in results if r]
     valid_results = [r for r in all_results if r.get("accepted")]
     rejected_results = [r for r in all_results if not r.get("accepted")]
 
-    if not all_results:
+    if not all_results and not raw_data:
         return
 
     fig = plt.figure(figsize=(20, 12))
@@ -61,6 +62,26 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     ] if valid_results else []
 
     ax1 = plt.subplot(3, 4, (1, 4))
+    
+    # If we have raw_data, show ALL measurements including initialization
+    if raw_data:
+        # Parse raw data timestamps
+        raw_timestamps = []
+        raw_weights = []
+        for item in raw_data:
+            ts = item.get('timestamp')
+            if isinstance(ts, str):
+                ts = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+            raw_timestamps.append(ts)
+            raw_weights.append(item['weight'])
+        
+        # Identify which are initialization measurements (first 10)
+        init_count = min(10, len(raw_data))
+        if init_count > 0:
+            ax1.scatter(raw_timestamps[:init_count], raw_weights[:init_count], 
+                       alpha=0.6, s=40, color='#9C27B0', marker='s',
+                       label=f'Initialization ({init_count})', zorder=4, 
+                       edgecolors='white', linewidth=0.5)
 
     if valid_results:
         ax1.plot(valid_timestamps, filtered_weights, '-', linewidth=3,
