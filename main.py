@@ -82,7 +82,6 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     seen_users = set()
     skipped_users = set()
     processed_users = set()
-    users_with_insufficient_init_data = set()
 
     # Track daily data for cleanup
     current_day = None
@@ -94,7 +93,6 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         "total_users": 0,
         "skipped_users": 0,
         "processed_users": 0,
-        "users_insufficient_init": 0,
         "accepted": 0,
         "rejected": 0,
         "start_time": datetime.now(),
@@ -262,10 +260,6 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                     stats["rejected"] += 1
 
                 results[user_id].append(result)
-            else:
-                # Still buffering for initialization
-                if user_id not in users_with_insufficient_init_data:
-                    users_with_insufficient_init_data.add(user_id)
 
             if (
                 not test_mode
@@ -288,10 +282,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             db
         )
 
-    # Check for users that never got enough data to initialize
-    for user_id in users_with_insufficient_init_data:
-        if user_id not in results or len(results[user_id]) == 0:
-            stats["users_insufficient_init"] += 1
+
 
     elapsed = (datetime.now() - stats["start_time"]).total_seconds()
 
@@ -309,8 +300,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         if stats["skipped_users"] > 0:
             print(f"  Users skipped (offset): {stats['skipped_users']:,}")
     print(f"  Users processed: {stats['processed_users']:,}")
-    if stats["users_insufficient_init"] > 0:
-        print(f"  Users with insufficient init data (<{config['processing']['min_init_readings']} readings): {stats['users_insufficient_init']:,}")
+
     print(f"  Measurements accepted: {stats['accepted']:,}")
     print(f"  Measurements rejected: {stats['rejected']:,}")
     print(f"  Time: {elapsed:.1f}s ({stats['total_rows']/elapsed:.0f} rows/sec)")

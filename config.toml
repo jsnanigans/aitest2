@@ -23,8 +23,7 @@ _test_users = [
 # 0040872d-333a-4ace-8c5a-b2fcd056e65a - user with extremely noisy data
 
 [processing]
-# Minimum readings needed to initialize Kalman filter
-min_init_readings = 10
+# min_init_readings = 10  # No longer used - immediate processing enabled
 
 # Weight validation limits (kg)
 min_weight = 30.0

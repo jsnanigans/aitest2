@@ -63,8 +63,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     ax1 = plt.subplot(3, 4, (1, 4))
     
-    # If we have raw_data, show ALL measurements including initialization
-    if raw_data:
+    # Show raw data that wasn't already shown as accepted/rejected
+    if raw_data and not valid_results and not rejected_results:
         # Parse raw data timestamps
         raw_timestamps = []
         raw_weights = []
@@ -75,23 +75,11 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             raw_timestamps.append(ts)
             raw_weights.append(item['weight'])
         
-        # Show early measurements that are still being refined (first 10)
-        # With immediate initialization, all measurements are processed but
-        # the filter adapts its parameters after 10 measurements
-        early_count = min(10, len(raw_data))
-        if early_count > 0:
-            # Early measurements before parameter adaptation
-            if len(raw_data) < 10:
-                label_text = f'Early Measurements ({early_count}/10)'
-                marker_color = '#FF9800'  # Orange for early/adapting phase
-            else:
-                label_text = f'Adaptation Phase (10)'
-                marker_color = '#9C27B0'  # Purple for adaptation complete
-            
-            ax1.scatter(raw_timestamps[:early_count], raw_weights[:early_count], 
-                       alpha=0.6, s=40, color=marker_color, marker='s',
-                       label=label_text, zorder=4, 
-                       edgecolors='white', linewidth=0.5)
+        # Show all raw data when no processing results exist
+        ax1.scatter(raw_timestamps, raw_weights, 
+                   alpha=0.6, s=40, color='#9E9E9E', marker='o',
+                   label=f'Raw Data ({len(raw_data)})', zorder=3, 
+                   edgecolors='white', linewidth=0.5)
         
         # Show any raw data points after initialization that weren't processed
         # (e.g., if they were all rejected)
@@ -238,32 +226,17 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     ax9 = plt.subplot(3, 4, 12)
     
-    # Check if we have insufficient initialization data
-    insufficient_init = False
-    if raw_data and len(raw_data) < 10:
-        insufficient_init = True
+    # Count total measurements
+    total_measurements = len(raw_data) if raw_data else len(all_results)
     
     stats_text = f"""Processing Statistics
 {'='*25}
-Total Measurements: {len(raw_data) if raw_data else len(all_results)}
+Total Measurements: {total_measurements}
 Accepted: {len(valid_results)} ({100*len(valid_results)/len(all_results) if all_results else 0:.1f}%)
 Rejected: {len(rejected_results)} ({100*len(rejected_results)/len(all_results) if all_results else 0:.1f}%)
 
 Filter Performance
 {'='*25}"""
-    
-    if insufficient_init:
-        stats_text += f"""
-INSUFFICIENT DATA
-{'='*25}
-Kalman filter requires 10 
-measurements to initialize.
-This user only has {len(raw_data)} 
-measurements total.
-
-Filter cannot start until
-10 measurements are collected.
-"""
 
     if valid_results and filtered_weights:
         stats_text += f"""
