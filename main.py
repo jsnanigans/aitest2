@@ -25,7 +25,7 @@ def load_config(config_path: str = "config.toml") -> dict:
         return tomllib.load(f)
 
 
-def process_daily_cleanup(day, user_measurements, config, db):
+def process_daily_cleanup(day, user_measurements, config, db, user_debug_logs):
     """
     Process daily cleanup for users with multiple measurements.
 
@@ -34,6 +34,7 @@ def process_daily_cleanup(day, user_measurements, config, db):
         user_measurements: Dict of user_id -> list of measurements
         config: Configuration dict
         db: Database instance
+        user_debug_logs: Debug logs dictionary to update
 
     Returns:
         Stats about the cleanup
@@ -62,6 +63,16 @@ def process_daily_cleanup(day, user_measurements, config, db):
             if result.get('rejected'):
                 stats['reprocessed_users'] += 1
                 stats['total_rejected'] += len(result['rejected'])
+                
+                # Log cleanup event
+                user_debug_logs[user_id]['cleanup_events'].append({
+                    'date': str(day),
+                    'type': 'daily_cleanup',
+                    'measurements_processed': len(measurements),
+                    'accepted': len(result.get('accepted', [])),
+                    'rejected': len(result.get('rejected', [])),
+                    'rejected_items': result.get('rejected', [])
+                })
 
     return stats
 
@@ -84,6 +95,29 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     processed_users = set()
     insufficient_data_users = set()  # Users skipped due to min_readings
     user_reading_counts = defaultdict(int)  # Track reading count per user
+    
+    # Detailed debug data for each user
+    user_debug_logs = defaultdict(lambda: {
+        'user_id': None,
+        'first_seen': None,
+        'last_seen': None,
+        'total_measurements': 0,
+        'accepted_count': 0,
+        'rejected_count': 0,
+        'buffering_count': 0,
+        'state_resets': 0,
+        'cleanup_events': [],
+        'processing_logs': [],
+        'state_snapshots': [],
+        'adapted_parameters': None,
+        'kalman_initialized': False,
+        'initialization_timestamp': None,
+        'raw_measurements': [],
+        'processed_results': [],
+        'rejection_reasons': defaultdict(int),
+        'source_distribution': defaultdict(int),
+        'daily_stats': defaultdict(lambda: {'accepted': 0, 'rejected': 0, 'total': 0})
+    })
 
     # Track daily data for cleanup
     current_day = None
@@ -230,7 +264,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             except (ValueError, TypeError):
                 continue
 
-            date_str = row.get("effectivDateTime") or row.get("effectiveDateTime") or row.get("date")
+            date_str = row.get("effectiveDateTime")
             source = row.get("source_type") or row.get("source", "unknown")
 
             try:
@@ -249,7 +283,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                         current_day,
                         daily_measurements[current_day],
                         config,
-                        db
+                        db,
+                        user_debug_logs
                     )
                     if cleanup_stats['reprocessed_users']:
                         print(f"    Cleaned up {cleanup_stats['reprocessed_users']} users, "
@@ -266,6 +301,23 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 'timestamp': timestamp,
                 'source': source
             })
+            
+            # Initialize user debug log if first time
+            if not user_debug_logs[user_id]['user_id']:
+                user_debug_logs[user_id]['user_id'] = user_id
+                user_debug_logs[user_id]['first_seen'] = str(timestamp)
+            
+            user_debug_logs[user_id]['last_seen'] = str(timestamp)
+            user_debug_logs[user_id]['total_measurements'] += 1
+            user_debug_logs[user_id]['source_distribution'][source] += 1
+            
+            # Log raw measurement
+            user_debug_logs[user_id]['raw_measurements'].append({
+                'timestamp': str(timestamp),
+                'weight': weight,
+                'source': source,
+                'day': str(measurement_day)
+            })
 
             # Use stateless processor - no need to create instances
             result = WeightProcessor.process_weight(
@@ -277,6 +329,69 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 kalman_config=config["kalman"],
                 db=db
             )
+            
+            # Log processing event
+            processing_log = {
+                'timestamp': str(timestamp),
+                'weight': weight,
+                'source': source,
+                'result': 'buffering' if result is None else ('accepted' if result['accepted'] else 'rejected')
+            }
+            
+            if result:
+                processing_log.update({
+                    'filtered_weight': result.get('filtered_weight'),
+                    'confidence': result.get('confidence'),
+                    'trend': result.get('trend'),
+                    'rejection_reason': result.get('rejection_reason')
+                })
+                
+                # Track Kalman initialization
+                if not user_debug_logs[user_id]['kalman_initialized'] and result.get('filtered_weight') is not None:
+                    user_debug_logs[user_id]['kalman_initialized'] = True
+                    user_debug_logs[user_id]['initialization_timestamp'] = str(timestamp)
+                
+                # Store processed result
+                user_debug_logs[user_id]['processed_results'].append(result)
+                
+                # Update daily stats
+                day_str = str(measurement_day)
+                user_debug_logs[user_id]['daily_stats'][day_str]['total'] += 1
+                
+                if result['accepted']:
+                    user_debug_logs[user_id]['daily_stats'][day_str]['accepted'] += 1
+                else:
+                    user_debug_logs[user_id]['daily_stats'][day_str]['rejected'] += 1
+                    if result.get('rejection_reason'):
+                        user_debug_logs[user_id]['rejection_reasons'][result['rejection_reason']] += 1
+            else:
+                user_debug_logs[user_id]['buffering_count'] += 1
+            
+            user_debug_logs[user_id]['processing_logs'].append(processing_log)
+            
+            # Capture state snapshot periodically (every 10th measurement)
+            if user_debug_logs[user_id]['total_measurements'] % 10 == 0:
+                state = db.get_state(user_id)
+                if state:
+                    snapshot = {
+                        'measurement_num': user_debug_logs[user_id]['total_measurements'],
+                        'timestamp': str(timestamp),
+                        'initialized': state.get('initialized', False),
+                        'has_adapted_params': 'adapted_params' in state,
+                        'buffer_size': len(state.get('init_buffer', [])) if state.get('init_buffer') else 0
+                    }
+                    if state.get('last_state') is not None:
+                        try:
+                            # Handle numpy arrays
+                            last_state = state['last_state']
+                            snapshot['last_state_weight'] = float(last_state[0])
+                            snapshot['last_state_trend'] = float(last_state[1])
+                        except (TypeError, IndexError):
+                            # Fallback if conversion fails
+                            pass
+                    if state.get('adapted_params'):
+                        user_debug_logs[user_id]['adapted_parameters'] = state['adapted_params']
+                    user_debug_logs[user_id]['state_snapshots'].append(snapshot)
 
             # Track unique users
             if user_id not in processors:
@@ -287,8 +402,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 # Store ALL processed results (both accepted and rejected)
                 if result["accepted"]:
                     stats["accepted"] += 1
+                    user_debug_logs[user_id]['accepted_count'] += 1
                 else:
                     stats["rejected"] += 1
+                    user_debug_logs[user_id]['rejected_count'] += 1
 
                 results[user_id].append(result)
                 
@@ -313,7 +430,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             current_day,
             daily_measurements[current_day],
             config,
-            db
+            db,
+            user_debug_logs
         )
 
 
@@ -352,6 +470,77 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         json.dump({"stats": stats, "users": dict(results)}, f, indent=2, default=str)
 
     print(f"\nResults saved to {results_file}")
+    
+    # Save detailed debug reports for each user
+    debug_dir = output_path / f"debug_{timestamp}"
+    debug_dir.mkdir(exist_ok=True)
+    
+    print(f"\nGenerating debug reports for {len(user_debug_logs)} users...")
+    
+    # Create summary debug report
+    summary_debug = {
+        'processing_summary': stats,
+        'total_users': len(user_debug_logs),
+        'users_with_rejections': sum(1 for log in user_debug_logs.values() if log['rejected_count'] > 0),
+        'users_with_cleanups': sum(1 for log in user_debug_logs.values() if log['cleanup_events']),
+        'total_cleanup_events': sum(len(log['cleanup_events']) for log in user_debug_logs.values()),
+        'aggregate_rejection_reasons': {},
+        'aggregate_source_distribution': {}
+    }
+    
+    # Aggregate rejection reasons and sources across all users
+    for user_id, log in user_debug_logs.items():
+        for reason, count in log['rejection_reasons'].items():
+            summary_debug['aggregate_rejection_reasons'][reason] = \
+                summary_debug['aggregate_rejection_reasons'].get(reason, 0) + count
+        for source, count in log['source_distribution'].items():
+            summary_debug['aggregate_source_distribution'][source] = \
+                summary_debug['aggregate_source_distribution'].get(source, 0) + count
+    
+    # Save summary debug file
+    summary_file = debug_dir / "debug_summary.json"
+    with open(summary_file, "w") as f:
+        json.dump(summary_debug, f, indent=2, default=str)
+    
+    # Save individual user debug files
+    for idx, (user_id, debug_log) in enumerate(user_debug_logs.items(), 1):
+        if idx % 100 == 0:
+            print(f"  [{idx}/{len(user_debug_logs)}] Writing debug reports...")
+        
+        # Add computed summary stats to each user's debug log
+        debug_log['summary'] = {
+            'acceptance_rate': debug_log['accepted_count'] / debug_log['total_measurements'] 
+                if debug_log['total_measurements'] > 0 else 0,
+            'days_active': len(debug_log['daily_stats']),
+            'had_cleanup': len(debug_log['cleanup_events']) > 0,
+            'unique_sources': len(debug_log['source_distribution']),
+            'unique_rejection_reasons': len(debug_log['rejection_reasons'])
+        }
+        
+        # Get final state from database
+        final_state = db.get_state(user_id)
+        if final_state:
+            debug_log['final_state'] = {
+                'initialized': final_state.get('initialized', False),
+                'has_adapted_params': 'adapted_params' in final_state,
+                'last_timestamp': str(final_state.get('last_timestamp', '')),
+                'buffer_size': len(final_state.get('init_buffer', [])) if final_state.get('init_buffer') else 0
+            }
+            if final_state.get('last_state') is not None:
+                try:
+                    # Handle numpy arrays
+                    last_state = final_state['last_state']
+                    debug_log['final_state']['last_weight'] = float(last_state[0])
+                    debug_log['final_state']['last_trend'] = float(last_state[1])
+                except (TypeError, IndexError):
+                    # Fallback if conversion fails
+                    pass
+        
+        user_debug_file = debug_dir / f"user_{user_id}.json"
+        with open(user_debug_file, "w") as f:
+            json.dump(debug_log, f, indent=2, default=str)
+    
+    print(f"Debug reports saved to {debug_dir}")
 
     # Generate visualizations if enabled
     if config.get("visualization", {}).get("enabled", True):

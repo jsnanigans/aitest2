@@ -7,7 +7,7 @@ import numpy as np
 # Load data for specific user
 df = pd.read_csv('data/2025-09-05_optimized.csv')
 user_id = '0093a653-476b-4401-bbec-33a89abc2b18'
-user_data = df[df['user_id'] == user_id].sort_values('effectivDateTime')
+user_data = df[df['user_id'] == user_id].sort_values('effectiveDateTime')
 
 # Get first 10 measurements
 first_10 = user_data.head(10)

@@ -18,7 +18,7 @@ config = toml.load('config.toml')
 # Load data for specific user
 df = pd.read_csv('data/2025-09-05_optimized.csv')
 user_id = '0093a653-476b-4401-bbec-33a89abc2b18'
-user_data = df[df['user_id'] == user_id].sort_values('effectivDateTime')
+user_data = df[df['user_id'] == user_id].sort_values('effectiveDateTime')
 
 print(f"User {user_id}")
 print(f"Total measurements: {len(user_data)}")
@@ -27,7 +27,7 @@ print("\nFirst 10 measurements (used for initialization):")
 # Get first 10 measurements
 first_10 = user_data.head(10)
 for idx, row in first_10.iterrows():
-    print(f"  {row['effectivDateTime']}: {row['weight']:.2f} kg")
+    print(f"  {row['effectiveDateTime']}: {row['weight']:.2f} kg")
 
 # Calculate what the initial state would be
 weights = first_10['weight'].values.tolist()
@@ -60,7 +60,7 @@ print("\n\nChecking other users with similar patterns...")
 # Process all users
 users_with_high_init = []
 for uid in df['user_id'].unique():
-    user_df = df[df['user_id'] == uid].sort_values('effectivDateTime')
+    user_df = df[df['user_id'] == uid].sort_values('effectiveDateTime')
     if len(user_df) >= 10:
         first_10_weights = user_df.head(10)['weight'].values
         

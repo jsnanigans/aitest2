@@ -16,7 +16,7 @@ for idx, row in df.iterrows():
     if row['user_id'] == user_id:
         raw_measurements[user_id].append({
             'weight': row['weight'],
-            'timestamp': row['effectivDateTime'],
+            'timestamp': row['effectiveDateTime'],
             'source': row['source_type']
         })
 

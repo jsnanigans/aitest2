@@ -1,4 +1,4 @@
-user_id,effectivDateTime,source_type,weight,unit
+user_id,effectiveDateTime,source_type,weight,unit
 00088d03-2305-4032-852a-354d0786ad87,2025-01-17 00:00:00,internal-questionnaire,102.965384,kg
 00088d03-2305-4032-852a-354d0786ad87,2025-01-22 13:03:37,patient-device,102.05828325,kg
 000ded70-578d-4b05-8f62-b20b6f5bcf73,2024-03-25 00:00:00,https://connectivehealth.io,109.41,kg

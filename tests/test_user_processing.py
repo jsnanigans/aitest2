@@ -22,7 +22,7 @@ db = ProcessorDatabase()
 # Load data for specific user
 df = pd.read_csv('data/2025-09-05_optimized.csv')
 user_id = '0093a653-476b-4401-bbec-33a89abc2b18'
-user_data = df[df['user_id'] == user_id].sort_values('effectivDateTime')
+user_data = df[df['user_id'] == user_id].sort_values('effectiveDateTime')
 
 print(f"Processing user {user_id}")
 print(f"Total measurements: {len(user_data)}")
@@ -31,7 +31,7 @@ print("-" * 80)
 
 results = []
 for idx, row in user_data.iterrows():
-    timestamp = datetime.fromisoformat(row['effectivDateTime'])
+    timestamp = datetime.fromisoformat(row['effectiveDateTime'])
     weight = row['weight']
     source = row['source_type']
     
@@ -46,16 +46,16 @@ for idx, row in user_data.iterrows():
     
     if result is None:
         status = "BUFFERING"
-        print(f"{idx+1:2}. {row['effectivDateTime']}: {weight:6.2f} kg -> {status}")
+        print(f"{idx+1:2}. {row['effectiveDateTime']}: {weight:6.2f} kg -> {status}")
     elif result.get('accepted'):
         status = "ACCEPTED"
         filtered = result.get('filtered_weight', 0)
         innovation = result.get('innovation', 0)
-        print(f"{idx+1:2}. {row['effectivDateTime']}: {weight:6.2f} kg -> {status} (filtered={filtered:.2f}, innovation={innovation:+.2f})")
+        print(f"{idx+1:2}. {row['effectiveDateTime']}: {weight:6.2f} kg -> {status} (filtered={filtered:.2f}, innovation={innovation:+.2f})")
     else:
         status = "REJECTED"
         reason = result.get('rejection_reason', 'unknown')
-        print(f"{idx+1:2}. {row['effectivDateTime']}: {weight:6.2f} kg -> {status} ({reason})")
+        print(f"{idx+1:2}. {row['effectiveDateTime']}: {weight:6.2f} kg -> {status} ({reason})")
     
     if result:
         results.append(result)
@@ -71,4 +71,4 @@ if rejected > 0:
     print("\nRejected measurements:")
     for idx, (_, row) in enumerate(user_data.iterrows()):
         if idx < len(results) and not results[idx].get('accepted'):
-            print(f"  - {row['effectivDateTime']}: {row['weight']:.2f} kg ({results[idx].get('rejection_reason', 'unknown')})")
+            print(f"  - {row['effectiveDateTime']}: {row['weight']:.2f} kg ({results[idx].get('rejection_reason', 'unknown')})")
