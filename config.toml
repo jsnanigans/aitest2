@@ -65,6 +65,10 @@ dashboard_figsize = [16, 10]
 # Moving average window for trend analysis
 moving_average_window = 7
 
+# Time range for cropped views (in months)
+# Shows the last N months of data for each user
+cropped_months = 9
+
 [logging]
 # Progress update interval (rows)
 progress_interval = 10000

@@ -3,12 +3,13 @@ Kalman Filter Processing Evaluation Dashboard
 Focuses on evaluating processor quality and Kalman filter performance
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
+from dateutil.relativedelta import relativedelta
 
 
 def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: dict):
@@ -35,10 +36,6 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         fontweight="bold",
     )
 
-    # Define date range for cropped views (2024-10-01 to 2025-09-05)
-    crop_start = datetime(2025, 1, 1)
-    crop_end = datetime(2025, 9, 12)
-
     def parse_timestamps(results):
         timestamps = [r["timestamp"] for r in results]
         if timestamps and isinstance(timestamps[0], str):
@@ -63,6 +60,28 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     filtered_weights = [
         r.get("filtered_weight", r["raw_weight"]) for r in valid_results
     ] if valid_results else []
+
+    # Calculate date range for cropped views - last N months of user data with padding
+    cropped_months = viz_config.get('cropped_months', 12)  # Default to 12 months if not configured
+    
+    if all_timestamps:
+        # Find the actual date range of the data
+        min_date = min(all_timestamps)
+        max_date = max(all_timestamps)
+        
+        # Calculate N months before the most recent data point
+        crop_start = max_date - relativedelta(months=cropped_months)
+        
+        # If all data is within N months, show all with padding
+        if min_date > crop_start:
+            crop_start = min_date - relativedelta(days=7)  # 1 week padding before
+        
+        # Add slight padding at the end (1 week)
+        crop_end = max_date + relativedelta(days=7)
+    else:
+        # Fallback if no data
+        crop_start = datetime.now() - relativedelta(months=cropped_months)
+        crop_end = datetime.now()
 
     # Filter data for cropped views
     def filter_by_date_range(timestamps, data, start_date, end_date):
@@ -170,7 +189,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     ax1_cropped.set_xlabel("Date", fontsize=11)
     ax1_cropped.set_ylabel("Weight (kg)", fontsize=11)
-    ax1_cropped.set_title("Kalman Filter Output vs Raw Data (Oct 2024 - Sep 2025)", fontsize=12, fontweight='bold')
+    ax1_cropped.set_title(f"Kalman Filter Output vs Raw Data (Last {cropped_months} Months)", fontsize=12, fontweight='bold')
     # Only add legend if there are items to show
     if valid_ts_cropped or rejected_ts_cropped:
         ax1_cropped.legend(loc="best", ncol=3)
