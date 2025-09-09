@@ -79,7 +79,6 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
     processors = {}
     results = defaultdict(list)
-    raw_measurements = defaultdict(list)  # Track ALL raw measurements for viz
     seen_users = set()
     skipped_users = set()
     processed_users = set()
@@ -268,13 +267,6 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 'source': source
             })
 
-            # Store ALL raw measurements for visualization
-            raw_measurements[user_id].append({
-                'weight': weight,
-                'timestamp': timestamp,
-                'source': source
-            })
-
             # Use stateless processor - no need to create instances
             result = WeightProcessor.process_weight(
                 user_id=user_id,
@@ -292,12 +284,16 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 stats["total_users"] = len(processors)
 
             if result:
+                # Store ALL processed results (both accepted and rejected)
                 if result["accepted"]:
                     stats["accepted"] += 1
                 else:
                     stats["rejected"] += 1
 
                 results[user_id].append(result)
+                
+                # Don't store raw measurements - we only want processed results
+                # raw_measurements are no longer needed
 
             if (
                 not test_mode
@@ -370,11 +366,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             percentage = (idx / total_users) * 100
             print(f"  [{idx}/{total_users}] {percentage:5.1f}% - Creating dashboard for user {user_id[:8]}...", end="", flush=True)
             try:
-                # Get raw data for this user
-                user_raw_data = raw_measurements.get(user_id, [])
+                # No longer pass raw_data - only use processed results
                 create_dashboard(
-                    user_id, user_results, str(viz_dir), config["visualization"],
-                    raw_data=user_raw_data
+                    user_id, user_results, str(viz_dir), config["visualization"]
                 )
                 viz_count += 1
                 print(" ✓")

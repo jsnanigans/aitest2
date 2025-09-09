@@ -11,22 +11,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: dict, raw_data: list = None):
+def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: dict):
     """
     Create a processor evaluation dashboard for a single user.
 
     Args:
         user_id: User identifier
-        results: List of processed weight measurements
+        results: List of processed weight measurements (accepted and rejected)
         output_dir: Directory to save the dashboard
         viz_config: Visualization configuration dictionary
-        raw_data: Optional list of all raw measurements including initialization data
     """
     all_results = [r for r in results if r]
     valid_results = [r for r in all_results if r.get("accepted")]
     rejected_results = [r for r in all_results if not r.get("accepted")]
 
-    if not all_results and not raw_data:
+    if not all_results:
         return
 
     fig = plt.figure(figsize=(20, 14))
@@ -92,31 +91,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     ax1 = plt.subplot(4, 4, (1, 2))
 
-    # Show raw data that wasn't already shown as accepted/rejected
-    if raw_data and not valid_results and not rejected_results:
-        # Parse raw data timestamps
-        raw_timestamps = []
-        raw_weights = []
-        for item in raw_data:
-            ts = item.get('timestamp')
-            if isinstance(ts, str):
-                ts = datetime.fromisoformat(ts.replace('Z', '+00:00'))
-            raw_timestamps.append(ts)
-            raw_weights.append(item['weight'])
-
-        # Show all raw data when no processing results exist
-        ax1.scatter(raw_timestamps, raw_weights,
-                   alpha=0.6, s=40, color='#9E9E9E', marker='o',
-                   label=f'Raw Data ({len(raw_data)})', zorder=3,
-                   edgecolors='white', linewidth=0.5)
-
-        # Show any raw data points after initialization that weren't processed
-        # (e.g., if they were all rejected)
-        if len(raw_data) > 10 and not valid_results:
-            ax1.scatter(raw_timestamps[10:], raw_weights[10:],
-                       alpha=0.5, s=30, color='#9E9E9E', marker='o',
-                       label=f'Unprocessed ({len(raw_data)-10})', zorder=3,
-                       edgecolors='white', linewidth=0.5)
+    # No need to show raw data - we only plot accepted/rejected results
 
     if valid_results:
         ax1.plot(valid_timestamps, filtered_weights, '-', linewidth=3,
@@ -196,7 +171,9 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     ax1_cropped.set_xlabel("Date", fontsize=11)
     ax1_cropped.set_ylabel("Weight (kg)", fontsize=11)
     ax1_cropped.set_title("Kalman Filter Output vs Raw Data (Oct 2024 - Sep 2025)", fontsize=12, fontweight='bold')
-    ax1_cropped.legend(loc="best", ncol=3)
+    # Only add legend if there are items to show
+    if valid_ts_cropped or rejected_ts_cropped:
+        ax1_cropped.legend(loc="best", ncol=3)
     ax1_cropped.grid(True, alpha=0.3)
     ax1_cropped.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.setp(ax1_cropped.xaxis.get_majorticklabels(), rotation=45)
@@ -305,7 +282,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     ax9 = plt.subplot(4, 4, 12)
 
     # Count total measurements
-    total_measurements = len(raw_data) if raw_data else len(all_results)
+    total_measurements = len(all_results)
 
     stats_text = f"""Processing Statistics
 {'='*25}
