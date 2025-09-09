@@ -287,9 +287,6 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             config,
             db
         )
-        if cleanup_stats['reprocessed_users']:
-            print(f"    Cleaned up {cleanup_stats['reprocessed_users']} users, "
-                  f"rejected {cleanup_stats['total_rejected']} bad measurements")
 
     # Check for users that never got enough data to initialize
     for user_id in users_with_insufficient_init_data:
@@ -334,19 +331,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     viz_dir = output_path / f"viz_{timestamp}"
     viz_dir.mkdir(exist_ok=True)
 
-    min_data_points = config["visualization"].get("min_data_points", 10)
-    max_visualizations = config["visualization"].get("max_visualizations", 50)
-
-    viz_candidates = [
-        (user_id, user_results)
-        for user_id, user_results in results.items()
-        if len(user_results) >= min_data_points
-    ]
-
-    users_insufficient_data = len(results) - len(viz_candidates)
-
     viz_count = 0
-    for user_id, user_results in viz_candidates[:max_visualizations]:
+    for user_id, user_results in results.items():
         try:
             # Get raw data for this user
             user_raw_data = raw_measurements.get(user_id, [])
@@ -359,11 +345,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             print(f"  Failed to visualize {user_id}: {e}")
 
     print(f"\nVisualization Summary:")
-    print(f"  Users with sufficient data (>={min_data_points} points): {len(viz_candidates)}")
-    if users_insufficient_data > 0:
-        print(f"  Users skipped (insufficient data): {users_insufficient_data}")
-    if len(viz_candidates) > max_visualizations:
-        print(f"  Users skipped (max limit reached): {len(viz_candidates) - max_visualizations}")
+    print(f"  Total users processed: {len(results)}")
     print(f"  Visualizations created: {viz_count} in {viz_dir}")
 
     return results, stats
