@@ -39,8 +39,9 @@ class WeightProcessor:
         self.max_daily_change = processing_config["max_daily_change"]
         self.extreme_threshold = processing_config["extreme_threshold"]
 
-        # Load from kalman config
-        self.kalman_config = kalman_config
+        # Load from kalman config (will be adapted based on user data)
+        self.kalman_config = kalman_config.copy()  # Make a copy for per-user adaptation
+        self.base_extreme_threshold = self.extreme_threshold  # Store base value for adaptation
 
     def process_weight(
         self, weight: float, timestamp: datetime, source: str
@@ -158,6 +159,55 @@ class WeightProcessor:
             "source": source,
         }
 
+    def _adapt_parameters(self, user_data: list) -> None:
+        """
+        Adapt Kalman parameters based on user characteristics (Advanced - Step 3).
+        This method analyzes the initial data to determine optimal parameters
+        for this specific user's weight pattern and measurement noise.
+        """
+        if len(user_data) < 3:
+            return  # Not enough data to adapt
+        
+        weights = [w for w, _ in user_data] if isinstance(user_data[0], tuple) else user_data
+        
+        # Calculate variance using MAD (Median Absolute Deviation) - more robust than std
+        median_weight = np.median(weights)
+        mad = np.median([abs(w - median_weight) for w in weights])
+        variance = mad * 1.4826  # Convert MAD to standard deviation estimate
+        
+        # Adapt observation_covariance based on data quality
+        if variance < 0.5:  # Very clean data (high-quality scale)
+            self.kalman_config['observation_covariance'] = 0.5
+            self.extreme_threshold = 0.20
+        elif variance < 1.5:  # Normal variance (typical bathroom scale)
+            self.kalman_config['observation_covariance'] = 1.5
+            self.extreme_threshold = 0.25
+        else:  # High variance (poor scale or hydration swings)
+            self.kalman_config['observation_covariance'] = 3.0
+            self.extreme_threshold = 0.35
+        
+        # Adapt process noise based on detected patterns
+        if len(weights) > 7:
+            # Check for trend (weight loss/gain)
+            first_half = np.mean(weights[:len(weights)//2])
+            second_half = np.mean(weights[len(weights)//2:])
+            trend_magnitude = abs(second_half - first_half) / len(weights)
+            
+            if trend_magnitude > 0.05:  # Active weight change
+                self.kalman_config['transition_covariance_trend'] = 0.001
+            else:  # Stable weight
+                self.kalman_config['transition_covariance_trend'] = 0.0005
+        
+        # Log adaptation for debugging (optional)
+        if hasattr(self, 'user_id'):
+            adaptation_info = {
+                'user': self.user_id[:8],
+                'variance': round(variance, 2),
+                'obs_covar': self.kalman_config['observation_covariance'],
+                'threshold': self.extreme_threshold
+            }
+            # Uncomment for debugging: print(f"Adapted parameters: {adaptation_info}")
+
     def _basic_validation(self, weight: float) -> bool:
         """Basic physiological validation."""
         if weight < self.min_weight or weight > self.max_weight:
@@ -177,6 +227,9 @@ class WeightProcessor:
         Implements council recommendations for simplified, adaptive tuning.
         """
         weights = [w for w, _ in self.init_buffer]
+        
+        # Call the advanced adaptation method (Step 3)
+        self._adapt_parameters(self.init_buffer)
 
         weights_clean = []
         for w in weights:
@@ -191,22 +244,12 @@ class WeightProcessor:
 
         self.baseline = np.median(weights_clean)
         
-        # Adaptive observation noise estimation (Kleppmann's recommendation)
-        # Use robust statistics: Median Absolute Deviation (MAD) for noise estimation
+        # Use the adapted observation_covariance (already set by _adapt_parameters)
+        adapted_obs_covariance = self.kalman_config["observation_covariance"]
+        
+        # Calculate variance for initial state covariance
         mad = np.median([abs(w - self.baseline) for w in weights_clean])
-        estimated_std = mad * 1.4826  # Convert MAD to standard deviation estimate
-        
-        # Adapt observation_covariance based on actual data variance
-        # This accounts for different scale qualities (bathroom vs medical scales)
-        base_obs_covariance = self.kalman_config["observation_covariance"]
-        if estimated_std < 0.5:  # Very clean data
-            adapted_obs_covariance = base_obs_covariance * 0.5
-        elif estimated_std < 1.5:  # Normal variance
-            adapted_obs_covariance = base_obs_covariance
-        else:  # High variance data
-            adapted_obs_covariance = base_obs_covariance * min(2.0, estimated_std)
-        
-        # Use the variance estimate for initial state covariance
+        estimated_std = mad * 1.4826
         variance = estimated_std ** 2 if estimated_std > 0 else self.kalman_config["initial_variance"]
 
         self.kalman = KalmanFilter(
