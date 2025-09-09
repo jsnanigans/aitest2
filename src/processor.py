@@ -1,6 +1,7 @@
 """
-Stateless Weight Processor V3 - Immediate Processing (No Buffering)
-All measurements processed immediately with progressive refinement
+Stateless Weight Processor V4 - All Values Processed
+No buffering, no initialization delays - every measurement is processed immediately
+After long gaps, state resets to treat measurement as fresh start
 """
 
 from datetime import datetime
@@ -12,8 +13,8 @@ from .processor_database import ProcessorStateDB, get_state_db
 
 class WeightProcessor:
     """
-    Stateless weight processor with immediate initialization.
-    No buffering - all measurements processed immediately.
+    Stateless weight processor - ALL values processed immediately.
+    No buffering, no waiting for initialization - processes everything.
     """
 
     @staticmethod
@@ -29,8 +30,8 @@ class WeightProcessor:
         """
         Process a single weight measurement for a user.
         
-        Immediate processing - no buffering delay.
-        First measurement initializes, subsequent measurements refine.
+        ALWAYS returns a result - no buffering, no waiting.
+        After long gaps (>30 days), resets state for fresh start.
         
         Args:
             user_id: User identifier
@@ -42,7 +43,7 @@ class WeightProcessor:
             db: Optional database instance (creates new if None)
             
         Returns:
-            Result dictionary (never None - all measurements processed)
+            Result dictionary - NEVER None, all measurements processed
         """
         # Get database instance
         if db is None:
@@ -94,12 +95,15 @@ class WeightProcessor:
                 "source": source,
             }, None
         
-        # Initialize immediately if not initialized
-        if not state.get('initialized', False):
+        # Copy state for modification
+        new_state = state.copy()
+        
+        # Check if this is first measurement or need to initialize
+        if not state.get('kalman_params'):
+            # First measurement - initialize Kalman with this weight
             new_state = WeightProcessor._initialize_kalman_immediate(
                 weight, timestamp, kalman_config
             )
-            new_state['initialized'] = True
             
             # Process the first measurement through Kalman
             new_state = WeightProcessor._update_kalman_state(
@@ -111,9 +115,6 @@ class WeightProcessor:
                 new_state, weight, timestamp, source, True
             )
             return result, new_state
-        
-        # Process with existing Kalman filter
-        new_state = state.copy()
         
         # Calculate time delta
         time_delta_days = 1.0
@@ -128,7 +129,19 @@ class WeightProcessor:
             reset_gap_days = kalman_config.get("reset_gap_days", 30)
             
             if delta > reset_gap_days:
-                new_state = WeightProcessor._reset_kalman_state(new_state, weight)
+                # Reset to fresh state like it's the first measurement
+                new_state = WeightProcessor._initialize_kalman_immediate(
+                    weight, timestamp, kalman_config
+                )
+                # Process through Kalman immediately
+                new_state = WeightProcessor._update_kalman_state(
+                    new_state, weight, timestamp, source, processing_config
+                )
+                # Return result immediately
+                result = WeightProcessor._create_result(
+                    new_state, weight, timestamp, source, True
+                )
+                return result, new_state
         
         # Check for extreme deviation
         if new_state.get('last_state') is not None:

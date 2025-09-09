@@ -132,7 +132,7 @@ class WeightReprocessor:
         kalman_prediction = None
         if db:
             state = db.get_state(user_id)
-            if state and state.get('initialized'):
+            if state and state.get('kalman_params'):
                 # Use the last known state as baseline prediction
                 last_state = state.get('last_state')
                 if last_state is not None:
@@ -423,8 +423,8 @@ class WeightReprocessor:
         """
         current_state = db.get_state(user_id)
         
-        if not current_state or not current_state.get('initialized'):
-            return False, "State not initialized after reprocessing"
+        if not current_state or not current_state.get('kalman_params'):
+            return False, "Kalman parameters not set after reprocessing"
         
         if 'last_state' in current_state:
             weight = current_state['last_state'][0]

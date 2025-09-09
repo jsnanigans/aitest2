@@ -104,7 +104,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         'total_measurements': 0,
         'accepted_count': 0,
         'rejected_count': 0,
-        'buffering_count': 0,
+
         'state_resets': 0,
         'cleanup_events': [],
         'processing_logs': [],
@@ -330,97 +330,61 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 db=db
             )
             
-            # Log processing event
+            # Log processing event - result is never None anymore
             processing_log = {
                 'timestamp': str(timestamp),
                 'weight': weight,
                 'source': source,
-                'result': 'buffering' if result is None else ('accepted' if result['accepted'] else 'rejected')
+                'result': 'accepted' if result['accepted'] else 'rejected',
+                'filtered_weight': result.get('filtered_weight'),
+                'confidence': result.get('confidence'),
+                'trend': result.get('trend'),
+                'rejection_reason': result.get('rejection_reason')
             }
             
-            if result:
-                processing_log.update({
-                    'filtered_weight': result.get('filtered_weight'),
-                    'confidence': result.get('confidence'),
-                    'trend': result.get('trend'),
-                    'rejection_reason': result.get('rejection_reason')
-                })
-                
-                # Track Kalman initialization
-                if not user_debug_logs[user_id]['kalman_initialized'] and result.get('filtered_weight') is not None:
-                    user_debug_logs[user_id]['kalman_initialized'] = True
-                    user_debug_logs[user_id]['initialization_timestamp'] = str(timestamp)
-                
-                # Store processed result
-                user_debug_logs[user_id]['processed_results'].append(result)
-                
-                # Update daily stats
-                day_str = str(measurement_day)
-                user_debug_logs[user_id]['daily_stats'][day_str]['total'] += 1
-                
-                if result['accepted']:
-                    user_debug_logs[user_id]['daily_stats'][day_str]['accepted'] += 1
-                else:
-                    user_debug_logs[user_id]['daily_stats'][day_str]['rejected'] += 1
-                    if result.get('rejection_reason'):
-                        user_debug_logs[user_id]['rejection_reasons'][result['rejection_reason']] += 1
-            else:
-                user_debug_logs[user_id]['buffering_count'] += 1
+            # Track first processed measurement
+            if not user_debug_logs[user_id]['kalman_initialized'] and result.get('filtered_weight') is not None:
+                user_debug_logs[user_id]['kalman_initialized'] = True
+                user_debug_logs[user_id]['initialization_timestamp'] = str(timestamp)
             
+            # Store processing log
             user_debug_logs[user_id]['processing_logs'].append(processing_log)
             
-            # Capture state snapshot periodically (every 10th measurement)
-            if user_debug_logs[user_id]['total_measurements'] % 10 == 0:
-                state = db.get_state(user_id)
-                if state:
-                    snapshot = {
-                        'measurement_num': user_debug_logs[user_id]['total_measurements'],
-                        'timestamp': str(timestamp),
-                        'initialized': state.get('initialized', False),
-                        'has_adapted_params': 'adapted_params' in state,
-                        'buffer_size': len(state.get('init_buffer', [])) if state.get('init_buffer') else 0
-                    }
-                    if state.get('last_state') is not None:
-                        try:
-                            # Handle numpy arrays
-                            last_state = state['last_state']
-                            snapshot['last_state_weight'] = float(last_state[0])
-                            snapshot['last_state_trend'] = float(last_state[1])
-                        except (TypeError, IndexError):
-                            # Fallback if conversion fails
-                            pass
-                    if state.get('adapted_params'):
-                        user_debug_logs[user_id]['adapted_parameters'] = state['adapted_params']
-                    user_debug_logs[user_id]['state_snapshots'].append(snapshot)
-
-            # Track unique users
-            if user_id not in processors:
-                processors[user_id] = True
-                stats["total_users"] = len(processors)
-
+            # Store processed result
+            user_debug_logs[user_id]['processed_results'].append(result)
+            
+            # Update daily stats
+            day_str = str(measurement_day)
+            user_debug_logs[user_id]['daily_stats'][day_str]['total'] += 1
+            
+            if result['accepted']:
+                user_debug_logs[user_id]['daily_stats'][day_str]['accepted'] += 1
+            else:
+                user_debug_logs[user_id]['daily_stats'][day_str]['rejected'] += 1
+                if result.get('rejection_reason'):
+                    user_debug_logs[user_id]['rejection_reasons'][result['rejection_reason']] += 1
+            
+            if result and result['accepted']:
+                stats["accepted"] += 1
+                user_debug_logs[user_id]['accepted_count'] += 1
+            elif result:
+                stats["rejected"] += 1
+                user_debug_logs[user_id]['rejected_count'] += 1
+            
             if result:
-                # Store ALL processed results (both accepted and rejected)
-                if result["accepted"]:
-                    stats["accepted"] += 1
-                    user_debug_logs[user_id]['accepted_count'] += 1
-                else:
-                    stats["rejected"] += 1
-                    user_debug_logs[user_id]['rejected_count'] += 1
-
                 results[user_id].append(result)
                 
                 # Don't store raw measurements - we only want processed results
                 # raw_measurements are no longer needed
 
+            # Don't break in the middle of processing a user's data
+            # Only check this when we encounter a new user
             if (
                 not test_mode
                 and max_users > 0
-                and len(processed_users) >= max_users
-                and all(
-                    uid in processed_users or uid in skipped_users for uid in seen_users
-                )
+                and len(processed_users) > max_users  # Changed from >= to >
             ):
-                print(f"\n  Reached max_users limit ({max_users}), stopping...")
+                print(f"\n  Exceeded max_users limit ({max_users}), stopping...")
                 break
 
     # Process final day's cleanup if there's data
@@ -521,10 +485,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         final_state = db.get_state(user_id)
         if final_state:
             debug_log['final_state'] = {
-                'initialized': final_state.get('initialized', False),
+                'has_kalman_params': final_state.get('kalman_params') is not None,
                 'has_adapted_params': 'adapted_params' in final_state,
-                'last_timestamp': str(final_state.get('last_timestamp', '')),
-                'buffer_size': len(final_state.get('init_buffer', [])) if final_state.get('init_buffer') else 0
+                'last_timestamp': str(final_state.get('last_timestamp', ''))
             }
             if final_state.get('last_state') is not None:
                 try:

@@ -22,7 +22,6 @@ class ProcessorStateDB:
     - Last covariance matrix
     - Last timestamp
     - Adapted parameters
-    - Initialization buffer
     """
 
     def __init__(self, storage_path: Optional[str] = None):
@@ -88,7 +87,6 @@ class ProcessorStateDB:
         Create an empty initial state for a new user.
         """
         return {
-            'initialized': False,
             'last_state': None,
             'last_covariance': None,
             'last_timestamp': None,
@@ -158,11 +156,11 @@ class ProcessorStateDB:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the database."""
-        initialized_count = sum(1 for s in self.states.values() if s.get('initialized'))
+        active_count = sum(1 for s in self.states.values() if s.get('kalman_params') is not None)
 
         return {
             'total_users': len(self.states),
-            'initialized_users': initialized_count,
+            'active_users': active_count,
             'storage_path': str(self.storage_path) if self.storage_path else 'memory-only'
         }
 
