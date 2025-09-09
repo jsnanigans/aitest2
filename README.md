@@ -5,8 +5,9 @@ A clean, minimal implementation of weight data processing using Kalman filtering
 ## Architecture
 
 Three simple files:
+
 - `main.py` - Streams CSV data and orchestrates processing
-- `processor.py` - Stateless Kalman filter processor per user  
+- `processor.py` - Stateless Kalman filter processor per user
 - `visualization.py` - Creates dashboard visualizations
 
 ## Features
@@ -20,10 +21,11 @@ Three simple files:
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 Only 3 dependencies:
+
 - `numpy` - Numerical operations
 - `pykalman` - Kalman filtering
 - `matplotlib` - Visualization
@@ -32,15 +34,16 @@ Only 3 dependencies:
 
 ```bash
 # Process weight data
-python main.py your_data.csv
+uv python main.py your_data.csv
 
 # Or use default file
-python main.py
+uv python main.py
 ```
 
 ## Output
 
 Creates timestamped output directory with:
+
 - `results_TIMESTAMP.json` - All processed data
 - `viz_TIMESTAMP/` - User dashboards (top 10 users)
 
@@ -84,3 +87,4 @@ Creates timestamped output directory with:
 - **Clear single responsibility per file**
 - **Mathematically correct Kalman (via pykalman)**
 - **No over-engineering or unnecessary abstractions**
+

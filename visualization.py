@@ -21,11 +21,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         output_dir: Directory to save the dashboard
         viz_config: Visualization configuration dictionary
     """
-    if len(results) < 10:
-        return
-
     valid_results = [r for r in results if r and r.get("accepted")]
-    if len(valid_results) < 5:
+    if not valid_results:
         return
 
     fig = plt.figure(figsize=tuple(viz_config["dashboard_figsize"]))

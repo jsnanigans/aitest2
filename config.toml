@@ -15,7 +15,7 @@ user_offset = 0
 
 [processing]
 # Minimum readings needed to initialize Kalman filter
-min_init_readings = 5
+min_init_readings = 10
 
 # Weight validation limits (kg)
 min_weight = 30.0
@@ -43,10 +43,10 @@ reset_gap_days = 30
 
 [visualization]
 # Maximum number of user visualizations to generate
-max_visualizations = 10
+max_visualizations = 9999
 
 # Minimum data points required for visualization
-min_data_points = 20
+min_data_points = 0
 
 # Dashboard settings
 dashboard_dpi = 100
@@ -60,4 +60,5 @@ moving_average_window = 7
 progress_interval = 10000
 
 # Date format for output files
-timestamp_format = "%Y%m%d_%H%M%S"
+# timestamp_format = "%Y%m%d_%H%M%S"
+timestamp_format = "test_no_date"
