@@ -11,7 +11,7 @@ output_dir = "output"
 max_users = 20
 
 # Number of users to skip at the beginning (useful for resuming or testing)
-user_offset = 0
+user_offset = 400
 
 # Minimum number of readings required to process a user (0 = no minimum)
 # Users with fewer readings are skipped and don't count towards max_users
@@ -20,8 +20,11 @@ min_readings = 20
 
 
 # List of specific user IDs to process
-_test_users = [
+test_users = [
+  "0040872d-333a-4ace-8c5a-b2fcd056e65a", # user with extremely noisy data
+  "1e87d3ab-20b1-479d-ad4d-8986e1af38da", # long gap
   "0093a653-476b-4401-bbec-33a89abc2b18", # User with sparse historical data
+  "4d5054c4-2492-4cd8-a15c-53381fb6bd49", # spiky data
 ]
 
 # 0040872d-333a-4ace-8c5a-b2fcd056e65a - user with extremely noisy data

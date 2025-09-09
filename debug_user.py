@@ -1,39 +1,20 @@
 #!/usr/bin/env python3
-"""Debug script to trace processing of a specific user"""
+"""
+Debug specific user 1e87d3ab-20b1-479d-ad4d-8986e1af38da to understand volatile Kalman output
+"""
+
+import sys
+sys.path.insert(0, '.')
 
 import csv
-import sys
-import tomllib
 from datetime import datetime
-from pathlib import Path
-from collections import defaultdict
-
-def parse_timestamp(date_str):
-    """Parse timestamp from various formats."""
-    if not date_str:
-        return datetime.now()
-    
-    # Remove timezone if present
-    if date_str.endswith('Z'):
-        date_str = date_str[:-1]
-    
-    # Try different formats
-    formats = [
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%d",
-    ]
-    
-    for fmt in formats:
-        try:
-            return datetime.strptime(date_str, fmt)
-        except ValueError:
-            continue
-    
-    return datetime.now()
+from src.processor import WeightProcessor
+from src.processor_database import ProcessorStateDB
+import tomllib
+import numpy as np
 
 def main():
-    target_user = "5e81abae-a19a-4f79-99fe-7165842bbf6a"
+    target_user = "1e87d3ab-20b1-479d-ad4d-8986e1af38da"
     csv_path = "./data/2025-09-05_optimized.csv"
     
     # Load config

@@ -81,20 +81,6 @@ class WeightProcessor:
             Tuple of (result, updated_state)
             Result is never None - all measurements are processed
         """
-        # Basic validation
-        if not WeightProcessor._validate_weight(
-            weight,
-            processing_config,
-            state.get('last_state')
-        ):
-            return {
-                "timestamp": timestamp,
-                "raw_weight": weight,
-                "accepted": False,
-                "reason": "Basic validation failed",
-                "source": source,
-            }, None
-        
         # Copy state for modification
         new_state = state.copy()
         
@@ -116,8 +102,9 @@ class WeightProcessor:
             )
             return result, new_state
         
-        # Calculate time delta
+        # Check for time gap BEFORE validation
         time_delta_days = 1.0
+        should_reset = False
         if new_state.get('last_timestamp'):
             last_timestamp = new_state['last_timestamp']
             if isinstance(last_timestamp, str):
@@ -129,6 +116,7 @@ class WeightProcessor:
             reset_gap_days = kalman_config.get("reset_gap_days", 30)
             
             if delta > reset_gap_days:
+                should_reset = True
                 # Reset to fresh state like it's the first measurement
                 new_state = WeightProcessor._initialize_kalman_immediate(
                     weight, timestamp, kalman_config
@@ -142,6 +130,20 @@ class WeightProcessor:
                     new_state, weight, timestamp, source, True
                 )
                 return result, new_state
+        
+        # Basic validation (skip if we just reset)
+        if not should_reset and not WeightProcessor._validate_weight(
+            weight,
+            processing_config,
+            state.get('last_state')
+        ):
+            return {
+                "timestamp": timestamp,
+                "raw_weight": weight,
+                "accepted": False,
+                "reason": "Basic validation failed",
+                "source": source,
+            }, None
         
         # Check for extreme deviation
         if new_state.get('last_state') is not None:

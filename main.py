@@ -260,7 +260,17 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 continue
 
             try:
-                weight = float(weight_str)
+                weight_raw = float(weight_str)
+                unit = (row.get("unit") or "kg").lower().strip()
+                
+                if 'm2' in unit or 'm²' in unit:
+                    continue
+                
+                if 'lb' in unit:
+                    weight = weight_raw * 0.453592
+                else:
+                    weight = weight_raw
+                    
             except (ValueError, TypeError):
                 continue
 
