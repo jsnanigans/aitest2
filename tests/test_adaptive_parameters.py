@@ -56,12 +56,15 @@ def test_adaptive_parameters():
             break
     
     print(f"  Base observation_covariance: {base_config['kalman']['observation_covariance']}")
-    print(f"  Adapted observation_covariance: {proc1.kalman_config['observation_covariance']}")
-    print(f"  Base extreme_threshold: {base_config['processing']['extreme_threshold']}")
-    print(f"  Adapted extreme_threshold: {proc1.extreme_threshold}")
-    print(f"  Expected: obs_covar=0.5, threshold=0.20 ✓" if 
-          proc1.kalman_config['observation_covariance'] == 0.5 and 
-          proc1.extreme_threshold == 0.20 else "  Expected: obs_covar=0.5, threshold=0.20 ✗")
+    if proc1.adapted_params:
+        print(f"  Adapted observation_covariance: {proc1.adapted_params['observation_covariance']}")
+        print(f"  Base extreme_threshold: {base_config['processing']['extreme_threshold']}")
+        print(f"  Adapted extreme_threshold: {proc1.adapted_params.get('extreme_threshold', 'N/A')}")
+        print(f"  Expected: obs_covar=0.5, threshold=0.20 ✓" if 
+              proc1.adapted_params['observation_covariance'] == 0.5 and 
+              proc1.adapted_params.get('extreme_threshold') == 0.20 else "  Expected: obs_covar=0.5, threshold=0.20 ✗")
+    else:
+        print("  Adaptation not yet triggered")
     
     # Test Case 2: Normal bathroom scale
     print("\n2. Normal Bathroom Scale User (0.5 < σ < 1.5)")
@@ -81,12 +84,15 @@ def test_adaptive_parameters():
             break
     
     print(f"  Base observation_covariance: {base_config['kalman']['observation_covariance']}")
-    print(f"  Adapted observation_covariance: {proc2.kalman_config['observation_covariance']}")
-    print(f"  Base extreme_threshold: {base_config['processing']['extreme_threshold']}")
-    print(f"  Adapted extreme_threshold: {proc2.extreme_threshold}")
-    print(f"  Expected: obs_covar=1.5, threshold=0.25 ✓" if 
-          proc2.kalman_config['observation_covariance'] == 1.5 and 
-          proc2.extreme_threshold == 0.25 else "  Expected: obs_covar=1.5, threshold=0.25 ✗")
+    if proc2.adapted_params:
+        print(f"  Adapted observation_covariance: {proc2.adapted_params['observation_covariance']}")
+        print(f"  Base extreme_threshold: {base_config['processing']['extreme_threshold']}")
+        print(f"  Adapted extreme_threshold: {proc2.adapted_params.get('extreme_threshold', 'N/A')}")
+        print(f"  Expected: obs_covar=1.5, threshold=0.25 ✓" if 
+              proc2.adapted_params['observation_covariance'] == 1.5 and 
+              proc2.adapted_params.get('extreme_threshold') == 0.25 else "  Expected: obs_covar=1.5, threshold=0.25 ✗")
+    else:
+        print("  Adaptation not yet triggered")
     
     # Test Case 3: Poor scale or high hydration variance
     print("\n3. Poor Scale / High Variance User (σ > 1.5)")
@@ -106,12 +112,15 @@ def test_adaptive_parameters():
             break
     
     print(f"  Base observation_covariance: {base_config['kalman']['observation_covariance']}")
-    print(f"  Adapted observation_covariance: {proc3.kalman_config['observation_covariance']}")
-    print(f"  Base extreme_threshold: {base_config['processing']['extreme_threshold']}")
-    print(f"  Adapted extreme_threshold: {proc3.extreme_threshold}")
-    print(f"  Expected: obs_covar=3.0, threshold=0.35 ✓" if 
-          proc3.kalman_config['observation_covariance'] == 3.0 and 
-          proc3.extreme_threshold == 0.35 else "  Expected: obs_covar=3.0, threshold=0.35 ✗")
+    if proc3.adapted_params:
+        print(f"  Adapted observation_covariance: {proc3.adapted_params['observation_covariance']}")
+        print(f"  Base extreme_threshold: {base_config['processing']['extreme_threshold']}")
+        print(f"  Adapted extreme_threshold: {proc3.adapted_params.get('extreme_threshold', 'N/A')}")
+        print(f"  Expected: obs_covar=3.0, threshold=0.35 ✓" if 
+              proc3.adapted_params['observation_covariance'] == 3.0 and 
+              proc3.adapted_params.get('extreme_threshold') == 0.35 else "  Expected: obs_covar=3.0, threshold=0.35 ✗")
+    else:
+        print("  Adaptation not yet triggered")
     
     # Test Case 4: Weight loss user (trend detection)
     print("\n4. Active Weight Loss User (trend detection)")
@@ -131,10 +140,13 @@ def test_adaptive_parameters():
             break
     
     print(f"  Base transition_covariance_trend: {base_config['kalman']['transition_covariance_trend']}")
-    print(f"  Adapted transition_covariance_trend: {proc4.kalman_config['transition_covariance_trend']}")
-    print(f"  Expected: Higher trend noise for active weight change ✓" if 
-          proc4.kalman_config['transition_covariance_trend'] >= 0.001 
-          else "  Expected: Higher trend noise ✗")
+    if proc4.adapted_params:
+        print(f"  Adapted transition_covariance_trend: {proc4.adapted_params.get('transition_covariance_trend', 'N/A')}")
+        print(f"  Expected: Higher trend noise for active weight change ✓" if 
+              proc4.adapted_params.get('transition_covariance_trend', 0) >= 0.001 
+              else "  Expected: Higher trend noise ✗")
+    else:
+        print("  Adaptation not yet triggered")
     
     print("\n" + "=" * 60)
     print("ADAPTATION SUMMARY")

@@ -151,20 +151,25 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             date_str = row.get("effectivDateTime") or row.get("date")
             source = row.get("source_type") or row.get("source", "unknown")
 
-            if user_id not in processors:
-                processors[user_id] = WeightProcessor(
-                    user_id, config["processing"], config["kalman"]
-                )
-                stats["total_users"] = len(processors)
-
-            processor = processors[user_id]
-
             try:
                 timestamp = parse_timestamp(date_str)
             except:
                 timestamp = datetime.now()
 
-            result = processor.process_weight(weight, timestamp, source)
+            # Use stateless processor - no need to create instances
+            result = WeightProcessor.process_weight(
+                user_id=user_id,
+                weight=weight,
+                timestamp=timestamp,
+                source=source,
+                processing_config=config["processing"],
+                kalman_config=config["kalman"]
+            )
+            
+            # Track unique users
+            if user_id not in processors:
+                processors[user_id] = True
+                stats["total_users"] = len(processors)
 
             if result:
                 if result["accepted"]:
@@ -173,7 +178,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                     stats["rejected"] += 1
 
                 results[user_id].append(result)
-            elif processor.init_buffer:
+            else:
                 # Still buffering for initialization
                 if user_id not in users_with_insufficient_init_data:
                     users_with_insufficient_init_data.add(user_id)
