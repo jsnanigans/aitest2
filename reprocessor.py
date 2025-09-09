@@ -105,7 +105,7 @@ class WeightReprocessor:
         db: Optional[ProcessorDatabase] = None
     ) -> Dict[str, Any]:
         """
-        Process a day's measurements with intelligent selection.
+        Process a day's measurements using Kalman predictions for validation.
         
         Args:
             user_id: User identifier
@@ -128,10 +128,35 @@ class WeightReprocessor:
                 'reason': 'single_measurement'
             }
         
-        selected = WeightReprocessor.select_best_measurements(
-            measurements,
-            max_deviation=processing_config.get('max_daily_change', 0.05) * 100
-        )
+        # Get Kalman prediction if available
+        kalman_prediction = None
+        if db:
+            state = db.get_state(user_id)
+            if state and state.get('initialized'):
+                # Use the last known state as baseline prediction
+                last_state = state.get('last_state')
+                if last_state is not None:
+                    import numpy as np
+                    if isinstance(last_state, np.ndarray):
+                        kalman_prediction = float(last_state.flat[0])
+                    else:
+                        kalman_prediction = float(last_state[0] if hasattr(last_state, '__len__') else last_state)
+        
+        # Select measurements based on Kalman prediction
+        if kalman_prediction is not None:
+            # Use Kalman-guided selection with configurable threshold
+            threshold = processing_config.get('kalman_cleanup_threshold', 2.0)  # kg
+            selected = WeightReprocessor.select_kalman_guided_measurements(
+                measurements,
+                kalman_prediction=kalman_prediction,
+                threshold=threshold
+            )
+        else:
+            # Fallback to statistical selection if no Kalman state
+            selected = WeightReprocessor.select_best_measurements(
+                measurements,
+                max_deviation=processing_config.get('max_daily_change', 0.05) * 100
+            )
         
         rejected = [m for m in measurements if m not in selected]
         
@@ -151,9 +176,73 @@ class WeightReprocessor:
         return {
             'selected': selected,
             'rejected': rejected,
-            'reason': 'multiple_measurements_filtered',
-            'reprocess_result': reprocess_result
+            'reason': 'kalman_guided_filtering' if kalman_prediction else 'statistical_filtering',
+            'reprocess_result': reprocess_result,
+            'kalman_prediction': kalman_prediction
         }
+    
+    @staticmethod
+    def select_kalman_guided_measurements(
+        measurements: List[Dict[str, Any]],
+        kalman_prediction: float,
+        threshold: float = 2.0
+    ) -> List[Dict[str, Any]]:
+        """
+        Select measurements that are close to the Kalman prediction.
+        
+        The Kalman filter's prediction is the best estimate of the true weight,
+        so we keep only measurements within a threshold of this prediction.
+        
+        Args:
+            measurements: List of measurements to filter
+            kalman_prediction: The Kalman filter's predicted weight
+            threshold: Maximum deviation from prediction in kg
+            
+        Returns:
+            List of measurements within threshold of Kalman prediction
+        """
+        if not measurements:
+            return []
+        
+        # First remove extreme outliers (physiological bounds)
+        valid_measurements = []
+        for m in measurements:
+            if 30 <= m['weight'] <= 400:
+                valid_measurements.append(m)
+        
+        if not valid_measurements:
+            return []
+        
+        # Calculate deviation from Kalman prediction for each measurement
+        scored_measurements = []
+        for m in valid_measurements:
+            deviation = abs(m['weight'] - kalman_prediction)
+            
+            # Get source priority (lower number = higher priority)
+            source_priority = WeightReprocessor.SOURCE_PRIORITY.get(
+                m.get('source', 'unknown'), 999
+            )
+            
+            # Create composite score: deviation is primary, source is tiebreaker
+            # Multiply deviation by 100 to ensure it dominates, add source as minor factor
+            score = (deviation * 100) + (source_priority * 0.1)
+            
+            scored_measurements.append((score, deviation, m))
+        
+        # Sort by composite score
+        scored_measurements.sort(key=lambda x: x[0])
+        
+        # Keep only measurements within threshold
+        selected = []
+        for effective_dev, actual_dev, m in scored_measurements:
+            if actual_dev <= threshold:
+                selected.append(m)
+        
+        # If nothing within threshold, keep the closest one
+        if not selected and scored_measurements:
+            selected = [scored_measurements[0][2]]
+        
+        return selected
     
     @staticmethod
     def select_best_measurements(
@@ -162,12 +251,15 @@ class WeightReprocessor:
         recent_weight: Optional[float] = None
     ) -> List[Dict[str, Any]]:
         """
-        Select the most consistent measurements from a batch.
+        Filter out bad measurements while keeping all acceptable ones.
         
-        Uses multiple strategies:
-        1. Statistical outlier detection (MAD-based)
-        2. Source reliability prioritization
-        3. Consistency with recent history
+        Removes only measurements that are:
+        1. Extreme outliers (outside 30-400kg range)
+        2. Statistical outliers (MAD-based detection)
+        
+        Sorts remaining measurements by quality:
+        - Source reliability (scale > manual > unknown)
+        - Consistency with recent weight if available
         
         Args:
             measurements: List of measurements to filter
@@ -175,7 +267,7 @@ class WeightReprocessor:
             recent_weight: Recent known good weight for comparison
             
         Returns:
-            List of selected measurements
+            List of all valid measurements, sorted by quality
         """
         if not measurements:
             return []
@@ -212,18 +304,14 @@ class WeightReprocessor:
             median = np.median(weights)
             mad = np.median(np.abs(weights - median))
             
-            if mad > 0:
-                threshold = median + (3 * mad)
-                lower_threshold = median - (3 * mad)
+            if mad == 0:
+                valid_measurements = measurements
+            else:
+                z_scores = 0.6745 * (weights - median) / mad
                 
                 valid_measurements = [
                     m for i, m in enumerate(measurements)
-                    if lower_threshold <= weights[i] <= threshold
-                ]
-            else:
-                valid_measurements = [
-                    m for i, m in enumerate(measurements)
-                    if abs(weights[i] - median) <= max_deviation
+                    if abs(z_scores[i]) < 3.5
                 ]
         else:
             valid_measurements = measurements
@@ -251,7 +339,7 @@ class WeightReprocessor:
                 )
             )
         
-        return valid_measurements[:1]
+        return valid_measurements
     
     @staticmethod
     def detect_retroactive_addition(

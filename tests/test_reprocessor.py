@@ -37,9 +37,9 @@ def test_select_best_measurements():
     
     selected = WeightReprocessor.select_best_measurements(measurements)
     
-    assert len(selected) == 1
-    assert 85.0 <= selected[0]['weight'] <= 86.0
-    print(f"✓ Multiple valid readings: selected {selected[0]['weight']:.1f}kg")
+    assert len(selected) == 3  # Now keeps all valid measurements
+    assert all(85.0 <= s['weight'] <= 86.0 for s in selected)
+    print(f"✓ Multiple valid readings: kept all {len(selected)} measurements")
     
     measurements = [
         {'weight': 80.0, 'source': 'internal-questionnaire', 'timestamp': datetime(2025, 3, 6, 0, 0)},
@@ -48,9 +48,10 @@ def test_select_best_measurements():
     
     selected = WeightReprocessor.select_best_measurements(measurements)
     
-    assert selected[0]['weight'] == 80.0
+    assert len(selected) == 2  # Keeps both measurements now
+    assert selected[0]['weight'] == 80.0  # But questionnaire is first due to priority
     assert selected[0]['source'] == 'internal-questionnaire'
-    print(f"✓ Source priority: questionnaire (80kg) preferred over device (75kg)")
+    print(f"✓ Source priority: questionnaire first, but both kept ({len(selected)} total)")
     
     measurements = [
         {'weight': 70, 'source': 'patient-device', 'timestamp': datetime(2025, 3, 22, 13, 26)},
@@ -62,9 +63,9 @@ def test_select_best_measurements():
     
     selected = WeightReprocessor.select_best_measurements(measurements, recent_weight=80.0)
     
-    assert len(selected) == 1
-    assert 70 <= selected[0]['weight'] <= 85
-    print(f"✓ Multiple outliers filtered: {len(measurements)} → 1 selected ({selected[0]['weight']:.1f}kg)")
+    assert len(selected) >= 1  # Should keep valid measurements, reject outliers
+    assert all(70 <= s['weight'] <= 85 for s in selected)
+    print(f"✓ Multiple outliers filtered: {len(measurements)} → {len(selected)} selected")
 
 
 def test_retroactive_detection():
@@ -150,10 +151,11 @@ def test_daily_batch_processing():
         db=None  
     )
     
-    assert len(result['selected']) == 1
-    assert len(result['rejected']) == 5
-    print(f"✓ Batch processing: {len(measurements)} → {len(result['selected'])} selected")
-    print(f"  Selected: {result['selected'][0]['weight']}kg")
+    assert len(result['selected']) >= 1  # Should keep valid measurements
+    assert len(result['rejected']) >= 1  # Should reject some outliers
+    assert len(result['selected']) + len(result['rejected']) == len(measurements)
+    print(f"✓ Batch processing: {len(measurements)} → {len(result['selected'])} selected, {len(result['rejected'])} rejected")
+    print(f"  Selected: {[m['weight'] for m in result['selected']]}")
     print(f"  Rejected: {[m['weight'] for m in result['rejected']]}")
 
 

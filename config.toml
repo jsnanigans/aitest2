@@ -20,6 +20,8 @@ _test_users = [
   "0093a653-476b-4401-bbec-33a89abc2b18", # User with sparse historical data
 ]
 
+# 0040872d-333a-4ace-8c5a-b2fcd056e65a - user with extremely noisy data
+
 [processing]
 # Minimum readings needed to initialize Kalman filter
 min_init_readings = 10
@@ -33,6 +35,10 @@ max_daily_change = 0.05  # was 0.03
 
 # Extreme deviation threshold for rejecting measurements
 extreme_threshold = 0.20  # was 0.30
+
+# Kalman-guided cleanup threshold (kg)
+# Measurements more than this far from Kalman prediction are rejected during daily cleanup
+kalman_cleanup_threshold = 4.0
 
 [kalman]
 # Initial variance scaling

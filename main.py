@@ -331,8 +331,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     viz_dir = output_path / f"viz_{timestamp}"
     viz_dir.mkdir(exist_ok=True)
 
+    total_users = len(results)
     viz_count = 0
-    for user_id, user_results in results.items():
+    
+    for idx, (user_id, user_results) in enumerate(results.items(), 1):
+        percentage = (idx / total_users) * 100
+        print(f"  [{idx}/{total_users}] {percentage:5.1f}% - Creating dashboard for user {user_id[:8]}...", end="", flush=True)
         try:
             # Get raw data for this user
             user_raw_data = raw_measurements.get(user_id, [])
@@ -341,11 +345,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 raw_data=user_raw_data
             )
             viz_count += 1
+            print(" ✓")
         except Exception as e:
-            print(f"  Failed to visualize {user_id}: {e}")
+            print(f" ✗ ({e})")
 
     print(f"\nVisualization Summary:")
-    print(f"  Total users processed: {len(results)}")
+    print(f"  Total users processed: {total_users}")
     print(f"  Visualizations created: {viz_count} in {viz_dir}")
 
     return results, stats
