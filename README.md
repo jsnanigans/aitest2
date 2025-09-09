@@ -115,3 +115,148 @@ Creates timestamped output directory with:
 - **Mathematically correct Kalman (via pykalman)**
 - **No over-engineering or unnecessary abstractions**
 
+## Developer Guide: Working with the Processor
+
+### Architecture Overview
+
+The processor is now **completely stateless** with a separate state database:
+- `processor.py` - Pure functional computation (all static methods)
+- `processor_database.py` - State persistence layer (in-memory, can be replaced with Redis/PostgreSQL)
+
+### Critical Concepts to Understand
+
+#### 1. **Stateless Processing Pattern**
+```python
+# State is loaded → processed → saved for EVERY measurement
+result = WeightProcessor.process_weight(
+    user_id='user_001',  # Key to load/save state
+    weight=70.5,
+    timestamp=datetime.now(),
+    source='scale',
+    processing_config=config,
+    kalman_config=kalman_config
+)
+```
+
+#### 2. **State Structure**
+Each user's state contains:
+- `initialized`: Boolean flag for Kalman readiness
+- `init_buffer`: Temporary buffer during initialization (cleared after)
+- `kalman_params`: Filter parameters (NOT the filter object itself!)
+- `last_state`: Numpy array of [weight, trend]
+- `last_covariance`: Uncertainty matrix
+- `last_timestamp`: For time delta calculation
+- `adapted_params`: User-specific adaptations (computed once, then frozen)
+
+#### 3. **Kalman Filter Lifecycle**
+1. **Buffering Phase**: First 10 measurements collected
+2. **Initialization**: Baseline established, parameters adapted
+3. **Processing**: Each measurement updates state
+4. **Reset**: After 30+ day gaps, state resets with new baseline
+
+### DO's ✅
+
+1. **DO keep methods static** - No instance variables in processor
+2. **DO use the database abstraction** - Don't access `db.states` directly
+3. **DO preserve numpy array types** - The serialization handles them
+4. **DO maintain O(1) memory** - Keep only last 2 states maximum
+5. **DO validate inputs early** - Check weight bounds before processing
+6. **DO handle None results** - Buffering returns None, not empty dict
+7. **DO use MAD for variance** - More robust than standard deviation
+8. **DO test with multiple users** - Ensure state isolation
+9. **DO keep configurations immutable** - Never modify passed configs
+10. **DO compute adaptations once** - During initialization only
+
+### DON'Ts ❌
+
+1. **DON'T store the KalmanFilter object** - Store parameters only
+2. **DON'T modify state in-place** - Always copy then modify
+3. **DON'T assume initialization** - Check `initialized` flag
+4. **DON'T accumulate history** - Keep only essential state
+5. **DON'T trust raw timestamps** - Handle string/datetime conversion
+6. **DON'T skip validation** - Even for "trusted" sources
+7. **DON'T modify the database structure** - Keep it simple
+8. **DON'T add instance variables** - Processor must stay stateless
+9. **DON'T process out of order** - Assumes chronological processing
+10. **DON'T forget to save state** - Only save when state actually changes
+
+### Common Pitfalls & Solutions
+
+#### Pitfall 1: State Not Persisting
+```python
+# ❌ WRONG - Modifying state without saving
+state['last_timestamp'] = timestamp
+
+# ✅ CORRECT - Return modified state for saving
+new_state = state.copy()
+new_state['last_timestamp'] = timestamp
+return result, new_state  # new_state will be saved
+```
+
+#### Pitfall 2: Numpy Array Serialization
+```python
+# The database handles this automatically via custom encoder
+# Arrays are converted to lists in JSON, restored on load
+# Don't worry about it, just use numpy arrays normally
+```
+
+#### Pitfall 3: Multiple Users Interfering
+```python
+# Each user has completely isolated state
+# The database ensures no cross-contamination
+# user_id is the only connection between calls
+```
+
+### Testing Checklist
+
+- [ ] Test with < 10 measurements (buffering)
+- [ ] Test with exactly 10 measurements (initialization)
+- [ ] Test with > 10 measurements (normal processing)
+- [ ] Test with 30+ day gap (reset)
+- [ ] Test with extreme outliers (rejection)
+- [ ] Test with multiple users in parallel
+- [ ] Test state persistence across sessions
+- [ ] Test with very noisy data (adaptation)
+- [ ] Test with very clean data (adaptation)
+- [ ] Test with weight loss trend (adaptation)
+
+### Performance Considerations
+
+1. **State Size**: Keep state minimal (~1KB per user)
+2. **Database Calls**: One load + one save per measurement
+3. **Computation**: Kalman update is O(1) for 2D state
+4. **Memory**: No accumulation, constant per user
+5. **Parallelization**: Ready for concurrent processing
+
+### Future Extension Points
+
+1. **Database Backend**: Replace `ProcessorStateDB` with Redis/PostgreSQL
+2. **Batch Processing**: Add method for processing multiple measurements
+3. **State Migration**: Version state structure for upgrades
+4. **Monitoring**: Add metrics collection hooks
+5. **Caching**: Cache frequently accessed states in memory
+
+### Mathematical Notes
+
+- **State Vector**: [weight, trend_kg_per_day]
+- **Observation**: Single weight measurement
+- **Process Noise**: How much weight naturally varies
+- **Observation Noise**: Scale measurement uncertainty
+- **Innovation**: Difference between predicted and measured
+- **Confidence**: exp(-0.5 * normalized_innovation²)
+
+### Debugging Tips
+
+```python
+# Check user state
+state = WeightProcessor.get_user_state('user_001')
+print(json.dumps(state, indent=2, default=str))
+
+# Reset user for fresh start
+WeightProcessor.reset_user('user_001')
+
+# Check database contents
+db = get_state_db()
+print(f"Total users: {len(db.states)}")
+```
+
