@@ -79,7 +79,7 @@ class WeightProcessor:
                     "timestamp": timestamp,
                     "raw_weight": weight,
                     "filtered_weight": predicted_weight,
-                    "trend": self.last_state[0][1] if self.last_state else 0,
+                    "trend": self.last_state[0][1],
                     "accepted": False,
                     "reason": f"Extreme deviation: {deviation:.1%}",
                     "confidence": max(0.05, 1.0 - deviation),
