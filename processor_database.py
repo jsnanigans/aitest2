@@ -89,11 +89,9 @@ class ProcessorStateDB:
         """
         return {
             'initialized': False,
-            'init_buffer': [],
             'last_state': None,
             'last_covariance': None,
             'last_timestamp': None,
-            'adapted_params': None,
             'kalman_params': None,
         }
 
@@ -111,18 +109,7 @@ class ProcessorStateDB:
                     '_type': 'datetime',
                     'data': value.isoformat()
                 }
-            elif isinstance(value, list):
-                # Handle init_buffer which contains tuples of (weight, timestamp)
-                if key == 'init_buffer' and value:
-                    serialized_buffer = []
-                    for item in value:
-                        if isinstance(item, tuple) and len(item) == 2:
-                            weight, timestamp = item
-                            serialized_buffer.append([
-                                weight,
-                                timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp
-                            ])
-                    state[key] = serialized_buffer
+
             elif isinstance(value, dict):
                 state[key] = self._make_serializable(value)
         return state
@@ -137,15 +124,7 @@ class ProcessorStateDB:
                     state[key] = datetime.fromisoformat(value['data'])
                 else:
                     state[key] = self._deserialize(value)
-            elif key == 'init_buffer' and isinstance(value, list):
-                # Deserialize init_buffer
-                deserialized_buffer = []
-                for item in value:
-                    if isinstance(item, list) and len(item) == 2:
-                        weight, timestamp_str = item
-                        timestamp = datetime.fromisoformat(timestamp_str) if isinstance(timestamp_str, str) else timestamp_str
-                        deserialized_buffer.append((weight, timestamp))
-                state[key] = deserialized_buffer
+
         return state
 
     def _save_user_state(self, user_id: str, state: Dict[str, Any]) -> None:
@@ -180,13 +159,10 @@ class ProcessorStateDB:
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the database."""
         initialized_count = sum(1 for s in self.states.values() if s.get('initialized'))
-        buffering_count = sum(1 for s in self.states.values()
-                            if not s.get('initialized') and s.get('init_buffer'))
 
         return {
             'total_users': len(self.states),
             'initialized_users': initialized_count,
-            'buffering_users': buffering_count,
             'storage_path': str(self.storage_path) if self.storage_path else 'memory-only'
         }
 

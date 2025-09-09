@@ -4,6 +4,7 @@ Simplified Weight Stream Processor
 Streams CSV data through Kalman filter, then visualizes results
 """
 
+import argparse
 import csv
 import json
 import sys
@@ -14,7 +15,7 @@ from pathlib import Path
 
 from processor import WeightProcessor
 from reprocessor import WeightReprocessor
-from processor_database import ProcessorDatabase
+from processor_database import ProcessorStateDB, get_state_db
 from visualization import create_dashboard
 
 
@@ -82,11 +83,13 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     seen_users = set()
     skipped_users = set()
     processed_users = set()
+    insufficient_data_users = set()  # Users skipped due to min_readings
+    user_reading_counts = defaultdict(int)  # Track reading count per user
 
     # Track daily data for cleanup
     current_day = None
     daily_measurements = defaultdict(lambda: defaultdict(list))
-    db = ProcessorDatabase()
+    db = ProcessorStateDB()
 
     stats = {
         "total_rows": 0,
@@ -101,6 +104,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     max_users = config["data"].get("max_users", 0)
     user_offset = config["data"].get("user_offset", 0)
     test_users = config["data"].get("test_users", [])
+    min_readings = config["data"].get("min_readings", 0)
 
     test_mode = bool(test_users)
     if test_mode:
@@ -108,6 +112,34 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         max_users = 0
         user_offset = 0
 
+    # If min_readings is set, do a first pass to count readings per user
+    if min_readings > 0 and not test_mode:
+        print(f"Counting readings per user (min_readings={min_readings})...")
+        with open(csv_path) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                user_id = row.get("user_id")
+                if not user_id:
+                    continue
+                
+                weight_str = row.get("weight", "").strip()
+                if not weight_str or weight_str.upper() == "NULL":
+                    continue
+                    
+                try:
+                    float(weight_str)
+                    user_reading_counts[user_id] += 1
+                except (ValueError, TypeError):
+                    continue
+        
+        # Identify users with insufficient data
+        for user_id, count in user_reading_counts.items():
+            if count < min_readings:
+                insufficient_data_users.add(user_id)
+        
+        if insufficient_data_users:
+            print(f"  Found {len(insufficient_data_users)} users with < {min_readings} readings (will skip)")
+    
     print(f"Processing {csv_path}...")
     if test_mode:
         print(f"  Test mode: Processing only {len(test_users)} specific users")
@@ -120,6 +152,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             print(f"  Skipping first {user_offset} users")
         if max_users > 0:
             print(f"  Processing up to {max_users} users after offset")
+        if min_readings > 0:
+            print(f"  Minimum readings required: {min_readings}")
     print()
 
     with open(csv_path) as f:
@@ -153,6 +187,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
             user_id = row.get("user_id")
             if not user_id:
+                continue
+            
+            # Skip users with insufficient data entirely (doesn't count towards max_users)
+            if user_id in insufficient_data_users:
                 continue
 
             if test_mode:
@@ -297,6 +335,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 print(f"    ... and {len(missing) - 3} more")
     else:
         print(f"  Unique users seen: {len(seen_users):,}")
+        if insufficient_data_users:
+            print(f"  Users skipped (< {min_readings} readings): {len(insufficient_data_users):,}")
         if stats["skipped_users"] > 0:
             print(f"  Users skipped (offset): {stats['skipped_users']:,}")
     print(f"  Users processed: {stats['processed_users']:,}")
@@ -317,31 +357,33 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
     print(f"\nResults saved to {results_file}")
 
-    print("\nGenerating visualizations...")
-    viz_dir = output_path / f"viz_{timestamp}"
-    viz_dir.mkdir(exist_ok=True)
+    # Generate visualizations if enabled
+    if config.get("visualization", {}).get("enabled", True):
+        print("\nGenerating visualizations...")
+        viz_dir = output_path / f"viz_{timestamp}"
+        viz_dir.mkdir(exist_ok=True)
 
-    total_users = len(results)
-    viz_count = 0
-    
-    for idx, (user_id, user_results) in enumerate(results.items(), 1):
-        percentage = (idx / total_users) * 100
-        print(f"  [{idx}/{total_users}] {percentage:5.1f}% - Creating dashboard for user {user_id[:8]}...", end="", flush=True)
-        try:
-            # Get raw data for this user
-            user_raw_data = raw_measurements.get(user_id, [])
-            create_dashboard(
-                user_id, user_results, str(viz_dir), config["visualization"],
-                raw_data=user_raw_data
-            )
-            viz_count += 1
-            print(" ✓")
-        except Exception as e:
-            print(f" ✗ ({e})")
+        total_users = len(results)
+        viz_count = 0
+        
+        for idx, (user_id, user_results) in enumerate(results.items(), 1):
+            percentage = (idx / total_users) * 100
+            print(f"  [{idx}/{total_users}] {percentage:5.1f}% - Creating dashboard for user {user_id[:8]}...", end="", flush=True)
+            try:
+                # Get raw data for this user
+                user_raw_data = raw_measurements.get(user_id, [])
+                create_dashboard(
+                    user_id, user_results, str(viz_dir), config["visualization"],
+                    raw_data=user_raw_data
+                )
+                viz_count += 1
+                print(" ✓")
+            except Exception as e:
+                print(f" ✗ ({e})")
 
-    print(f"\nVisualization Summary:")
-    print(f"  Total users processed: {total_users}")
-    print(f"  Visualizations created: {viz_count} in {viz_dir}")
+        print(f"\nVisualization Summary:")
+        print(f"  Total users processed: {total_users}")
+        print(f"  Visualizations created: {viz_count} in {viz_dir}")
 
     return results, stats
 
@@ -360,10 +402,73 @@ def parse_timestamp(date_str: str) -> datetime:
 
 
 if __name__ == "__main__":
-    config = load_config()
-
-    csv_file = sys.argv[1] if len(sys.argv) > 1 else config["data"]["csv_file"]
-
+    parser = argparse.ArgumentParser(
+        description="Weight Stream Processor",
+        epilog="""
+Examples:
+  # Process all users in file
+  %(prog)s data/weights.csv
+  
+  # Process specific users only
+  %(prog)s data/weights.csv --users user123 user456
+  
+  # Process first 100 users
+  %(prog)s data/weights.csv --limit 100
+  
+  # Skip first 50 users, then process next 20
+  %(prog)s data/weights.csv --offset 50 --max-users 20
+  
+  # Only process users with at least 10 readings
+  %(prog)s data/weights.csv --min-readings 10 --limit 100
+  
+  # Process without generating visualizations
+  %(prog)s data/weights.csv --no-viz
+  
+  # Use custom output directory
+  %(prog)s data/weights.csv --output results/custom
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("csv_file", nargs="?", help="CSV file to process")
+    parser.add_argument("--users", nargs="+", help="Specific user IDs to process")
+    parser.add_argument("--max-users", type=int, help="Maximum number of users to process")
+    parser.add_argument("--offset", type=int, help="Number of users to skip before processing")
+    parser.add_argument("--min-readings", type=int, help="Minimum readings required per user")
+    parser.add_argument("--output", help="Output directory for results")
+    parser.add_argument("--config", default="config.toml", help="Configuration file (default: config.toml)")
+    parser.add_argument("--no-viz", action="store_true", help="Skip visualization generation")
+    parser.add_argument("--limit", type=int, help="Alias for --max-users")
+    
+    args = parser.parse_args()
+    
+    # Load config
+    config = load_config(args.config)
+    
+    # Override config with CLI arguments
+    csv_file = args.csv_file or config["data"]["csv_file"]
+    
+    if args.users:
+        config["data"]["test_users"] = args.users
+        config["data"]["max_users"] = 0  # Disable max_users in test mode
+        config["data"]["user_offset"] = 0  # Disable offset in test mode
+    else:
+        if args.max_users is not None:
+            config["data"]["max_users"] = args.max_users
+        elif args.limit is not None:  # Support --limit as alias
+            config["data"]["max_users"] = args.limit
+            
+        if args.offset is not None:
+            config["data"]["user_offset"] = args.offset
+            
+        if args.min_readings is not None:
+            config["data"]["min_readings"] = args.min_readings
+    
+    if args.output:
+        config["data"]["output_dir"] = args.output
+        
+    if args.no_viz:
+        config["visualization"]["enabled"] = False
+    
     if not Path(csv_file).exists():
         print(f"Error: File {csv_file} not found")
         sys.exit(1)

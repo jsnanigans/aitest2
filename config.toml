@@ -13,6 +13,10 @@ max_users = 20
 # Number of users to skip at the beginning (useful for resuming or testing)
 user_offset = 0
 
+# Minimum number of readings required to process a user (0 = no minimum)
+# Users with fewer readings are skipped and don't count towards max_users
+min_readings = 20
+
 
 
 # List of specific user IDs to process

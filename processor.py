@@ -100,8 +100,6 @@ class WeightProcessor:
                 weight, timestamp, kalman_config
             )
             new_state['initialized'] = True
-            new_state['measurement_count'] = 1
-            new_state['measurement_history'] = [(weight, timestamp)]
             
             # Process the first measurement through Kalman
             new_state = WeightProcessor._update_kalman_state(
@@ -117,22 +115,6 @@ class WeightProcessor:
         # Process with existing Kalman filter
         new_state = state.copy()
         
-        # Track measurement count and history
-        measurement_count = new_state.get('measurement_count', 0) + 1
-        new_state['measurement_count'] = measurement_count
-        
-        # Keep history for first 10 measurements for adaptation
-        if measurement_count <= 10:
-            history = new_state.get('measurement_history', [])
-            history.append((weight, timestamp))
-            new_state['measurement_history'] = history
-            
-            # Adapt parameters after 10th measurement
-            if measurement_count == 10:
-                new_state = WeightProcessor._adapt_parameters_online(
-                    new_state, processing_config, kalman_config
-                )
-        
         # Calculate time delta
         time_delta_days = 1.0
         if new_state.get('last_timestamp'):
@@ -144,8 +126,6 @@ class WeightProcessor:
             
             # Check for reset condition
             reset_gap_days = kalman_config.get("reset_gap_days", 30)
-            if new_state.get('adapted_params'):
-                reset_gap_days = new_state['adapted_params'].get("reset_gap_days", reset_gap_days)
             
             if delta > reset_gap_days:
                 new_state = WeightProcessor._reset_kalman_state(new_state, weight)
@@ -162,10 +142,6 @@ class WeightProcessor:
             deviation = abs(weight - predicted_weight) / predicted_weight
             
             extreme_threshold = processing_config["extreme_threshold"]
-            if new_state.get('adapted_params'):
-                extreme_threshold = new_state['adapted_params'].get(
-                    'extreme_threshold', extreme_threshold
-                )
             
             if deviation > extreme_threshold:
                 # Reject measurement but still return result
@@ -242,45 +218,11 @@ class WeightProcessor:
         
         return {
             'kalman_params': kalman_params,
-            'adapted_params': {},  # Will be filled after 10 measurements
             'last_state': np.array([[weight, 0]]),
             'last_covariance': np.array([[[initial_variance, 0], [0, 0.001]]]),
             'last_timestamp': timestamp,
         }
     
-    @staticmethod
-    def _adapt_parameters_online(
-        state: Dict[str, Any],
-        processing_config: dict,
-        kalman_config: dict
-    ) -> Dict[str, Any]:
-        """Adapt parameters online after collecting sufficient measurements."""
-        history = state.get('measurement_history', [])
-        if len(history) < 10:
-            return state
-        
-        # Compute adapted parameters from history
-        adapted_params = WeightProcessor._adapt_parameters(
-            history, processing_config, kalman_config
-        )
-        
-        # Update state with adapted parameters
-        state['adapted_params'] = adapted_params
-        
-        # Update Kalman parameters with adapted values
-        state['kalman_params']['observation_covariance'] = [[adapted_params["observation_covariance"]]]
-        state['kalman_params']['transition_covariance'] = [
-            [adapted_params.get("transition_covariance_weight", 
-                              kalman_config["transition_covariance_weight"]), 0],
-            [0, adapted_params.get("transition_covariance_trend",
-                                 kalman_config["transition_covariance_trend"])]
-        ]
-        
-        # Clear history after adaptation to save memory
-        state['measurement_history'] = []
-        
-        return state
-
     @staticmethod
     def _update_kalman_state(
         state: Dict[str, Any],
@@ -361,50 +303,6 @@ class WeightProcessor:
             state['kalman_params']['initial_state_mean'] = [new_weight, 0]
         
         return state
-
-    @staticmethod
-    def _adapt_parameters(
-        user_data: list,
-        processing_config: dict,
-        kalman_config: dict
-    ) -> Dict[str, Any]:
-        """Compute adapted parameters based on user data."""
-        adapted = kalman_config.copy()
-        adapted['extreme_threshold'] = processing_config["extreme_threshold"]
-        
-        if len(user_data) < 3:
-            return adapted
-        
-        weights = [w for w, _ in user_data] if isinstance(user_data[0], tuple) else user_data
-        
-        # Calculate variance using MAD
-        median_weight = np.median(weights)
-        mad = np.median([abs(w - median_weight) for w in weights])
-        variance = mad * 1.4826
-        
-        # Adapt parameters based on variance
-        if variance < 0.5:
-            adapted['observation_covariance'] = 0.5
-            adapted['extreme_threshold'] = 0.20
-        elif variance < 1.5:
-            adapted['observation_covariance'] = 1.5
-            adapted['extreme_threshold'] = 0.25
-        else:
-            adapted['observation_covariance'] = 3.0
-            adapted['extreme_threshold'] = 0.35
-        
-        # Check for trends
-        if len(weights) > 7:
-            first_half = np.mean(weights[:len(weights)//2])
-            second_half = np.mean(weights[len(weights)//2:])
-            trend_magnitude = abs(second_half - first_half) / len(weights)
-            
-            if trend_magnitude > 0.05:
-                adapted['transition_covariance_trend'] = 0.001
-            else:
-                adapted['transition_covariance_trend'] = 0.0005
-        
-        return adapted
 
     @staticmethod
     def _calculate_confidence(normalized_innovation: float) -> float:

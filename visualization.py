@@ -35,9 +35,9 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         fontsize=16,
         fontweight="bold",
     )
-    
+
     # Define date range for cropped views (2024-10-01 to 2025-09-05)
-    crop_start = datetime(2024, 10, 1)
+    crop_start = datetime(2025, 1, 1)
     crop_end = datetime(2025, 9, 5)
 
     def parse_timestamps(results):
@@ -64,7 +64,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     filtered_weights = [
         r.get("filtered_weight", r["raw_weight"]) for r in valid_results
     ] if valid_results else []
-    
+
     # Filter data for cropped views
     def filter_by_date_range(timestamps, data, start_date, end_date):
         """Filter data based on date range."""
@@ -77,12 +77,12 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 filtered_ts.append(ts)
                 filtered_data.append(d)
         return filtered_ts, filtered_data
-    
+
     # Create cropped versions of data
     valid_ts_cropped, valid_raw_cropped = filter_by_date_range(valid_timestamps, valid_raw_weights, crop_start, crop_end)
     valid_ts_cropped2, filtered_cropped = filter_by_date_range(valid_timestamps, filtered_weights, crop_start, crop_end)
     rejected_ts_cropped, rejected_raw_cropped = filter_by_date_range(rejected_timestamps, rejected_raw_weights, crop_start, crop_end)
-    
+
     # For results-based data, we need to filter the full results
     valid_results_cropped = []
     if valid_results:
@@ -91,7 +91,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 valid_results_cropped.append(r)
 
     ax1 = plt.subplot(4, 4, (1, 2))
-    
+
     # Show raw data that wasn't already shown as accepted/rejected
     if raw_data and not valid_results and not rejected_results:
         # Parse raw data timestamps
@@ -103,19 +103,19 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 ts = datetime.fromisoformat(ts.replace('Z', '+00:00'))
             raw_timestamps.append(ts)
             raw_weights.append(item['weight'])
-        
+
         # Show all raw data when no processing results exist
-        ax1.scatter(raw_timestamps, raw_weights, 
+        ax1.scatter(raw_timestamps, raw_weights,
                    alpha=0.6, s=40, color='#9E9E9E', marker='o',
-                   label=f'Raw Data ({len(raw_data)})', zorder=3, 
+                   label=f'Raw Data ({len(raw_data)})', zorder=3,
                    edgecolors='white', linewidth=0.5)
-        
+
         # Show any raw data points after initialization that weren't processed
         # (e.g., if they were all rejected)
         if len(raw_data) > 10 and not valid_results:
-            ax1.scatter(raw_timestamps[10:], raw_weights[10:], 
+            ax1.scatter(raw_timestamps[10:], raw_weights[10:],
                        alpha=0.5, s=30, color='#9E9E9E', marker='o',
-                       label=f'Unprocessed ({len(raw_data)-10})', zorder=3, 
+                       label=f'Unprocessed ({len(raw_data)-10})', zorder=3,
                        edgecolors='white', linewidth=0.5)
 
     if valid_results:
@@ -156,17 +156,17 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     ax1.grid(True, alpha=0.3)
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45)
-    
+
     # Create duplicate chart with cropped range
     ax1_cropped = plt.subplot(4, 4, (3, 4))
-    
+
     # Plot cropped data
     if valid_ts_cropped:
         ax1_cropped.plot(valid_ts_cropped, filtered_cropped, '-', linewidth=3,
                         color='#1565C0', label='Kalman Filtered', zorder=2)
         ax1_cropped.scatter(valid_ts_cropped, valid_raw_cropped, alpha=0.7, s=50,
                            color='#2E7D32', label='Raw Accepted', zorder=5, edgecolors='white', linewidth=0.5)
-        
+
         # Add uncertainty band for cropped data
         uncertainty_band_cropped = []
         for r in valid_results_cropped:
@@ -176,23 +176,23 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 uncertainty_band_cropped.append(uncertainty)
             else:
                 uncertainty_band_cropped.append(0.5)
-        
+
         if uncertainty_band_cropped:
             upper_band = [f + u for f, u in zip(filtered_cropped, uncertainty_band_cropped)]
             lower_band = [f - u for f, u in zip(filtered_cropped, uncertainty_band_cropped)]
             ax1_cropped.fill_between(valid_ts_cropped, lower_band, upper_band,
                                     alpha=0.25, color='#64B5F6', label='Uncertainty')
-    
+
     if rejected_ts_cropped:
         ax1_cropped.scatter(rejected_ts_cropped, rejected_raw_cropped,
                            marker='x', color='#D32F2F', s=80, alpha=0.9, linewidth=2.5,
                            label=f'Rejected ({len(rejected_ts_cropped)})', zorder=6)
-    
+
     if filtered_cropped:
         baseline = np.median(filtered_weights[: min(10, len(filtered_weights))])
         ax1_cropped.axhline(baseline, color='#F57C00', linestyle='--', alpha=0.6, linewidth=2,
                            label=f'Baseline: {baseline:.1f}kg')
-    
+
     ax1_cropped.set_xlabel("Date", fontsize=11)
     ax1_cropped.set_ylabel("Weight (kg)", fontsize=11)
     ax1_cropped.set_title("Kalman Filter Output vs Raw Data (Oct 2024 - Sep 2025)", fontsize=12, fontweight='bold')
@@ -303,10 +303,10 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax8.grid(True, alpha=0.3)
 
     ax9 = plt.subplot(4, 4, 12)
-    
+
     # Count total measurements
     total_measurements = len(raw_data) if raw_data else len(all_results)
-    
+
     stats_text = f"""Processing Statistics
 {'='*25}
 Total Measurements: {total_measurements}
@@ -322,7 +322,7 @@ Filter Performance
         all_normalized_innovations = [r.get('normalized_innovation', 0) for r in valid_results]
         all_trends = [r.get("trend", 0) for r in valid_results]
         all_confidences = [r.get("confidence", 0.5) for r in valid_results]
-        
+
         stats_text += f"""
 Mean Innovation: {np.mean(all_innovations):.3f} kg
 Std Innovation: {np.std(all_innovations):.3f} kg
