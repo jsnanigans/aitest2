@@ -7,8 +7,8 @@ import numpy as np
 from collections import defaultdict
 import logging
 
-from processor import WeightProcessor
-from processor_database import ProcessorDatabase
+from .processor import WeightProcessor
+from .processor_database import ProcessorDatabase
 
 logger = logging.getLogger(__name__)
 

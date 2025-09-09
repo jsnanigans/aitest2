@@ -8,9 +8,9 @@ from datetime import datetime, timedelta
 import sys
 sys.path.insert(0, '..')
 
-from processor import WeightProcessor
-from processor_database import ProcessorStateDB
-from visualization import create_dashboard
+from src.processor import WeightProcessor
+from src.processor_database import ProcessorStateDB
+from src.visualization import create_dashboard
 
 def test_user_visualization():
     user_id = "00e96965-7bc0-43e4-bafa-fb7a0b573cf3"

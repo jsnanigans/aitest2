@@ -6,8 +6,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, timedelta
-from processor import WeightProcessor
-from processor_database import ProcessorStateDB
+from src.processor import WeightProcessor
+from src.processor_database import ProcessorStateDB
 import toml
 
 # Load config

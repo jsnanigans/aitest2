@@ -9,7 +9,7 @@ import json
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from processor import WeightProcessor
+from src.processor import WeightProcessor
 
 
 def generate_synthetic_data() -> List[Tuple[str, List[Tuple[float, datetime, str]]]]:

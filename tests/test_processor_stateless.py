@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 from datetime import datetime, timedelta
-from processor import WeightProcessor
+from src.processor import WeightProcessor
 
 
 def test_statelessness():

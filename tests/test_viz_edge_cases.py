@@ -8,9 +8,9 @@ import sys
 sys.path.insert(0, '..')
 
 from datetime import datetime, timedelta
-from processor import WeightProcessor
-from processor_database import ProcessorStateDB
-from visualization import create_dashboard
+from src.processor import WeightProcessor
+from src.processor_database import ProcessorStateDB
+from src.visualization import create_dashboard
 
 def test_various_scenarios():
     """Test different edge case scenarios for visualization."""

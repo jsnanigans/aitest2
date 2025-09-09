@@ -13,10 +13,10 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from processor import WeightProcessor
-from reprocessor import WeightReprocessor
-from processor_database import ProcessorStateDB, get_state_db
-from visualization import create_dashboard
+from src.processor import WeightProcessor
+from src.reprocessor import WeightReprocessor
+from src.processor_database import ProcessorStateDB, get_state_db
+from src.visualization import create_dashboard
 
 
 def load_config(config_path: str = "config.toml") -> dict:

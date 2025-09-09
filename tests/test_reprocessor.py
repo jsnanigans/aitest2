@@ -8,9 +8,9 @@ sys.path.append(str(Path(__file__).parent.parent))
 from datetime import datetime, date, timedelta
 import numpy as np
 
-from reprocessor import WeightReprocessor
-from processor_database import ProcessorDatabase
-from processor import WeightProcessor
+from src.reprocessor import WeightReprocessor
+from src.processor_database import ProcessorDatabase
+from src.processor import WeightProcessor
 
 
 def test_select_best_measurements():

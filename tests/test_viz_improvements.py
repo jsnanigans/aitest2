@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
-from processor import WeightProcessor
-from visualization import create_dashboard
+from src.processor import WeightProcessor
+from src.visualization import create_dashboard
 
 
 def generate_test_data():

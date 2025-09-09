@@ -2,7 +2,7 @@
 """Test that daily cleanup keeps all valid measurements."""
 
 from datetime import datetime, date
-from reprocessor import WeightReprocessor
+from src.reprocessor import WeightReprocessor
 
 def test_keeps_multiple_valid_measurements():
     """Test that multiple valid measurements are kept, not just the best one."""

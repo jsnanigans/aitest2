@@ -1,2 +1,0 @@
-[console_scripts]
-weight-processor = main:main
