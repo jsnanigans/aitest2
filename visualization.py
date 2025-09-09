@@ -29,12 +29,16 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     if not all_results and not raw_data:
         return
 
-    fig = plt.figure(figsize=(20, 12))
+    fig = plt.figure(figsize=(20, 14))
     fig.suptitle(
         f"Kalman Filter Processing Evaluation - User {user_id[:8]}",
         fontsize=16,
         fontweight="bold",
     )
+    
+    # Define date range for cropped views (2024-10-01 to 2025-09-05)
+    crop_start = datetime(2024, 10, 1)
+    crop_end = datetime(2025, 9, 5)
 
     def parse_timestamps(results):
         timestamps = [r["timestamp"] for r in results]
@@ -60,8 +64,33 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     filtered_weights = [
         r.get("filtered_weight", r["raw_weight"]) for r in valid_results
     ] if valid_results else []
+    
+    # Filter data for cropped views
+    def filter_by_date_range(timestamps, data, start_date, end_date):
+        """Filter data based on date range."""
+        if not timestamps:
+            return [], []
+        filtered_ts = []
+        filtered_data = []
+        for ts, d in zip(timestamps, data):
+            if start_date <= ts <= end_date:
+                filtered_ts.append(ts)
+                filtered_data.append(d)
+        return filtered_ts, filtered_data
+    
+    # Create cropped versions of data
+    valid_ts_cropped, valid_raw_cropped = filter_by_date_range(valid_timestamps, valid_raw_weights, crop_start, crop_end)
+    valid_ts_cropped2, filtered_cropped = filter_by_date_range(valid_timestamps, filtered_weights, crop_start, crop_end)
+    rejected_ts_cropped, rejected_raw_cropped = filter_by_date_range(rejected_timestamps, rejected_raw_weights, crop_start, crop_end)
+    
+    # For results-based data, we need to filter the full results
+    valid_results_cropped = []
+    if valid_results:
+        for r, ts in zip(valid_results, valid_timestamps):
+            if crop_start <= ts <= crop_end:
+                valid_results_cropped.append(r)
 
-    ax1 = plt.subplot(3, 4, (1, 4))
+    ax1 = plt.subplot(4, 4, (1, 2))
     
     # Show raw data that wasn't already shown as accepted/rejected
     if raw_data and not valid_results and not rejected_results:
@@ -122,31 +151,77 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     ax1.set_xlabel("Date", fontsize=11)
     ax1.set_ylabel("Weight (kg)", fontsize=11)
-    ax1.set_title("Kalman Filter Output vs Raw Data", fontsize=12, fontweight='bold')
+    ax1.set_title("Kalman Filter Output vs Raw Data (Full Range)", fontsize=12, fontweight='bold')
     ax1.legend(loc="best", ncol=3)
     ax1.grid(True, alpha=0.3)
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45)
+    
+    # Create duplicate chart with cropped range
+    ax1_cropped = plt.subplot(4, 4, (3, 4))
+    
+    # Plot cropped data
+    if valid_ts_cropped:
+        ax1_cropped.plot(valid_ts_cropped, filtered_cropped, '-', linewidth=3,
+                        color='#1565C0', label='Kalman Filtered', zorder=2)
+        ax1_cropped.scatter(valid_ts_cropped, valid_raw_cropped, alpha=0.7, s=50,
+                           color='#2E7D32', label='Raw Accepted', zorder=5, edgecolors='white', linewidth=0.5)
+        
+        # Add uncertainty band for cropped data
+        uncertainty_band_cropped = []
+        for r in valid_results_cropped:
+            if "normalized_innovation" in r:
+                ni = r["normalized_innovation"]
+                uncertainty = 0.5 + ni * 0.5
+                uncertainty_band_cropped.append(uncertainty)
+            else:
+                uncertainty_band_cropped.append(0.5)
+        
+        if uncertainty_band_cropped:
+            upper_band = [f + u for f, u in zip(filtered_cropped, uncertainty_band_cropped)]
+            lower_band = [f - u for f, u in zip(filtered_cropped, uncertainty_band_cropped)]
+            ax1_cropped.fill_between(valid_ts_cropped, lower_band, upper_band,
+                                    alpha=0.25, color='#64B5F6', label='Uncertainty')
+    
+    if rejected_ts_cropped:
+        ax1_cropped.scatter(rejected_ts_cropped, rejected_raw_cropped,
+                           marker='x', color='#D32F2F', s=80, alpha=0.9, linewidth=2.5,
+                           label=f'Rejected ({len(rejected_ts_cropped)})', zorder=6)
+    
+    if filtered_cropped:
+        baseline = np.median(filtered_weights[: min(10, len(filtered_weights))])
+        ax1_cropped.axhline(baseline, color='#F57C00', linestyle='--', alpha=0.6, linewidth=2,
+                           label=f'Baseline: {baseline:.1f}kg')
+    
+    ax1_cropped.set_xlabel("Date", fontsize=11)
+    ax1_cropped.set_ylabel("Weight (kg)", fontsize=11)
+    ax1_cropped.set_title("Kalman Filter Output vs Raw Data (Oct 2024 - Sep 2025)", fontsize=12, fontweight='bold')
+    ax1_cropped.legend(loc="best", ncol=3)
+    ax1_cropped.grid(True, alpha=0.3)
+    ax1_cropped.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    plt.setp(ax1_cropped.xaxis.get_majorticklabels(), rotation=45)
+    ax1_cropped.set_xlim([crop_start, crop_end])
 
-    if valid_results:
-        innovations = [r.get("innovation", 0) for r in valid_results]
-        normalized_innovations = [r.get("normalized_innovation", 0) for r in valid_results]
+    if valid_results_cropped:
+        innovations_cropped = [r.get("innovation", 0) for r in valid_results_cropped]
+        normalized_innovations_cropped = [r.get("normalized_innovation", 0) for r in valid_results_cropped]
 
-        ax2 = plt.subplot(3, 4, 5)
-        ax2.plot(valid_timestamps, innovations, 'o-', markersize=5, alpha=0.8, color='#0288D1', linewidth=1.5)
+        ax2 = plt.subplot(4, 4, 5)
+        ax2.plot(valid_ts_cropped, innovations_cropped, 'o-', markersize=5, alpha=0.8, color='#0288D1', linewidth=1.5)
         ax2.axhline(0, color='black', linestyle='-', alpha=0.5, linewidth=1)
-        ax2.fill_between(valid_timestamps, 0, innovations, alpha=0.4, color='#81D4FA')
+        ax2.fill_between(valid_ts_cropped, 0, innovations_cropped, alpha=0.4, color='#81D4FA')
         ax2.set_xlabel("Date")
         ax2.set_ylabel("Innovation (kg)")
         ax2.set_title("Kalman Innovation\n(Measurement - Prediction)")
         ax2.grid(True, alpha=0.3)
         ax2.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
         plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45)
+        ax2.set_xlim([crop_start, crop_end])
 
-        ax3 = plt.subplot(3, 4, 6)
+        ax3 = plt.subplot(4, 4, 6)
         colors = ['#2E7D32' if ni <= 2 else '#FFA726' if ni <= 3 else '#D32F2F'
-                 for ni in normalized_innovations]
-        ax3.scatter(valid_timestamps, normalized_innovations, c=colors, alpha=0.8, s=40, edgecolors='white', linewidth=0.5)
+                 for ni in normalized_innovations_cropped]
+        ax3.scatter(valid_ts_cropped, normalized_innovations_cropped, c=colors, alpha=0.8, s=40, edgecolors='white', linewidth=0.5)
         ax3.axhline(2, color='#2E7D32', linestyle='--', alpha=0.6, linewidth=1.5, label='Good (≤2σ)')
         ax3.axhline(3, color='#FF6F00', linestyle='--', alpha=0.6, linewidth=1.5, label='Warning (3σ)')
         ax3.axhline(5, color='#D32F2F', linestyle='--', alpha=0.6, linewidth=1.5, label='Extreme (5σ)')
@@ -157,11 +232,12 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax3.grid(True, alpha=0.3)
         ax3.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
         plt.setp(ax3.xaxis.get_majorticklabels(), rotation=45)
+        ax3.set_xlim([crop_start, crop_end])
 
-        confidences = [r.get("confidence", 0.5) for r in valid_results]
-        ax4 = plt.subplot(3, 4, 7)
-        ax4.plot(valid_timestamps, confidences, 'o-', markersize=5, alpha=0.8, color='#6A1B9A', linewidth=1.5)
-        ax4.fill_between(valid_timestamps, 0, confidences, alpha=0.4, color='#CE93D8')
+        confidences_cropped = [r.get("confidence", 0.5) for r in valid_results_cropped]
+        ax4 = plt.subplot(4, 4, 7)
+        ax4.plot(valid_ts_cropped, confidences_cropped, 'o-', markersize=5, alpha=0.8, color='#6A1B9A', linewidth=1.5)
+        ax4.fill_between(valid_ts_cropped, 0, confidences_cropped, alpha=0.4, color='#CE93D8')
         ax4.axhline(0.95, color='#2E7D32', linestyle='--', alpha=0.6, linewidth=1.5, label='High (>0.95)')
         ax4.axhline(0.7, color='#FF6F00', linestyle='--', alpha=0.6, linewidth=1.5, label='Medium (>0.7)')
         ax4.axhline(0.5, color='#D32F2F', linestyle='--', alpha=0.6, linewidth=1.5, label='Low (<0.5)')
@@ -173,23 +249,25 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax4.grid(True, alpha=0.3)
         ax4.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
         plt.setp(ax4.xaxis.get_majorticklabels(), rotation=45)
+        ax4.set_xlim([crop_start, crop_end])
 
-        trends = [r.get("trend", 0) for r in valid_results]
-        weekly_trends = [t * 7 for t in trends]
-        ax5 = plt.subplot(3, 4, 8)
-        ax5.plot(valid_timestamps, weekly_trends, '-', linewidth=2, color='#1565C0')
+        trends_cropped = [r.get("trend", 0) for r in valid_results_cropped]
+        weekly_trends_cropped = [t * 7 for t in trends_cropped]
+        ax5 = plt.subplot(4, 4, 8)
+        ax5.plot(valid_ts_cropped, weekly_trends_cropped, '-', linewidth=2, color='#1565C0')
         ax5.axhline(0, color='black', linestyle='-', alpha=0.5, linewidth=1)
-        ax5.fill_between(valid_timestamps, 0, weekly_trends, alpha=0.4, color='#90CAF9')
+        ax5.fill_between(valid_ts_cropped, 0, weekly_trends_cropped, alpha=0.4, color='#90CAF9')
         ax5.set_xlabel("Date")
         ax5.set_ylabel("Weekly Trend (kg/week)")
         ax5.set_title("Kalman Trend Component\n(Velocity State)")
         ax5.grid(True, alpha=0.3)
         ax5.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
         plt.setp(ax5.xaxis.get_majorticklabels(), rotation=45)
+        ax5.set_xlim([crop_start, crop_end])
 
-    ax6 = plt.subplot(3, 4, 9)
-    if valid_results and len(filtered_weights) > 1:
-        residuals = [r - f for r, f in zip(valid_raw_weights, filtered_weights)]
+    ax6 = plt.subplot(4, 4, 9)
+    if valid_results_cropped and len(filtered_cropped) > 1:
+        residuals = [r - f for r, f in zip(valid_raw_cropped, filtered_cropped)]
         ax6.hist(residuals, bins=20, edgecolor='#1A237E', alpha=0.8, color='#5C6BC0', linewidth=1.2)
         ax6.axvline(0, color='#D32F2F', linestyle='--', linewidth=2, label=f'Mean: {np.mean(residuals):.2f}')
         ax6.axvline(np.median(residuals), color='#2E7D32', linestyle='--', linewidth=2, label=f'Median: {np.median(residuals):.2f}')
@@ -199,9 +277,9 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax6.legend()
         ax6.grid(True, alpha=0.3)
 
-    ax7 = plt.subplot(3, 4, 10)
-    if valid_results and len(normalized_innovations) > 1:
-        ax7.hist(normalized_innovations, bins=20, edgecolor='#4A148C', alpha=0.8, color='#9C27B0', linewidth=1.2)
+    ax7 = plt.subplot(4, 4, 10)
+    if valid_results_cropped and len(normalized_innovations_cropped) > 1:
+        ax7.hist(normalized_innovations_cropped, bins=20, edgecolor='#4A148C', alpha=0.8, color='#9C27B0', linewidth=1.2)
         ax7.axvline(1, color='#2E7D32', linestyle='--', linewidth=1.5, label='1σ')
         ax7.axvline(2, color='#FF6F00', linestyle='--', linewidth=1.5, label='2σ')
         ax7.axvline(3, color='#D32F2F', linestyle='--', linewidth=1.5, label='3σ')
@@ -211,11 +289,11 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax7.legend()
         ax7.grid(True, alpha=0.3)
 
-    ax8 = plt.subplot(3, 4, 11)
-    if valid_results and len(filtered_weights) > 2:
-        diffs = np.diff(filtered_weights)
-        time_diffs = [(valid_timestamps[i+1] - valid_timestamps[i]).days
-                     for i in range(len(valid_timestamps)-1)]
+    ax8 = plt.subplot(4, 4, 11)
+    if valid_results_cropped and len(filtered_cropped) > 2:
+        diffs = np.diff(filtered_cropped)
+        time_diffs = [(valid_ts_cropped[i+1] - valid_ts_cropped[i]).days
+                     for i in range(len(valid_ts_cropped)-1)]
         daily_changes = [d/td if td > 0 else 0 for d, td in zip(diffs, time_diffs)]
         ax8.hist(daily_changes, bins=20, edgecolor='#1B5E20', alpha=0.8, color='#4CAF50', linewidth=1.2)
         ax8.axvline(0, color='black', linestyle='-', linewidth=2, alpha=0.7)
@@ -224,7 +302,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax8.set_title("Daily Change Distribution\n(Filtered Weights)")
         ax8.grid(True, alpha=0.3)
 
-    ax9 = plt.subplot(3, 4, 12)
+    ax9 = plt.subplot(4, 4, 12)
     
     # Count total measurements
     total_measurements = len(raw_data) if raw_data else len(all_results)
@@ -239,11 +317,17 @@ Filter Performance
 {'='*25}"""
 
     if valid_results and filtered_weights:
+        # Use full data for overall statistics
+        all_innovations = [r.get('innovation', 0) for r in valid_results]
+        all_normalized_innovations = [r.get('normalized_innovation', 0) for r in valid_results]
+        all_trends = [r.get("trend", 0) for r in valid_results]
+        all_confidences = [r.get("confidence", 0.5) for r in valid_results]
+        
         stats_text += f"""
-Mean Innovation: {np.mean([r.get('innovation', 0) for r in valid_results]):.3f} kg
-Std Innovation: {np.std([r.get('innovation', 0) for r in valid_results]):.3f} kg
-Mean Norm. Innov: {np.mean([r.get('normalized_innovation', 0) for r in valid_results]):.2f}σ
-Max Norm. Innov: {max([r.get('normalized_innovation', 0) for r in valid_results]):.2f}σ
+Mean Innovation: {np.mean(all_innovations):.3f} kg
+Std Innovation: {np.std(all_innovations):.3f} kg
+Mean Norm. Innov: {np.mean(all_normalized_innovations):.2f}σ
+Max Norm. Innov: {max(all_normalized_innovations):.2f}σ
 
 Weight Statistics
 {'='*25}
@@ -254,8 +338,8 @@ Range: {min(filtered_weights):.1f} - {max(filtered_weights):.1f} kg
 
 Trend Analysis
 {'='*25}
-Current Trend: {trends[-1]*7 if valid_results else 0:.3f} kg/week
-Mean Confidence: {np.mean(confidences) if valid_results else 0:.2f}
+Current Trend: {all_trends[-1]*7 if valid_results else 0:.3f} kg/week
+Mean Confidence: {np.mean(all_confidences) if valid_results else 0:.2f}
 """
 
     rejection_reasons = {}
