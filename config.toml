@@ -14,9 +14,10 @@ max_users = 20
 user_offset = 0
 
 
-# List of specific user IDs to process (empty = all users)
-test_users = [
-  "0040872d-333a-4ace-8c5a-b2fcd056e65a"
+
+# List of specific user IDs to process
+_test_users = [
+  "0040872d-333a-4ace-8c5a-b2fcd056e65a", # very noisy, no clear trend
 ]
 
 [processing]

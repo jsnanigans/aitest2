@@ -52,12 +52,26 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
     max_users = config["data"].get("max_users", 0)
     user_offset = config["data"].get("user_offset", 0)
+    test_users = config["data"].get("test_users", [])
+    
+    test_mode = bool(test_users)
+    if test_mode:
+        test_users_set = set(test_users)
+        max_users = 0
+        user_offset = 0
 
     print(f"Processing {csv_path}...")
-    if user_offset > 0:
-        print(f"  Skipping first {user_offset} users")
-    if max_users > 0:
-        print(f"  Processing up to {max_users} users after offset")
+    if test_mode:
+        print(f"  Test mode: Processing only {len(test_users)} specific users")
+        for user_id in test_users[:5]:
+            print(f"    - {user_id}")
+        if len(test_users) > 5:
+            print(f"    ... and {len(test_users) - 5} more")
+    else:
+        if user_offset > 0:
+            print(f"  Skipping first {user_offset} users")
+        if max_users > 0:
+            print(f"  Processing up to {max_users} users after offset")
     print()
 
     with open(csv_path) as f:
@@ -68,13 +82,17 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         for row in reader:
             stats["total_rows"] += 1
 
-            # Enhanced progress reporting
             if stats["total_rows"] % config["logging"]["progress_interval"] == 0:
                 elapsed = (datetime.now() - stats["start_time"]).total_seconds()
                 rate = stats["total_rows"] / elapsed if elapsed > 0 else 0
                 eta_str = ""
 
-                if max_users > 0 and stats["processed_users"] > 0:
+                if test_mode:
+                    found_count = len(processed_users)
+                    remaining = len(test_users) - found_count
+                    if remaining > 0:
+                        eta_str = f", {remaining} test users remaining"
+                elif max_users > 0 and stats["processed_users"] > 0:
                     remaining = max_users - stats["processed_users"]
                     eta_str = f", ~{remaining} users remaining"
 
@@ -89,30 +107,37 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             if not user_id:
                 continue
 
-            # Track unique users
-            if user_id not in seen_users:
-                seen_users.add(user_id)
+            if test_mode:
+                if user_id not in test_users_set:
+                    continue
+                
+                if user_id not in seen_users:
+                    seen_users.add(user_id)
+                    processed_users.add(user_id)
+                    stats["processed_users"] = len(processed_users)
+                    
+                    if len(processed_users) == len(test_users):
+                        print(f"\n  Found all {len(test_users)} test users, stopping early...")
+            else:
+                if user_id not in seen_users:
+                    seen_users.add(user_id)
 
-                # Check if we should skip this user (offset)
-                if len(seen_users) <= user_offset:
-                    skipped_users.add(user_id)
-                    stats["skipped_users"] = len(skipped_users)
+                    if len(seen_users) <= user_offset:
+                        skipped_users.add(user_id)
+                        stats["skipped_users"] = len(skipped_users)
+                        continue
+
+                    if max_users > 0 and len(processed_users) >= max_users:
+                        continue
+
+                    processed_users.add(user_id)
+                    stats["processed_users"] = len(processed_users)
+
+                if user_id in skipped_users:
                     continue
 
-                # Check if we've reached max_users
-                if max_users > 0 and len(processed_users) >= max_users:
+                if max_users > 0 and user_id not in processed_users:
                     continue
-
-                processed_users.add(user_id)
-                stats["processed_users"] = len(processed_users)
-
-            # Skip if this user was marked for skipping
-            if user_id in skipped_users:
-                continue
-
-            # Skip if we've reached max_users and this isn't a processed user
-            if max_users > 0 and user_id not in processed_users:
-                continue
 
             weight_str = row.get("weight", "").strip()
             if not weight_str or weight_str.upper() == "NULL":
@@ -153,9 +178,11 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 if user_id not in users_with_insufficient_init_data:
                     users_with_insufficient_init_data.add(user_id)
 
-            # Stop early if we've processed max_users
-            if (
-                max_users > 0
+            if test_mode and len(processed_users) == len(test_users):
+                break
+            elif (
+                not test_mode
+                and max_users > 0
                 and len(processed_users) >= max_users
                 and all(
                     uid in processed_users or uid in skipped_users for uid in seen_users
@@ -173,9 +200,17 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
     print(f"\nProcessing Complete:")
     print(f"  Total rows processed: {stats['total_rows']:,}")
-    print(f"  Unique users seen: {len(seen_users):,}")
-    if stats["skipped_users"] > 0:
-        print(f"  Users skipped (offset): {stats['skipped_users']:,}")
+    if test_mode:
+        print(f"  Test users found: {len(processed_users)} of {len(test_users)}")
+        if len(processed_users) < len(test_users):
+            missing = set(test_users) - processed_users
+            print(f"  Missing test users: {', '.join(list(missing)[:3])}")
+            if len(missing) > 3:
+                print(f"    ... and {len(missing) - 3} more")
+    else:
+        print(f"  Unique users seen: {len(seen_users):,}")
+        if stats["skipped_users"] > 0:
+            print(f"  Users skipped (offset): {stats['skipped_users']:,}")
     print(f"  Users processed: {stats['processed_users']:,}")
     if stats["users_insufficient_init"] > 0:
         print(f"  Users with insufficient init data (<{config['processing']['min_init_readings']} readings): {stats['users_insufficient_init']:,}")
