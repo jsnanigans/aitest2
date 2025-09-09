@@ -137,7 +137,7 @@ def parse_timestamp(date_str: str) -> datetime:
 
 
 if __name__ == "__main__":
-    csv_file = sys.argv[1] if len(sys.argv) > 1 else "./2025-09-05_optimized.csv"
+    csv_file = sys.argv[1] if len(sys.argv) > 1 else "./data/2025-09-05_optimized.csv"
     
     if not Path(csv_file).exists():
         print(f"Error: File {csv_file} not found")
