@@ -1,0 +1,107 @@
+{
+  "user_id": "001b4e0a-535f-4713-b262-bdd4e5b89b7d",
+  "initialized": true,
+  "baseline": {
+    "weight": 76.2,
+    "confidence": "low",
+    "variance": 0.01
+  },
+  "current_state": {
+    "weight": 81.07946444504044,
+    "trend_kg_per_day": 0.011083165633421179,
+    "trend_kg_per_week": 0.07758215943394825,
+    "measurement_count": 6
+  },
+  "stats": {
+    "total_readings": 7,
+    "accepted_readings": 6,
+    "rejected_readings": 1,
+    "outliers_by_type": {},
+    "first_reading": "2023-03-03 00:00:00",
+    "last_reading": "2025-06-11 06:44:07",
+    "min_weight": 76.2,
+    "max_weight": 82.16700744628906,
+    "acceptance_rate": 1.0,
+    "average_weight": 79.72006445703126,
+    "weight_range": 5.96700744628906
+  },
+  "time_series": [
+    {
+      "date": "2023-03-03T00:00:00",
+      "weight": 76.2,
+      "filtered_weight": 76.2,
+      "predicted_weight": 76.2,
+      "is_valid": true,
+      "confidence": 0.99,
+      "trend_kg_per_day": 0.0,
+      "outlier_type": null,
+      "source": "https://connectivehealth.io"
+    },
+    {
+      "date": "2024-03-18T00:00:00",
+      "weight": 77.47,
+      "filtered_weight": 77.47,
+      "predicted_weight": 77.47,
+      "is_valid": true,
+      "confidence": 0.99,
+      "trend_kg_per_day": 0.0,
+      "outlier_type": null,
+      "source": "https://connectivehealth.io"
+    },
+    {
+      "date": "2025-06-09T00:00:00",
+      "weight": 80.739376,
+      "filtered_weight": 80.739376,
+      "predicted_weight": 80.739376,
+      "is_valid": true,
+      "confidence": 0.99,
+      "trend_kg_per_day": 0.0,
+      "outlier_type": null,
+      "source": "internal-questionnaire"
+    },
+    {
+      "date": "2025-06-10T19:30:32",
+      "weight": 80.73900604248047,
+      "filtered_weight": 80.73900982320468,
+      "predicted_weight": 80.739376,
+      "is_valid": true,
+      "confidence": 0.99,
+      "trend_kg_per_day": -1.4475148003302527e-06,
+      "outlier_type": null,
+      "source": "patient-device"
+    },
+    {
+      "date": "2025-06-10T19:38:58",
+      "weight": 82.16700744628906,
+      "filtered_weight": 80.7390096784532,
+      "predicted_weight": 80.7390096784532,
+      "is_valid": false,
+      "confidence": 0.05,
+      "trend_kg_per_day": -1.4475148003302527e-06,
+      "outlier_type": null,
+      "source": "patient-device"
+    },
+    {
+      "date": "2025-06-10T19:39:11",
+      "weight": 82.1030044555664,
+      "filtered_weight": 81.366894839615,
+      "predicted_weight": 80.73900953370172,
+      "is_valid": true,
+      "confidence": 0.3,
+      "trend_kg_per_day": 0.023694181284173246,
+      "outlier_type": null,
+      "source": "patient-device"
+    },
+    {
+      "date": "2025-06-11T06:44:07",
+      "weight": 81.06900024414062,
+      "filtered_weight": 81.07946444504044,
+      "predicted_weight": 81.37783584721353,
+      "is_valid": true,
+      "confidence": 0.95,
+      "trend_kg_per_day": 0.011083165633421179,
+      "outlier_type": null,
+      "source": "patient-device"
+    }
+  ]
+}

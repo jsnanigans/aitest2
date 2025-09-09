@@ -1,0 +1,17 @@
+{
+  "processing_stats": {
+    "total_rows": 99,
+    "total_users": 5,
+    "initialized_users": 3,
+    "processing_time_seconds": 0.011749029159545898,
+    "rows_per_second": 8426.228129629253,
+    "users_per_second": 425.5670772540027
+  },
+  "data_quality": {
+    "total_accepted": 93,
+    "total_rejected": 2,
+    "acceptance_rate": 0.9789473684210527,
+    "outlier_types": {}
+  },
+  "timestamp": "2025-09-08T14:53:09.838959"
+}

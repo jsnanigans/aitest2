@@ -1,0 +1,63 @@
+{
+  "user_id": "000ded70-578d-4b05-8f62-b20b6f5bcf73",
+  "initialized": true,
+  "baseline": {
+    "weight": 109.41,
+    "confidence": "low",
+    "variance": 0.01
+  },
+  "current_state": {
+    "weight": 110.676448,
+    "trend_kg_per_day": 0.0,
+    "trend_kg_per_week": 0.0,
+    "measurement_count": 3
+  },
+  "stats": {
+    "total_readings": 3,
+    "accepted_readings": 3,
+    "rejected_readings": 0,
+    "outliers_by_type": {},
+    "first_reading": "2024-03-25 00:00:00",
+    "last_reading": "2025-03-07 00:00:00",
+    "min_weight": 108.14,
+    "max_weight": 110.676448,
+    "acceptance_rate": 1.0,
+    "average_weight": 109.408816,
+    "weight_range": 2.536447999999993
+  },
+  "time_series": [
+    {
+      "date": "2024-03-25T00:00:00",
+      "weight": 109.41,
+      "filtered_weight": 109.41,
+      "predicted_weight": 109.41,
+      "is_valid": true,
+      "confidence": 0.99,
+      "trend_kg_per_day": 0.0,
+      "outlier_type": null,
+      "source": "https://connectivehealth.io"
+    },
+    {
+      "date": "2024-04-04T00:00:00",
+      "weight": 108.14,
+      "filtered_weight": 108.14259184178673,
+      "predicted_weight": 109.41,
+      "is_valid": true,
+      "confidence": 0.95,
+      "trend_kg_per_day": -0.022809197920585313,
+      "outlier_type": null,
+      "source": "https://connectivehealth.io"
+    },
+    {
+      "date": "2025-03-07T00:00:00",
+      "weight": 110.676448,
+      "filtered_weight": 110.676448,
+      "predicted_weight": 110.676448,
+      "is_valid": true,
+      "confidence": 0.99,
+      "trend_kg_per_day": 0.0,
+      "outlier_type": null,
+      "source": "internal-questionnaire"
+    }
+  ]
+}

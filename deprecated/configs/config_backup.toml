@@ -1,0 +1,10 @@
+source_file = "./2025-09-05_optimized.csv"
+min_readings_per_user = 3
+specific_user_ids = ["001adb56-40a5-4ef2-a092-e20915e0fb81"]
+enable_kalman = true
+enable_baseline_gaps = true
+baseline_gap_threshold_days = 14
+use_test_output_names = false
+enable_visualization = false
+[logging]
+stdout_level = "WARNING"

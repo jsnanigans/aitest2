@@ -1,0 +1,50 @@
+# Test configuration for sanity check
+source_file = "./test_sample.csv"
+
+[output]
+directory = "output_test"
+
+[processing]
+max_users = 5
+min_init_readings = 3
+validation_gamma = 3.0
+filter_test_users = false
+
+[processing.layer1]
+enabled = true
+min_weight = 25.0
+max_weight = 450.0
+max_daily_change_percent = 3.0
+medical_mode_percent = 5.0
+normal_threshold_percent = 15.0
+extreme_threshold_percent = 30.0
+
+[processing.baseline]
+collection_days = 7
+max_collection_days = 14
+min_readings = 1
+iqr_multiplier = 1.5
+
+[processing.kalman]
+process_noise_weight = 0.5
+process_noise_trend = 0.01
+outlier_threshold = 3.0
+extreme_outlier_threshold = 5.0
+innovation_window_size = 20
+reset_gap_days = 30
+reset_deviation_threshold = 0.5
+physiological_min_weight = 40.0
+physiological_max_weight = 300.0
+
+[logging]
+file = "output_test/logs/app.log"
+level = "WARNING"
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+stdout_enabled = true
+stdout_level = "INFO"
+
+[visualization]
+enabled = false
+use_enhanced = false
+max_users = 5
+output_dir = "output_test/visualizations"

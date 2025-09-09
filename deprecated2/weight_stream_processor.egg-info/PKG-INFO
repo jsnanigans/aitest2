@@ -1,0 +1,248 @@
+Metadata-Version: 2.4
+Name: weight-stream-processor
+Version: 1.0.0
+Summary: High-performance streaming data processor for analyzing time-series weight readings
+Author-email: Your Name <your.email@example.com>
+License: MIT
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Healthcare Industry
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.20.0
+Requires-Dist: toml>=0.10.2
+Requires-Dist: pykalman>=0.9.5
+Provides-Extra: visualization
+Requires-Dist: matplotlib>=3.5.0; extra == "visualization"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: ruff>=0.0.261; extra == "dev"
+Provides-Extra: all
+Requires-Dist: weight-stream-processor[dev,visualization]; extra == "all"
+
+# Weight Stream Processor
+
+High-performance streaming data processor for analyzing time-series weight readings with advanced Kalman filtering and real-time outlier detection.
+
+## Features
+
+- **True Line-by-Line Streaming**: Processes CSV data without loading into memory
+- **Kalman Filtering**: Advanced statistical filtering with physiological constraints
+- **Baseline Establishment**: Automatic weight baseline detection from signup data
+- **Real-time Analysis**: Confidence scoring and outlier detection as data streams
+- **Comprehensive Visualization**: Automated dashboard generation for each user
+- **Performance**: Processes 2500+ users/second with minimal memory footprint
+
+## Project Structure
+
+```
+weight-stream-processor/
+├── src/                    # Source code
+│   ├── core/              # Core configuration and logging
+│   │   ├── config_loader.py
+│   │   └── logger_config.py
+│   ├── filters/           # Kalman filter implementations
+│   │   ├── kalman_filter.py
+│   │   └── physiological_kalman_filter.py
+│   ├── visualization/     # Data visualization modules
+│   │   ├── create_visualizations.py
+│   │   ├── create_kalman_charts.py
+│   │   └── view_kalman_example.py
+│   └── utils/             # Utility functions
+├── scripts/               # Standalone scripts
+│   ├── optimize_csv.py    # Pre-sort CSV for optimal streaming
+│   ├── baseline_processor.py
+│   └── main__old.py      # Legacy version
+├── analysis/              # Analysis tools
+│   ├── compare_kalman.py
+│   └── check_kalman_results.py
+├── tests/                 # Test suite
+│   ├── test_kalman.py
+│   ├── test_physiological_state.py
+│   └── ...
+├── output/                # Generated outputs (gitignored)
+├── docs/                  # Documentation
+├── main.py               # Main application entry point
+├── config.toml           # Configuration file
+├── requirements.txt      # Python dependencies
+└── pyproject.toml        # Python package configuration
+```
+
+## Installation
+
+### Using UV (Recommended)
+
+```bash
+# Install UV if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv pip install -r requirements.txt
+
+# Install with visualization support
+uv pip install matplotlib
+```
+
+### Using pip
+
+```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+## Quick Start
+
+### 1. Optimize Your Data (One-time)
+
+```bash
+uv run python scripts/optimize_csv.py ./your-data.csv
+```
+
+This sorts the CSV by user_id and date for optimal streaming performance.
+
+### 2. Configure Settings
+
+Edit `config.toml`:
+
+```toml
+source_file = "./your-data_optimized.csv"
+baseline_window_days = 7
+baseline_min_readings = 3
+enable_kalman = true
+enable_visualization = true
+use_physiological_filter = true
+```
+
+### 3. Run the Processor
+
+```bash
+uv run python main.py
+```
+
+## Configuration Options
+
+### Core Settings
+- `source_file`: Input CSV file path
+- `min_readings_per_user`: Minimum readings to process a user (default: 10)
+- `process_max_users`: Limit users processed (0 = unlimited)
+
+### Baseline Settings
+- `baseline_window_days`: Days after signup to establish baseline (default: 7)
+- `baseline_min_readings`: Minimum readings for baseline (default: 3)
+
+### Feature Flags
+- `enable_baseline`: Enable baseline weight establishment
+- `enable_kalman`: Enable Kalman filtering
+- `use_physiological_filter`: Use physiological constraints
+- `enable_visualization`: Generate dashboards
+
+### Output Settings
+- `output_individual_files`: Save individual user JSON files
+- `individual_output_dir`: Directory for user files
+- `max_visualizations`: Maximum dashboards to generate
+
+## Output Files
+
+```
+output/
+├── results_YYYYMMDD_HHMMSS.json      # Complete analysis results
+├── dashboards_YYYYMMDD_HHMMSS/       # User dashboards
+│   └── dashboard_<user_id>.png       # Individual visualizations
+├── users/                             # Individual user JSON files
+│   └── <user_id>.json
+└── app.log                           # Application log
+```
+
+## Performance Metrics
+
+- **Processing Speed**: 2500+ users/second
+- **Memory Usage**: O(1) - only current user in memory
+- **Scalability**: Handles millions of rows efficiently
+- **Baseline Coverage**: ~31% automatic baseline establishment
+
+## Development
+
+### Running Tests
+
+```bash
+uv run pytest tests/ -v
+```
+
+### Code Quality
+
+```bash
+# Format code
+black src/ main.py
+
+# Lint code
+ruff check src/ main.py
+
+# Type checking
+mypy src/ main.py
+```
+
+## Algorithm Details
+
+### Confidence Scoring
+
+Each reading receives a confidence score (0.0-1.0) based on deviation from baseline:
+
+- **0.95+**: Normal variation (<3% from baseline)
+- **0.90**: Small variation (3-5%)
+- **0.75**: Moderate variation (5-10%)
+- **0.60**: Significant variation (10-15%)
+- **0.45**: Large variation (15-20%)
+- **0.30**: Major variation (20-30%)
+- **0.15**: Extreme variation (30-50%)
+- **0.05**: Extreme outlier (>50% change)
+
+### Kalman Filtering
+
+Two filter implementations available:
+
+1. **Standard Kalman Filter**: Adaptive noise estimation based on source trust scores
+2. **Physiological Filter**: Includes biological constraints for human weight changes
+
+## API Usage
+
+```python
+from src.core import load_config, setup_logging
+from src.filters import WeightKalmanFilter, PhysiologicalKalmanFilter
+
+# Initialize
+config = load_config()
+setup_logging()
+
+# Create filter
+kalman = PhysiologicalKalmanFilter() if use_physiological else WeightKalmanFilter()
+
+# Process measurement
+result = kalman.process_measurement(weight, timestamp, source_type)
+```
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Support
+
+For issues and questions, please use the GitHub issue tracker.
