@@ -8,10 +8,16 @@ csv_file = "./data/2025-09-05_optimized.csv"
 output_dir = "output"
 
 # Maximum number of users to process (0 = unlimited)
-max_users = 10
+max_users = 20
 
 # Number of users to skip at the beginning (useful for resuming or testing)
 user_offset = 0
+
+
+# List of specific user IDs to process (empty = all users)
+test_users = [
+  "0040872d-333a-4ace-8c5a-b2fcd056e65a"
+]
 
 [processing]
 # Minimum readings needed to initialize Kalman filter

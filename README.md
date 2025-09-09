@@ -4,11 +4,26 @@ A clean, minimal implementation of weight data processing using Kalman filtering
 
 ## Architecture
 
-Three simple files:
+Three core files:
 
 - `main.py` - Streams CSV data and orchestrates processing
 - `processor.py` - Stateless Kalman filter processor per user
 - `visualization.py` - Creates dashboard visualizations
+
+## Project Structure
+
+```
+.
+├── main.py                 # Entry point for processing CSV files
+├── processor.py            # Core Kalman filter weight processor
+├── visualization.py        # Dashboard generation for analysis
+├── config.toml            # Configuration file
+├── tests/                 # All test files go here
+│   ├── test_viz_improvements.py
+│   └── test_progress.py
+├── data/                  # Input CSV files
+└── output/                # Generated results and visualizations
+```
 
 ## Features
 
@@ -16,7 +31,7 @@ Three simple files:
 - **Mathematical Kalman**: Uses `pykalman` for correct implementation
 - **Simple validation**: Basic physiological limits (30-400kg)
 - **Adaptive processing**: Handles gaps, resets state when needed
-- **Clean visualization**: 6-panel dashboard per user
+- **Enhanced visualization**: Kalman processing evaluation dashboard
 
 ## Installation
 
@@ -34,10 +49,22 @@ Only 3 dependencies:
 
 ```bash
 # Process weight data
-uv python main.py your_data.csv
+uv run python main.py your_data.csv
 
 # Or use default file
-uv python main.py
+uv run python main.py
+```
+
+## Testing
+
+All test files are located in the `tests/` directory:
+
+```bash
+# Run visualization test with synthetic data
+uv run python tests/test_viz_improvements.py
+
+# Run progress tracking test
+uv run python tests/test_progress.py
 ```
 
 ## Output
