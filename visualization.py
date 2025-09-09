@@ -38,7 +38,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     # Define date range for cropped views (2024-10-01 to 2025-09-05)
     crop_start = datetime(2025, 1, 1)
-    crop_end = datetime(2025, 9, 5)
+    crop_end = datetime(2025, 9, 12)
 
     def parse_timestamps(results):
         timestamps = [r["timestamp"] for r in results]
