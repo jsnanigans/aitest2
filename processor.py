@@ -22,28 +22,31 @@ class WeightProcessor:
         weight: float,
         timestamp: datetime,
         source: str,
-        processing_config: dict,
-        kalman_config: dict
-    ) -> Optional[Dict[str, Any]]:
+        processing_config: Dict,
+        kalman_config: Dict,
+        db=None,
+    ) -> Optional[Dict]:
         """
         Process a single weight measurement for a user.
 
-        This is the main public interface - simple and clean.
-        State management is handled internally.
+        This is the main entry point for the stateless processor.
+        State is loaded from database, updated, and saved back.
 
         Args:
             user_id: User identifier
             weight: Weight measurement in kg
             timestamp: Measurement timestamp
-            source: Data source (e.g., 'scale', 'app')
-            processing_config: Processing configuration
-            kalman_config: Kalman filter configuration
+            source: Data source identifier
+            processing_config: Processing configuration dict
+            kalman_config: Kalman filter configuration dict
+            db: Optional database instance (creates new if None)
 
         Returns:
             Result dictionary or None if buffering for initialization
         """
         # Get database instance
-        db = get_state_db()
+        if db is None:
+            db = get_state_db()
 
         # Load or create state
         state = db.get_state(user_id)

@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 
 from processor import WeightProcessor
+from reprocessor import WeightReprocessor
+from processor_database import ProcessorDatabase
 from visualization import create_dashboard
 
 
@@ -22,12 +24,54 @@ def load_config(config_path: str = "config.toml") -> dict:
         return tomllib.load(f)
 
 
+def process_daily_cleanup(day, user_measurements, config, db):
+    """
+    Process daily cleanup for users with multiple measurements.
+    
+    Args:
+        day: The date to process
+        user_measurements: Dict of user_id -> list of measurements
+        config: Configuration dict
+        db: Database instance
+        
+    Returns:
+        Stats about the cleanup
+    """
+    stats = {
+        'day': day,
+        'users_checked': 0,
+        'reprocessed_users': 0,
+        'total_rejected': 0
+    }
+    
+    for user_id, measurements in user_measurements.items():
+        stats['users_checked'] += 1
+        
+        if len(measurements) > 1:
+            # Multiple measurements for this user on this day
+            result = WeightReprocessor.process_daily_batch(
+                user_id=user_id,
+                batch_date=day,
+                measurements=measurements,
+                processing_config=config["processing"],
+                kalman_config=config["kalman"],
+                db=db
+            )
+            
+            if result.get('rejected'):
+                stats['reprocessed_users'] += 1
+                stats['total_rejected'] += len(result['rejected'])
+    
+    return stats
+
+
 def stream_process(csv_path: str, output_dir: str, config: dict):
     """
     Stream process weight data from CSV file.
 
     True streaming: processes each user's data as it arrives,
     keeping only current state. Stores results for visualization.
+    Runs daily cleanup when day changes are detected.
     """
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
@@ -38,6 +82,11 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     skipped_users = set()
     processed_users = set()
     users_with_insufficient_init_data = set()
+    
+    # Track daily data for cleanup
+    current_day = None
+    daily_measurements = defaultdict(lambda: defaultdict(list))
+    db = ProcessorDatabase()
 
     stats = {
         "total_rows": 0,
@@ -148,13 +197,42 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             except (ValueError, TypeError):
                 continue
 
-            date_str = row.get("effectivDateTime") or row.get("date")
+            date_str = row.get("effectivDateTime") or row.get("effectiveDateTime") or row.get("date")
             source = row.get("source_type") or row.get("source", "unknown")
 
             try:
                 timestamp = parse_timestamp(date_str)
             except:
                 timestamp = datetime.now()
+
+            # Check for day change and run cleanup if needed
+            measurement_day = timestamp.date()
+            
+            if current_day is not None and measurement_day != current_day:
+                # Day has changed - process previous day's data
+                if current_day in daily_measurements:
+                    print(f"\n  Day changed: Processing cleanup for {current_day}")
+                    cleanup_stats = process_daily_cleanup(
+                        current_day, 
+                        daily_measurements[current_day],
+                        config,
+                        db
+                    )
+                    if cleanup_stats['reprocessed_users']:
+                        print(f"    Cleaned up {cleanup_stats['reprocessed_users']} users, "
+                              f"rejected {cleanup_stats['total_rejected']} bad measurements")
+                    
+                    # Clear processed day from memory
+                    del daily_measurements[current_day]
+            
+            current_day = measurement_day
+            
+            # Store measurement for potential cleanup
+            daily_measurements[measurement_day][user_id].append({
+                'weight': weight,
+                'timestamp': timestamp,
+                'source': source
+            })
 
             # Use stateless processor - no need to create instances
             result = WeightProcessor.process_weight(
@@ -163,7 +241,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 timestamp=timestamp,
                 source=source,
                 processing_config=config["processing"],
-                kalman_config=config["kalman"]
+                kalman_config=config["kalman"],
+                db=db
             )
             
             # Track unique users
@@ -195,6 +274,19 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             ):
                 print(f"\n  Reached max_users limit ({max_users}), stopping...")
                 break
+
+    # Process final day's cleanup if there's data
+    if current_day is not None and current_day in daily_measurements:
+        print(f"\n  Processing final day cleanup for {current_day}")
+        cleanup_stats = process_daily_cleanup(
+            current_day, 
+            daily_measurements[current_day],
+            config,
+            db
+        )
+        if cleanup_stats['reprocessed_users']:
+            print(f"    Cleaned up {cleanup_stats['reprocessed_users']} users, "
+                  f"rejected {cleanup_stats['total_rejected']} bad measurements")
 
     # Check for users that never got enough data to initialize
     for user_id in users_with_insufficient_init_data:

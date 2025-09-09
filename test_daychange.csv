@@ -1,0 +1,7 @@
+user_id,effectiveDateTime,source_type,weight,unit
+test_user_1,2025-03-01 08:00:00,patient-device,80.5,kg
+test_user_1,2025-03-01 12:00:00,patient-device,180.5,kg
+test_user_1,2025-03-01 16:00:00,patient-device,81.0,kg
+test_user_1,2025-03-02 08:00:00,patient-device,80.8,kg
+test_user_1,2025-03-03 08:00:00,patient-device,80.6,kg
+test_user_1,2025-03-03 12:00:00,internal-questionnaire,81.2,kg
