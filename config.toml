@@ -29,21 +29,21 @@ min_weight = 30.0
 max_weight = 400.0
 
 # Maximum daily change allowed (as fraction)
-max_daily_change = 0.05  # Increased to handle real weight fluctuations
+max_daily_change = 0.05  # was 0.03
 
 # Extreme deviation threshold for rejecting measurements
-extreme_threshold = 0.20  # Tightened for better outlier detection
+extreme_threshold = 0.20  # was 0.30
 
 [kalman]
 # Initial variance scaling
-initial_variance = 0.5
+initial_variance = 0.5  # was 1.0
 
-# Process noise covariance matrix values (optimized for better stability)
-transition_covariance_weight = 0.05  # Reduced 10x for smoother estimates
-transition_covariance_trend = 0.0005  # Reduced 20x for stable trends
+# Process noise covariance matrix values
+transition_covariance_weight = 0.05  # was 0.5
+transition_covariance_trend = 0.0005  # was 0.01
 
-# Observation noise (increased to better handle real measurement variance)
-observation_covariance = 1.5
+# Observation noise
+observation_covariance = 1.5  # was 1.0
 
 # Reset threshold - days without data before resetting state
 reset_gap_days = 30
