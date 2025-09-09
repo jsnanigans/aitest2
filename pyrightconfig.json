@@ -1,0 +1,9 @@
+{
+  "reportMissingTypeStubs": false,
+  "exclude": ["**/node_modules", "**/__pycache__", "**/.*", "venv", ".venv"],
+  "include": ["**/*.py"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "off"
+}
