@@ -284,7 +284,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     
     from matplotlib.gridspec import GridSpec
     # New layout: Top row full width for main chart, bottom rows for other charts and stats
-    gs = GridSpec(3, 5, figure=fig, height_ratios=[5, 2, 2], width_ratios=[1, 1, 1, 1, 1.2], hspace=0.25, wspace=0.3)
+    gs = GridSpec(3, 5, figure=fig, height_ratios=[5, 2, 2], width_ratios=[1, 1, 1, 1, 1.2], 
+                  hspace=0.35, wspace=0.35, top=0.95, bottom=0.05, left=0.05, right=0.98)
 
     def parse_timestamps(results):
         timestamps = [r["timestamp"] for r in results]
@@ -692,7 +693,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax9.set_title('Rejection Categories', fontsize=12, fontweight='bold')
         ax9.axis('off')
 
-    plt.tight_layout()
+    # Don't use tight_layout with complex GridSpec - we set the spacing manually
+    # This avoids the warning about incompatible layouts
 
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
