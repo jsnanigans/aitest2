@@ -19,21 +19,21 @@ def categorize_rejection(reason: str) -> str:
     reason_lower = reason.lower()
     
     if "outside bounds" in reason_lower:
-        return "Bounds Violation"
+        return "Bounds"
     elif "extreme deviation" in reason_lower:
-        return "Extreme Deviation"
+        return "Extreme"
     elif "session variance" in reason_lower or "different user" in reason_lower:
-        return "Session Variance"
+        return "Variance"
     elif "sustained" in reason_lower:
-        return "Sustained Change (>24h)"
+        return "Sustained"
     elif "daily fluctuation" in reason_lower:
-        return "Daily Change (<24h)"
+        return "Daily"
     elif "meals" in reason_lower and "hydration" in reason_lower:
-        return "Medium-term Change (<6h)"
+        return "Medium"
     elif ("hydration" in reason_lower or "bathroom" in reason_lower) and "meals" not in reason_lower:
-        return "Short-term Change (<1h)"
+        return "Short"
     elif "exceeds" in reason_lower and "limit" in reason_lower:
-        return "Physiological Limit"
+        return "Limit"
     else:
         return "Other"
 
@@ -97,7 +97,7 @@ def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 
 def identify_interesting_rejections(
     rejected_results: List[dict], 
     clusters: List[Dict],
-    max_annotations: int = 3
+    max_annotations: int = 4
 ) -> List[Tuple[datetime, str, float]]:
     """
     Identify which rejections to annotate based on importance.
@@ -113,11 +113,11 @@ def identify_interesting_rejections(
             category = categorize_rejection(most_common_reason[0])
             
             if cluster['count'] > 10:
-                text = f"{cluster['count']} rejections"
-            elif cluster['count'] > 5:
-                text = f"{cluster['count']}x {category[:12]}"
-            else:
                 text = f"{cluster['count']}x"
+            elif cluster['count'] > 5:
+                text = f"{cluster['count']}x"
+            else:
+                text = category  # Just the single-word category
             
             avg_weight = np.mean(cluster['weights'])
             annotations.append((cluster['timestamp'], text, avg_weight))
@@ -127,14 +127,10 @@ def identify_interesting_rejections(
             category = categorize_rejection(reason)
             
             if category not in seen_categories and len(annotations) < max_annotations:
-                if len(category) > 20:
-                    short_text = category[:17] + "..."
-                else:
-                    short_text = category
-                
+                # Just use the single-word category
                 annotations.append((
                     cluster['timestamp'],
-                    short_text,
+                    category,
                     cluster['weights'][0]
                 ))
                 seen_categories.add(category)
@@ -248,7 +244,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     if not all_results:
         return
 
-    fig = plt.figure(figsize=(24, 16))
+    fig = plt.figure(figsize=(26, 14))
     fig.suptitle(
         f"Kalman Filter Processing Evaluation - User {user_id[:8]}",
         fontsize=18,
@@ -257,7 +253,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     )
     
     from matplotlib.gridspec import GridSpec
-    gs = GridSpec(3, 4, figure=fig, height_ratios=[4, 2, 2], hspace=0.3, wspace=0.25)
+    # New layout: Top row full width for main chart, bottom rows for other charts and stats
+    gs = GridSpec(3, 5, figure=fig, height_ratios=[5, 2, 2], width_ratios=[1, 1, 1, 1, 1.2], hspace=0.25, wspace=0.3)
 
     def parse_timestamps(results):
         timestamps = [r["timestamp"] for r in results]
@@ -331,7 +328,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             if crop_start <= ts <= crop_end:
                 valid_results_cropped.append(r)
 
-    ax1 = fig.add_subplot(gs[0, :3])
+    # Main chart takes full width of top row (all 5 columns)
+    ax1 = fig.add_subplot(gs[0, :])
 
     # No need to show raw data - we only plot accepted/rejected results
 
@@ -389,15 +387,15 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         # Add to legend
         ax1.plot([], [], color='gray', linestyle='--', alpha=0.5, linewidth=1.5, label='State Reset')
 
-    ax1.set_xlabel("Date", fontsize=13)
-    ax1.set_ylabel("Weight (kg)", fontsize=13)
+    ax1.set_xlabel("Date", fontsize=14)
+    ax1.set_ylabel("Weight (kg)", fontsize=14)
     
     # Show recent data in main chart, with option to see full range
     if len(all_timestamps) > 100:  # If we have substantial history
         ax1.set_xlim([crop_start, crop_end])
-        ax1.set_title(f"Kalman Filter Output vs Raw Data (Recent {cropped_months} Months)", fontsize=14, fontweight='bold', pad=10)
+        ax1.set_title("Kalman Filter Output vs Raw Data", fontsize=16, fontweight='bold', pad=12)
     else:
-        ax1.set_title("Kalman Filter Output vs Raw Data", fontsize=14, fontweight='bold', pad=10)
+        ax1.set_title("Kalman Filter Output vs Raw Data", fontsize=16, fontweight='bold', pad=12)
     
     ax1.legend(loc="best", ncol=4, fontsize=11, framealpha=0.95)
     ax1.grid(True, alpha=0.3, linewidth=0.5)
@@ -405,8 +403,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
-    # Statistics Panel (right side of top row)
-    ax_stats = fig.add_subplot(gs[0, 3])
+    # Statistics Panel (right side of middle row)
+    ax_stats = fig.add_subplot(gs[1:, 4])
     ax_stats.axis('off')
     
     # Build statistics content with better formatting
@@ -516,6 +514,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         innovations_cropped = [r.get("innovation", 0) for r in valid_results_cropped]
         normalized_innovations_cropped = [r.get("normalized_innovation", 0) for r in valid_results_cropped]
 
+        # Innovation chart in middle row, first column
         ax2 = fig.add_subplot(gs[1, 0])
         ax2.plot(valid_ts_cropped, innovations_cropped, 'o-', markersize=6, alpha=0.8, color='#0288D1', linewidth=2)
         ax2.axhline(0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
@@ -535,6 +534,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
         ax2.set_xlim([crop_start, crop_end])
 
+        # Normalized Innovation in middle row, second column
         ax3 = fig.add_subplot(gs[1, 1])
         colors = ['#2E7D32' if ni <= 2 else '#FFA726' if ni <= 3 else '#D32F2F'
                  for ni in normalized_innovations_cropped]
@@ -552,6 +552,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax3.set_xlim([crop_start, crop_end])
 
         confidences_cropped = [r.get("confidence", 0.5) for r in valid_results_cropped]
+        # Confidence in middle row, third column
         ax4 = fig.add_subplot(gs[1, 2])
         ax4.plot(valid_ts_cropped, confidences_cropped, 'o-', markersize=6, alpha=0.8, color='#6A1B9A', linewidth=2)
         ax4.fill_between(valid_ts_cropped, 0, confidences_cropped, alpha=0.4, color='#CE93D8')
@@ -568,45 +569,10 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         plt.setp(ax4.xaxis.get_majorticklabels(), rotation=45, ha='right')
         ax4.set_xlim([crop_start, crop_end])
 
-        trends_cropped = [r.get("trend", 0) for r in valid_results_cropped]
-        weekly_trends_cropped = [t * 7 for t in trends_cropped]
-        ax5 = fig.add_subplot(gs[1, 3])
-        ax5.plot(valid_ts_cropped, weekly_trends_cropped, '-', linewidth=2.5, color='#1565C0')
-        ax5.axhline(0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
-        ax5.fill_between(valid_ts_cropped, 0, weekly_trends_cropped, alpha=0.4, color='#90CAF9')
-        ax5.set_xlabel("Date", fontsize=11)
-        ax5.set_ylabel("Weekly Trend (kg/week)", fontsize=11)
-        ax5.set_title("Kalman Trend Component\n(Velocity State)", fontsize=12, fontweight='bold')
-        ax5.grid(True, alpha=0.3)
-        ax5.xaxis.set_major_formatter(mdates.DateFormatter("%m/%d"))
-        plt.setp(ax5.xaxis.get_majorticklabels(), rotation=45, ha='right')
-        ax5.set_xlim([crop_start, crop_end])
+        # Trend component removed - not needed
 
-    ax6 = fig.add_subplot(gs[2, 0])
-    if valid_results_cropped and len(filtered_cropped) > 1:
-        residuals = [r - f for r, f in zip(valid_raw_cropped, filtered_cropped)]
-        ax6.hist(residuals, bins=20, edgecolor='#1A237E', alpha=0.8, color='#5C6BC0', linewidth=1.5)
-        ax6.axvline(0, color='#D32F2F', linestyle='--', linewidth=2.5, label=f'Mean: {np.mean(residuals):.2f}')
-        ax6.axvline(np.median(residuals), color='#2E7D32', linestyle='--', linewidth=2.5, label=f'Median: {np.median(residuals):.2f}')
-        ax6.set_xlabel("Residual (Raw - Filtered) kg", fontsize=11)
-        ax6.set_ylabel("Frequency", fontsize=11)
-        ax6.set_title("Residual Distribution\n(Should be ~Normal)", fontsize=12, fontweight='bold')
-        ax6.legend(fontsize=9)
-        ax6.grid(True, alpha=0.3)
-
-    ax7 = fig.add_subplot(gs[2, 1])
-    if valid_results_cropped and len(normalized_innovations_cropped) > 1:
-        ax7.hist(normalized_innovations_cropped, bins=20, edgecolor='#4A148C', alpha=0.8, color='#9C27B0', linewidth=1.5)
-        ax7.axvline(1, color='#2E7D32', linestyle='--', linewidth=2, label='1σ')
-        ax7.axvline(2, color='#FF6F00', linestyle='--', linewidth=2, label='2σ')
-        ax7.axvline(3, color='#D32F2F', linestyle='--', linewidth=2, label='3σ')
-        ax7.set_xlabel("Normalized Innovation (σ)", fontsize=11)
-        ax7.set_ylabel("Frequency", fontsize=11)
-        ax7.set_title("Innovation Distribution\n(Should peak at ~1σ)", fontsize=12, fontweight='bold')
-        ax7.legend(fontsize=9)
-        ax7.grid(True, alpha=0.3)
-
-    ax8 = fig.add_subplot(gs[2, 2])
+    # Daily Change Distribution moved to middle row, fourth column
+    ax8 = fig.add_subplot(gs[1, 3])
     if valid_results_cropped and len(filtered_cropped) > 2:
         diffs = np.diff(filtered_cropped)
         time_diffs = [(valid_ts_cropped[i+1] - valid_ts_cropped[i]).days
@@ -619,7 +585,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax8.set_title("Daily Change Distribution\n(Filtered Weights)", fontsize=12, fontweight='bold')
         ax8.grid(True, alpha=0.3)
 
-    ax9 = fig.add_subplot(gs[2, 3])
+    # Rejection categories chart spans bottom row (first 4 columns)
+    ax9 = fig.add_subplot(gs[2, :4])
     
     # Create rejection categories bar chart
     if rejected_results:
@@ -636,9 +603,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             categories = []
             counts = []
             for cat, count in sorted_categories:
-                # Shorten long category names
-                if len(cat) > 15:
-                    cat = cat[:12] + "..."
+                # Categories are already single words, no need to shorten
                 categories.append(cat)
                 counts.append(count)
             
