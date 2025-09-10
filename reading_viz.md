@@ -14,11 +14,44 @@ The large chart at the top shows your weight measurements over time.
 
 **Lines and Points:**
 - **Blue Line** - Kalman filtered weight (smoothed, best estimate)
-- **Green Dots** - Raw measurements that were accepted
+- **Accepted Measurements** - Different shapes indicate data source (see Source Types below)
 - **Colored X Marks** - Rejected measurements (color indicates reason - see below)
 - **Light Blue Shading** - Uncertainty band (wider = less confidence)
 - **Orange Dashed Line** - Baseline weight (median of first 10 measurements)
 - **Gray Dashed Vertical Lines** - State resets (with gap duration label)
+
+### Source Type Indicators
+
+Accepted measurements use different marker shapes to indicate their data source:
+
+- **○ Circle (Device)** - Direct device measurements (scales, connected devices)
+  - Full name: `patient-device`, `scale`, or similar device identifiers
+  - Most reliable, automatic measurements
+  
+- **□ Square (Connected)** - API/connected health platforms
+  - Full name: `https://connectivehealth.io`, `https://api.iglucose.com`, or other API URLs
+  - Data from integrated health platforms
+  
+- **△ Triangle (Questionnaire)** - Self-reported via questionnaires
+  - Full name: `internal-questionnaire`
+  - Manual entry through structured forms
+  
+- **◇ Diamond (Manual)** - Patient uploads
+  - Full name: `patient-upload`
+  - Manual data entry by patients
+  
+- **⬟ Pentagon (Test)** - Test data
+  - Full name: `test`
+  - Data used for testing/validation
+  
+- **• Dot (Other/Unknown)** - Unrecognized sources
+  - Full name: Various unrecognized source identifiers
+  - Sources that don't match known patterns
+
+**Visual Hierarchy:**
+- Larger, more opaque markers = more reliable sources
+- Smaller, more transparent markers = less reliable sources
+- Color coding: Green (Device) → Blue (Connected) → Purple (Questionnaire) → Orange (Manual) → Gray (Other)
 
 ### Rejection Color Coding
 
@@ -110,7 +143,7 @@ Histogram showing the distribution of day-to-day weight changes.
 
 ## Bottom Section
 
-### Rejection Categories (Bar Chart)
+### Rejection Categories (Bar Chart - Left)
 
 Horizontal bars showing the frequency of each rejection type.
 
@@ -123,6 +156,30 @@ Horizontal bars showing the frequency of each rejection type.
 - Dominant rejection types indicate measurement patterns
 - High "Extreme" or "Bounds" may indicate scale issues
 - High "Variance" may indicate multiple users on same scale
+
+### Measurements by Source Type (Bar Chart - Right)
+
+Stacked bar chart showing the distribution of measurements across different data sources.
+
+**How to read:**
+- **Green bars** - Accepted measurements from this source
+- **Red bars** - Rejected measurements from this source
+- **Height** - Total number of measurements
+- **Labels** - Show total count and acceptance percentage
+
+**Source reliability ranking (most to least reliable):**
+1. **Device** - Direct scale/device measurements
+2. **Connected** - API-integrated platforms
+3. **Questionnaire** - Structured self-reports
+4. **Manual** - Patient uploads
+5. **Test** - Test data
+6. **Other** - Unrecognized sources
+
+**What to look for:**
+- Higher acceptance rates indicate more reliable sources
+- Device sources typically have highest acceptance rates
+- Manual/questionnaire sources may have more variability
+- Consider source distribution when evaluating data quality
 
 ## Statistics Panel (Right Side)
 
@@ -151,6 +208,12 @@ Horizontal bars showing the frequency of each rejection type.
 - **Min/Max** - Weight range observed
 - **Range** - Total weight variation
 
+### Source Analysis
+Shows distribution of measurements by source type:
+- **Source labels** - Shortened names (Device, Connected, etc.)
+- **Counts** - Total measurements from each source
+- **Acceptance rate** - Percentage accepted (acc %)
+
 ### Rejection Analysis
 Lists the most common rejection reasons with counts and percentages.
 
@@ -158,7 +221,8 @@ Lists the most common rejection reasons with counts and percentages.
 
 ### Healthy Pattern
 - Smooth blue line with minimal fluctuations
-- Most measurements accepted (green dots)
+- Most measurements accepted (various shapes indicating sources)
+- Consistent source types (ideally mostly Device or Connected)
 - Few rejections, mostly "Short" or "Daily" categories
 - Innovation centered around 0
 - Confidence consistently high
@@ -184,6 +248,13 @@ Lists the most common rejection reasons with counts and percentages.
 - Daily change distribution shifted left/right
 - Trend value significantly negative/positive
 - Innovations may show consistent bias
+
+### Mixed Source Pattern
+- Multiple marker shapes in accepted measurements
+- Varying acceptance rates by source in statistics
+- Possible clustering of rejections near manual/questionnaire entries
+- Consider focusing on most reliable sources (Device/Connected)
+- May indicate need for better measurement standardization
 
 ### Data Gap Pattern
 - Gray vertical lines showing state resets
@@ -224,13 +295,20 @@ Lists the most common rejection reasons with counts and percentages.
 - Check for scale issues
 - Reduce measurement condition variations
 
+### Inconsistent Source Types
+- Standardize measurement method
+- Prefer Device or Connected sources when possible
+- Ensure manual entries follow consistent protocol
+- Consider source reliability in data interpretation
+
 ## Key Takeaways
 
-1. **Green is good** - More green dots mean better data quality
+1. **Source matters** - Device measurements (circles) are most reliable
 2. **Smooth is accurate** - The blue line should be relatively smooth
 3. **Patterns matter** - Look for consistent rejection types
 4. **Confidence counts** - Higher confidence means better estimates
 5. **Consistency helps** - Regular measurements improve accuracy
+6. **Check your sources** - High acceptance rates indicate reliable data sources
 
 ## Technical Notes
 
@@ -239,6 +317,8 @@ Lists the most common rejection reasons with counts and percentages.
 - Physiological limits prevent impossible weight changes
 - The filter learns your typical variation over time
 - Uncertainty increases with time between measurements
+- Source reliability affects measurement confidence
+- Device sources receive higher initial confidence than manual entries
 
 ---
 

@@ -1,256 +1,198 @@
-import json
-import numpy as np
-from datetime import datetime, timedelta
-import pandas as pd
+"""
+Generate comprehensive multi-user investigation report.
+"""
+
+import csv
+from datetime import datetime
 from collections import defaultdict
+from src.visualization import normalize_source_type
 
-# Load the user data
-with open('output/debug_test_no_date/user_0040872d-333a-4ace-8c5a-b2fcd056e65a.json', 'r') as f:
-    data = json.load(f)
 
-# Extract all measurements
-measurements = []
-for log in data['processing_logs']:
-    if log['timestamp'] and log['weight']:
-        measurements.append({
-            'timestamp': datetime.fromisoformat(log['timestamp']),
-            'weight': log['weight'],
-            'result': log['result'],
-            'source': log['source']
-        })
-
-df = pd.DataFrame(measurements)
-df = df.sort_values('timestamp')
-df['hour'] = df['timestamp'].dt.hour
-df['minute'] = df['timestamp'].dt.minute
-df['time_of_day'] = df['hour'] + df['minute']/60
-df['date'] = df['timestamp'].dt.date
-
-print("=" * 80)
-print("INVESTIGATION REPORT: Multi-User Scale Detection")
-print("User ID: 0040872d-333a-4ace-8c5a-b2fcd056e65a")
-print("=" * 80)
-
-print("\n1. EVIDENCE OF MULTIPLE USERS")
-print("-" * 40)
-
-# Simple clustering by weight ranges
-def classify_user(weight):
-    if weight < 50:
-        return 0  # Child/Teen
-    elif weight < 70:
-        return 1  # Light Adult
-    elif weight < 90:
-        return 2  # Average Adult
-    else:
-        return 3  # Heavy Adult
-
-df['user_cluster'] = df['weight'].apply(classify_user)
-
-# Get cluster statistics
-clusters = []
-cluster_names = ['Child/Teen (<50kg)', 'Light Adult (50-70kg)', 'Average Adult (70-90kg)', 'Heavy Adult (>90kg)']
-
-for i in range(4):
-    cluster_data = df[df['user_cluster'] == i]
-    if len(cluster_data) > 0:
-        clusters.append({
-            'id': i,
-            'name': cluster_names[i],
-            'mean': cluster_data['weight'].mean(),
-            'std': cluster_data['weight'].std(),
-            'count': len(cluster_data),
-            'min': cluster_data['weight'].min(),
-            'max': cluster_data['weight'].max(),
-            'accepted': len(cluster_data[cluster_data['result'] == 'accepted'])
-        })
-
-print("\nIdentified Weight Clusters (Likely Different Users):")
-for c in clusters:
-    print(f"\n{c['name']}:")
-    print(f"  Weight range: {c['min']:.1f} - {c['max']:.1f} kg")
-    print(f"  Mean weight: {c['mean']:.1f} ± {c['std']:.1f} kg")
-    print(f"  Measurements: {c['count']} (accepted: {c['accepted']})")
+def analyze_dataset():
+    """Analyze the complete dataset."""
     
-    # Time patterns for this cluster
-    cluster_df = df[df['user_cluster'] == c['id']]
-    top_hours = cluster_df.groupby('hour').size().sort_values(ascending=False).head(3)
-    if len(top_hours) > 0:
-        print(f"  Preferred times: {', '.join([f'{h:02d}:00' for h in top_hours.index])}")
-
-print("\n2. PHYSIOLOGICALLY IMPOSSIBLE CHANGES")
-print("-" * 40)
-
-# Calculate sequential changes
-df['prev_weight'] = df['weight'].shift(1)
-df['weight_change'] = df['weight'] - df['prev_weight']
-df['time_diff_hours'] = df['timestamp'].diff().dt.total_seconds() / 3600
-df['change_rate_kg_per_day'] = (df['weight_change'] / df['time_diff_hours']) * 24
-
-# Filter for rapid changes
-rapid_changes = df[(df['time_diff_hours'] < 24) & (df['weight_change'].abs() > 5)].copy()
-
-print(f"\nFound {len(rapid_changes)} physiologically impossible changes (>5kg in <24h)")
-print("\nTop 10 Most Extreme Changes:")
-rapid_changes['abs_change'] = rapid_changes['weight_change'].abs()
-for _, row in rapid_changes.nlargest(10, 'abs_change').iterrows():
-    print(f"  {row['timestamp'].strftime('%Y-%m-%d %H:%M')}: "
-          f"{row['prev_weight']:.1f} → {row['weight']:.1f} kg "
-          f"({row['weight_change']:+.1f} kg in {row['time_diff_hours']:.1f}h)")
-
-print("\n3. TIME-BASED USER SEPARATION PATTERNS")
-print("-" * 40)
-
-# Analyze measurement sessions
-df['session_gap'] = df['timestamp'].diff() > pd.Timedelta(hours=1)
-df['session_id'] = df['session_gap'].cumsum()
-
-# Find sessions with multiple measurements
-session_stats = df.groupby('session_id').agg({
-    'weight': ['count', 'std', 'min', 'max'],
-    'timestamp': ['min', 'max']
-})
-
-multi_sessions = session_stats[session_stats[('weight', 'count')] > 1]
-high_variance_sessions = multi_sessions[multi_sessions[('weight', 'std')] > 10]
-
-print(f"\nSessions with multiple measurements: {len(multi_sessions)}")
-print(f"Sessions with high weight variance (>10kg std): {len(high_variance_sessions)}")
-
-if len(high_variance_sessions) > 0:
-    print("\nExample High-Variance Sessions (Multiple Users):")
-    for idx in list(high_variance_sessions.index)[:5]:
-        session_data = df[df['session_id'] == idx]
-        weights = session_data['weight'].values
-        times = session_data['timestamp'].dt.strftime('%H:%M').values
-        weight_str = ', '.join([f'{w:.1f}' for w in weights])
-        print(f"  Session at {session_data['timestamp'].iloc[0].strftime('%Y-%m-%d')}: "
-              f"weights=[{weight_str}], range={weights.max()-weights.min():.1f}kg")
-
-print("\n4. PATTERN ANALYSIS")
-print("-" * 40)
-
-# Check for consistent user patterns
-morning_weights = df[(df['hour'] >= 5) & (df['hour'] <= 9)]
-evening_weights = df[(df['hour'] >= 18) & (df['hour'] <= 22)]
-
-print(f"\nMorning measurements (5-9am): {len(morning_weights)}")
-if len(morning_weights) > 0:
-    print(f"  Mean: {morning_weights['weight'].mean():.1f}kg, Std: {morning_weights['weight'].std():.1f}kg")
-
-print(f"\nEvening measurements (6-10pm): {len(evening_weights)}")
-if len(evening_weights) > 0:
-    print(f"  Mean: {evening_weights['weight'].mean():.1f}kg, Std: {evening_weights['weight'].std():.1f}kg")
-
-# Look for rapid succession measurements (family weighing together)
-rapid_succession = df[df['time_diff_hours'] < 0.25]  # Within 15 minutes
-print(f"\nMeasurements within 15 minutes of previous: {len(rapid_succession)}")
-if len(rapid_succession) > 0:
-    weight_jumps = rapid_succession[rapid_succession['weight_change'].abs() > 10]
-    print(f"  With >10kg difference (different person): {len(weight_jumps)}")
-
-print("\n5. RECOMMENDATIONS FOR IMPROVEMENT")
-print("-" * 40)
-
-print("\n5.1 Physiological Rate Limits:")
-print("  Current: 50% change rejection (line 208 in processor.py)")
-print("  PROBLEM: Too permissive - allows 40kg person to jump to 60kg")
-print("  ")
-print("  RECOMMENDED: Implement time-based absolute limits:")
-print("    - < 1 hour: max 2kg change (drinking/bathroom)")
-print("    - < 6 hours: max 3kg change (meals + hydration)")
-print("    - < 24 hours: max 5kg change (extreme dehydration)")
-print("    - > 24 hours: max 0.5kg/day sustained change")
-
-print("\n5.2 Multi-User Detection:")
-print("  RECOMMENDED: Add user profiling:")
-print("    - Track typical weight range per user")
-print("    - Detect when weight jumps between known clusters")
-print("    - Maintain separate Kalman states for each detected user")
-print("    - Use time-of-day patterns to help identify users")
-
-print("\n5.3 Session-Based Processing:")
-print("  RECOMMENDED: Group rapid measurements:")
-print("    - Measurements within 5 minutes = same weighing session")
-print("    - Take median of consistent weights in session")
-print("    - Reject sessions with >5kg variance as multi-user")
-
-print("\n6. SPECIFIC CODE CHANGES NEEDED")
-print("-" * 40)
-
-print("\nIn processor.py, replace line 207-209 with:")
-print("""
-    # Calculate time since last measurement
-    time_delta_hours = 24  # Default for first measurement
-    if state and state.get('last_timestamp'):
-        last_ts = state['last_timestamp']
-        if isinstance(last_ts, str):
-            last_ts = datetime.fromisoformat(last_ts)
-        time_delta_hours = (timestamp - last_ts).total_seconds() / 3600
+    # Load all data
+    user_data = defaultdict(list)
     
-    # Apply physiological limits based on time
-    change = abs(weight - last_weight)
+    with open('data/test_sample.csv', 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['weight'] and row['effectiveDateTime']:
+                user_data[row['user_id']].append({
+                    'timestamp': datetime.fromisoformat(row['effectiveDateTime']),
+                    'weight': float(row['weight']),
+                    'source': row['source_type'],
+                    'normalized': normalize_source_type(row['source_type'])
+                })
     
-    if time_delta_hours < 1:
-        max_change = 2.0  # Quick bathroom/drinking
-    elif time_delta_hours < 6:
-        max_change = 3.0  # Meals + hydration  
-    elif time_delta_hours < 24:
-        max_change = 5.0  # Extreme dehydration
-    else:
-        # Long-term: 0.5kg/day max sustained
-        max_change = min(5.0, time_delta_hours / 24 * 0.5)
+    print("=" * 60)
+    print("MULTI-USER DATASET ANALYSIS")
+    print("=" * 60)
+    print()
     
-    if change > max_change:
-        return False  # Physiologically impossible
-""")
-
-print("\n7. VALIDATION METRICS")
-print("-" * 40)
-
-# Calculate what would be rejected with new rules
-new_rejections = []
-for _, row in df.iterrows():
-    if pd.notna(row.get('prev_weight')) and pd.notna(row.get('time_diff_hours')):
-        change = abs(row['weight'] - row['prev_weight'])
-        hours = row['time_diff_hours']
+    print(f"Total Users: {len(user_data)}")
+    print(f"Total Measurements: {sum(len(data) for data in user_data.values())}")
+    print()
+    
+    print("USER BREAKDOWN:")
+    print("-" * 40)
+    
+    # Analyze each user
+    user_summaries = []
+    for uid, measurements in user_data.items():
+        # Sort by timestamp
+        measurements.sort(key=lambda x: x['timestamp'])
         
-        if hours < 1:
-            max_change = 2.0
-        elif hours < 6:
-            max_change = 3.0
-        elif hours < 24:
-            max_change = 5.0
+        # Get source distribution
+        sources = defaultdict(int)
+        for m in measurements:
+            sources[m['normalized']] += 1
+        
+        # Calculate time span
+        if len(measurements) > 1:
+            time_span = (measurements[-1]['timestamp'] - measurements[0]['timestamp']).days
         else:
-            max_change = min(5.0, hours / 24 * 0.5)
+            time_span = 0
         
-        if change > max_change and row['result'] == 'accepted':
-            new_rejections.append({
-                'timestamp': row['timestamp'],
-                'change': change,
-                'hours': hours,
-                'prev': row['prev_weight'],
-                'curr': row['weight']
-            })
+        # Get weight range
+        weights = [m['weight'] for m in measurements]
+        weight_range = max(weights) - min(weights) if weights else 0
+        
+        summary = {
+            'user_id': uid,
+            'count': len(measurements),
+            'sources': dict(sources),
+            'source_diversity': len(sources),
+            'time_span_days': time_span,
+            'weight_range_kg': weight_range,
+            'avg_weight': sum(weights) / len(weights) if weights else 0
+        }
+        user_summaries.append(summary)
+    
+    # Sort by measurement count
+    user_summaries.sort(key=lambda x: x['count'], reverse=True)
+    
+    for i, summary in enumerate(user_summaries, 1):
+        print(f"\n{i}. User {summary['user_id'][:8]}...")
+        print(f"   Measurements: {summary['count']}")
+        print(f"   Time Span: {summary['time_span_days']} days")
+        print(f"   Weight Range: {summary['weight_range_kg']:.1f} kg")
+        print(f"   Avg Weight: {summary['avg_weight']:.1f} kg")
+        print(f"   Source Types: {summary['source_diversity']}")
+        for source, count in summary['sources'].items():
+            print(f"     - {source}: {count} ({count/summary['count']*100:.1f}%)")
+    
+    print()
+    print("=" * 60)
+    print("SOURCE DISTRIBUTION ANALYSIS")
+    print("=" * 60)
+    
+    # Overall source distribution
+    all_sources = defaultdict(int)
+    for data in user_data.values():
+        for m in data:
+            all_sources[m['normalized']] += 1
+    
+    total_measurements = sum(all_sources.values())
+    print(f"\nOverall Source Distribution ({total_measurements} total):")
+    for source, count in sorted(all_sources.items(), key=lambda x: x[1], reverse=True):
+        percentage = count / total_measurements * 100
+        print(f"  {source:20s}: {count:3d} ({percentage:5.1f}%)")
+    
+    print()
+    print("=" * 60)
+    print("DATA QUALITY ASSESSMENT")
+    print("=" * 60)
+    
+    # Categorize users
+    sufficient_data = [s for s in user_summaries if s['count'] >= 30]
+    moderate_data = [s for s in user_summaries if 10 <= s['count'] < 30]
+    insufficient_data = [s for s in user_summaries if s['count'] < 10]
+    
+    print(f"\nUsers with sufficient data (30+ measurements): {len(sufficient_data)}")
+    print(f"Users with moderate data (10-29 measurements): {len(moderate_data)}")
+    print(f"Users with insufficient data (<10 measurements): {len(insufficient_data)}")
+    
+    # Source diversity analysis
+    single_source = [s for s in user_summaries if s['source_diversity'] == 1]
+    multi_source = [s for s in user_summaries if s['source_diversity'] >= 2]
+    
+    print(f"\nSingle-source users: {len(single_source)}")
+    print(f"Multi-source users: {len(multi_source)}")
+    
+    print()
+    print("=" * 60)
+    print("ANALYSIS LIMITATIONS")
+    print("=" * 60)
+    
+    print("\n⚠️ CRITICAL LIMITATIONS:")
+    print(f"  • Only {len(sufficient_data)} user(s) have enough data for robust analysis")
+    print(f"  • {len(single_source)} users have single source (no comparison possible)")
+    print(f"  • Limited source diversity across users")
+    print(f"  • Total dataset size: {total_measurements} measurements")
+    
+    print("\n📊 STATISTICAL VALIDITY:")
+    if len(sufficient_data) < 10:
+        print("  ❌ Insufficient sample size for statistical significance")
+        print("  ❌ Results may not generalize to broader population")
+        print("  ❌ Source impact analysis unreliable with current data")
+    else:
+        print("  ✅ Adequate sample size for preliminary analysis")
+        print("  ⚠️ More diverse users needed for robust conclusions")
+    
+    print()
+    print("=" * 60)
+    print("RECOMMENDATIONS FOR ANALYSIS")
+    print("=" * 60)
+    
+    print("\n1. DATA COLLECTION:")
+    print("   • Need minimum 30 users with 30+ measurements each")
+    print("   • Ensure source diversity within users")
+    print("   • Target mix of device, API, manual, questionnaire sources")
+    
+    print("\n2. CURRENT ANALYSIS VALIDITY:")
+    if len(sufficient_data) == 1:
+        print("   • Results based on single user - NOT GENERALIZABLE")
+        print("   • Treat as case study, not population analysis")
+        print("   • Cannot draw conclusions about source impact")
+    elif len(sufficient_data) < 5:
+        print("   • Very limited sample - results preliminary only")
+        print("   • High risk of user-specific bias")
+        print("   • Need more data before implementation decisions")
+    
+    print("\n3. NEXT STEPS:")
+    print("   • Collect more user data before source differentiation")
+    print("   • Focus on baseline processor optimization")
+    print("   • Implement source logging for future analysis")
+    
+    # Generate summary report
+    with open('output/dataset_investigation.txt', 'w') as f:
+        f.write("DATASET INVESTIGATION REPORT\n")
+        f.write("=" * 60 + "\n\n")
+        f.write(f"Generated: {datetime.now().isoformat()}\n\n")
+        
+        f.write("EXECUTIVE SUMMARY:\n")
+        f.write("-" * 30 + "\n")
+        f.write(f"Total Users: {len(user_data)}\n")
+        f.write(f"Total Measurements: {total_measurements}\n")
+        f.write(f"Users with Sufficient Data: {len(sufficient_data)}\n")
+        f.write(f"Multi-Source Users: {len(multi_source)}\n\n")
+        
+        f.write("KEY FINDING:\n")
+        if len(sufficient_data) <= 1:
+            f.write("⚠️ INSUFFICIENT DATA FOR SOURCE IMPACT ANALYSIS\n")
+            f.write("Only 1 user has enough measurements for analysis.\n")
+            f.write("Results cannot be generalized to other users.\n\n")
+        
+        f.write("RECOMMENDATION:\n")
+        f.write("DO NOT implement source-based processing changes.\n")
+        f.write("Current data insufficient to justify modifications.\n")
+        f.write("Continue with baseline processor.\n")
+    
+    print("\nReport saved to output/dataset_investigation.txt")
+    
+    return user_summaries
 
-currently_rejected = len(df[df['result'] == 'rejected'])
-currently_accepted = len(df[df['result'] == 'accepted'])
 
-print(f"\nCurrent performance:")
-print(f"  Accepted: {currently_accepted}/{len(df)} ({currently_accepted/len(df)*100:.1f}%)")
-print(f"  Rejected: {currently_rejected}/{len(df)} ({currently_rejected/len(df)*100:.1f}%)")
-
-print(f"\nWith new physiological limits:")
-print(f"  Additional rejections: {len(new_rejections)}")
-print(f"  New acceptance rate: {(currently_accepted - len(new_rejections))/len(df)*100:.1f}%")
-
-if len(new_rejections) > 0:
-    print(f"\nExamples of newly rejected changes:")
-    for rej in new_rejections[:5]:
-        print(f"  {rej['timestamp'].strftime('%Y-%m-%d')}: "
-              f"{rej['prev']:.1f} → {rej['curr']:.1f}kg "
-              f"({rej['change']:.1f}kg in {rej['hours']:.1f}h)")
-
-print("\n" + "=" * 80)
-print("END OF INVESTIGATION REPORT")
-print("=" * 80)
+if __name__ == "__main__":
+    analyze_dataset()

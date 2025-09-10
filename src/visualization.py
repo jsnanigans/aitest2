@@ -53,6 +53,91 @@ def get_rejection_color_map():
     }
 
 
+def normalize_source_type(source: str) -> str:
+    """Normalize source type string to a standard category."""
+    if not source:
+        return "unknown"
+    
+    source_lower = source.lower()
+    
+    if "patient-device" in source_lower or "device" in source_lower:
+        return "device"
+    elif "connectivehealth" in source_lower or "api" in source_lower or "https://" in source_lower:
+        return "connected"
+    elif "questionnaire" in source_lower or "internal-questionnaire" in source_lower:
+        return "questionnaire"
+    elif "patient-upload" in source_lower or "upload" in source_lower or "manual" in source_lower:
+        return "manual"
+    elif "scale" in source_lower:
+        return "device"
+    elif "test" in source_lower:
+        return "test"
+    else:
+        return "other"
+
+
+def get_source_style():
+    """Get visual style configuration for different source types."""
+    return {
+        "device": {
+            "marker": "o",
+            "size": 60,
+            "alpha": 0.9,
+            "label": "Device",
+            "color": "#2E7D32",  # Green - most reliable
+            "priority": 1
+        },
+        "connected": {
+            "marker": "s",
+            "size": 55,
+            "alpha": 0.85,
+            "label": "Connected",
+            "color": "#1976D2",  # Blue - API/connected
+            "priority": 2
+        },
+        "questionnaire": {
+            "marker": "^",
+            "size": 50,
+            "alpha": 0.75,
+            "label": "Questionnaire",
+            "color": "#7B1FA2",  # Purple - self-reported
+            "priority": 3
+        },
+        "manual": {
+            "marker": "D",
+            "size": 45,
+            "alpha": 0.7,
+            "label": "Manual",
+            "color": "#F57C00",  # Orange - manual entry
+            "priority": 4
+        },
+        "test": {
+            "marker": "p",
+            "size": 40,
+            "alpha": 0.6,
+            "label": "Test",
+            "color": "#616161",  # Gray - test data
+            "priority": 5
+        },
+        "other": {
+            "marker": ".",
+            "size": 35,
+            "alpha": 0.5,
+            "label": "Other",
+            "color": "#9E9E9E",  # Light gray - unknown
+            "priority": 6
+        },
+        "unknown": {
+            "marker": ".",
+            "size": 35,
+            "alpha": 0.5,
+            "label": "Unknown",
+            "color": "#BDBDBD",  # Very light gray
+            "priority": 7
+        }
+    }
+
+
 def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 24) -> List[Dict]:
     """
     Cluster nearby rejections to avoid annotation overlap.
@@ -367,8 +452,32 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     if valid_results:
         ax1.plot(valid_timestamps, filtered_weights, '-', linewidth=3.5,
                 color='#1565C0', label='Kalman Filtered', zorder=2)
-        ax1.scatter(valid_timestamps, valid_raw_weights, alpha=0.8, s=60,
-                   color='#2E7D32', label='Raw Accepted', zorder=5, edgecolors='white', linewidth=0.7)
+        
+        # Group valid results by source type for plotting
+        source_styles = get_source_style()
+        source_groups = defaultdict(lambda: {'timestamps': [], 'weights': []})
+        
+        for r, ts, w in zip(valid_results, valid_timestamps, valid_raw_weights):
+            source = normalize_source_type(r.get('source', 'unknown'))
+            source_groups[source]['timestamps'].append(ts)
+            source_groups[source]['weights'].append(w)
+        
+        # Plot each source type with its specific style
+        for source_type in sorted(source_groups.keys(), key=lambda x: source_styles.get(x, {}).get('priority', 999)):
+            if source_groups[source_type]['timestamps']:
+                style = source_styles.get(source_type, source_styles['other'])
+                ax1.scatter(
+                    source_groups[source_type]['timestamps'],
+                    source_groups[source_type]['weights'],
+                    marker=style['marker'],
+                    s=style['size'],
+                    alpha=style['alpha'],
+                    color=style['color'],
+                    label=f"{style['label']} ({len(source_groups[source_type]['timestamps'])})",
+                    zorder=5,
+                    edgecolors='white',
+                    linewidth=0.7
+                )
 
         uncertainty_band = []
         for r in valid_results:
@@ -386,23 +495,35 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                             alpha=0.25, color='#64B5F6', label='Uncertainty')
 
     if rejected_results:
-        # Color-code rejections by category
+        # Color-code rejections by category and show source type
         color_map = get_rejection_color_map()
+        source_styles = get_source_style()
         
-        # Group rejections by category for plotting
-        categories_data = defaultdict(lambda: {'timestamps': [], 'weights': []})
+        # Group rejections by category AND source for more detailed plotting
+        categories_data = defaultdict(lambda: {'timestamps': [], 'weights': [], 'sources': []})
         
         for r, ts, w in zip(rejected_results, rejected_timestamps, rejected_raw_weights):
             category = categorize_rejection(r.get('reason', 'Unknown'))
+            source = normalize_source_type(r.get('source', 'unknown'))
             categories_data[category]['timestamps'].append(ts)
             categories_data[category]['weights'].append(w)
+            categories_data[category]['sources'].append(source)
         
-        # Plot each category with its color
+        # Plot each category with its color, using X marker for all rejections
         for category, data in categories_data.items():
             if data['timestamps']:  # Only plot if there's data
                 color = color_map.get(category, '#9E9E9E')
+                # Use different marker sizes based on source reliability
+                sizes = []
+                for source in data['sources']:
+                    source_style = source_styles.get(source, source_styles['other'])
+                    # Scale rejection marker size based on source priority (more reliable = bigger X)
+                    base_size = 100
+                    size_modifier = 1.2 - (source_style['priority'] * 0.1)
+                    sizes.append(base_size * size_modifier)
+                
                 ax1.scatter(data['timestamps'], data['weights'],
-                           marker='x', color=color, s=100, alpha=0.9, linewidth=3,
+                           marker='x', color=color, s=sizes, alpha=0.9, linewidth=3,
                            label=f'{category} ({len(data["timestamps"])})', zorder=6)
         
         add_rejection_annotations(ax1, rejected_results, rejected_timestamps, rejected_raw_weights)
@@ -530,6 +651,35 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             ""
         ])
     
+    # Source Distribution Analysis
+    source_styles = get_source_style()
+    source_counts = defaultdict(lambda: {'total': 0, 'accepted': 0, 'rejected': 0})
+    
+    for r in all_results:
+        source = normalize_source_type(r.get('source', 'unknown'))
+        source_counts[source]['total'] += 1
+        if r.get('accepted'):
+            source_counts[source]['accepted'] += 1
+        else:
+            source_counts[source]['rejected'] += 1
+    
+    if source_counts:
+        source_lines = ["SOURCE ANALYSIS"]
+        # Sort by priority (most reliable first)
+        sorted_sources = sorted(
+            source_counts.items(),
+            key=lambda x: source_styles.get(x[0], {}).get('priority', 999)
+        )
+        
+        for source, counts in sorted_sources[:4]:  # Top 4 sources
+            style = source_styles.get(source, source_styles['other'])
+            accept_rate = 100 * counts['accepted'] / counts['total'] if counts['total'] > 0 else 0
+            source_lines.append(
+                f"{style['label']:12s}: {counts['total']:3d} ({accept_rate:.0f}% acc)"
+            )
+        source_lines.append("")
+        stats_sections.append(source_lines)
+    
     # Top Rejection Reasons
     if rejected_results:
         rejection_categories = defaultdict(int)
@@ -646,8 +796,8 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax8.set_title("Daily Change Distribution\n(Filtered Weights)", fontsize=12, fontweight='bold')
         ax8.grid(True, alpha=0.3)
 
-    # Rejection categories chart spans bottom row (first 4 columns)
-    ax9 = fig.add_subplot(gs[2, :4])
+    # Rejection categories chart in bottom row (first 2 columns)
+    ax9 = fig.add_subplot(gs[2, :2])
     
     # Create rejection categories bar chart
     if rejected_results:
@@ -692,6 +842,66 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 fontsize=14, ha='center', va='center', color='#2E7D32', fontweight='bold')
         ax9.set_title('Rejection Categories', fontsize=12, fontweight='bold')
         ax9.axis('off')
+
+    # Source Distribution chart in bottom row (columns 2-4)
+    ax10 = fig.add_subplot(gs[2, 2:4])
+    
+    # Create source distribution stacked bar chart
+    source_styles = get_source_style()
+    source_data = defaultdict(lambda: {'accepted': 0, 'rejected': 0})
+    
+    for r in all_results:
+        source = normalize_source_type(r.get('source', 'unknown'))
+        if r.get('accepted'):
+            source_data[source]['accepted'] += 1
+        else:
+            source_data[source]['rejected'] += 1
+    
+    if source_data:
+        # Sort by total count
+        sorted_sources = sorted(
+            source_data.items(),
+            key=lambda x: x[1]['accepted'] + x[1]['rejected'],
+            reverse=True
+        )[:5]  # Top 5 sources
+        
+        source_names = []
+        accepted_counts = []
+        rejected_counts = []
+        
+        for source, counts in sorted_sources:
+            style = source_styles.get(source, source_styles['other'])
+            source_names.append(style['label'])
+            accepted_counts.append(counts['accepted'])
+            rejected_counts.append(counts['rejected'])
+        
+        x_pos = np.arange(len(source_names))
+        
+        # Create stacked bar chart
+        bars1 = ax10.bar(x_pos, accepted_counts, color='#2E7D32', alpha=0.8, label='Accepted')
+        bars2 = ax10.bar(x_pos, rejected_counts, bottom=accepted_counts, color='#D32F2F', alpha=0.8, label='Rejected')
+        
+        ax10.set_xticks(x_pos)
+        ax10.set_xticklabels(source_names, fontsize=10)
+        ax10.set_ylabel('Count', fontsize=11)
+        ax10.set_title('Measurements by Source Type', fontsize=12, fontweight='bold')
+        ax10.legend(loc='upper right', fontsize=9)
+        ax10.grid(True, alpha=0.3, axis='y')
+        
+        # Add percentage labels on bars
+        for i, (bar1, bar2) in enumerate(zip(bars1, bars2)):
+            total = accepted_counts[i] + rejected_counts[i]
+            if total > 0:
+                accept_pct = 100 * accepted_counts[i] / total
+                # Add count on top of bar
+                ax10.text(bar1.get_x() + bar1.get_width()/2, total + 0.5,
+                         f'{total}\n({accept_pct:.0f}%)',
+                         ha='center', va='bottom', fontsize=9)
+    else:
+        ax10.text(0.5, 0.5, 'No Source Data', transform=ax10.transAxes,
+                 fontsize=14, ha='center', va='center', color='#757575')
+        ax10.set_title('Measurements by Source Type', fontsize=12, fontweight='bold')
+        ax10.axis('off')
 
     # Don't use tight_layout with complex GridSpec - we set the spacing manually
     # This avoids the warning about incompatible layouts
