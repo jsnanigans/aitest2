@@ -8,7 +8,7 @@ csv_file = "./data/2025-09-05_optimized.csv"
 output_dir = "output"
 
 # Maximum number of users to process (0 = unlimited)
-max_users = 20
+max_users = 100
 
 # Number of users to skip at the beginning (useful for resuming or testing)
 user_offset = 400
@@ -20,7 +20,7 @@ min_readings = 20
 
 
 # List of specific user IDs to process
-test_users = [
+_test_users = [
   "0040872d-333a-4ace-8c5a-b2fcd056e65a", # user with extremely noisy data
   "1e87d3ab-20b1-479d-ad4d-8986e1af38da", # long gap
   "0093a653-476b-4401-bbec-33a89abc2b18", # User with sparse historical data

@@ -8,7 +8,10 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from pykalman import KalmanFilter
-from .processor_database import ProcessorStateDB, get_state_db
+try:
+    from .processor_database import ProcessorStateDB, get_state_db
+except ImportError:
+    from processor_database import ProcessorStateDB, get_state_db
 
 
 class WeightProcessor:
