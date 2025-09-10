@@ -38,6 +38,21 @@ def categorize_rejection(reason: str) -> str:
         return "Other"
 
 
+def get_rejection_color_map():
+    """Get consistent color mapping for rejection categories."""
+    return {
+        "Extreme": "#D32F2F",     # Red - most severe
+        "Bounds": "#E91E63",       # Pink - out of bounds
+        "Sustained": "#FF6F00",    # Dark Orange - long-term issue
+        "Variance": "#FFA726",     # Orange - session variance
+        "Daily": "#FFD54F",        # Yellow - daily fluctuation
+        "Medium": "#66BB6A",       # Green - medium-term
+        "Short": "#42A5F5",        # Blue - short-term
+        "Limit": "#AB47BC",        # Purple - physiological limit
+        "Other": "#9E9E9E"         # Gray - uncategorized
+    }
+
+
 def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 24) -> List[Dict]:
     """
     Cluster nearby rejections to avoid annotation overlap.
@@ -172,6 +187,7 @@ def add_rejection_annotations(
     annotations = identify_interesting_rejections(filtered_results, clusters)
     
     y_range = ax.get_ylim()[1] - ax.get_ylim()[0]
+    color_map = get_rejection_color_map()
     
     # Smart positioning to avoid overlaps
     positions_used = []
@@ -179,6 +195,20 @@ def add_rejection_annotations(
     for i, (timestamp, text, weight) in enumerate(annotations):
         if date_range and not (date_range[0] <= timestamp <= date_range[1]):
             continue
+        
+        # Find the category for this annotation to get the right color
+        category = text  # For single rejections, text is the category
+        if 'x' in text:  # For clusters, extract category from original data
+            # Find rejection at this timestamp
+            for r in filtered_results:
+                r_ts = r['timestamp']
+                if isinstance(r_ts, str):
+                    r_ts = datetime.fromisoformat(r_ts.replace('Z', '+00:00'))
+                if abs((r_ts - timestamp).total_seconds()) < 86400:  # Within a day
+                    category = categorize_rejection(r.get('reason', 'Unknown'))
+                    break
+        
+        annotation_color = color_map.get(category, '#9E9E9E')
         
         # Calculate base position
         base_y = 20
@@ -206,18 +236,18 @@ def add_rejection_annotations(
             xytext=(offset_x, offset_y),
             textcoords='offset points',
             fontsize=10,
-            color='#B71C1C',
+            color=annotation_color,
             bbox=dict(
                 boxstyle='round,pad=0.4',
                 facecolor='white',
-                edgecolor='#D32F2F',
+                edgecolor=annotation_color,
                 alpha=0.95,
                 linewidth=1
             ),
             arrowprops=dict(
                 arrowstyle='-',
                 connectionstyle='arc3,rad=0.3',
-                color='#D32F2F',
+                color=annotation_color,
                 alpha=0.5,
                 linewidth=1
             ),
@@ -355,9 +385,24 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                             alpha=0.25, color='#64B5F6', label='Uncertainty')
 
     if rejected_results:
-        ax1.scatter(rejected_timestamps, rejected_raw_weights,
-                   marker='x', color='#D32F2F', s=100, alpha=0.9, linewidth=3,
-                   label=f'Rejected ({len(rejected_results)})', zorder=6)
+        # Color-code rejections by category
+        color_map = get_rejection_color_map()
+        
+        # Group rejections by category for plotting
+        categories_data = defaultdict(lambda: {'timestamps': [], 'weights': []})
+        
+        for r, ts, w in zip(rejected_results, rejected_timestamps, rejected_raw_weights):
+            category = categorize_rejection(r.get('reason', 'Unknown'))
+            categories_data[category]['timestamps'].append(ts)
+            categories_data[category]['weights'].append(w)
+        
+        # Plot each category with its color
+        for category, data in categories_data.items():
+            if data['timestamps']:  # Only plot if there's data
+                color = color_map.get(category, '#9E9E9E')
+                ax1.scatter(data['timestamps'], data['weights'],
+                           marker='x', color=color, s=100, alpha=0.9, linewidth=3,
+                           label=f'{category} ({len(data["timestamps"])})', zorder=6)
         
         add_rejection_annotations(ax1, rejected_results, rejected_timestamps, rejected_raw_weights)
 
@@ -397,7 +442,22 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     else:
         ax1.set_title("Kalman Filter Output vs Raw Data", fontsize=16, fontweight='bold', pad=12)
     
-    ax1.legend(loc="best", ncol=4, fontsize=11, framealpha=0.95)
+    # Sort legend entries by count (most common first)
+    handles, labels = ax1.get_legend_handles_labels()
+    if len(handles) > 3:  # If we have rejection categories
+        # Extract counts from labels and sort
+        try:
+            sorted_pairs = sorted(zip(handles[3:], labels[3:]), 
+                                key=lambda x: int(x[1].split('(')[1].split(')')[0]) if '(' in x[1] else 0, 
+                                reverse=True)
+            if sorted_pairs:
+                sorted_handles, sorted_labels = zip(*sorted_pairs)
+                handles = handles[:3] + list(sorted_handles)
+                labels = labels[:3] + list(sorted_labels)
+        except:
+            pass  # If sorting fails, use original order
+    
+    ax1.legend(handles, labels, loc="best", ncol=min(len(handles), 6), fontsize=10, framealpha=0.95)
     ax1.grid(True, alpha=0.3, linewidth=0.5)
     ax1.grid(True, which='minor', alpha=0.15, linewidth=0.3)
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
@@ -607,10 +667,10 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 categories.append(cat)
                 counts.append(count)
             
-            # Create horizontal bar chart
+            # Create horizontal bar chart with category-specific colors
             y_pos = np.arange(len(categories))
-            colors = ['#D32F2F' if c > len(rejected_results)*0.3 else '#FF6F00' if c > len(rejected_results)*0.15 else '#FFA726' 
-                     for c in counts]
+            color_map = get_rejection_color_map()
+            colors = [color_map.get(cat, '#9E9E9E') for cat in categories]
             
             bars = ax9.barh(y_pos, counts, color=colors, alpha=0.8, edgecolor='#424242', linewidth=1.5)
             ax9.set_yticks(y_pos)
