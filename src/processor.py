@@ -125,10 +125,12 @@ class WeightProcessor:
                 new_state = WeightProcessor._update_kalman_state(
                     new_state, weight, timestamp, source, processing_config
                 )
-                # Return result immediately
+                # Return result immediately with reset flag
                 result = WeightProcessor._create_result(
                     new_state, weight, timestamp, source, True
                 )
+                result['was_reset'] = True
+                result['gap_days'] = delta
                 return result, new_state
         
         # Basic validation (skip if we just reset)

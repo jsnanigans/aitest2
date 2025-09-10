@@ -142,6 +142,27 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         baseline = np.median(filtered_weights[: min(10, len(filtered_weights))])
         ax1.axhline(baseline, color='#F57C00', linestyle='--', alpha=0.6, linewidth=2,
                    label=f'Baseline: {baseline:.1f}kg')
+    
+    # Add reset indicators
+    reset_points = []
+    for r in all_results:
+        if r.get('was_reset', False):
+            reset_points.append({
+                'timestamp': r['timestamp'] if isinstance(r['timestamp'], datetime) else datetime.fromisoformat(r['timestamp'].replace('Z', '+00:00')),
+                'gap_days': r.get('gap_days', 0),
+                'weight': r['raw_weight']
+            })
+    
+    if reset_points:
+        for reset in reset_points:
+            ax1.axvline(reset['timestamp'], color='gray', linestyle='--', alpha=0.5, linewidth=1.5)
+            ax1.annotate(f"{int(reset['gap_days'])}d gap",
+                        xy=(reset['timestamp'], reset['weight']),
+                        xytext=(5, 10), textcoords='offset points',
+                        fontsize=9, color='gray', alpha=0.8)
+        
+        # Add to legend
+        ax1.plot([], [], color='gray', linestyle='--', alpha=0.5, linewidth=1.5, label='State Reset')
 
     ax1.set_xlabel("Date", fontsize=11)
     ax1.set_ylabel("Weight (kg)", fontsize=11)
@@ -186,6 +207,20 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         baseline = np.median(filtered_weights[: min(10, len(filtered_weights))])
         ax1_cropped.axhline(baseline, color='#F57C00', linestyle='--', alpha=0.6, linewidth=2,
                            label=f'Baseline: {baseline:.1f}kg')
+    
+    # Add reset indicators to cropped view
+    if reset_points:
+        for reset in reset_points:
+            if crop_start <= reset['timestamp'] <= crop_end:
+                ax1_cropped.axvline(reset['timestamp'], color='gray', linestyle='--', alpha=0.5, linewidth=1.5)
+                ax1_cropped.annotate(f"{int(reset['gap_days'])}d gap",
+                            xy=(reset['timestamp'], reset['weight']),
+                            xytext=(5, 10), textcoords='offset points',
+                            fontsize=9, color='gray', alpha=0.8)
+        
+        # Add to legend if any resets in range
+        if any(crop_start <= r['timestamp'] <= crop_end for r in reset_points):
+            ax1_cropped.plot([], [], color='gray', linestyle='--', alpha=0.5, linewidth=1.5, label='State Reset')
 
     ax1_cropped.set_xlabel("Date", fontsize=11)
     ax1_cropped.set_ylabel("Weight (kg)", fontsize=11)
@@ -206,6 +241,13 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax2.plot(valid_ts_cropped, innovations_cropped, 'o-', markersize=5, alpha=0.8, color='#0288D1', linewidth=1.5)
         ax2.axhline(0, color='black', linestyle='-', alpha=0.5, linewidth=1)
         ax2.fill_between(valid_ts_cropped, 0, innovations_cropped, alpha=0.4, color='#81D4FA')
+        
+        # Add reset indicators to innovation plot
+        if reset_points:
+            for reset in reset_points:
+                if crop_start <= reset['timestamp'] <= crop_end:
+                    ax2.axvline(reset['timestamp'], color='gray', linestyle='--', alpha=0.3, linewidth=1)
+        
         ax2.set_xlabel("Date")
         ax2.set_ylabel("Innovation (kg)")
         ax2.set_title("Kalman Innovation\n(Measurement - Prediction)")
