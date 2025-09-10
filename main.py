@@ -259,23 +259,41 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             if not weight_str or weight_str.upper() == "NULL":
                 continue
 
+            date_str = row.get("effectiveDateTime")
+            source = row.get("source_type") or row.get("source", "unknown")
+            
+            # Skip BSA measurements based on source
+            if source and 'BSA' in source.upper():
+                continue
+            
             try:
                 weight_raw = float(weight_str)
                 unit = (row.get("unit") or "kg").lower().strip()
                 
-                if 'm2' in unit or 'm²' in unit:
+                # Skip BSA measurements based on unit
+                if 'm2' in unit or 'm²' in unit or 'bsa' in unit:
                     continue
                 
-                if 'lb' in unit:
+                # Skip values that are clearly BSA (typical range 1.5-2.5 m²)
+                if weight_raw < 3.0 and source and 'BSA' not in source.upper():
+                    # Could be BSA value even without proper labeling
+                    # But only skip if we're not explicitly told it's weight
+                    if 'weight' not in source.lower() and 'scale' not in source.lower():
+                        continue
+                
+                # Convert pounds to kg
+                if 'lb' in unit or 'pound' in unit:
+                    weight = weight_raw * 0.453592
+                # Handle pounds based on typical ranges (if unit missing but value > 130)
+                elif weight_raw > 130 and weight_raw < 400 and not ('kg' in unit):
+                    # Likely pounds based on typical human weight ranges
+                    # This is a heuristic for data with missing/incorrect units
                     weight = weight_raw * 0.453592
                 else:
                     weight = weight_raw
                     
             except (ValueError, TypeError):
                 continue
-
-            date_str = row.get("effectiveDateTime")
-            source = row.get("source_type") or row.get("source", "unknown")
 
             try:
                 timestamp = parse_timestamp(date_str)
