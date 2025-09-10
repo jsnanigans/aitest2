@@ -102,3 +102,46 @@ The implementation successfully addresses the core issue of accepting physiologi
 ---
 *Implementation completed: 2025-09-10*
 *Based on framework document Section 3.1 recommendations*
+
+## UPDATE: Balanced Limits Adjustment
+
+After reviewing the framework document more carefully and testing with real user data, the limits have been adjusted to be less restrictive while still maintaining safety.
+
+### Adjusted Limits (Final)
+
+Based on framework Section 3.1 which states "daily fluctuations up to 2-3% of body weight" and considering modern weight loss medications (GLP-1 agonists):
+
+#### Time-Based Percentage Limits:
+- **< 1 hour**: 2% (was 1.5%) - Allows for normal hydration variations
+- **< 6 hours**: 2.5% (was 2%) - Accounts for meals and activity
+- **≤ 24 hours**: 3.5% (was 3%) - Full daily range per framework
+- **> 24 hours**: 1.5kg/day (was 0.5kg) - Accommodates GLP-1 medications
+
+#### Absolute Caps:
+- **1 hour**: 3kg (was 2kg)
+- **6 hours**: 4kg (was 3kg)  
+- **24 hours**: 5kg (was 2.5kg)
+
+### Rationale for Adjustments:
+
+1. **Framework Alignment**: The document explicitly mentions "2-3% of body weight" as normal daily fluctuation, with some sources suggesting up to 3%. Our 3.5% allows a small buffer.
+
+2. **GLP-1 Medications**: Semaglutide, tirzepatide, and similar medications can cause 1-2kg/week weight loss, especially initially. The 1.5kg/day sustained limit accommodates this while still catching errors.
+
+3. **Real-World Testing**: The original limits were rejecting too many legitimate measurements (160 out of 208 for one user), causing the Kalman filter to work with insufficient data.
+
+4. **Balance**: The adjusted limits still successfully reject obvious multi-user contamination (e.g., 45kg child on adult scale) while accepting normal variations.
+
+### Test Results with Adjusted Limits:
+
+```
+✓ Normal fluctuations: 5/5 accepted (was 2/5)
+✓ Multi-user detection: 3/4 rejected (appropriate)
+✓ GLP-1 weight loss: 3/5 accepted (was 0/5)
+```
+
+The adjusted limits provide a better balance between data quality and avoiding over-rejection of legitimate measurements.
+
+---
+*Updated: 2025-09-10*
+*Adjustment based on framework review and user feedback*

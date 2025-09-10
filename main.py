@@ -367,7 +367,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 'filtered_weight': result.get('filtered_weight'),
                 'confidence': result.get('confidence'),
                 'trend': result.get('trend'),
-                'rejection_reason': result.get('rejection_reason')
+                'rejection_reason': result.get('reason')
             }
             
             # Track first processed measurement
@@ -389,8 +389,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 user_debug_logs[user_id]['daily_stats'][day_str]['accepted'] += 1
             else:
                 user_debug_logs[user_id]['daily_stats'][day_str]['rejected'] += 1
-                if result.get('rejection_reason'):
-                    user_debug_logs[user_id]['rejection_reasons'][result['rejection_reason']] += 1
+                if result.get('reason'):
+                    user_debug_logs[user_id]['rejection_reasons'][result['reason']] += 1
             
             if result and result['accepted']:
                 stats["accepted"] += 1

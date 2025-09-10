@@ -1,92 +1,159 @@
 #!/usr/bin/env python3
-"""
-Verify that the unit conversion fix is working
-"""
+"""Verify the raw validation fix with comprehensive test."""
 
-import csv
+from datetime import datetime
+from src.processor import WeightProcessor
+from src.processor_database import get_state_db
 
-def test_unit_conversion():
-    """Test the unit conversion logic from main.py"""
+def verify_fix():
+    """Comprehensive test of the raw validation fix."""
     
-    test_cases = [
-        ("212.3", "[lb_ap]", 96.30),  # Pounds to kg
-        ("223.1", "[lb_ap]", 101.20),  # Pounds to kg
-        ("2.10", "m2", None),  # BSA - should be skipped
-        ("2.15", "m2", None),  # BSA - should be skipped
-        ("88.0", "kg", 88.0),  # kg - no conversion
-        ("99.79", "", 99.79),  # No unit - assume kg
+    # Test configurations
+    processing_config = {
+        'min_weight': 30,
+        'max_weight': 400,
+        'extreme_threshold': 0.2,
+        'physiological': {
+            'enable_physiological_limits': True,
+            'max_change_1h_percent': 0.02,
+            'max_change_1h_absolute': 3.0,
+            'max_change_6h_percent': 0.025,
+            'max_change_6h_absolute': 4.0,
+            'max_change_24h_percent': 0.035,
+            'max_change_24h_absolute': 5.0,
+            'max_sustained_daily': 1.5,
+            'session_timeout_minutes': 5,
+            'session_variance_threshold': 5.0
+        }
+    }
+    
+    kalman_config = {
+        'initial_variance': 1.0,
+        'transition_covariance_weight': 0.5,
+        'transition_covariance_trend': 0.001,
+        'observation_covariance': 2.0,
+        'reset_gap_days': 30
+    }
+    
+    print("\n" + "="*70)
+    print("COMPREHENSIVE RAW VALIDATION FIX VERIFICATION")
+    print("="*70)
+    
+    # Test Case 1: Original bug scenario
+    print("\n1. ORIGINAL BUG SCENARIO")
+    print("-" * 40)
+    
+    user_id = "test_user_1"
+    db = get_state_db()
+    db.clear_state(user_id)  # Start fresh
+    
+    # Establish initial state where Kalman diverges from raw
+    measurements = [
+        ("2025-09-01 12:00:00", 104.0),  # Initial
+        ("2025-09-02 12:00:00", 103.4),  # Kalman might filter to ~103.7
+        ("2025-09-03 12:00:00", 103.1),  # Should be accepted (0.3kg change)
     ]
     
-    for weight_str, unit, expected in test_cases:
-        try:
-            weight_raw = float(weight_str)
-            unit_lower = (unit or "kg").lower().strip()
-            
-            # Skip BSA measurements
-            if 'm2' in unit_lower or 'm²' in unit_lower:
-                result = None
-            # Convert pounds to kg
-            elif 'lb' in unit_lower:
-                result = weight_raw * 0.453592
-            # Default to kg
-            else:
-                result = weight_raw
-                
-        except (ValueError, TypeError):
-            result = None
+    for timestamp_str, weight in measurements:
+        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        result = WeightProcessor.process_weight(
+            user_id=user_id,
+            weight=weight,
+            timestamp=timestamp,
+            source="test",
+            processing_config=processing_config,
+            kalman_config=kalman_config
+        )
         
-        # Check result
-        if expected is None:
-            if result is None:
-                print(f"✅ {weight_str} {unit} → SKIPPED (correct)")
-            else:
-                print(f"❌ {weight_str} {unit} → {result:.2f} kg (should be SKIPPED)")
+        if result and result.get('accepted', True):
+            print(f"  ✓ {timestamp_str}: {weight}kg → {result['filtered_weight']:.2f}kg")
         else:
-            if result is not None and abs(result - expected) < 0.1:
-                print(f"✅ {weight_str} {unit} → {result:.2f} kg (expected {expected:.2f})")
-            else:
-                print(f"❌ {weight_str} {unit} → {result:.2f} kg (expected {expected:.2f})")
-
-def count_user_measurements():
-    """Count measurements for the problem user with and without unit handling"""
+            print(f"  ✗ {timestamp_str}: {weight}kg REJECTED - {result.get('reason')}")
     
-    user_id = "1e87d3ab-20b1-479d-ad4d-8986e1af38da"
-    csv_path = "./data/2025-09-05_optimized.csv"
+    state = db.get_state(user_id)
+    if state and 'last_raw_weight' in state:
+        print(f"  State has last_raw_weight: {state['last_raw_weight']}kg ✓")
     
-    raw_count = 0
-    converted_count = 0
-    skipped_bsa = 0
-    converted_lbs = 0
+    # Test Case 2: Edge case - large filtered divergence
+    print("\n2. LARGE FILTERED DIVERGENCE")
+    print("-" * 40)
     
-    with open(csv_path, "r") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if row.get("user_id") == user_id:
-                weight_str = row.get("weight", "").strip()
-                if weight_str and weight_str.upper() != "NULL":
-                    raw_count += 1
-                    
-                    try:
-                        weight_raw = float(weight_str)
-                        unit = (row.get("unit") or "kg").lower().strip()
-                        
-                        if 'm2' in unit or 'm²' in unit:
-                            skipped_bsa += 1
-                        else:
-                            converted_count += 1
-                            if 'lb' in unit:
-                                converted_lbs += 1
-                    except:
-                        pass
+    user_id = "test_user_2"
+    db.clear_state(user_id)
     
-    print(f"\nUser {user_id[:8]}... measurement counts:")
-    print(f"  Total raw measurements: {raw_count}")
-    print(f"  Valid weight measurements: {converted_count}")
-    print(f"  BSA measurements skipped: {skipped_bsa}")
-    print(f"  Pounds converted to kg: {converted_lbs}")
-    print(f"  Reduction: {raw_count} → {converted_count} ({(raw_count-converted_count)/raw_count*100:.1f}% filtered)")
+    # Simulate scenario where Kalman significantly diverges
+    measurements = [
+        ("2025-09-01 12:00:00", 100.0),  # Initial
+        ("2025-09-02 12:00:00", 99.0),   # Small drop
+        ("2025-09-03 12:00:00", 98.0),   # Another small drop
+        ("2025-09-04 12:00:00", 101.0),  # Jump back up (3kg from yesterday's raw)
+    ]
+    
+    for timestamp_str, weight in measurements:
+        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        result = WeightProcessor.process_weight(
+            user_id=user_id,
+            weight=weight,
+            timestamp=timestamp,
+            source="test",
+            processing_config=processing_config,
+            kalman_config=kalman_config
+        )
+        
+        if result and result.get('accepted', True):
+            print(f"  ✓ {timestamp_str}: {weight}kg → {result['filtered_weight']:.2f}kg")
+        else:
+            print(f"  ✗ {timestamp_str}: {weight}kg REJECTED - {result.get('reason')}")
+    
+    # Test Case 3: Verify migration path
+    print("\n3. MIGRATION PATH (OLD STATE)")
+    print("-" * 40)
+    
+    user_id = "test_user_3"
+    
+    # Manually create old-style state without last_raw_weight
+    import numpy as np
+    old_state = {
+        'kalman_params': {
+            'initial_state_mean': [100, 0],
+            'initial_state_covariance': [[1.0, 0], [0, 0.001]],
+            'transition_covariance': [[0.5, 0], [0, 0.001]],
+            'observation_covariance': [[2.0]],
+        },
+        'last_state': np.array([[100.5, 0]]),  # Filtered weight
+        'last_covariance': np.array([[[1.0, 0], [0, 0.001]]]),
+        'last_timestamp': datetime(2025, 9, 1, 12, 0, 0),
+        # Note: NO last_raw_weight field
+    }
+    
+    db.save_state(user_id, old_state)
+    
+    # Process new measurement - should use filtered weight as fallback
+    result = WeightProcessor.process_weight(
+        user_id=user_id,
+        weight=99.0,  # 1.5kg drop from filtered 100.5
+        timestamp=datetime(2025, 9, 2, 12, 0, 0),
+        source="test",
+        processing_config=processing_config,
+        kalman_config=kalman_config
+    )
+    
+    if result and result.get('accepted', True):
+        print(f"  ✓ Migration worked: 99.0kg accepted (using filtered fallback)")
+        print(f"    Filtered: {result['filtered_weight']:.2f}kg")
+    else:
+        print(f"  ✗ Migration issue: {result.get('reason')}")
+    
+    # Check state now has last_raw_weight
+    state = db.get_state(user_id)
+    if state and 'last_raw_weight' in state:
+        print(f"  ✓ State upgraded with last_raw_weight: {state['last_raw_weight']}kg")
+    
+    print("\n" + "="*70)
+    print("VERIFICATION COMPLETE")
+    print("="*70)
+    
+    return True
 
 if __name__ == "__main__":
-    print("Testing unit conversion logic:")
-    test_unit_conversion()
-    count_user_measurements()
+    verify_fix()

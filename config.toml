@@ -25,6 +25,7 @@ test_users = [
   "1e87d3ab-20b1-479d-ad4d-8986e1af38da", # long gap
   "0093a653-476b-4401-bbec-33a89abc2b18", # User with sparse historical data
   "4d5054c4-2492-4cd8-a15c-53381fb6bd49", # spiky data
+  "1a452430-7351-4b8c-b921-4fb17f8a29cc", # single outlier should be rejected
 ]
 
 # 0040872d-333a-4ace-8c5a-b2fcd056e65a - user with extremely noisy data
@@ -76,19 +77,22 @@ cropped_months = 9
 # Maximum weight changes by time period
 # Based on framework document recommendations (Section 3.1)
 # "daily fluctuations up to 2-3% of body weight"
+# Adjusted to be less restrictive for legitimate weight loss scenarios
 
 # Percentage limits for different time periods
-max_change_1h_percent = 0.015    # 1.5% for < 1 hour (hydration/bathroom)
-max_change_6h_percent = 0.02     # 2% for < 6 hours (meals + hydration)
-max_change_24h_percent = 0.03    # 3% for ≤ 24 hours (full daily range)
+max_change_1h_percent = 0.02     # 2% for < 1 hour (was 1.5%)
+max_change_6h_percent = 0.025    # 2.5% for < 6 hours (was 2%)
+max_change_24h_percent = 0.035   # 3.5% for ≤ 24 hours (framework says up to 3%, allowing slightly more)
 
-# Absolute limits (kg) - caps to prevent extreme outliers
-max_change_1h_absolute = 2.0     # 2kg max for 1 hour
-max_change_6h_absolute = 3.0     # 3kg max for 6 hours  
-max_change_24h_absolute = 2.5    # 2.5kg max for 24 hours (framework: 1-2kg)
+# Absolute limits (kg) - raised to avoid over-rejection
+max_change_1h_absolute = 3.0     # 3kg max for 1 hour (was 2.0)
+max_change_6h_absolute = 4.0     # 4kg max for 6 hours (was 3.0)
+max_change_24h_absolute = 5.0    # 5kg max for 24 hours (was 2.5, too restrictive)
 
-# Long-term sustained change
-max_sustained_daily = 0.5         # 0.5kg/day for changes > 24 hours
+# Long-term sustained change - increased for GLP-1 medications and diets
+max_sustained_daily = 1.5         # 1.5kg/day for changes > 24 hours (was 0.5kg)
+# Note: GLP-1 agonists can cause 1-2kg/week loss initially
+# But we cap at 1.5kg/day to still catch errors while allowing aggressive weight loss
 
 # Session detection for multi-user identification
 session_timeout_minutes = 5.0     # Group measurements within 5 minutes

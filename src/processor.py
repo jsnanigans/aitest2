@@ -223,19 +223,19 @@ class WeightProcessor:
             return legacy_limit, "legacy percentage limit"
         
         if time_delta_hours < 1:
-            percent_limit = phys_config.get('max_change_1h_percent', 0.015)
-            absolute_limit = phys_config.get('max_change_1h_absolute', 2.0)
+            percent_limit = phys_config.get('max_change_1h_percent', 0.02)
+            absolute_limit = phys_config.get('max_change_1h_absolute', 3.0)
             reason = "hydration/bathroom"
         elif time_delta_hours < 6:
-            percent_limit = phys_config.get('max_change_6h_percent', 0.02)
-            absolute_limit = phys_config.get('max_change_6h_absolute', 3.0)
+            percent_limit = phys_config.get('max_change_6h_percent', 0.025)
+            absolute_limit = phys_config.get('max_change_6h_absolute', 4.0)
             reason = "meals+hydration"
         elif time_delta_hours <= 24:
-            percent_limit = phys_config.get('max_change_24h_percent', 0.03)
-            absolute_limit = phys_config.get('max_change_24h_absolute', 2.5)
+            percent_limit = phys_config.get('max_change_24h_percent', 0.035)
+            absolute_limit = phys_config.get('max_change_24h_absolute', 5.0)
             reason = "daily fluctuation"
         else:
-            daily_rate = phys_config.get('max_sustained_daily', 0.5)
+            daily_rate = phys_config.get('max_sustained_daily', 1.5)
             days = time_delta_hours / 24
             absolute_limit = days * daily_rate
             percent_limit = absolute_limit / last_weight
@@ -266,14 +266,22 @@ class WeightProcessor:
         if weight < min_weight or weight > max_weight:
             return False, f"Weight {weight}kg outside bounds [{min_weight}, {max_weight}]"
         
-        if state is None or state.get('last_state') is None:
+        if state is None:
             return True, None
         
-        last_state_val = state.get('last_state')
-        if isinstance(last_state_val, np.ndarray):
-            last_weight = last_state_val[-1][0] if len(last_state_val.shape) > 1 else last_state_val[0]
+        # Use last_raw_weight for validation (raw-to-raw comparison)
+        # Fall back to last_state for backward compatibility
+        if 'last_raw_weight' in state:
+            last_weight = state['last_raw_weight']
+        elif state.get('last_state') is not None:
+            # Migration path: use filtered weight if raw not available
+            last_state_val = state.get('last_state')
+            if isinstance(last_state_val, np.ndarray):
+                last_weight = last_state_val[-1][0] if len(last_state_val.shape) > 1 else last_state_val[0]
+            else:
+                last_weight = last_state_val[0] if isinstance(last_state_val, (list, tuple)) else last_state_val
         else:
-            last_weight = last_state_val[0] if isinstance(last_state_val, (list, tuple)) else last_state_val
+            return True, None
         
         if timestamp and state.get('last_timestamp'):
             time_delta_hours = WeightProcessor._calculate_time_delta_hours(
@@ -328,6 +336,7 @@ class WeightProcessor:
             'last_state': np.array([[weight, 0]]),
             'last_covariance': np.array([[[initial_variance, 0], [0, 0.001]]]),
             'last_timestamp': timestamp,
+            'last_raw_weight': weight,  # Store raw weight for validation
         }
     
     @staticmethod
@@ -396,6 +405,7 @@ class WeightProcessor:
         state['last_state'] = new_last_state
         state['last_covariance'] = new_last_covariance
         state['last_timestamp'] = timestamp
+        state['last_raw_weight'] = weight  # Store raw weight for validation
         
         return state
 
@@ -404,6 +414,7 @@ class WeightProcessor:
         """Reset Kalman state after long gap."""
         state['last_state'] = np.array([[new_weight, 0]])
         state['last_covariance'] = np.array([[[1.0, 0], [0, 0.001]]])
+        state['last_raw_weight'] = new_weight  # Reset raw weight too
         
         # Update initial state mean in kalman params
         if state.get('kalman_params'):
