@@ -132,18 +132,21 @@ class WeightProcessor:
                 return result, new_state
         
         # Basic validation (skip if we just reset)
-        if not should_reset and not WeightProcessor._validate_weight(
-            weight,
-            processing_config,
-            state.get('last_state')
-        ):
-            return {
-                "timestamp": timestamp,
-                "raw_weight": weight,
-                "accepted": False,
-                "reason": "Basic validation failed",
-                "source": source,
-            }, None
+        if not should_reset:
+            is_valid, rejection_reason = WeightProcessor._validate_weight(
+                weight,
+                processing_config,
+                state,
+                timestamp
+            )
+            if not is_valid:
+                return {
+                    "timestamp": timestamp,
+                    "raw_weight": weight,
+                    "accepted": False,
+                    "reason": rejection_reason or "Basic validation failed",
+                    "source": source,
+                }, None
         
         # Check for extreme deviation
         if new_state.get('last_state') is not None:
@@ -189,26 +192,115 @@ class WeightProcessor:
         return result, new_state
 
     @staticmethod
+    def _calculate_time_delta_hours(
+        current_timestamp: datetime,
+        last_timestamp: Optional[datetime]
+    ) -> float:
+        """Calculate hours between measurements."""
+        if last_timestamp is None:
+            return float('inf')
+        
+        if isinstance(last_timestamp, str):
+            last_timestamp = datetime.fromisoformat(last_timestamp)
+        
+        delta = (current_timestamp - last_timestamp).total_seconds() / 3600
+        return max(0.0, delta)
+    
+    @staticmethod
+    def _get_physiological_limit(
+        time_delta_hours: float,
+        last_weight: float,
+        config: dict
+    ) -> tuple[float, str]:
+        """
+        Get maximum allowed weight change based on time elapsed.
+        Based on framework document recommendations (Section 3.1).
+        """
+        phys_config = config.get('physiological', {})
+        
+        if not phys_config.get('enable_physiological_limits', True):
+            legacy_limit = config.get('max_daily_change', 0.05) * last_weight
+            return legacy_limit, "legacy percentage limit"
+        
+        if time_delta_hours < 1:
+            percent_limit = phys_config.get('max_change_1h_percent', 0.015)
+            absolute_limit = phys_config.get('max_change_1h_absolute', 2.0)
+            reason = "hydration/bathroom"
+        elif time_delta_hours < 6:
+            percent_limit = phys_config.get('max_change_6h_percent', 0.02)
+            absolute_limit = phys_config.get('max_change_6h_absolute', 3.0)
+            reason = "meals+hydration"
+        elif time_delta_hours <= 24:
+            percent_limit = phys_config.get('max_change_24h_percent', 0.03)
+            absolute_limit = phys_config.get('max_change_24h_absolute', 2.5)
+            reason = "daily fluctuation"
+        else:
+            daily_rate = phys_config.get('max_sustained_daily', 0.5)
+            days = time_delta_hours / 24
+            absolute_limit = days * daily_rate
+            percent_limit = absolute_limit / last_weight
+            reason = f"sustained ({daily_rate}kg/day)"
+        
+        percentage_based = last_weight * percent_limit
+        limit = min(percentage_based, absolute_limit)
+        
+        if limit == absolute_limit and time_delta_hours <= 24:
+            reason += f" (capped at {absolute_limit}kg)"
+        
+        return limit, reason
+    
+    @staticmethod
     def _validate_weight(
         weight: float,
         config: dict,
-        last_state: Optional[np.ndarray]
-    ) -> bool:
-        """Validate weight measurement."""
-        if weight < config["min_weight"] or weight > config["max_weight"]:
-            return False
+        state: Optional[Dict[str, Any]],
+        timestamp: Optional[datetime] = None
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Validate weight with physiological limits.
+        Returns (is_valid, rejection_reason).
+        """
+        min_weight = config.get('min_weight', 30)
+        max_weight = config.get('max_weight', 400)
         
-        if last_state is not None:
-            if isinstance(last_state, np.ndarray):
-                last_weight = last_state[-1][0] if len(last_state.shape) > 1 else last_state[0]
-            else:
-                last_weight = last_state[0] if isinstance(last_state, (list, tuple)) else last_state
-            
-            change = abs(weight - last_weight) / last_weight
-            if change > 0.5:  # 50% change is definitely an error
-                return False
+        if weight < min_weight or weight > max_weight:
+            return False, f"Weight {weight}kg outside bounds [{min_weight}, {max_weight}]"
         
-        return True
+        if state is None or state.get('last_state') is None:
+            return True, None
+        
+        last_state_val = state.get('last_state')
+        if isinstance(last_state_val, np.ndarray):
+            last_weight = last_state_val[-1][0] if len(last_state_val.shape) > 1 else last_state_val[0]
+        else:
+            last_weight = last_state_val[0] if isinstance(last_state_val, (list, tuple)) else last_state_val
+        
+        if timestamp and state.get('last_timestamp'):
+            time_delta_hours = WeightProcessor._calculate_time_delta_hours(
+                timestamp, state.get('last_timestamp')
+            )
+        else:
+            time_delta_hours = 24
+        
+        change = abs(weight - last_weight)
+        max_change, reason = WeightProcessor._get_physiological_limit(
+            time_delta_hours, last_weight, config
+        )
+        
+        if change > max_change:
+            return False, (f"Change of {change:.1f}kg in {time_delta_hours:.1f}h "
+                          f"exceeds {reason} limit of {max_change:.1f}kg")
+        
+        phys_config = config.get('physiological', {})
+        session_timeout = phys_config.get('session_timeout_minutes', 5) / 60
+        
+        if time_delta_hours < session_timeout:
+            session_variance_threshold = phys_config.get('session_variance_threshold', 5.0)
+            if change > session_variance_threshold:
+                return False, (f"Session variance {change:.1f}kg exceeds threshold "
+                              f"{session_variance_threshold}kg (likely different user)")
+        
+        return True, None
 
     @staticmethod
     def _initialize_kalman_immediate(

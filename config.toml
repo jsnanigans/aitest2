@@ -72,6 +72,31 @@ moving_average_window = 7
 # Shows the last N months of data for each user
 cropped_months = 9
 
+[physiological]
+# Maximum weight changes by time period
+# Based on framework document recommendations (Section 3.1)
+# "daily fluctuations up to 2-3% of body weight"
+
+# Percentage limits for different time periods
+max_change_1h_percent = 0.015    # 1.5% for < 1 hour (hydration/bathroom)
+max_change_6h_percent = 0.02     # 2% for < 6 hours (meals + hydration)
+max_change_24h_percent = 0.03    # 3% for ≤ 24 hours (full daily range)
+
+# Absolute limits (kg) - caps to prevent extreme outliers
+max_change_1h_absolute = 2.0     # 2kg max for 1 hour
+max_change_6h_absolute = 3.0     # 3kg max for 6 hours  
+max_change_24h_absolute = 2.5    # 2.5kg max for 24 hours (framework: 1-2kg)
+
+# Long-term sustained change
+max_sustained_daily = 0.5         # 0.5kg/day for changes > 24 hours
+
+# Session detection for multi-user identification
+session_timeout_minutes = 5.0     # Group measurements within 5 minutes
+session_variance_threshold = 5.0  # kg - reject sessions with >5kg variance
+
+# Enable graduated physiological limits
+enable_physiological_limits = true
+
 [logging]
 # Progress update interval (rows)
 progress_interval = 10000
