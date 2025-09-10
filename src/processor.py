@@ -295,7 +295,16 @@ class WeightProcessor:
             time_delta_hours, last_weight, config
         )
         
-        if change > max_change:
+        # Add tolerance for borderline cases (25% buffer for sustained changes)
+        phys_config = config.get('physiological', {})
+        # Use higher tolerance for sustained changes (>24h) vs short-term
+        if time_delta_hours > 24:
+            tolerance = phys_config.get('sustained_tolerance', 0.25)  # 25% for sustained
+        else:
+            tolerance = phys_config.get('limit_tolerance', 0.10)  # 10% for short-term
+        effective_limit = max_change * (1 + tolerance)
+        
+        if change > effective_limit:
             return False, (f"Change of {change:.1f}kg in {time_delta_hours:.1f}h "
                           f"exceeds {reason} limit of {max_change:.1f}kg")
         
