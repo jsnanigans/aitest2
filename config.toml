@@ -1,8 +1,5 @@
 # Weight Stream Processor Configuration
 
-# Enable enhanced processing with BMI detection and data quality improvements
-use_enhanced = true
-
 [data]
 # CSV file to process
 csv_file = "./data/2025-09-05_optimized.csv"

@@ -7,8 +7,18 @@ import numpy as np
 from collections import defaultdict
 import logging
 
-from .processor import WeightProcessor
-from .processor_database import ProcessorDatabase
+try:
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).parent.parent / 'legacy'))
+    from processor_v4_legacy import WeightProcessor
+    from .processor_database import ProcessorDatabase
+except ImportError:
+    from processor_database import ProcessorDatabase
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).parent.parent / 'legacy'))
+    from processor_v4_legacy import WeightProcessor
 
 logger = logging.getLogger(__name__)
 

@@ -13,10 +13,9 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from src.processor import WeightProcessor
 from src.reprocessor import WeightReprocessor
 from src.processor_database import ProcessorStateDB, get_state_db
-from src.processor_enhanced import process_weight_enhanced, DataQualityPreprocessor
+from src.processor import process_weight_enhanced, DataQualityPreprocessor
 from src.visualization import create_dashboard
 
 
@@ -408,32 +407,20 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 'day': str(measurement_day)
             })
 
-            # Use enhanced or standard processor based on config
-            if config.get("use_enhanced", False):
-                # Load height data once if using enhanced processing
-                if not hasattr(DataQualityPreprocessor, '_height_data_loaded') or not DataQualityPreprocessor._height_data_loaded:
-                    DataQualityPreprocessor.load_height_data()
-                
-                result = process_weight_enhanced(
-                    user_id=user_id,
-                    weight=weight,
-                    timestamp=timestamp,
-                    source=source,
-                    processing_config=config["processing"],
-                    kalman_config=config["kalman"],
-                    unit=unit  # Pass unit for enhanced processing
-                )
-            else:
-                # Use stateless processor - no need to create instances
-                result = WeightProcessor.process_weight(
-                    user_id=user_id,
-                    weight=weight,
-                    timestamp=timestamp,
-                    source=source,
-                    processing_config=config["processing"],
-                    kalman_config=config["kalman"],
-                    db=db
-                )
+            # Load height data once for enhanced processing
+            if not hasattr(DataQualityPreprocessor, '_height_data_loaded') or not DataQualityPreprocessor._height_data_loaded:
+                DataQualityPreprocessor.load_height_data()
+            
+            # Always use enhanced processor with BMI detection and data quality improvements
+            result = process_weight_enhanced(
+                user_id=user_id,
+                weight=weight,
+                timestamp=timestamp,
+                source=source,
+                processing_config=config["processing"],
+                kalman_config=config["kalman"],
+                unit=unit  # Pass unit for enhanced processing
+            )
             
             # Log processing event - result is never None anymore
             processing_log = {
@@ -691,7 +678,6 @@ Examples:
     parser.add_argument("--config", default="config.toml", help="Configuration file (default: config.toml)")
     parser.add_argument("--no-viz", action="store_true", help="Skip visualization generation")
     parser.add_argument("--limit", type=int, help="Alias for --max-users")
-    parser.add_argument("--enhanced", action="store_true", help="Use enhanced processing with BMI detection")
     
     args = parser.parse_args()
     
@@ -722,10 +708,6 @@ Examples:
         
     if args.no_viz:
         config["visualization"]["enabled"] = False
-    
-    if args.enhanced:
-        config["use_enhanced"] = True
-        print("Using enhanced processing with BMI detection")
     
     if not Path(csv_file).exists():
         print(f"Error: File {csv_file} not found")
