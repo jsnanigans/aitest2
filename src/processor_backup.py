@@ -64,7 +64,6 @@ class WeightProcessor:
         )
         
         if updated_state:
-            updated_state['last_source'] = source
             db.save_state(user_id, updated_state)
         
         return result
@@ -111,15 +110,6 @@ class WeightProcessor:
             time_delta_days = max(0.1, min(30.0, delta))
             
             reset_gap_days = kalman_config.get("reset_gap_days", 30)
-            
-            questionnaire_sources = {
-                'internal-questionnaire',
-                'initial-questionnaire',
-                'care-team-upload',
-                'questionnaire'
-            }
-            if state.get('last_source') in questionnaire_sources:
-                reset_gap_days = kalman_config.get("questionnaire_reset_days", 10)
             
             if delta > reset_gap_days:
                 should_reset = True

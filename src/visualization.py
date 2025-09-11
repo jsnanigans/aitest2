@@ -257,100 +257,8 @@ def add_rejection_annotations(
     date_range: Optional[Tuple[datetime, datetime]] = None
 ):
     """Add smart annotations for rejected measurements to a plot."""
-    if not rejected_results:
-        return
-    
-    filtered_results = []
-    filtered_timestamps = []
-    filtered_weights = []
-    
-    if date_range:
-        start_date, end_date = date_range
-        for r, ts, w in zip(rejected_results, rejected_timestamps, rejected_weights):
-            if start_date <= ts <= end_date:
-                filtered_results.append(r)
-                filtered_timestamps.append(ts)
-                filtered_weights.append(w)
-    else:
-        filtered_results = rejected_results
-        filtered_timestamps = rejected_timestamps
-        filtered_weights = rejected_weights
-    
-    if not filtered_results:
-        return
-    
-    clusters = cluster_rejections(filtered_results, time_window_hours=48)  # Wider clustering window
-    annotations = identify_interesting_rejections(filtered_results, clusters)
-    
-    y_range = ax.get_ylim()[1] - ax.get_ylim()[0]
-    color_map = get_rejection_color_map()
-    
-    # Smart positioning to avoid overlaps
-    positions_used = []
-    
-    for i, (timestamp, text, weight) in enumerate(annotations):
-        if date_range and not (date_range[0] <= timestamp <= date_range[1]):
-            continue
-        
-        # Find the category for this annotation to get the right color
-        category = text  # For single rejections, text is the category
-        if 'x' in text:  # For clusters, extract category from original data
-            # Find rejection at this timestamp
-            for r in filtered_results:
-                r_ts = r['timestamp']
-                if isinstance(r_ts, str):
-                    r_ts = datetime.fromisoformat(r_ts.replace('Z', '+00:00'))
-                if abs((r_ts - timestamp).total_seconds()) < 86400:  # Within a day
-                    category = categorize_rejection(r.get('reason', 'Unknown'))
-                    break
-        
-        annotation_color = color_map.get(category, '#9E9E9E')
-        
-        # Calculate base position
-        base_y = 20
-        
-        # Check for overlaps and adjust
-        for prev_ts, prev_y in positions_used:
-            time_diff = abs((timestamp - prev_ts).total_seconds() / 86400)  # Days
-            if time_diff < 7:  # If within a week
-                base_y = max(base_y, prev_y + 25)
-        
-        # Alternate left/right for variety
-        offset_x = -15 if i % 2 == 0 else 15
-        offset_y = base_y
-        
-        # Cap maximum height
-        if offset_y > 60:
-            offset_y = 20
-            offset_x = offset_x * 2  # Move further horizontally
-        
-        positions_used.append((timestamp, offset_y))
-        
-        ax.annotate(
-            text,
-            xy=(timestamp, weight),
-            xytext=(offset_x, offset_y),
-            textcoords='offset points',
-            fontsize=10,
-            color=annotation_color,
-            bbox=dict(
-                boxstyle='round,pad=0.4',
-                facecolor='white',
-                edgecolor=annotation_color,
-                alpha=0.95,
-                linewidth=1
-            ),
-            arrowprops=dict(
-                arrowstyle='-',
-                connectionstyle='arc3,rad=0.3',
-                color=annotation_color,
-                alpha=0.5,
-                linewidth=1
-            ),
-            ha='center',
-            va='bottom',
-            fontweight='bold'
-        )
+    # Removed - no longer adding rejection annotations
+    return
 
 
 def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: dict):
@@ -557,10 +465,13 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     if reset_points:
         for reset in reset_points:
             ax1.axvline(reset['timestamp'], color='gray', linestyle='--', alpha=0.5, linewidth=1.5)
+            # Position gap label at the bottom of the chart
+            y_min = ax1.get_ylim()[0]
             ax1.annotate(f"{int(reset['gap_days'])}d gap",
-                        xy=(reset['timestamp'], reset['weight']),
-                        xytext=(5, 10), textcoords='offset points',
-                        fontsize=9, color='gray', alpha=0.8)
+                        xy=(reset['timestamp'], y_min),
+                        xytext=(0, 10), textcoords='offset points',
+                        fontsize=9, color='gray', alpha=0.8,
+                        ha='center', va='bottom')
         
         # Add to legend
         ax1.plot([], [], color='gray', linestyle='--', alpha=0.5, linewidth=1.5, label='State Reset')

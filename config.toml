@@ -59,7 +59,7 @@ kalman_cleanup_threshold = 4.0
 
 [kalman]
 # Initial variance scaling
-initial_variance = 0.5  # was 1.0
+initial_variance = 1
 
 # Process noise covariance matrix values
 transition_covariance_weight = 0.05  # was 0.5

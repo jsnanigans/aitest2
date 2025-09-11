@@ -8,17 +8,11 @@ from collections import defaultdict
 import logging
 
 try:
-    import sys
-    from pathlib import Path
-    sys.path.append(str(Path(__file__).parent.parent / 'legacy'))
-    from processor_v4_legacy import WeightProcessor
+    from .processor import WeightProcessor
     from .processor_database import ProcessorDatabase
 except ImportError:
+    from processor import WeightProcessor
     from processor_database import ProcessorDatabase
-    import sys
-    from pathlib import Path
-    sys.path.append(str(Path(__file__).parent.parent / 'legacy'))
-    from processor_v4_legacy import WeightProcessor
 
 logger = logging.getLogger(__name__)
 
