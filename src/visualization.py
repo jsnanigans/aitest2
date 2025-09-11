@@ -18,7 +18,15 @@ def categorize_rejection(reason: str) -> str:
     """Categorize rejection reason into high-level category."""
     reason_lower = reason.lower()
     
-    if "outside bounds" in reason_lower:
+    # BMI and unit conversion categories
+    if "bmi" in reason_lower:
+        return "BMI Detection"
+    elif "unit" in reason_lower or "pound" in reason_lower or "conversion" in reason_lower:
+        return "Unit Error"
+    elif "physiological" in reason_lower:
+        return "Physio Limit"
+    # Original categories
+    elif "outside bounds" in reason_lower:
         return "Bounds"
     elif "extreme deviation" in reason_lower:
         return "Extreme"
@@ -41,15 +49,18 @@ def categorize_rejection(reason: str) -> str:
 def get_rejection_color_map():
     """Get consistent color mapping for rejection categories."""
     return {
-        "Extreme": "#D32F2F",     # Red - most severe
-        "Bounds": "#E91E63",       # Pink - out of bounds
-        "Sustained": "#FF6F00",    # Dark Orange - long-term issue
-        "Variance": "#FFA726",     # Orange - session variance
-        "Daily": "#FFD54F",        # Yellow - daily fluctuation
-        "Medium": "#66BB6A",       # Green - medium-term
-        "Short": "#42A5F5",        # Blue - short-term
-        "Limit": "#AB47BC",        # Purple - physiological limit
-        "Other": "#9E9E9E"         # Gray - uncategorized
+        "BMI Detection": "#FF1744",  # Bright Red - BMI detected
+        "Unit Error": "#FF5722",     # Deep Orange - unit conversion
+        "Physio Limit": "#E91E63",   # Pink - physiological limit
+        "Extreme": "#D32F2F",        # Red - most severe
+        "Bounds": "#9C27B0",         # Purple - out of bounds
+        "Sustained": "#FF6F00",       # Dark Orange - long-term issue
+        "Variance": "#FFA726",        # Orange - session variance
+        "Daily": "#FFD54F",           # Yellow - daily fluctuation
+        "Medium": "#66BB6A",          # Green - medium-term
+        "Short": "#42A5F5",           # Blue - short-term
+        "Limit": "#AB47BC",           # Light Purple - limit exceeded
+        "Other": "#9E9E9E"            # Gray - uncategorized
     }
 
 
@@ -651,6 +662,30 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             ""
         ])
     
+    # BMI and Data Quality Statistics
+    bmi_detections = 0
+    unit_conversions = 0
+    physio_rejections = 0
+    
+    for r in all_results:
+        if r.get('bmi_details'):
+            if r['bmi_details'].get('bmi_converted'):
+                bmi_detections += 1
+            if r['bmi_details'].get('unit_converted'):
+                unit_conversions += 1
+        if r.get('rejection_insights'):
+            if r['rejection_insights'].get('category') == 'Physiological_Limit':
+                physio_rejections += 1
+    
+    if bmi_detections > 0 or unit_conversions > 0:
+        stats_sections.append([
+            "DATA QUALITY",
+            f"BMI Detections: {bmi_detections}",
+            f"Unit Conversions: {unit_conversions}",
+            f"Physio Rejections: {physio_rejections}",
+            ""
+        ])
+    
     # Source Distribution Analysis
     source_styles = get_source_style()
     source_counts = defaultdict(lambda: {'total': 0, 'accepted': 0, 'rejected': 0})
@@ -679,6 +714,42 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             )
         source_lines.append("")
         stats_sections.append(source_lines)
+    
+    # BMI Analysis
+    if all_results:
+        bmi_stats = {
+            'bmi_detected': 0,
+            'unit_converted': 0,
+            'categories': defaultdict(int)
+        }
+        
+        for r in all_results:
+            bmi_details = r.get('bmi_details', {})
+            if bmi_details:
+                if bmi_details.get('bmi_converted'):
+                    bmi_stats['bmi_detected'] += 1
+                if bmi_details.get('unit_converted'):
+                    bmi_stats['unit_converted'] += 1
+                category = bmi_details.get('bmi_category')
+                if category:
+                    bmi_stats['categories'][category] += 1
+        
+        if bmi_stats['bmi_detected'] > 0 or bmi_stats['unit_converted'] > 0:
+            bmi_lines = ["BMI & CONVERSION"]
+            if bmi_stats['bmi_detected'] > 0:
+                bmi_lines.append(f"BMI→Weight: {bmi_stats['bmi_detected']}")
+            if bmi_stats['unit_converted'] > 0:
+                bmi_lines.append(f"Unit Conv: {bmi_stats['unit_converted']}")
+            
+            # Show BMI distribution if available
+            if bmi_stats['categories']:
+                for cat in ['underweight', 'normal', 'overweight', 'obese']:
+                    if cat in bmi_stats['categories']:
+                        count = bmi_stats['categories'][cat]
+                        pct = 100 * count / len(all_results)
+                        bmi_lines.append(f"{cat[:10]:10s}: {pct:.0f}%")
+            bmi_lines.append("")
+            stats_sections.append(bmi_lines)
     
     # Top Rejection Reasons
     if rejected_results:

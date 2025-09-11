@@ -16,6 +16,7 @@ from pathlib import Path
 from src.processor import WeightProcessor
 from src.reprocessor import WeightReprocessor
 from src.processor_database import ProcessorStateDB, get_state_db
+from src.processor_enhanced import process_weight_enhanced, DataQualityPreprocessor
 from src.visualization import create_dashboard
 
 
@@ -96,6 +97,26 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     insufficient_data_users = set()  # Users skipped due to min_readings
     user_reading_counts = defaultdict(int)  # Track reading count per user
     
+    # Parse date filters from config
+    min_date_str = config["data"].get("min_date", "")
+    max_date_str = config["data"].get("max_date", "")
+    min_date = None
+    max_date = None
+    
+    if min_date_str:
+        try:
+            min_date = parse_timestamp(min_date_str)
+        except:
+            print(f"Warning: Invalid min_date '{min_date_str}', ignoring date filter")
+            min_date = None
+    
+    if max_date_str:
+        try:
+            max_date = parse_timestamp(max_date_str)
+        except:
+            print(f"Warning: Invalid max_date '{max_date_str}', ignoring date filter")
+            max_date = None
+    
     # Detailed debug data for each user
     user_debug_logs = defaultdict(lambda: {
         'user_id': None,
@@ -131,6 +152,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         "processed_users": 0,
         "accepted": 0,
         "rejected": 0,
+        "date_filtered": 0,
         "start_time": datetime.now(),
     }
 
@@ -148,6 +170,14 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     # If min_readings is set, do a first pass to count readings per user
     if min_readings > 0 and not test_mode:
         print(f"Counting readings per user (min_readings={min_readings})...")
+        if min_date or max_date:
+            date_range_str = []
+            if min_date:
+                date_range_str.append(f"after {min_date_str}")
+            if max_date:
+                date_range_str.append(f"before {max_date_str}")
+            print(f"  Date filter: {' and '.join(date_range_str)}")
+        
         with open(csv_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -157,6 +187,19 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 
                 weight_str = row.get("weight", "").strip()
                 if not weight_str or weight_str.upper() == "NULL":
+                    continue
+                
+                # Parse and check date
+                date_str = row.get("effectiveDateTime")
+                try:
+                    timestamp = parse_timestamp(date_str)
+                except:
+                    continue
+                
+                # Apply date filters
+                if min_date and timestamp < min_date:
+                    continue
+                if max_date and timestamp > max_date:
                     continue
                     
                 try:
@@ -187,6 +230,16 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             print(f"  Processing up to {max_users} users after offset")
         if min_readings > 0:
             print(f"  Minimum readings required: {min_readings}")
+    
+    # Show date filter info
+    if min_date or max_date:
+        date_range_str = []
+        if min_date:
+            date_range_str.append(f"after {min_date_str}")
+        if max_date:
+            date_range_str.append(f"before {max_date_str}")
+        print(f"  Date filter: Only processing measurements {' and '.join(date_range_str)}")
+    
     print()
 
     with open(csv_path) as f:
@@ -299,6 +352,14 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 timestamp = parse_timestamp(date_str)
             except:
                 timestamp = datetime.now()
+            
+            # Apply date filters
+            if min_date and timestamp < min_date:
+                stats["date_filtered"] += 1
+                continue
+            if max_date and timestamp > max_date:
+                stats["date_filtered"] += 1
+                continue
 
             # Check for day change and run cleanup if needed
             measurement_day = timestamp.date()
@@ -347,16 +408,32 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 'day': str(measurement_day)
             })
 
-            # Use stateless processor - no need to create instances
-            result = WeightProcessor.process_weight(
-                user_id=user_id,
-                weight=weight,
-                timestamp=timestamp,
-                source=source,
-                processing_config=config["processing"],
-                kalman_config=config["kalman"],
-                db=db
-            )
+            # Use enhanced or standard processor based on config
+            if config.get("use_enhanced", False):
+                # Load height data once if using enhanced processing
+                if not hasattr(DataQualityPreprocessor, '_height_data_loaded') or not DataQualityPreprocessor._height_data_loaded:
+                    DataQualityPreprocessor.load_height_data()
+                
+                result = process_weight_enhanced(
+                    user_id=user_id,
+                    weight=weight,
+                    timestamp=timestamp,
+                    source=source,
+                    processing_config=config["processing"],
+                    kalman_config=config["kalman"],
+                    unit=unit  # Pass unit for enhanced processing
+                )
+            else:
+                # Use stateless processor - no need to create instances
+                result = WeightProcessor.process_weight(
+                    user_id=user_id,
+                    weight=weight,
+                    timestamp=timestamp,
+                    source=source,
+                    processing_config=config["processing"],
+                    kalman_config=config["kalman"],
+                    db=db
+                )
             
             # Log processing event - result is never None anymore
             processing_log = {
@@ -447,6 +524,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             print(f"  Users skipped (offset): {stats['skipped_users']:,}")
     print(f"  Users processed: {stats['processed_users']:,}")
 
+    if stats.get("date_filtered", 0) > 0:
+        print(f"  Measurements filtered by date: {stats['date_filtered']:,}")
     print(f"  Measurements accepted: {stats['accepted']:,}")
     print(f"  Measurements rejected: {stats['rejected']:,}")
     print(f"  Time: {elapsed:.1f}s ({stats['total_rows']/elapsed:.0f} rows/sec)")
@@ -612,6 +691,7 @@ Examples:
     parser.add_argument("--config", default="config.toml", help="Configuration file (default: config.toml)")
     parser.add_argument("--no-viz", action="store_true", help="Skip visualization generation")
     parser.add_argument("--limit", type=int, help="Alias for --max-users")
+    parser.add_argument("--enhanced", action="store_true", help="Use enhanced processing with BMI detection")
     
     args = parser.parse_args()
     
@@ -642,6 +722,10 @@ Examples:
         
     if args.no_viz:
         config["visualization"]["enabled"] = False
+    
+    if args.enhanced:
+        config["use_enhanced"] = True
+        print("Using enhanced processing with BMI detection")
     
     if not Path(csv_file).exists():
         print(f"Error: File {csv_file} not found")

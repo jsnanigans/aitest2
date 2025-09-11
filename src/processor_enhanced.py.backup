@@ -12,11 +12,9 @@ import pandas as pd
 try:
     from .processor import WeightProcessor
     from .processor_database import get_state_db
-    from .threshold_calculator import ThresholdCalculator
 except ImportError:
     from processor import WeightProcessor
     from processor_database import get_state_db
-    from threshold_calculator import ThresholdCalculator
 
 
 def categorize_rejection_enhanced(reason: str) -> str:
@@ -59,6 +57,13 @@ def get_rejection_severity(reason: str, weight_change: float = 0) -> str:
 
 class DataQualityPreprocessor:
     """Pre-process and clean data before Kalman filtering."""
+    
+    # Sources with high pound usage (>70%)
+    POUND_SOURCES = {
+        'patient-upload',
+        'internal-questionnaire', 
+        'care-team-upload'
+    }
     
     # BMI detection parameters
     DEFAULT_HEIGHT_M = 1.67
@@ -113,23 +118,15 @@ class DataQualityPreprocessor:
         return cls._height_data.get(user_id, cls.DEFAULT_HEIGHT_M)
     
     @staticmethod
-    def preprocess(weight: float, source: str, timestamp: datetime, user_id: Optional[str] = None, unit: str = 'kg') -> Tuple[Optional[float], Dict]:
+    def preprocess(weight: float, source: str, timestamp: datetime, user_id: Optional[str] = None) -> Tuple[Optional[float], Dict]:
         """
         Clean and standardize weight data with BMI detection.
-        
-        Args:
-            weight: The weight value
-            source: Data source identifier
-            timestamp: Measurement timestamp
-            user_id: User identifier for height lookup
-            unit: Unit of the weight measurement ('kg', 'lb', 'lbs', 'pound', 'pounds', etc.)
         
         Returns:
             (cleaned_weight, metadata) or (None, metadata) if rejected
         """
         metadata = {
             'original_weight': weight,
-            'original_unit': unit,
             'source': source,
             'timestamp': timestamp.isoformat(),
             'corrections': [],
@@ -140,24 +137,8 @@ class DataQualityPreprocessor:
         # Get user's actual height if available
         user_height = DataQualityPreprocessor.get_user_height(user_id) if user_id else DataQualityPreprocessor.DEFAULT_HEIGHT_M
         
-        # 1. Convert units based on explicit unit parameter
-        unit_lower = unit.lower() if unit else 'kg'
-        if unit_lower in ['lb', 'lbs', 'pound', 'pounds']:
-            # Explicitly marked as pounds - convert
-            weight_kg = weight * 0.453592
-            metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
-            weight = weight_kg
-        elif unit_lower in ['st', 'stone', 'stones']:
-            # Explicitly marked as stones - convert
-            weight_kg = weight * 6.35029
-            metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
-            weight = weight_kg
-        elif unit_lower not in ['kg', 'kilogram', 'kilograms']:
-            # Unknown unit - add warning but continue
-            metadata['warnings'].append(f'Unknown unit: {unit}')
-        
-        # 2. BMI detection - only for kg values that look suspiciously like BMI
-        if unit_lower in ['kg', 'kilogram', 'kilograms'] and 15 <= weight <= 50:
+        # 1. Enhanced BMI detection using actual user height
+        if 15 <= weight <= 50:
             # Calculate what weight would be for this BMI
             implied_weight = weight * (user_height ** 2)
             
@@ -178,6 +159,15 @@ class DataQualityPreprocessor:
                 else:
                     metadata['warnings'].append(f'Value {weight:.1f} might be BMI')
         
+        # 2. Handle pound entries for sources known to use pounds
+        if source in DataQualityPreprocessor.POUND_SOURCES:
+            # Check if value is in typical pound range
+            if 80 <= weight <= 450:  # Typical pound range for adults
+                # High confidence this is pounds
+                weight_kg = weight * 0.453592
+                metadata['corrections'].append(f'Converted {weight:.1f} lb to {weight_kg:.1f} kg')
+                weight = weight_kg
+        
         # 3. Validate against physiological limits using BMI
         implied_bmi = weight / (user_height ** 2)
         
@@ -185,8 +175,20 @@ class DataQualityPreprocessor:
             metadata['warnings'].append(
                 f'Implied BMI {implied_bmi:.1f} physiologically impossible (height: {user_height:.2f}m)'
             )
-            metadata['rejected'] = f'BMI {implied_bmi:.1f} outside physiological limits'
-            return None, metadata
+            # Check if might be in stones
+            if 5 <= weight <= 30:
+                weight_kg = weight * 6.35029
+                new_bmi = weight_kg / (user_height ** 2)
+                if DataQualityPreprocessor.BMI_IMPOSSIBLE_LOW <= new_bmi <= DataQualityPreprocessor.BMI_IMPOSSIBLE_HIGH:
+                    metadata['corrections'].append(f'Converted {weight:.1f} st to {weight_kg:.1f} kg')
+                    weight = weight_kg
+                    implied_bmi = new_bmi
+                else:
+                    metadata['rejected'] = f'BMI {implied_bmi:.1f} outside physiological limits'
+                    return None, metadata
+            else:
+                metadata['rejected'] = f'BMI {implied_bmi:.1f} outside physiological limits'
+                return None, metadata
         
         if implied_bmi > DataQualityPreprocessor.BMI_IMPOSSIBLE_HIGH:
             metadata['rejected'] = f'Implied BMI {implied_bmi:.1f} physiologically impossible'
@@ -468,20 +470,19 @@ def process_weight_enhanced(
     
     Args:
         user_id: User identifier
-        weight: Weight measurement value
+        weight: Weight measurement (may be in pounds)
         timestamp: Measurement timestamp
         source: Data source identifier
         processing_config: Processing configuration
         kalman_config: Kalman filter configuration
-        unit: Unit of measurement ('kg', 'lb', 'lbs', 'pound', 'pounds', etc.)
         
     Returns:
         Processing result with additional metadata, or None if rejected
     """
     
-    # Step 1: Pre-process data with unit conversion and BMI detection
+    # Step 1: Pre-process data with BMI detection
     cleaned_weight, preprocess_metadata = DataQualityPreprocessor.preprocess(
-        weight, source, timestamp, user_id, unit
+        weight, source, timestamp, user_id
     )
     
     if cleaned_weight is None:
@@ -514,36 +515,14 @@ def process_weight_enhanced(
     if state and state.get('last_timestamp'):
         time_gap_days = (timestamp - state['last_timestamp']).days
     
-    # FIXED: Use unified threshold calculator with explicit percentage unit
+    # Adapt outlier threshold
     adapted_config = processing_config.copy()
-    
-    # Get threshold as percentage (what the base processor expects)
-    threshold_result = ThresholdCalculator.get_extreme_deviation_threshold(
-        source=source,
-        time_gap_days=time_gap_days,
-        current_weight=cleaned_weight,  # Use cleaned weight as reference
-        unit='percentage'  # Explicitly request percentage
+    adapted_config['extreme_threshold'] = AdaptiveOutlierDetector.get_adaptive_threshold(
+        source, time_gap_days
     )
     
-    adapted_config['extreme_threshold'] = threshold_result.value
-    
-    # Store both units for debugging/transparency
-    adapted_config['extreme_threshold_pct'] = threshold_result.value
-    adapted_config['extreme_threshold_kg'] = threshold_result.metadata.get('absolute_threshold_kg')
-    
-    # Step 3: Adapt Kalman configuration using unified calculator
-    adapted_kalman = kalman_config.copy()
-    
-    # Get noise multiplier from threshold calculator
-    noise_multiplier = ThresholdCalculator.get_measurement_noise_multiplier(source)
-    
-    # Adjust measurement noise based on source reliability
-    base_noise = kalman_config.get('observation_covariance', 1.0)
-    adapted_kalman['observation_covariance'] = base_noise * noise_multiplier
-    
-    # For very unreliable sources, also increase initial uncertainty
-    if noise_multiplier > 2.0:
-        adapted_kalman['initial_variance'] = kalman_config.get('initial_variance', 1.0) * 1.5
+    # Step 3: Adapt Kalman configuration
+    adapted_kalman = AdaptiveKalmanConfig.get_adapted_config(source, kalman_config)
     
     # Step 4: Process with original Kalman filter
     result = WeightProcessor.process_weight(
@@ -583,18 +562,8 @@ def process_weight_enhanced(
         
         # Enhance result with metadata
         result['preprocessing_metadata'] = preprocess_metadata
-        
-        # Include threshold information with units
-        result['threshold_info'] = {
-            'extreme_threshold_pct': adapted_config.get('extreme_threshold_pct'),
-            'extreme_threshold_kg': adapted_config.get('extreme_threshold_kg'),
-            'source_reliability': ThresholdCalculator.get_source_reliability(source),
-            'measurement_noise_multiplier': noise_multiplier if 'noise_multiplier' in locals() else 1.0
-        }
-        
-        # Legacy fields for backward compatibility
         result['adaptive_threshold'] = adapted_config['extreme_threshold']
-        result['measurement_noise_used'] = adapted_kalman.get('observation_covariance', 1.0)
+        result['measurement_noise_used'] = adapted_kalman['measurement_noise']
         
         # Add BMI details
         user_height = DataQualityPreprocessor.get_user_height(user_id)
@@ -613,7 +582,6 @@ def process_weight_enhanced(
         result['bmi_details'] = {
             'user_height_m': user_height,
             'original_weight': weight,
-            'original_unit': unit,
             'cleaned_weight': cleaned_weight,
             'implied_bmi': implied_bmi,
             'bmi_category': bmi_category,

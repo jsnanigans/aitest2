@@ -1,5 +1,8 @@
 # Weight Stream Processor Configuration
 
+# Enable enhanced processing with BMI detection and data quality improvements
+use_enhanced = true
+
 [data]
 # CSV file to process
 csv_file = "./data/2025-09-05_optimized.csv"
@@ -17,19 +20,25 @@ user_offset = 0
 # Users with fewer readings are skipped and don't count towards max_users
 min_readings = 0
 
+# Date filtering - measurements outside this range are filtered out
+# Format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS
+# Set to empty string to disable filtering
+min_date = "2019-01-01"
+max_date = "2025-09-05"
+
 
 
 # List of specific user IDs to process
 test_users = [
-  # "0040872d-333a-4ace-8c5a-b2fcd056e65a", # user with extremely noisy data
-  # "1e87d3ab-20b1-479d-ad4d-8986e1af38da", # long gap
-  # "0093a653-476b-4401-bbec-33a89abc2b18", # User with sparse historical data
-  # "4d5054c4-2492-4cd8-a15c-53381fb6bd49", # spiky data
-  # "1a452430-7351-4b8c-b921-4fb17f8a29cc", # single outlier should be rejected
-  # "5a4e195f-47d4-4f6e-aab4-1e29a1830e63", # some obvious outliers, some smaller outliers that should be rejected
-  # "3e3ca1f5-3a99-4bc4-93e0-80781d7749e2", # initial outlier, throws off all future data
-  # "77c8fbf5-2dca-419a-a602-93f47e3d5d84", # multiple initial outliers, throws off all future data
-  # "48f3ae0e-8688-4b15-8f30-537224646426", # good data before and after gap but big difference across gap
+  "0040872d-333a-4ace-8c5a-b2fcd056e65a", # user with extremely noisy data
+  "1e87d3ab-20b1-479d-ad4d-8986e1af38da", # long gap
+  "0093a653-476b-4401-bbec-33a89abc2b18", # User with sparse historical data
+  "4d5054c4-2492-4cd8-a15c-53381fb6bd49", # spiky data
+  "1a452430-7351-4b8c-b921-4fb17f8a29cc", # single outlier should be rejected
+  "5a4e195f-47d4-4f6e-aab4-1e29a1830e63", # some obvious outliers, some smaller outliers that should be rejected
+  "3e3ca1f5-3a99-4bc4-93e0-80781d7749e2", # initial outlier, throws off all future data
+  "77c8fbf5-2dca-419a-a602-93f47e3d5d84", # multiple initial outliers, throws off all future data
+  "48f3ae0e-8688-4b15-8f30-537224646426", # good data before and after gap but big difference across gap
 ]
 
 # 0040872d-333a-4ace-8c5a-b2fcd056e65a - user with extremely noisy data
