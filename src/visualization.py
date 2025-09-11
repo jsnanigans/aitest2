@@ -17,7 +17,7 @@ from dateutil.relativedelta import relativedelta
 def categorize_rejection(reason: str) -> str:
     """Categorize rejection reason into high-level category."""
     reason_lower = reason.lower()
-    
+
     # BMI and unit conversion categories
     if "bmi" in reason_lower:
         return "BMI Detection"
@@ -68,9 +68,9 @@ def normalize_source_type(source: str) -> str:
     """Normalize source type string to a standard category."""
     if not source:
         return "unknown"
-    
+
     source_lower = source.lower()
-    
+
     if "patient-device" in source_lower or "device" in source_lower:
         return "device"
     elif "connectivehealth" in source_lower or "api" in source_lower or "https://" in source_lower:
@@ -156,7 +156,7 @@ def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 
     """
     if not rejected_results:
         return []
-    
+
     clusters = []
     current_cluster = {
         'timestamp': rejected_results[0]['timestamp'],
@@ -164,12 +164,12 @@ def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 
         'weights': [],
         'count': 0
     }
-    
+
     for result in rejected_results:
         ts = result['timestamp']
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts.replace('Z', '+00:00'))
-        
+
         if current_cluster['count'] == 0:
             current_cluster['timestamp'] = ts
             current_cluster['reasons'][result.get('reason', 'Unknown')] += 1
@@ -179,9 +179,9 @@ def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 
             last_ts = current_cluster['timestamp']
             if isinstance(last_ts, str):
                 last_ts = datetime.fromisoformat(last_ts.replace('Z', '+00:00'))
-            
+
             time_diff = abs((ts - last_ts).total_seconds() / 3600)
-            
+
             if time_diff <= time_window_hours:
                 current_cluster['reasons'][result.get('reason', 'Unknown')] += 1
                 current_cluster['weights'].append(result['raw_weight'])
@@ -198,15 +198,15 @@ def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 
                 current_cluster['reasons'][result.get('reason', 'Unknown')] += 1
                 current_cluster['weights'].append(result['raw_weight'])
                 current_cluster['count'] = 1
-    
+
     if current_cluster['count'] > 0:
         clusters.append(current_cluster)
-    
+
     return clusters
 
 
 def identify_interesting_rejections(
-    rejected_results: List[dict], 
+    rejected_results: List[dict],
     clusters: List[Dict],
     max_annotations: int = 4
 ) -> List[Tuple[datetime, str, float]]:
@@ -215,28 +215,28 @@ def identify_interesting_rejections(
     Returns list of (timestamp, annotation_text, weight) tuples.
     """
     annotations = []
-    
+
     seen_categories = set()
-    
+
     for cluster in clusters[:max_annotations]:
         if cluster['count'] >= 3:
             most_common_reason = max(cluster['reasons'].items(), key=lambda x: x[1])
             category = categorize_rejection(most_common_reason[0])
-            
+
             if cluster['count'] > 10:
                 text = f"{cluster['count']}x"
             elif cluster['count'] > 5:
                 text = f"{cluster['count']}x"
             else:
                 text = category  # Just the single-word category
-            
+
             avg_weight = np.mean(cluster['weights'])
             annotations.append((cluster['timestamp'], text, avg_weight))
-        
+
         elif cluster['count'] == 1:
             reason = list(cluster['reasons'].keys())[0]
             category = categorize_rejection(reason)
-            
+
             if category not in seen_categories and len(annotations) < max_annotations:
                 # Just use the single-word category
                 annotations.append((
@@ -245,13 +245,13 @@ def identify_interesting_rejections(
                     cluster['weights'][0]
                 ))
                 seen_categories.add(category)
-    
+
     return annotations
 
 
 def add_rejection_annotations(
-    ax, 
-    rejected_results: List[dict], 
+    ax,
+    rejected_results: List[dict],
     rejected_timestamps: List[datetime],
     rejected_weights: List[float],
     date_range: Optional[Tuple[datetime, datetime]] = None
@@ -285,10 +285,10 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         fontweight="bold",
         y=0.98
     )
-    
+
     from matplotlib.gridspec import GridSpec
     # New layout: Top row full width for main chart, bottom rows for other charts and stats
-    gs = GridSpec(3, 5, figure=fig, height_ratios=[5, 2, 2], width_ratios=[1, 1, 1, 1, 1.2], 
+    gs = GridSpec(3, 5, figure=fig, height_ratios=[5, 2, 2], width_ratios=[1, 1, 1, 1, 1.2],
                   hspace=0.35, wspace=0.35, top=0.95, bottom=0.05, left=0.05, right=0.98)
 
     def parse_timestamps(results):
@@ -318,19 +318,19 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     # Calculate date range for cropped views - last N months of user data with padding
     cropped_months = viz_config.get('cropped_months', 12)  # Default to 12 months if not configured
-    
+
     if all_timestamps:
         # Find the actual date range of the data
         min_date = min(all_timestamps)
         max_date = max(all_timestamps)
-        
+
         # Calculate N months before the most recent data point
         crop_start = max_date - relativedelta(months=cropped_months)
-        
+
         # If all data is within N months, show all with padding
         if min_date > crop_start:
             crop_start = min_date - relativedelta(days=7)  # 1 week padding before
-        
+
         # Add slight padding at the end (1 week)
         crop_end = max_date + relativedelta(days=7)
     else:
@@ -369,18 +369,18 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     # No need to show raw data - we only plot accepted/rejected results
 
     if valid_results:
-        ax1.plot(valid_timestamps, filtered_weights, '-', linewidth=3.5,
+        ax1.plot(valid_timestamps, filtered_weights, '-', linewidth=1,
                 color='#1565C0', label='Kalman Filtered', zorder=2)
-        
+
         # Group valid results by source type for plotting
         source_styles = get_source_style()
         source_groups = defaultdict(lambda: {'timestamps': [], 'weights': []})
-        
+
         for r, ts, w in zip(valid_results, valid_timestamps, valid_raw_weights):
             source = normalize_source_type(r.get('source', 'unknown'))
             source_groups[source]['timestamps'].append(ts)
             source_groups[source]['weights'].append(w)
-        
+
         # Plot each source type with its specific style
         for source_type in sorted(source_groups.keys(), key=lambda x: source_styles.get(x, {}).get('priority', 999)):
             if source_groups[source_type]['timestamps']:
@@ -417,17 +417,17 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         # Color-code rejections by category and show source type
         color_map = get_rejection_color_map()
         source_styles = get_source_style()
-        
+
         # Group rejections by category AND source for more detailed plotting
         categories_data = defaultdict(lambda: {'timestamps': [], 'weights': [], 'sources': []})
-        
+
         for r, ts, w in zip(rejected_results, rejected_timestamps, rejected_raw_weights):
             category = categorize_rejection(r.get('reason', 'Unknown'))
             source = normalize_source_type(r.get('source', 'unknown'))
             categories_data[category]['timestamps'].append(ts)
             categories_data[category]['weights'].append(w)
             categories_data[category]['sources'].append(source)
-        
+
         # Plot each category with its color, using X marker for all rejections
         for category, data in categories_data.items():
             if data['timestamps']:  # Only plot if there's data
@@ -440,18 +440,18 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                     base_size = 100
                     size_modifier = 1.2 - (source_style['priority'] * 0.1)
                     sizes.append(base_size * size_modifier)
-                
+
                 ax1.scatter(data['timestamps'], data['weights'],
                            marker='x', color=color, s=sizes, alpha=0.9, linewidth=3,
                            label=f'{category} ({len(data["timestamps"])})', zorder=6)
-        
+
         add_rejection_annotations(ax1, rejected_results, rejected_timestamps, rejected_raw_weights)
 
     if filtered_weights:
         baseline = np.median(filtered_weights[: min(10, len(filtered_weights))])
         ax1.axhline(baseline, color='#F57C00', linestyle='--', alpha=0.6, linewidth=2,
                    label=f'Baseline: {baseline:.1f}kg')
-    
+
     # Add reset indicators
     reset_points = []
     for r in all_results:
@@ -461,7 +461,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 'gap_days': r.get('gap_days', 0),
                 'weight': r['raw_weight']
             })
-    
+
     if reset_points:
         for reset in reset_points:
             ax1.axvline(reset['timestamp'], color='gray', linestyle='--', alpha=0.5, linewidth=1.5)
@@ -472,27 +472,27 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                         xytext=(0, 10), textcoords='offset points',
                         fontsize=9, color='gray', alpha=0.8,
                         ha='center', va='bottom')
-        
+
         # Add to legend
         ax1.plot([], [], color='gray', linestyle='--', alpha=0.5, linewidth=1.5, label='State Reset')
 
     ax1.set_xlabel("Date", fontsize=14)
     ax1.set_ylabel("Weight (kg)", fontsize=14)
-    
+
     # Show recent data in main chart, with option to see full range
     if len(all_timestamps) > 100:  # If we have substantial history
         ax1.set_xlim([crop_start, crop_end])
         ax1.set_title("Kalman Filter Output vs Raw Data", fontsize=16, fontweight='bold', pad=12)
     else:
         ax1.set_title("Kalman Filter Output vs Raw Data", fontsize=16, fontweight='bold', pad=12)
-    
+
     # Sort legend entries by count (most common first)
     handles, labels = ax1.get_legend_handles_labels()
     if len(handles) > 3:  # If we have rejection categories
         # Extract counts from labels and sort
         try:
-            sorted_pairs = sorted(zip(handles[3:], labels[3:]), 
-                                key=lambda x: int(x[1].split('(')[1].split(')')[0]) if '(' in x[1] else 0, 
+            sorted_pairs = sorted(zip(handles[3:], labels[3:]),
+                                key=lambda x: int(x[1].split('(')[1].split(')')[0]) if '(' in x[1] else 0,
                                 reverse=True)
             if sorted_pairs:
                 sorted_handles, sorted_labels = zip(*sorted_pairs)
@@ -500,7 +500,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 labels = labels[:3] + list(sorted_labels)
         except:
             pass  # If sorting fails, use original order
-    
+
     ax1.legend(handles, labels, loc="best", ncol=min(len(handles), 6), fontsize=10, framealpha=0.95)
     ax1.grid(True, alpha=0.3, linewidth=0.5)
     ax1.grid(True, which='minor', alpha=0.15, linewidth=0.3)
@@ -510,15 +510,15 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     # Statistics Panel (right side of middle row)
     ax_stats = fig.add_subplot(gs[1:, 4])
     ax_stats.axis('off')
-    
+
     # Build statistics content with better formatting
     stats_sections = []
-    
+
     # Processing Overview
     total_measurements = len(all_results)
     accepted_pct = 100*len(valid_results)/len(all_results) if all_results else 0
     rejected_pct = 100*len(rejected_results)/len(all_results) if all_results else 0
-    
+
     stats_sections.append([
         "PROCESSING OVERVIEW",
         f"Total Measurements: {total_measurements:,}",
@@ -526,16 +526,16 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         f"Rejected: {len(rejected_results):,} ({rejected_pct:.1f}%)",
         ""
     ])
-    
+
     # Current Status
     if valid_results and filtered_weights:
         current_weight = filtered_weights[-1]
         baseline = np.median(filtered_weights[:min(10, len(filtered_weights))])
         weight_change = current_weight - baseline
-        
+
         all_trends = [r.get("trend", 0) for r in valid_results]
         current_trend = all_trends[-1] * 7 if all_trends else 0
-        
+
         stats_sections.append([
             "CURRENT STATUS",
             f"Weight: {current_weight:.1f} kg",
@@ -544,13 +544,13 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             f"Trend: {current_trend:+.2f} kg/week",
             ""
         ])
-    
+
     # Filter Performance
     if valid_results:
         all_innovations = [r.get('innovation', 0) for r in valid_results]
         all_normalized_innovations = [r.get('normalized_innovation', 0) for r in valid_results]
         all_confidences = [r.get("confidence", 0.5) for r in valid_results]
-        
+
         stats_sections.append([
             "FILTER PERFORMANCE",
             f"Mean Innovation: {np.mean(all_innovations):.3f} kg",
@@ -560,7 +560,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             f"Mean Confidence: {np.mean(all_confidences):.2f}",
             ""
         ])
-    
+
     # Weight Statistics
     if filtered_weights:
         stats_sections.append([
@@ -572,12 +572,12 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             f"Range: {max(filtered_weights) - min(filtered_weights):.1f} kg",
             ""
         ])
-    
+
     # BMI and Data Quality Statistics
     bmi_detections = 0
     unit_conversions = 0
     physio_rejections = 0
-    
+
     for r in all_results:
         if r.get('bmi_details'):
             if r['bmi_details'].get('bmi_converted'):
@@ -587,7 +587,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         if r.get('rejection_insights'):
             if r['rejection_insights'].get('category') == 'Physiological_Limit':
                 physio_rejections += 1
-    
+
     if bmi_detections > 0 or unit_conversions > 0:
         stats_sections.append([
             "DATA QUALITY",
@@ -596,11 +596,11 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             f"Physio Rejections: {physio_rejections}",
             ""
         ])
-    
+
     # Source Distribution Analysis
     source_styles = get_source_style()
     source_counts = defaultdict(lambda: {'total': 0, 'accepted': 0, 'rejected': 0})
-    
+
     for r in all_results:
         source = normalize_source_type(r.get('source', 'unknown'))
         source_counts[source]['total'] += 1
@@ -608,7 +608,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             source_counts[source]['accepted'] += 1
         else:
             source_counts[source]['rejected'] += 1
-    
+
     if source_counts:
         source_lines = ["SOURCE ANALYSIS"]
         # Sort by priority (most reliable first)
@@ -616,7 +616,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             source_counts.items(),
             key=lambda x: source_styles.get(x[0], {}).get('priority', 999)
         )
-        
+
         for source, counts in sorted_sources[:4]:  # Top 4 sources
             style = source_styles.get(source, source_styles['other'])
             accept_rate = 100 * counts['accepted'] / counts['total'] if counts['total'] > 0 else 0
@@ -625,7 +625,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             )
         source_lines.append("")
         stats_sections.append(source_lines)
-    
+
     # BMI Analysis
     if all_results:
         bmi_stats = {
@@ -633,7 +633,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             'unit_converted': 0,
             'categories': defaultdict(int)
         }
-        
+
         for r in all_results:
             bmi_details = r.get('bmi_details', {})
             if bmi_details:
@@ -644,14 +644,14 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 category = bmi_details.get('bmi_category')
                 if category:
                     bmi_stats['categories'][category] += 1
-        
+
         if bmi_stats['bmi_detected'] > 0 or bmi_stats['unit_converted'] > 0:
             bmi_lines = ["BMI & CONVERSION"]
             if bmi_stats['bmi_detected'] > 0:
                 bmi_lines.append(f"BMI→Weight: {bmi_stats['bmi_detected']}")
             if bmi_stats['unit_converted'] > 0:
                 bmi_lines.append(f"Unit Conv: {bmi_stats['unit_converted']}")
-            
+
             # Show BMI distribution if available
             if bmi_stats['categories']:
                 for cat in ['underweight', 'normal', 'overweight', 'obese']:
@@ -661,7 +661,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                         bmi_lines.append(f"{cat[:10]:10s}: {pct:.0f}%")
             bmi_lines.append("")
             stats_sections.append(bmi_lines)
-    
+
     # Top Rejection Reasons
     if rejected_results:
         rejection_categories = defaultdict(int)
@@ -669,9 +669,9 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             reason = r.get('reason', 'Unknown')
             category = categorize_rejection(reason)
             rejection_categories[category] += 1
-        
+
         top_categories = sorted(rejection_categories.items(), key=lambda x: x[1], reverse=True)[:4]
-        
+
         rejection_lines = ["REJECTION ANALYSIS"]
         for category, count in top_categories:
             percentage = 100 * count / len(rejected_results)
@@ -680,7 +680,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             rejection_lines.append(f"{category}: {count} ({percentage:.0f}%)")
         rejection_lines.append("")
         stats_sections.append(rejection_lines)
-    
+
     # Render all sections
     y_position = 0.98
     for section in stats_sections:
@@ -696,7 +696,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 y_position -= 0.035
             else:  # Empty line for spacing
                 y_position -= 0.02
-    
+
     # Add a subtle border around stats panel
     from matplotlib.patches import Rectangle
     rect = Rectangle((0.02, 0.02), 0.96, 0.96, transform=ax_stats.transAxes,
@@ -712,13 +712,13 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ax2.plot(valid_ts_cropped, innovations_cropped, 'o-', markersize=6, alpha=0.8, color='#0288D1', linewidth=2)
         ax2.axhline(0, color='black', linestyle='-', alpha=0.5, linewidth=1.5)
         ax2.fill_between(valid_ts_cropped, 0, innovations_cropped, alpha=0.4, color='#81D4FA')
-        
+
         # Add reset indicators to innovation plot
         if reset_points:
             for reset in reset_points:
                 if crop_start <= reset['timestamp'] <= crop_end:
                     ax2.axvline(reset['timestamp'], color='gray', linestyle='--', alpha=0.3, linewidth=1)
-        
+
         ax2.set_xlabel("Date", fontsize=11)
         ax2.set_ylabel("Innovation (kg)", fontsize=11)
         ax2.set_title("Kalman Innovation\n(Measurement - Prediction)", fontsize=12, fontweight='bold')
@@ -780,7 +780,7 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     # Rejection categories chart in bottom row (first 2 columns)
     ax9 = fig.add_subplot(gs[2, :2])
-    
+
     # Create rejection categories bar chart
     if rejected_results:
         rejection_categories = defaultdict(int)
@@ -788,10 +788,10 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             reason = r.get('reason', 'Unknown')
             category = categorize_rejection(reason)
             rejection_categories[category] += 1
-        
+
         # Sort and limit to top categories
         sorted_categories = sorted(rejection_categories.items(), key=lambda x: x[1], reverse=True)[:6]
-        
+
         if sorted_categories:
             categories = []
             counts = []
@@ -799,25 +799,25 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                 # Categories are already single words, no need to shorten
                 categories.append(cat)
                 counts.append(count)
-            
+
             # Create horizontal bar chart with category-specific colors
             y_pos = np.arange(len(categories))
             color_map = get_rejection_color_map()
             colors = [color_map.get(cat, '#9E9E9E') for cat in categories]
-            
+
             bars = ax9.barh(y_pos, counts, color=colors, alpha=0.8, edgecolor='#424242', linewidth=1.5)
             ax9.set_yticks(y_pos)
             ax9.set_yticklabels(categories, fontsize=10)
             ax9.set_xlabel('Count', fontsize=11)
             ax9.set_title(f'Rejection Categories (n={len(rejected_results)})', fontsize=12, fontweight='bold')
             ax9.grid(True, alpha=0.3, axis='x')
-            
+
             # Add count labels on bars
             for i, (bar, count) in enumerate(zip(bars, counts)):
                 width = bar.get_width()
                 pct = 100 * count / len(rejected_results)
-                ax9.text(width + 0.5, bar.get_y() + bar.get_height()/2, 
-                        f'{count} ({pct:.0f}%)', 
+                ax9.text(width + 0.5, bar.get_y() + bar.get_height()/2,
+                        f'{count} ({pct:.0f}%)',
                         ha='left', va='center', fontsize=9)
     else:
         ax9.text(0.5, 0.5, 'No Rejections', transform=ax9.transAxes,
@@ -827,18 +827,18 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     # Source Distribution chart in bottom row (columns 2-4)
     ax10 = fig.add_subplot(gs[2, 2:4])
-    
+
     # Create source distribution stacked bar chart
     source_styles = get_source_style()
     source_data = defaultdict(lambda: {'accepted': 0, 'rejected': 0})
-    
+
     for r in all_results:
         source = normalize_source_type(r.get('source', 'unknown'))
         if r.get('accepted'):
             source_data[source]['accepted'] += 1
         else:
             source_data[source]['rejected'] += 1
-    
+
     if source_data:
         # Sort by total count
         sorted_sources = sorted(
@@ -846,30 +846,30 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             key=lambda x: x[1]['accepted'] + x[1]['rejected'],
             reverse=True
         )[:5]  # Top 5 sources
-        
+
         source_names = []
         accepted_counts = []
         rejected_counts = []
-        
+
         for source, counts in sorted_sources:
             style = source_styles.get(source, source_styles['other'])
             source_names.append(style['label'])
             accepted_counts.append(counts['accepted'])
             rejected_counts.append(counts['rejected'])
-        
+
         x_pos = np.arange(len(source_names))
-        
+
         # Create stacked bar chart
         bars1 = ax10.bar(x_pos, accepted_counts, color='#2E7D32', alpha=0.8, label='Accepted')
         bars2 = ax10.bar(x_pos, rejected_counts, bottom=accepted_counts, color='#D32F2F', alpha=0.8, label='Rejected')
-        
+
         ax10.set_xticks(x_pos)
         ax10.set_xticklabels(source_names, fontsize=10)
         ax10.set_ylabel('Count', fontsize=11)
         ax10.set_title('Measurements by Source Type', fontsize=12, fontweight='bold')
         ax10.legend(loc='upper right', fontsize=9)
         ax10.grid(True, alpha=0.3, axis='y')
-        
+
         # Add percentage labels on bars
         for i, (bar1, bar2) in enumerate(zip(bars1, bars2)):
             total = accepted_counts[i] + rejected_counts[i]
