@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, timedelta
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB
+from src.database import ProcessorStateDB
 
 def test_real_world_scenario():
     """Test a realistic user journey with questionnaire and device data."""

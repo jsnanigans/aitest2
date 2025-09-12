@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorDatabase
+from src.database import ProcessorDatabase
 
 def analyze_bmi_based_detection():
     """

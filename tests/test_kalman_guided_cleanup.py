@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, date
 from src.reprocessor import WeightReprocessor
-from src.processor_database import ProcessorDatabase
+from src.database import ProcessorDatabase
 import numpy as np
 
 def test_kalman_guided_selection():

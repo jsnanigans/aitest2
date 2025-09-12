@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorDatabase
+from src.database import ProcessorDatabase
 
 def test_user_0040872d_issue():
     user_id = '0040872d-333a-4ace-8c5a-b2fcd056e65a'

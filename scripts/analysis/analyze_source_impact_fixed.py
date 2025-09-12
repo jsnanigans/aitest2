@@ -14,7 +14,7 @@ import json
 
 # Import the processor components
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB, get_state_db
+from src.database import ProcessorStateDB, get_state_db
 from src.visualization import normalize_source_type, get_source_style
 
 

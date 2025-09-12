@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, timedelta
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB
+from src.database import ProcessorStateDB
 
 def test_complete_implementation():
     """Complete test matching the exact scenario from the user's image."""

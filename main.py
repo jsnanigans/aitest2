@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src.reprocessor import WeightReprocessor
-from src.processor_database import ProcessorStateDB, get_state_db
+from src.database import ProcessorStateDB, get_state_db
 from src.processor import process_weight_enhanced, DataQualityPreprocessor
 from src.visualization import create_dashboard
 

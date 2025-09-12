@@ -9,7 +9,7 @@ sys.path.insert(0, '.')
 
 from datetime import datetime, timedelta
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB
+from src.database import ProcessorStateDB
 import tomllib
 
 

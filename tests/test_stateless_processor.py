@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 from datetime import datetime, timedelta
 from src.processor import WeightProcessor
-from src.processor_database import get_state_db
+from src.database import get_state_db
 
 
 def test_stateless_processing():

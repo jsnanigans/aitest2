@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.processor import WeightProcessor
 from src.visualization import create_dashboard
-from src.processor_database import ProcessorStateDB
+from src.database import ProcessorStateDB
 
 
 def test_reset_flag_in_results():

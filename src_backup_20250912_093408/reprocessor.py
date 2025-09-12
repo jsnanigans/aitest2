@@ -9,10 +9,10 @@ import logging
 
 try:
     from .processor import WeightProcessor
-    from .database import ProcessorDatabase
+    from .processor_database import ProcessorDatabase
 except ImportError:
     from processor import WeightProcessor
-    from database import ProcessorDatabase
+    from processor_database import ProcessorDatabase
 
 logger = logging.getLogger(__name__)
 

@@ -11,9 +11,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 
-from src.processor_enhanced import process_weight_enhanced
+from src.processor import process_weight_enhanced
 from src.processor import WeightProcessor
-from src.processor_database import get_state_db
+from src.database import get_state_db
 
 
 def test_user_with_old_processor():

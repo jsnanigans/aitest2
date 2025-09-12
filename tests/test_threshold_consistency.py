@@ -10,9 +10,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datetime import datetime, timedelta
 import numpy as np
 
-from src.threshold_calculator import ThresholdCalculator, ThresholdResult
-from src.processor_enhanced import process_weight_enhanced
-from src.processor_database import get_state_db
+from src.processor import ThresholdCalculator, ThresholdResult
+from src.processor import process_weight_enhanced
+from src.database import get_state_db
 
 
 def test_threshold_calculator_units():

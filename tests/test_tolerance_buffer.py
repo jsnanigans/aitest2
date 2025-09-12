@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime
 from src.processor import WeightProcessor
-from src.processor_database import get_state_db
+from src.database import get_state_db
 
 
 def test_tolerance_buffer():

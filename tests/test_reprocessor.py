@@ -9,7 +9,7 @@ from datetime import datetime, date, timedelta
 import numpy as np
 
 from src.reprocessor import WeightReprocessor
-from src.processor_database import ProcessorDatabase
+from src.database import ProcessorDatabase
 from src.processor import WeightProcessor
 
 

@@ -18,7 +18,7 @@ from src.visualization import (
     cluster_rejections,
     identify_interesting_rejections
 )
-from src.processor_enhanced import process_weight_enhanced, DataQualityPreprocessor
+from src.processor import process_weight_enhanced, DataQualityPreprocessor
 
 
 def test_categorize_rejection():

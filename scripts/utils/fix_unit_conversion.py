@@ -10,7 +10,7 @@ import csv
 from datetime import datetime
 import numpy as np
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB
+from src.database import ProcessorStateDB
 import tomllib
 
 def convert_weight_to_kg(weight_str, unit_str):

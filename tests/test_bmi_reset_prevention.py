@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, timedelta
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB
-from src.processor_enhanced import EnhancedWeightProcessor, DailyReprocessor
-from src.bmi_validator import BMIValidator
+from src.database import ProcessorStateDB
+from src.processor import EnhancedWeightProcessor, DailyReprocessor
+from src.processor import BMIValidator
 
 def test_bmi_prevents_catastrophic_drop():
     """Test that BMI validation prevents accepting impossible values after reset."""

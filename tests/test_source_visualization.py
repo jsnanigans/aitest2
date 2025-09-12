@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorDatabase
+from src.database import ProcessorDatabase
 from src.visualization import (
     create_dashboard, 
     normalize_source_type, 

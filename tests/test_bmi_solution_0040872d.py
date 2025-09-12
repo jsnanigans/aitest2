@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from src.bmi_validator import BMIValidator
+from src.processor import BMIValidator
 
 def test_bmi_validator_on_user_data():
     """Test BMI validator on actual user 0040872d data."""

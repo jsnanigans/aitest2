@@ -3,7 +3,7 @@
 
 from datetime import datetime
 from src.processor import WeightProcessor
-from src.processor_database import get_state_db
+from src.database import get_state_db
 
 def verify_fix():
     """Comprehensive test of the raw validation fix."""

@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from datetime import datetime
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB
+from src.database import ProcessorStateDB
 
 def test_106kg_issue():
     """Reproduce the exact scenario from the CSV data."""

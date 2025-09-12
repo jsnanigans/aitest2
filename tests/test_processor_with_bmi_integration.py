@@ -10,8 +10,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorDatabase
-from src.bmi_validator import BMIValidator
+from src.database import ProcessorDatabase
+from src.processor import BMIValidator
 
 def process_with_bmi_validation(user_id: str, csv_file: str, height_m: float = 1.75):
     """

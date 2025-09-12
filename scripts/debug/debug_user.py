@@ -9,7 +9,7 @@ sys.path.insert(0, '.')
 import csv
 from datetime import datetime
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB
+from src.database import ProcessorStateDB
 import tomllib
 import numpy as np
 

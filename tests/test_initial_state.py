@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorDatabase
+from src.database import ProcessorDatabase
 import toml
 
 # Load config

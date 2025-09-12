@@ -19,7 +19,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB, get_state_db
+from src.database import ProcessorStateDB, get_state_db
 
 
 class SourceProfiler:

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
 from src.processor import WeightProcessor
-from src.processor_database import ProcessorStateDB
+from src.database import ProcessorStateDB
 from src.visualization import normalize_source_type
 
 
