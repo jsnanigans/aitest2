@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
+import colorsys
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -15,148 +16,311 @@ from dateutil.relativedelta import relativedelta
 
 
 def categorize_rejection(reason: str) -> str:
-    """Categorize rejection reason into high-level category."""
+    """Categorize rejection reason into clear, high-level category."""
     reason_lower = reason.lower()
 
     # BMI and unit conversion categories
     if "bmi" in reason_lower:
-        return "BMI Detection"
+        return "BMI Value"
     elif "unit" in reason_lower or "pound" in reason_lower or "conversion" in reason_lower:
-        return "Unit Error"
+        return "Unit Convert"
     elif "physiological" in reason_lower:
         return "Physio Limit"
     # Original categories
     elif "outside bounds" in reason_lower:
-        return "Bounds"
+        return "Out of Bounds"
     elif "extreme deviation" in reason_lower:
-        return "Extreme"
+        return "Extreme Dev"
     elif "session variance" in reason_lower or "different user" in reason_lower:
-        return "Variance"
+        return "High Variance"
     elif "sustained" in reason_lower:
         return "Sustained"
     elif "daily fluctuation" in reason_lower:
-        return "Daily"
+        return "Daily Flux"
     elif "meals" in reason_lower and "hydration" in reason_lower:
-        return "Medium"
+        return "Medium Term"
     elif ("hydration" in reason_lower or "bathroom" in reason_lower) and "meals" not in reason_lower:
-        return "Short"
+        return "Short Term"
     elif "exceeds" in reason_lower and "limit" in reason_lower:
-        return "Limit"
+        return "Limit Exceed"
     else:
         return "Other"
 
 
 def get_rejection_color_map():
-    """Get consistent color mapping for rejection categories."""
+    """Red-orange-black gradient for rejection categories based on severity."""
     return {
-        "BMI Detection": "#FF1744",  # Bright Red - BMI detected
-        "Unit Error": "#FF5722",     # Deep Orange - unit conversion
-        "Physio Limit": "#E91E63",   # Pink - physiological limit
-        "Extreme": "#D32F2F",        # Red - most severe
-        "Bounds": "#9C27B0",         # Purple - out of bounds
-        "Sustained": "#FF6F00",       # Dark Orange - long-term issue
-        "Variance": "#FFA726",        # Orange - session variance
-        "Daily": "#FFD54F",           # Yellow - daily fluctuation
-        "Medium": "#66BB6A",          # Green - medium-term
-        "Short": "#42A5F5",           # Blue - short-term
-        "Limit": "#AB47BC",           # Light Purple - limit exceeded
-        "Other": "#9E9E9E"            # Gray - uncategorized
+        # Most Severe (Dark Red to Black)
+        "BMI Value": "#1A0000",        # Near black - BMI detected
+        "Unit Convert": "#330000",     # Very dark red - unit conversion
+        "Physio Limit": "#4D0000",     # Dark red - physiological bounds
+        
+        # High Severity (Dark Red)
+        "Extreme Dev": "#660000",      # Dark red - extreme deviation
+        "Out of Bounds": "#800000",    # Maroon - statistical bounds
+        
+        # Medium Severity (Red to Red-Orange)
+        "High Variance": "#990000",    # Medium red - variance issues
+        "Sustained": "#B30000",        # Bright red - sustained change
+        "Limit Exceed": "#CC0000",     # Pure red - limit exceeded
+        
+        # Lower Severity (Orange-Red to Orange)
+        "Daily Flux": "#E63300",       # Red-orange - daily fluctuation
+        "Medium Term": "#FF6600",      # Orange - medium-term
+        "Short Term": "#FF9933",       # Light orange - short-term
+        
+        # Unknown
+        "Other": "#333333"             # Dark grey - uncategorized
     }
 
 
-def normalize_source_type(source: str) -> str:
-    """Normalize source type string to a standard category."""
+def get_unique_sources(results: List[dict]) -> Dict[str, int]:
+    """Extract all unique source strings and their frequencies."""
+    source_counts = defaultdict(int)
+    for r in results:
+        source = r.get('source', 'unknown')
+        if source:
+            source_counts[source] += 1
+    return dict(source_counts)
+
+
+def truncate_source_label(source: str, max_length: int = 20) -> str:
+    """Truncate long source strings for display."""
     if not source:
-        return "unknown"
+        return "Unknown"
 
-    source_lower = source.lower()
+    if len(source) <= max_length:
+        return source
 
-    if "patient-device" in source_lower or "device" in source_lower:
-        return "device"
-    elif "connectivehealth" in source_lower:
-        return "connected"
-    elif "api" in source_lower or "https://" in source_lower:
-        return "iglucose"
-    elif "questionnaire" in source_lower or "internal-questionnaire" in source_lower:
-        return "questionnaire"
-    elif "patient-upload" in source_lower or "upload" in source_lower or "manual" in source_lower:
-        return "manual"
-    elif "scale" in source_lower:
-        return "device"
-    elif "test" in source_lower:
-        return "test"
-    else:
-        return "other"
+    # Try to truncate at a meaningful boundary
+    if '/' in source:
+        parts = source.split('/')
+        return parts[-1][:max_length-3] + "..." if len(parts[-1]) > max_length else parts[-1]
+    elif '-' in source:
+        parts = source.split('-')
+        if len(parts) > 2:
+            return f"{parts[0][:8]}-...-{parts[-1][:8]}"
+
+    return source[:max_length-3] + "..."
 
 
-def get_source_style():
-    """Get visual style configuration for different source types."""
-    return {
-        "device": {
-            "marker": "o",
-            "size": 60,
-            "alpha": 0.9,
-            "label": "Device",
-            "color": "#2E7D32",  # Green - most reliable
-            "priority": 1
-        },
-        "connected": {
-            "marker": "s",
-            "size": 55,
-            "alpha": 0.85,
-            "label": "Connected",
-            "color": "#1976D2",  # Blue - API/connected
-            "priority": 2
-        },
-        "iglucose": {
-            "marker": "s",
-            "size": 55,
-            "alpha": 0.85,
-            "label": "iGlucose",
-            "color": "#3F51B5",  # Indigo - iGlucose API
-            "priority": 2
-        },
-        "questionnaire": {
-            "marker": "^",
-            "size": 70,
-            "alpha": 0.75,
-            "label": "Questionnaire",
-            "color": "#7B1FA2",  # Purple - self-reported
-            "priority": 3
-        },
-        "manual": {
-            "marker": "D",
-            "size": 70,
-            "alpha": 0.7,
-            "label": "Manual",
-            "color": "#F57C00",  # Orange - manual entry
-            "priority": 4
-        },
-        "test": {
-            "marker": "p",
-            "size": 40,
-            "alpha": 0.6,
-            "label": "Test",
-            "color": "#616161",  # Gray - test data
-            "priority": 5
-        },
-        "other": {
-            "marker": ".",
-            "size": 35,
-            "alpha": 0.5,
-            "label": "Other",
-            "color": "#9E9E9E",  # Light gray - unknown
-            "priority": 6
-        },
-        "unknown": {
-            "marker": ".",
-            "size": 35,
-            "alpha": 0.5,
-            "label": "Unknown",
-            "color": "#BDBDBD",  # Very light gray
-            "priority": 7
-        }
+def generate_marker_sequence() -> List[str]:
+    """Generate an ordered list of distinct matplotlib markers."""
+    return [
+        'o',  # circle
+        's',  # square
+        '^',  # triangle up
+        'v',  # triangle down
+        'D',  # diamond
+        'p',  # pentagon
+        'h',  # hexagon
+        '*',  # star
+        'P',  # plus (filled)
+        'X',  # x (filled)
+        'd',  # thin diamond
+        '<',  # triangle left
+        '>',  # triangle right
+        '8',  # octagon
+        'H',  # hexagon rotated
+    ]
+
+
+def get_normalized_marker_size(marker_type: str, base_size: int = 60) -> int:
+    """Get normalized size for different marker types to ensure visual consistency."""
+    size_factors = {
+        'o': 1.0,   # circle - baseline
+        's': 0.85,  # square - appears larger
+        '^': 1.15,  # triangle up - appears smaller
+        'v': 1.15,  # triangle down
+        'D': 0.9,   # diamond - appears larger
+        'p': 1.05,  # pentagon
+        'h': 0.95,  # hexagon - appears slightly larger
+        '*': 1.25,  # star - appears smaller
+        'P': 1.1,   # plus
+        'X': 1.1,   # x
+        'd': 1.2,   # thin diamond - appears smaller
+        '<': 1.15,  # triangle left
+        '>': 1.15,  # triangle right
+        '8': 0.95,  # octagon - appears slightly larger
+        'H': 0.95,  # hexagon rotated
+        '.': 1.5,   # point - needs to be much larger
     }
+    
+    factor = size_factors.get(marker_type, 1.0)
+    return int(base_size * factor)
+
+
+def generate_color_palette(n_colors: int) -> List[str]:
+    """Generate a visually distinct color palette."""
+    # Primary distinct colors
+    base_colors = [
+        '#2E7D32',  # Green
+        '#1976D2',  # Blue
+        '#7B1FA2',  # Purple
+        '#F57C00',  # Orange
+        '#C62828',  # Red
+        '#00796B',  # Teal
+        '#5D4037',  # Brown
+        '#455A64',  # Blue Grey
+        '#E91E63',  # Pink
+        '#FBC02D',  # Yellow
+        '#512DA8',  # Deep Purple
+        '#0288D1',  # Light Blue
+        '#388E3C',  # Light Green
+        '#D32F2F',  # Light Red
+        '#1565C0',  # Darker Blue
+    ]
+
+    if n_colors <= len(base_colors):
+        return base_colors[:n_colors]
+
+    # Generate additional colors by varying brightness
+    import colorsys
+    colors = base_colors.copy()
+
+    for base_color in base_colors:
+        if len(colors) >= n_colors:
+            break
+        # Convert hex to RGB
+        hex_color = base_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16)/255.0 for i in (0, 2, 4))
+        h, s, v = colorsys.rgb_to_hsv(r, g, b)
+
+        # Create variations
+        for v_mod in [0.7, 1.3]:
+            new_v = min(1.0, v * v_mod)
+            new_rgb = colorsys.hsv_to_rgb(h, s, new_v)
+            new_hex = '#{:02x}{:02x}{:02x}'.format(
+                int(new_rgb[0]*255), int(new_rgb[1]*255), int(new_rgb[2]*255)
+            )
+            colors.append(new_hex)
+            if len(colors) >= n_colors:
+                break
+
+    return colors[:n_colors]
+
+
+def get_global_source_patterns():
+    """Define canonical source patterns for consistent visual mapping across all users."""
+    return [
+        # Most reliable sources first
+        ('patient-device-scale', 0),      # Physical scales
+        ('patient-device', 1),            # Other devices
+        ('internal-questionnaire', 2),    # Questionnaires
+        ('connectivehealth', 3),          # ConnectiveHealth API
+        ('api.iglucose.com', 4),          # iGlucose API
+        ('iglucose', 5),                  # iGlucose variants
+        ('patient-upload', 6),            # Manual uploads
+        ('manual', 7),                    # Manual entry
+        ('test', 8),                      # Test data
+        ('https://', 9),                  # Other APIs
+        ('http://', 10),                  # Other APIs (non-secure)
+        ('scale', 11),                    # Generic scale
+        ('device', 12),                   # Generic device
+        ('upload', 13),                   # Generic upload
+        ('questionnaire', 14),            # Generic questionnaire
+    ]
+
+
+def match_source_to_pattern(source: str, patterns: List[Tuple[str, int]]) -> int:
+    """Match a source string to its canonical pattern and return priority."""
+    if not source:
+        return 999
+    
+    source_lower = source.lower()
+    
+    # Check each pattern in order
+    for pattern, priority in patterns:
+        if pattern in source_lower:
+            return priority
+    
+    # Hash the source to get a consistent but arbitrary priority for unknown sources
+    # This ensures the same unknown source always gets the same priority
+    import hashlib
+    hash_val = int(hashlib.md5(source.encode()).hexdigest()[:8], 16)
+    return 100 + (hash_val % 100)  # Priority 100-199 for unknown sources
+
+
+def create_source_registry(results: List[dict], max_primary_sources: int = 15) -> Dict[str, Dict]:
+    """Create a registry mapping unique sources to visual properties with global consistency."""
+    source_counts = get_unique_sources(results)
+    patterns = get_global_source_patterns()
+    
+    # Assign priorities based on global patterns, not local frequency
+    source_priorities = {}
+    for source in source_counts:
+        source_priorities[source] = match_source_to_pattern(source, patterns)
+    
+    # Sort by global priority first, then by frequency as tiebreaker
+    sorted_sources = sorted(
+        source_counts.items(),
+        key=lambda x: (source_priorities[x[0]], -x[1])  # Priority ascending, frequency descending
+    )
+    
+    markers = generate_marker_sequence()
+    colors = generate_color_palette(max_primary_sources)
+    
+    registry = {}
+    
+    # Track used colors to ensure uniqueness for primary sources
+    used_colors = set()
+    color_index = 0
+    
+    for i, (source, count) in enumerate(sorted_sources):
+        priority = source_priorities[source]
+        
+        if i < max_primary_sources:  # Primary sources
+            # Use consistent marker based on global priority
+            marker_idx = priority % len(markers)
+            
+            # For colors, ensure uniqueness for primary sources
+            if priority < 100:  # Known sources with defined patterns
+                # Try to use the priority-based color first
+                preferred_color_idx = priority % len(colors)
+                if colors[preferred_color_idx] not in used_colors:
+                    color_idx = preferred_color_idx
+                else:
+                    # Find next available color
+                    while color_index < len(colors) and colors[color_index] in used_colors:
+                        color_index += 1
+                    color_idx = color_index if color_index < len(colors) else 0
+            else:
+                # Unknown sources get next available color
+                while color_index < len(colors) and colors[color_index] in used_colors:
+                    color_index += 1
+                color_idx = color_index if color_index < len(colors) else 0
+            
+            selected_color = colors[color_idx] if color_idx < len(colors) else '#9E9E9E'
+            used_colors.add(selected_color)
+            color_index = color_idx + 1
+            
+            registry[source] = {
+                'id': f'source_{priority:03d}',
+                'marker': markers[marker_idx],
+                'color': selected_color,
+                'size': get_normalized_marker_size(markers[marker_idx], 60),  # Normalized size
+                'label': truncate_source_label(source),
+                'frequency': count,
+                'priority': priority,  # Use global priority
+                'is_primary': True
+            }
+        else:
+            # Secondary sources grouped as "other"
+            registry[source] = {
+                'id': f'source_{priority:03d}',
+                'marker': '.',
+                'color': '#9E9E9E',
+                'size': get_normalized_marker_size('.', 40),  # Normalized size for dots
+                'label': 'Other',
+                'frequency': count,
+                'priority': 999,
+                'is_primary': False
+            }
+    
+    return registry
+
+
+
 
 
 def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 24) -> List[Dict]:
@@ -376,36 +540,56 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     # Main chart takes full width of top row (all 5 columns)
     ax1 = fig.add_subplot(gs[0, :])
 
-    # No need to show raw data - we only plot accepted/rejected results
+    # Create source registry for all results
+    source_registry = create_source_registry(all_results)
+
+    # Track which sources we've added to legend
+    legend_sources = set()
 
     if valid_results:
         ax1.plot(valid_timestamps, filtered_weights, '-', linewidth=1,
                 color='#1565C0', label='Kalman Filtered', zorder=2)
 
-        # Group valid results by source type for plotting
-        source_styles = get_source_style()
+        # Group valid results by unique source for plotting
         source_groups = defaultdict(lambda: {'timestamps': [], 'weights': []})
 
         for r, ts, w in zip(valid_results, valid_timestamps, valid_raw_weights):
-            source = normalize_source_type(r.get('source', 'unknown'))
+            source = r.get('source', 'unknown')
             source_groups[source]['timestamps'].append(ts)
             source_groups[source]['weights'].append(w)
 
-        # Plot each source type with its specific style
-        for source_type in sorted(source_groups.keys(), key=lambda x: source_styles.get(x, {}).get('priority', 999)):
-            if source_groups[source_type]['timestamps']:
-                style = source_styles.get(source_type, source_styles['other'])
+        # Plot each unique source with its specific style
+        # Sort by priority (frequency) to ensure most common sources are plotted last (on top)
+        for source in sorted(source_groups.keys(),
+                           key=lambda x: source_registry.get(x, {}).get('priority', 999)):
+            if source_groups[source]['timestamps']:
+                style = source_registry.get(source, {
+                    'marker': '.', 'size': 40, 'color': '#9E9E9E',
+                    'label': 'Unknown', 'is_primary': False
+                })
+
+                # Only add primary sources to legend individually
+                if style['is_primary'] and source not in legend_sources:
+                    label = f"{style['label']} ({len(source_groups[source]['timestamps'])})"
+                    legend_sources.add(source)
+                elif not style['is_primary'] and 'Other' not in legend_sources:
+                    # Group all secondary sources under "Other"
+                    label = f"Other Sources"
+                    legend_sources.add('Other')
+                else:
+                    label = None  # Don't add to legend again
+
                 ax1.scatter(
-                    source_groups[source_type]['timestamps'],
-                    source_groups[source_type]['weights'],
+                    source_groups[source]['timestamps'],
+                    source_groups[source]['weights'],
                     marker=style['marker'],
                     s=style['size'],
-                    alpha=style['alpha'],
+                    alpha=0.9,  # Slightly higher alpha for clarity
                     color=style['color'],
-                    label=f"{style['label']} ({len(source_groups[source_type]['timestamps'])})",
+                    label=label,
                     zorder=5,
-                    edgecolors='white',
-                    linewidth=0.7
+                    edgecolors='white',  # White outline for overlap visibility
+                    linewidth=0.5  # Subtle outline
                 )
 
         uncertainty_band = []
@@ -424,36 +608,62 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                             alpha=0.25, color='#64B5F6', label='Uncertainty')
 
     if rejected_results:
-        # Color-code rejections by category and show source type
+        # Plot rejections with source-specific markers and rejection-colored outlines
         color_map = get_rejection_color_map()
-        source_styles = get_source_style()
-
-        # Group rejections by category AND source for more detailed plotting
-        categories_data = defaultdict(lambda: {'timestamps': [], 'weights': [], 'sources': []})
-
+        
+        # Group rejections by source and reason for combined plotting
+        rejection_data = defaultdict(lambda: {'timestamps': [], 'weights': [], 'reasons': [], 'categories': []})
+        
         for r, ts, w in zip(rejected_results, rejected_timestamps, rejected_raw_weights):
-            category = categorize_rejection(r.get('reason', 'Unknown'))
-            source = normalize_source_type(r.get('source', 'unknown'))
-            categories_data[category]['timestamps'].append(ts)
-            categories_data[category]['weights'].append(w)
-            categories_data[category]['sources'].append(source)
-
-        # Plot each category with its color, using X marker for all rejections
-        for category, data in categories_data.items():
-            if data['timestamps']:  # Only plot if there's data
-                color = color_map.get(category, '#9E9E9E')
-                # Use different marker sizes based on source reliability
-                sizes = []
-                for source in data['sources']:
-                    source_style = source_styles.get(source, source_styles['other'])
-                    # Scale rejection marker size based on source priority (more reliable = bigger X)
-                    base_size = 100
-                    size_modifier = 1.2 - (source_style['priority'] * 0.1)
-                    sizes.append(base_size * size_modifier)
-
-                ax1.scatter(data['timestamps'], data['weights'],
-                           marker='x', color=color, s=sizes, alpha=0.9, linewidth=3,
-                           label=f'{category} ({len(data["timestamps"])})', zorder=6)
+            source = r.get('source', 'unknown')
+            reason = r.get('reason', 'Unknown')
+            category = categorize_rejection(reason)
+            rejection_data[source]['timestamps'].append(ts)
+            rejection_data[source]['weights'].append(w)
+            rejection_data[source]['reasons'].append(reason)
+            rejection_data[source]['categories'].append(category)
+        
+        # Track rejection categories for legend
+        rejection_legend_items = {}
+        
+        # Plot each source with rejection-colored outlines
+        for source in sorted(rejection_data.keys(),
+                           key=lambda x: source_registry.get(x, {}).get('priority', 999)):
+            if rejection_data[source]['timestamps']:
+                style = source_registry.get(source, {
+                    'marker': '.', 'size': 40, 'color': '#9E9E9E',
+                    'label': 'Unknown', 'is_primary': False
+                })
+                
+                # Plot each point with its specific rejection color outline
+                for ts, w, category in zip(rejection_data[source]['timestamps'],
+                                          rejection_data[source]['weights'],
+                                          rejection_data[source]['categories']):
+                    edge_color = color_map.get(category, '#757575')
+                    
+                    # Track categories for legend
+                    if category not in rejection_legend_items:
+                        rejection_legend_items[category] = {'count': 0, 'color': edge_color}
+                    rejection_legend_items[category]['count'] += 1
+                    
+                    ax1.scatter(
+                        [ts], [w],
+                        marker=style['marker'],
+                        s=style['size'],
+                        alpha=0.7,  # Semi-transparent fill
+                        color=style['color'],
+                        edgecolors=edge_color,  # Red-orange-black gradient color
+                        linewidth=2.5,  # Visible but not overwhelming
+                        zorder=4
+                    )
+        
+        # Add legend entries for rejection categories
+        for category, info in sorted(rejection_legend_items.items(), 
+                                    key=lambda x: x[1]['count'], reverse=True):
+            # Create a dummy plot for legend
+            ax1.plot([], [], 'o', color='none', markeredgecolor=info['color'], 
+                    markeredgewidth=2.5, markersize=8,
+                    label=f'Rej: {category} ({info["count"]})')
 
         add_rejection_annotations(ax1, rejected_results, rejected_timestamps, rejected_raw_weights)
 
@@ -608,11 +818,10 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
         ])
 
     # Source Distribution Analysis
-    source_styles = get_source_style()
     source_counts = defaultdict(lambda: {'total': 0, 'accepted': 0, 'rejected': 0})
 
     for r in all_results:
-        source = normalize_source_type(r.get('source', 'unknown'))
+        source = r.get('source', 'unknown')
         source_counts[source]['total'] += 1
         if r.get('accepted'):
             source_counts[source]['accepted'] += 1
@@ -621,18 +830,34 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
 
     if source_counts:
         source_lines = ["SOURCE ANALYSIS"]
-        # Sort by priority (most reliable first)
+        # Sort by total count (most common first)
         sorted_sources = sorted(
             source_counts.items(),
-            key=lambda x: source_styles.get(x[0], {}).get('priority', 999)
+            key=lambda x: x[1]['total'],
+            reverse=True
         )
 
-        for source, counts in sorted_sources[:4]:  # Top 4 sources
-            style = source_styles.get(source, source_styles['other'])
+        # Show top sources
+        num_primary = sum(1 for s in sorted_sources if source_registry.get(s[0], {}).get('is_primary', False))
+        num_shown = min(5, len(sorted_sources))
+
+        for source, counts in sorted_sources[:num_shown]:
+            style = source_registry.get(source, {'label': truncate_source_label(source)})
             accept_rate = 100 * counts['accepted'] / counts['total'] if counts['total'] > 0 else 0
+            label = style['label'][:15]  # Truncate for stats panel
             source_lines.append(
-                f"{style['label']:12s}: {counts['total']:3d} ({accept_rate:.0f}% acc)"
+                f"{label:15s}: {counts['total']:3d} ({accept_rate:.0f}%)"
             )
+
+        if len(sorted_sources) > num_shown:
+            # Show summary of remaining sources
+            other_total = sum(c[1]['total'] for c in sorted_sources[num_shown:])
+            other_accepted = sum(c[1]['accepted'] for c in sorted_sources[num_shown:])
+            other_rate = 100 * other_accepted / other_total if other_total > 0 else 0
+            source_lines.append(
+                f"{'Other':15s}: {other_total:3d} ({other_rate:.0f}%)"
+            )
+
         source_lines.append("")
         stats_sections.append(source_lines)
 
@@ -838,45 +1063,68 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     # Source Distribution chart in bottom row (columns 2-4)
     ax10 = fig.add_subplot(gs[2, 2:4])
 
-    # Create source distribution stacked bar chart
-    source_styles = get_source_style()
+    # Create source distribution stacked bar chart for unique sources
     source_data = defaultdict(lambda: {'accepted': 0, 'rejected': 0})
 
     for r in all_results:
-        source = normalize_source_type(r.get('source', 'unknown'))
+        source = r.get('source', 'unknown')
         if r.get('accepted'):
             source_data[source]['accepted'] += 1
         else:
             source_data[source]['rejected'] += 1
 
     if source_data:
-        # Sort by total count
+        # Sort by total count and get top sources
         sorted_sources = sorted(
             source_data.items(),
             key=lambda x: x[1]['accepted'] + x[1]['rejected'],
             reverse=True
-        )[:5]  # Top 5 sources
+        )
+
+        # Show top primary sources plus "Other" if needed
+        max_bars = 8  # Maximum number of bars to show
 
         source_names = []
         accepted_counts = []
         rejected_counts = []
+        colors = []
 
-        for source, counts in sorted_sources:
-            style = source_styles.get(source, source_styles['other'])
-            source_names.append(style['label'])
-            accepted_counts.append(counts['accepted'])
-            rejected_counts.append(counts['rejected'])
+        other_accepted = 0
+        other_rejected = 0
+
+        for i, (source, counts) in enumerate(sorted_sources):
+            if i < max_bars - 1:  # Reserve one spot for "Other"
+                style = source_registry.get(source, {'label': truncate_source_label(source, 12), 'color': '#9E9E9E'})
+                source_names.append(style['label'][:12])  # Truncate for x-axis
+                accepted_counts.append(counts['accepted'])
+                rejected_counts.append(counts['rejected'])
+                colors.append(style['color'])
+            else:
+                # Accumulate remaining sources as "Other"
+                other_accepted += counts['accepted']
+                other_rejected += counts['rejected']
+
+        # Add "Other" category if there are more sources
+        if len(sorted_sources) > max_bars - 1:
+            source_names.append('Other')
+            accepted_counts.append(other_accepted)
+            rejected_counts.append(other_rejected)
+            colors.append('#9E9E9E')
 
         x_pos = np.arange(len(source_names))
 
-        # Create stacked bar chart
-        bars1 = ax10.bar(x_pos, accepted_counts, color='#2E7D32', alpha=0.8, label='Accepted')
-        bars2 = ax10.bar(x_pos, rejected_counts, bottom=accepted_counts, color='#D32F2F', alpha=0.8, label='Rejected')
+        # Create stacked bar chart with source-specific colors
+        bars1 = ax10.bar(x_pos, accepted_counts, color=colors, alpha=0.8,
+                        edgecolor='white', linewidth=1.5, label='Accepted')
+        bars2 = ax10.bar(x_pos, rejected_counts, bottom=accepted_counts,
+                        color=colors, alpha=0.4, edgecolor='red', linewidth=1.5,
+                        linestyle='--', label='Rejected')
 
         ax10.set_xticks(x_pos)
-        ax10.set_xticklabels(source_names, fontsize=10)
+        ax10.set_xticklabels(source_names, fontsize=9, rotation=45, ha='right')
         ax10.set_ylabel('Count', fontsize=11)
-        ax10.set_title('Measurements by Source Type', fontsize=12, fontweight='bold')
+        ax10.set_title(f'Measurements by Source ({len(source_data)} unique sources)',
+                      fontsize=12, fontweight='bold')
         ax10.legend(loc='upper right', fontsize=9)
         ax10.grid(True, alpha=0.3, axis='y')
 
@@ -886,13 +1134,14 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             if total > 0:
                 accept_pct = 100 * accepted_counts[i] / total
                 # Add count on top of bar
-                ax10.text(bar1.get_x() + bar1.get_width()/2, total + 0.5,
-                         f'{total}\n({accept_pct:.0f}%)',
-                         ha='center', va='bottom', fontsize=9)
+                y_pos = total + max(accepted_counts + rejected_counts) * 0.02
+                ax10.text(bar1.get_x() + bar1.get_width()/2, y_pos,
+                         f'{total}\n{accept_pct:.0f}%',
+                         ha='center', va='bottom', fontsize=8)
     else:
         ax10.text(0.5, 0.5, 'No Source Data', transform=ax10.transAxes,
                  fontsize=14, ha='center', va='center', color='#757575')
-        ax10.set_title('Measurements by Source Type', fontsize=12, fontweight='bold')
+        ax10.set_title('Measurements by Source', fontsize=12, fontweight='bold')
         ax10.axis('off')
 
     # Don't use tight_layout with complex GridSpec - we set the spacing manually
