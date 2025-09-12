@@ -96,16 +96,22 @@ def truncate_source_label(source: str, max_length: int = 20) -> str:
     return source[:max_length-3] + "..."
 
 
+
+
+
+
+
+
 def create_source_registry(results: List[dict], max_primary_sources: int = 15) -> Dict[str, Dict]:
     """Create a registry mapping unique sources to visual properties using predefined styles."""
     source_counts = get_unique_sources(results)
-
+    
     registry = {}
-
+    
     for source, count in source_counts.items():
         # Get predefined style for this source
         style = get_source_style(source)
-
+        
         registry[source] = {
             'id': f'source_{style["priority"]:03d}',
             'marker': style['marker'],
@@ -116,8 +122,11 @@ def create_source_registry(results: List[dict], max_primary_sources: int = 15) -
             'priority': style['priority'],
             'is_primary': style['priority'] < 100  # Primary sources have priority < 100
         }
-
+    
     return registry
+
+
+
 
 
 def cluster_rejections(rejected_results: List[dict], time_window_hours: float = 24) -> List[Dict]:
@@ -380,9 +389,9 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                     source_groups[source]['timestamps'],
                     source_groups[source]['weights'],
                     marker=style['marker'],
-                    s=style['size'] * 1.3,
-                    alpha=0.9,
-                    color='#10821c',
+                    s=style['size'],
+                    alpha=0.9,  # Slightly higher alpha for clarity
+                    color=style['color'],
                     label=label,
                     zorder=5,
                     edgecolors='white',  # White outline for overlap visibility
@@ -407,10 +416,10 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     if rejected_results:
         # Plot rejections with source-specific markers and rejection-colored outlines
         color_map = get_rejection_color_map()
-
+        
         # Group rejections by source and reason for combined plotting
         rejection_data = defaultdict(lambda: {'timestamps': [], 'weights': [], 'reasons': [], 'categories': []})
-
+        
         for r, ts, w in zip(rejected_results, rejected_timestamps, rejected_raw_weights):
             source = r.get('source', 'unknown')
             reason = r.get('reason', 'Unknown')
@@ -419,10 +428,10 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
             rejection_data[source]['weights'].append(w)
             rejection_data[source]['reasons'].append(reason)
             rejection_data[source]['categories'].append(category)
-
+        
         # Track rejection categories for legend
         rejection_legend_items = {}
-
+        
         # Plot each source with rejection-colored outlines
         for source in sorted(rejection_data.keys(),
                            key=lambda x: source_registry.get(x, {}).get('priority', 999)):
@@ -431,34 +440,34 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
                     'marker': '.', 'size': 40, 'color': '#9E9E9E',
                     'label': 'Unknown', 'is_primary': False
                 })
-
+                
                 # Plot each point with its specific rejection color outline
                 for ts, w, category in zip(rejection_data[source]['timestamps'],
                                           rejection_data[source]['weights'],
                                           rejection_data[source]['categories']):
-                    edge_color = color_map.get(category, '#9E9E9E')
-
+                    edge_color = color_map.get(category, '#757575')
+                    
                     # Track categories for legend
                     if category not in rejection_legend_items:
                         rejection_legend_items[category] = {'count': 0, 'color': edge_color}
                     rejection_legend_items[category]['count'] += 1
-
+                    
                     ax1.scatter(
                         [ts], [w],
                         marker=style['marker'],
-                        s=style['size'] * 0.7,
-                        alpha=0.8,
-                        color=edge_color,
-                        edgecolors='white',
-                        linewidth=0.5,
+                        s=style['size'],
+                        alpha=0.7,  # Semi-transparent fill
+                        color=style['color'],
+                        edgecolors=edge_color,  # Colorblind-friendly gradient color
+                        linewidth=3.0,  # Thicker for better visibility
                         zorder=4
                     )
-
+        
         # Add legend entries for rejection categories
-        for category, info in sorted(rejection_legend_items.items(),
+        for category, info in sorted(rejection_legend_items.items(), 
                                     key=lambda x: x[1]['count'], reverse=True):
             # Create a dummy plot for legend
-            ax1.plot([], [], 'o', color='none', markeredgecolor=info['color'],
+            ax1.plot([], [], 'o', color='none', markeredgecolor=info['color'], 
                     markeredgewidth=3.0, markersize=10,
                     label=f'Rej: {category} ({info["count"]})')
 
@@ -952,3 +961,4 @@ def create_dashboard(user_id: str, results: list, output_dir: str, viz_config: d
     plt.close()
 
     return str(filename)
+
