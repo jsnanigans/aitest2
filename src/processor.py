@@ -82,7 +82,7 @@ class WeightProcessor:
             state = db.create_initial_state()
         
         result, updated_state = WeightProcessor._process_weight_internal(
-            weight, timestamp, source, state, processing_config, kalman_config
+            weight, timestamp, source, state, processing_config, kalman_config, user_id
         )
         
         if updated_state:
@@ -98,7 +98,8 @@ class WeightProcessor:
         source: str,
         state: Dict[str, Any],
         processing_config: dict,
-        kalman_config: dict
+        kalman_config: dict,
+        user_id: Optional[str] = None
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
         Internal processing logic - pure functional.
@@ -108,6 +109,12 @@ class WeightProcessor:
             Result is never None - all measurements are processed
         """
         new_state = state.copy()
+        
+        # Get user height and add to processing config
+        if user_id:
+            user_height = DataQualityPreprocessor.get_user_height(user_id)
+            processing_config = processing_config.copy()
+            processing_config['user_height_m'] = user_height
         
         if not state.get('kalman_params'):
             new_state = KalmanFilterManager.initialize_immediate(
@@ -133,6 +140,25 @@ class WeightProcessor:
             reset_gap_days = kalman_config.get("questionnaire_reset_days", 10)
         
         if time_delta_days > reset_gap_days:
+            height_m = processing_config.get('user_height_m', 1.7)
+            min_bmi = processing_config.get('min_valid_bmi', 10.0)
+            max_bmi = processing_config.get('max_valid_bmi', 60.0)
+            
+            is_valid, rejection_reason = BMIValidator.validate_weight_bmi_only(
+                weight, height_m, min_bmi, max_bmi
+            )
+            
+            if not is_valid:
+                return {
+                    "timestamp": timestamp,
+                    "raw_weight": weight,
+                    "accepted": False,
+                    "reason": f"Post-gap BMI validation failed: {rejection_reason}",
+                    "source": source,
+                    "gap_days": time_delta_days,
+                    "was_gap_reset_attempted": True
+                }, None
+            
             new_state = KalmanFilterManager.initialize_immediate(
                 weight, timestamp, kalman_config
             )
@@ -144,6 +170,7 @@ class WeightProcessor:
             )
             result['was_reset'] = True
             result['gap_days'] = time_delta_days
+            result['reset_reason'] = f"Gap reset after {time_delta_days:.1f} days"
             return result, new_state
         
         is_valid, rejection_reason = PhysiologicalValidator.validate_weight(

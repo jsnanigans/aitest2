@@ -73,8 +73,10 @@ def normalize_source_type(source: str) -> str:
 
     if "patient-device" in source_lower or "device" in source_lower:
         return "device"
-    elif "connectivehealth" in source_lower or "api" in source_lower or "https://" in source_lower:
+    elif "connectivehealth" in source_lower:
         return "connected"
+    elif "api" in source_lower or "https://" in source_lower:
+        return "iglucose"
     elif "questionnaire" in source_lower or "internal-questionnaire" in source_lower:
         return "questionnaire"
     elif "patient-upload" in source_lower or "upload" in source_lower or "manual" in source_lower:
@@ -106,9 +108,17 @@ def get_source_style():
             "color": "#1976D2",  # Blue - API/connected
             "priority": 2
         },
+        "iglucose": {
+            "marker": "s",
+            "size": 55,
+            "alpha": 0.85,
+            "label": "iGlucose",
+            "color": "#3F51B5",  # Indigo - iGlucose API
+            "priority": 2
+        },
         "questionnaire": {
             "marker": "^",
-            "size": 50,
+            "size": 70,
             "alpha": 0.75,
             "label": "Questionnaire",
             "color": "#7B1FA2",  # Purple - self-reported
@@ -116,7 +126,7 @@ def get_source_style():
         },
         "manual": {
             "marker": "D",
-            "size": 45,
+            "size": 70,
             "alpha": 0.7,
             "label": "Manual",
             "color": "#F57C00",  # Orange - manual entry

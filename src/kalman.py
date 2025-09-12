@@ -202,4 +202,4 @@ class KalmanFilterManager:
             last_timestamp = datetime.fromisoformat(last_timestamp)
         
         delta = (current_timestamp - last_timestamp).total_seconds() / 86400.0
-        return max(0.1, min(30.0, delta))
+        return max(0.1, delta)

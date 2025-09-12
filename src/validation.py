@@ -238,6 +238,41 @@ class BMIValidator:
         return False, None
     
     @staticmethod
+    def validate_weight_bmi_only(
+        weight_kg: float,
+        height_m: Optional[float] = None,
+        min_bmi: float = 10.0,
+        max_bmi: float = 60.0
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Validate weight using only BMI bounds (for post-gap measurements).
+        
+        Args:
+            weight_kg: Weight in kilograms
+            height_m: Height in meters (optional)
+            min_bmi: Minimum valid BMI (default 10.0)
+            max_bmi: Maximum valid BMI (default 60.0)
+            
+        Returns:
+            (is_valid, rejection_reason)
+        """
+        if weight_kg < PHYSIOLOGICAL_LIMITS['MIN_WEIGHT']:
+            return False, f"Weight below absolute minimum: {weight_kg:.1f}kg < {PHYSIOLOGICAL_LIMITS['MIN_WEIGHT']}kg"
+        
+        if weight_kg > 300:
+            return False, f"Weight above absolute maximum: {weight_kg:.1f}kg > 300kg"
+        
+        if height_m and height_m > 0:
+            bmi = BMIValidator.calculate_bmi(weight_kg, height_m)
+            if bmi:
+                if bmi < min_bmi:
+                    return False, f"BMI below minimum: {bmi:.1f} < {min_bmi}"
+                if bmi > max_bmi:
+                    return False, f"BMI above maximum: {bmi:.1f} > {max_bmi}"
+        
+        return True, None
+    
+    @staticmethod
     def get_confidence_multiplier(
         current_weight: float,
         last_weight: float,
