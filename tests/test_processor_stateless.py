@@ -35,17 +35,16 @@ def test_statelessness():
         }
     }
     
-    processor = WeightProcessor("test_user", config["processing"], config["kalman"])
+    # WeightProcessor is now fully stateless - no instance needed
+    user_id = "test_user"
     
     print("\nInitial State (before any processing):")
     print("-" * 40)
     
-    # Check initial state
+    # Check initial state (should be None)
+    initial_state = WeightProcessor.get_user_state(user_id)
     essential_state = {
-        'kalman': processor.kalman,
-        'last_state': processor.last_state,
-        'last_covariance': processor.last_covariance,
-        'last_timestamp': processor.last_timestamp,
+        'state': initial_state
     }
     
     temp_state = {

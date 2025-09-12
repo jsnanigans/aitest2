@@ -1,19 +1,43 @@
 """
 Enhanced weight processor with data quality improvements.
-Based on analysis of 709,246 measurements revealing source-specific patterns.
+Orchestrates validation, quality, and Kalman filtering components.
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, Tuple, Optional, List, Any, Literal
+from typing import Dict, Optional, Any, Tuple, List
 from collections import defaultdict, deque
 import numpy as np
-import pandas as pd
-from pykalman import KalmanFilter
 
 try:
     from .database import ProcessorStateDB, get_state_db
+    from .kalman import KalmanFilterManager
+    from .validation import PhysiologicalValidator, BMIValidator, ThresholdCalculator
+    from .quality import (
+        DataQualityPreprocessor,
+        AdaptiveOutlierDetector,
+        AdaptiveKalmanConfig,
+        quality_monitor
+    )
+    from .models import (
+        QUESTIONNAIRE_SOURCES,
+        categorize_rejection_enhanced,
+        get_rejection_severity
+    )
 except ImportError:
     from database import ProcessorStateDB, get_state_db
+    from kalman import KalmanFilterManager
+    from validation import PhysiologicalValidator, BMIValidator, ThresholdCalculator
+    from quality import (
+        DataQualityPreprocessor,
+        AdaptiveOutlierDetector,
+        AdaptiveKalmanConfig,
+        quality_monitor
+    )
+    from models import (
+        QUESTIONNAIRE_SOURCES,
+        categorize_rejection_enhanced,
+        get_rejection_severity
+    )
 
 
 class WeightProcessor:
@@ -86,85 +110,65 @@ class WeightProcessor:
         new_state = state.copy()
         
         if not state.get('kalman_params'):
-            new_state = WeightProcessor._initialize_kalman_immediate(
+            new_state = KalmanFilterManager.initialize_immediate(
                 weight, timestamp, kalman_config
             )
             
-            new_state = WeightProcessor._update_kalman_state(
+            new_state = KalmanFilterManager.update_state(
                 new_state, weight, timestamp, source, processing_config
             )
             
-            result = WeightProcessor._create_result(
+            result = KalmanFilterManager.create_result(
                 new_state, weight, timestamp, source, True
             )
             return result, new_state
         
-        time_delta_days = 1.0
-        should_reset = False
-        if new_state.get('last_timestamp'):
-            last_timestamp = new_state['last_timestamp']
-            if isinstance(last_timestamp, str):
-                last_timestamp = datetime.fromisoformat(last_timestamp)
-            delta = (timestamp - last_timestamp).total_seconds() / 86400.0
-            time_delta_days = max(0.1, min(30.0, delta))
-            
-            reset_gap_days = kalman_config.get("reset_gap_days", 30)
-            
-            questionnaire_sources = {
-                'internal-questionnaire',
-                'initial-questionnaire',
-                'care-team-upload',
-                'questionnaire'
-            }
-            if state.get('last_source') in questionnaire_sources:
-                reset_gap_days = kalman_config.get("questionnaire_reset_days", 10)
-            
-            if delta > reset_gap_days:
-                should_reset = True
-                new_state = WeightProcessor._initialize_kalman_immediate(
-                    weight, timestamp, kalman_config
-                )
-                new_state = WeightProcessor._update_kalman_state(
-                    new_state, weight, timestamp, source, processing_config
-                )
-                result = WeightProcessor._create_result(
-                    new_state, weight, timestamp, source, True
-                )
-                result['was_reset'] = True
-                result['gap_days'] = delta
-                return result, new_state
+        time_delta_days = KalmanFilterManager.calculate_time_delta_days(
+            timestamp, new_state.get('last_timestamp')
+        )
         
-        if not should_reset:
-            is_valid, rejection_reason = WeightProcessor._validate_weight(
-                weight,
-                processing_config,
-                state,
-                timestamp
+        reset_gap_days = kalman_config.get("reset_gap_days", 30)
+        
+        if state.get('last_source') in QUESTIONNAIRE_SOURCES:
+            reset_gap_days = kalman_config.get("questionnaire_reset_days", 10)
+        
+        if time_delta_days > reset_gap_days:
+            new_state = KalmanFilterManager.initialize_immediate(
+                weight, timestamp, kalman_config
             )
-            if not is_valid:
-                return {
-                    "timestamp": timestamp,
-                    "raw_weight": weight,
-                    "accepted": False,
-                    "reason": rejection_reason or "Basic validation failed",
-                    "source": source,
-                }, None
+            new_state = KalmanFilterManager.update_state(
+                new_state, weight, timestamp, source, processing_config
+            )
+            result = KalmanFilterManager.create_result(
+                new_state, weight, timestamp, source, True
+            )
+            result['was_reset'] = True
+            result['gap_days'] = time_delta_days
+            return result, new_state
         
-        if new_state.get('last_state') is not None:
-            last_state = new_state['last_state']
-            if len(last_state.shape) > 1:
-                current_state = last_state[-1]
-            else:
-                current_state = last_state
-            
-            predicted_weight = current_state[0] + current_state[1] * time_delta_days
+        is_valid, rejection_reason = PhysiologicalValidator.validate_weight(
+            weight, processing_config, state, timestamp
+        )
+        if not is_valid:
+            return {
+                "timestamp": timestamp,
+                "raw_weight": weight,
+                "accepted": False,
+                "reason": rejection_reason or "Basic validation failed",
+                "source": source,
+            }, None
+        
+        current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
+        
+        if current_weight is not None:
+            predicted_weight = current_weight + current_trend * time_delta_days
             deviation = abs(weight - predicted_weight) / predicted_weight
             
             extreme_threshold = processing_config["extreme_threshold"]
             
             if deviation > extreme_threshold:
                 pseudo_normalized_innovation = (deviation / extreme_threshold) * 3.0
-                confidence = WeightProcessor._calculate_confidence(
+                confidence = KalmanFilterManager.calculate_confidence(
                     pseudo_normalized_innovation
                 )
                 
@@ -172,309 +176,22 @@ class WeightProcessor:
                     "timestamp": timestamp,
                     "raw_weight": weight,
                     "filtered_weight": float(predicted_weight),
-                    "trend": float(current_state[1]),
+                    "trend": float(current_trend),
                     "accepted": False,
                     "reason": f"Extreme deviation: {deviation:.1%}",
                     "confidence": confidence,
                     "source": source,
                 }, None
         
-        new_state = WeightProcessor._update_kalman_state(
+        new_state = KalmanFilterManager.update_state(
             new_state, weight, timestamp, source, processing_config
         )
         
-        result = WeightProcessor._create_result(
+        result = KalmanFilterManager.create_result(
             new_state, weight, timestamp, source, True
         )
         
         return result, new_state
-
-    @staticmethod
-    def _calculate_time_delta_hours(
-        current_timestamp: datetime,
-        last_timestamp: Optional[datetime]
-    ) -> float:
-        """Calculate hours between measurements."""
-        if last_timestamp is None:
-            return float('inf')
-        
-        if isinstance(last_timestamp, str):
-            last_timestamp = datetime.fromisoformat(last_timestamp)
-        
-        delta = (current_timestamp - last_timestamp).total_seconds() / 3600
-        return max(0.0, delta)
-    
-    @staticmethod
-    def _get_physiological_limit(
-        time_delta_hours: float,
-        last_weight: float,
-        config: dict
-    ) -> tuple[float, str]:
-        """
-        Get maximum allowed weight change based on time elapsed.
-        Based on framework document recommendations (Section 3.1).
-        """
-        phys_config = config.get('physiological', {})
-        
-        if not phys_config.get('enable_physiological_limits', True):
-            legacy_limit = config.get('max_daily_change', 0.05) * last_weight
-            return legacy_limit, "legacy percentage limit"
-        
-        if time_delta_hours < 1:
-            percent_limit = phys_config.get('max_change_1h_percent', 0.02)
-            absolute_limit = phys_config.get('max_change_1h_absolute', 3.0)
-            reason = "hydration/bathroom"
-        elif time_delta_hours < 6:
-            percent_limit = phys_config.get('max_change_6h_percent', 0.025)
-            absolute_limit = phys_config.get('max_change_6h_absolute', 4.0)
-            reason = "meals+hydration"
-        elif time_delta_hours <= 24:
-            percent_limit = phys_config.get('max_change_24h_percent', 0.035)
-            absolute_limit = phys_config.get('max_change_24h_absolute', 5.0)
-            reason = "daily fluctuation"
-        else:
-            daily_rate = phys_config.get('max_sustained_daily', 1.5)
-            days = time_delta_hours / 24
-            absolute_limit = days * daily_rate
-            percent_limit = absolute_limit / last_weight
-            reason = f"sustained ({daily_rate}kg/day)"
-        
-        percentage_based = last_weight * percent_limit
-        limit = min(percentage_based, absolute_limit)
-        
-        if limit == absolute_limit and time_delta_hours <= 24:
-            reason += f" (capped at {absolute_limit}kg)"
-        
-        return limit, reason
-    
-    @staticmethod
-    def _validate_weight(
-        weight: float,
-        config: dict,
-        state: Optional[Dict[str, Any]],
-        timestamp: Optional[datetime] = None
-    ) -> tuple[bool, Optional[str]]:
-        """
-        Validate weight with physiological limits.
-        Returns (is_valid, rejection_reason).
-        """
-        min_weight = config.get('min_weight', 30)
-        max_weight = config.get('max_weight', 400)
-        
-        if weight < min_weight or weight > max_weight:
-            return False, f"Weight {weight}kg outside bounds [{min_weight}, {max_weight}]"
-        
-        if state is None:
-            return True, None
-        
-        if 'last_raw_weight' in state:
-            last_weight = state['last_raw_weight']
-        elif state.get('last_state') is not None:
-            last_state_val = state.get('last_state')
-            if isinstance(last_state_val, np.ndarray):
-                last_weight = last_state_val[-1][0] if len(last_state_val.shape) > 1 else last_state_val[0]
-            else:
-                last_weight = last_state_val[0] if isinstance(last_state_val, (list, tuple)) else last_state_val
-        else:
-            return True, None
-        
-        if timestamp and state.get('last_timestamp'):
-            time_delta_hours = WeightProcessor._calculate_time_delta_hours(
-                timestamp, state.get('last_timestamp')
-            )
-        else:
-            time_delta_hours = 24
-        
-        change = abs(weight - last_weight)
-        max_change, reason = WeightProcessor._get_physiological_limit(
-            time_delta_hours, last_weight, config
-        )
-        
-        phys_config = config.get('physiological', {})
-        if time_delta_hours > 24:
-            tolerance = phys_config.get('sustained_tolerance', 0.25)
-        else:
-            tolerance = phys_config.get('limit_tolerance', 0.10)
-        effective_limit = max_change * (1 + tolerance)
-        
-        if change > effective_limit:
-            return False, (f"Change of {change:.1f}kg in {time_delta_hours:.1f}h "
-                          f"exceeds {reason} limit of {max_change:.1f}kg")
-        
-        phys_config = config.get('physiological', {})
-        session_timeout = phys_config.get('session_timeout_minutes', 5) / 60
-        
-        if time_delta_hours < session_timeout:
-            session_variance_threshold = phys_config.get('session_variance_threshold', 5.0)
-            if change > session_variance_threshold:
-                return False, (f"Session variance {change:.1f}kg exceeds threshold "
-                              f"{session_variance_threshold}kg (likely different user)")
-        
-        return True, None
-
-    @staticmethod
-    def _initialize_kalman_immediate(
-        weight: float,
-        timestamp: datetime,
-        kalman_config: dict
-    ) -> Dict[str, Any]:
-        """Initialize Kalman filter immediately with first measurement."""
-        initial_variance = kalman_config.get("initial_variance", 1.0)
-        
-        kalman_params = {
-            'initial_state_mean': [weight, 0],
-            'initial_state_covariance': [[initial_variance, 0], [0, 0.001]],
-            'transition_covariance': [
-                [kalman_config["transition_covariance_weight"], 0],
-                [0, kalman_config["transition_covariance_trend"]]
-            ],
-            'observation_covariance': [[kalman_config["observation_covariance"]]],
-        }
-        
-        return {
-            'kalman_params': kalman_params,
-            'last_state': np.array([[weight, 0]]),
-            'last_covariance': np.array([[[initial_variance, 0], [0, 0.001]]]),
-            'last_timestamp': timestamp,
-            'last_raw_weight': weight,
-        }
-    
-    @staticmethod
-    def _update_kalman_state(
-        state: Dict[str, Any],
-        weight: float,
-        timestamp: datetime,
-        source: str,
-        processing_config: dict
-    ) -> Dict[str, Any]:
-        """Update Kalman filter state with new measurement."""
-        time_delta_days = 1.0
-        if state.get('last_timestamp'):
-            last_timestamp = state['last_timestamp']
-            if isinstance(last_timestamp, str):
-                last_timestamp = datetime.fromisoformat(last_timestamp)
-            delta = (timestamp - last_timestamp).total_seconds() / 86400.0
-            time_delta_days = max(0.1, min(30.0, delta))
-        
-        kalman_params = state['kalman_params']
-        kalman = KalmanFilter(
-            transition_matrices=np.array([[1, time_delta_days], [0, 1]]),
-            observation_matrices=np.array([[1, 0]]),
-            initial_state_mean=np.array(kalman_params['initial_state_mean']),
-            initial_state_covariance=np.array(kalman_params['initial_state_covariance']),
-            transition_covariance=np.array(kalman_params['transition_covariance']),
-            observation_covariance=np.array(kalman_params['observation_covariance']),
-        )
-        
-        observation = np.array([[weight]])
-        
-        if state.get('last_state') is None:
-            filtered_state_means, filtered_state_covariances = kalman.filter(observation)
-            new_last_state = filtered_state_means
-            new_last_covariance = filtered_state_covariances
-        else:
-            last_state = state['last_state']
-            last_covariance = state['last_covariance']
-            
-            if len(last_state.shape) > 1:
-                current_state = last_state[-1]
-                current_covariance = last_covariance[-1]
-            else:
-                current_state = last_state
-                current_covariance = last_covariance[0] if len(last_covariance.shape) > 2 else last_covariance
-            
-            filtered_state_mean, filtered_state_covariance = kalman.filter_update(
-                current_state,
-                current_covariance,
-                observation=observation[0],
-            )
-            
-            if len(last_state.shape) == 1:
-                new_last_state = np.array([last_state, filtered_state_mean])
-                new_last_covariance = np.array([last_covariance, filtered_state_covariance])
-            else:
-                new_last_state = np.array([last_state[-1], filtered_state_mean])
-                new_last_covariance = np.array([last_covariance[-1], filtered_state_covariance])
-        
-        state['last_state'] = new_last_state
-        state['last_covariance'] = new_last_covariance
-        state['last_timestamp'] = timestamp
-        state['last_raw_weight'] = weight
-        
-        return state
-
-    @staticmethod
-    def _reset_kalman_state(state: Dict[str, Any], new_weight: float) -> Dict[str, Any]:
-        """Reset Kalman state after long gap."""
-        state['last_state'] = np.array([[new_weight, 0]])
-        state['last_covariance'] = np.array([[[1.0, 0], [0, 0.001]]])
-        state['last_raw_weight'] = new_weight
-        
-        if state.get('kalman_params'):
-            state['kalman_params']['initial_state_mean'] = [new_weight, 0]
-        
-        return state
-
-    @staticmethod
-    def _calculate_confidence(normalized_innovation: float) -> float:
-        """Calculate confidence using smooth exponential decay."""
-        alpha = 0.5
-        return np.exp(-alpha * normalized_innovation ** 2)
-
-    @staticmethod
-    def _create_result(
-        state: Dict[str, Any],
-        weight: float,
-        timestamp: datetime,
-        source: str,
-        accepted: bool
-    ) -> Dict[str, Any]:
-        """Create result dictionary from current state."""
-        if state.get('last_state') is None:
-            return None
-        
-        last_state = state['last_state']
-        if len(last_state.shape) > 1:
-            current_state = last_state[-1]
-        else:
-            current_state = last_state
-        
-        filtered_weight = current_state[0]
-        trend = current_state[1]
-        
-        innovation = weight - filtered_weight
-        
-        last_covariance = state.get('last_covariance')
-        if last_covariance is not None:
-            if len(last_covariance.shape) > 2:
-                current_covariance = last_covariance[-1]
-            else:
-                current_covariance = last_covariance
-            
-            obs_covariance = state['kalman_params']['observation_covariance'][0][0]
-            innovation_variance = current_covariance[0, 0] + obs_covariance
-            normalized_innovation = (
-                abs(innovation) / np.sqrt(innovation_variance)
-                if innovation_variance > 0
-                else 0
-            )
-        else:
-            normalized_innovation = 0
-        
-        confidence = WeightProcessor._calculate_confidence(normalized_innovation)
-        
-        return {
-            "timestamp": timestamp,
-            "raw_weight": weight,
-            "filtered_weight": float(filtered_weight),
-            "trend": float(trend),
-            "trend_weekly": float(trend * 7),
-            "accepted": accepted,
-            "confidence": float(confidence),
-            "innovation": float(innovation),
-            "normalized_innovation": float(normalized_innovation),
-            "source": source,
-        }
 
     @staticmethod
     def get_user_state(user_id: str) -> Optional[Dict[str, Any]]:
@@ -487,435 +204,6 @@ class WeightProcessor:
         """Reset a user's state (delete from database)."""
         db = get_state_db()
         return db.delete_state(user_id)
-
-
-def categorize_rejection_enhanced(reason: str) -> str:
-    """Enhanced categorization including BMI and unit issues."""
-    reason_lower = reason.lower()
-    
-    if "bmi" in reason_lower:
-        return "BMI_Detection"
-    elif "unit" in reason_lower or "pound" in reason_lower or "conversion" in reason_lower:
-        return "Unit_Conversion"
-    elif "physiological" in reason_lower:
-        return "Physiological_Limit"
-    elif "outside bounds" in reason_lower:
-        return "Bounds"
-    elif "extreme deviation" in reason_lower:
-        return "Extreme"
-    elif "session variance" in reason_lower or "different user" in reason_lower:
-        return "Variance"
-    elif "sustained" in reason_lower:
-        return "Sustained"
-    elif "daily fluctuation" in reason_lower:
-        return "Daily"
-    else:
-        return "Other"
-
-
-def get_rejection_severity(reason: str, weight_change: float = 0) -> str:
-    """Determine severity of rejection."""
-    reason_lower = reason.lower()
-    
-    if "impossible" in reason_lower or "physiologically impossible" in reason_lower:
-        return "Critical"
-    elif "extreme" in reason_lower or weight_change > 20:
-        return "High"
-    elif "suspicious" in reason_lower or weight_change > 10:
-        return "Medium"
-    else:
-        return "Low"
-
-
-class DataQualityPreprocessor:
-    """Pre-process and clean data before Kalman filtering."""
-    
-    # BMI detection parameters
-    DEFAULT_HEIGHT_M = 1.67
-    BMI_IMPOSSIBLE_LOW = 10
-    BMI_IMPOSSIBLE_HIGH = 100
-    BMI_SUSPICIOUS_LOW = 13
-    BMI_SUSPICIOUS_HIGH = 60
-    
-    # Height data cache
-    _height_data = None
-    _height_data_loaded = False
-    
-    @classmethod
-    def load_height_data(cls):
-        """Load height data from CSV file once."""
-        if not cls._height_data_loaded:
-            try:
-                df = pd.read_csv('data/2025-09-11_height_values_latest.csv')
-                df['value_m'] = df.apply(lambda row: cls._convert_height_to_meters(
-                    row['value_quantity'], row['unit']
-                ), axis=1)
-                cls._height_data = df.set_index('user_id')['value_m'].to_dict()
-                cls._height_data_loaded = True
-                print(f"Loaded height data for {len(cls._height_data)} users")
-            except Exception as e:
-                print(f"Could not load height data: {e}")
-                cls._height_data = {}
-                cls._height_data_loaded = True
-    
-    @staticmethod
-    def _convert_height_to_meters(value: float, unit: str) -> float:
-        """Convert height to meters."""
-        unit_lower = unit.lower() if unit else 'm'
-        
-        if 'cm' in unit_lower or 'centimeter' in unit_lower:
-            return value / 100.0
-        elif 'in' in unit_lower or 'inch' in unit_lower:
-            return value * 0.0254
-        elif 'ft' in unit_lower or 'feet' in unit_lower:
-            return value * 0.3048
-        elif 'm' in unit_lower or 'meter' in unit_lower:
-            return value
-        else:
-            return value / 100.0
-    
-    @classmethod
-    def get_user_height(cls, user_id: str) -> float:
-        """Get user's height in meters, using default if not found."""
-        if not cls._height_data_loaded:
-            cls.load_height_data()
-        
-        return cls._height_data.get(user_id, cls.DEFAULT_HEIGHT_M)
-    
-    @staticmethod
-    def preprocess(weight: float, source: str, timestamp: datetime, user_id: Optional[str] = None, unit: str = 'kg') -> Tuple[Optional[float], Dict]:
-        """
-        Clean and standardize weight data with BMI detection.
-        
-        Args:
-            weight: The weight value
-            source: Data source identifier
-            timestamp: Measurement timestamp
-            user_id: User identifier for height lookup
-            unit: Unit of the weight measurement ('kg', 'lb', 'lbs', 'pound', 'pounds', etc.)
-        
-        Returns:
-            (cleaned_weight, metadata) or (None, metadata) if rejected
-        """
-        metadata = {
-            'original_weight': weight,
-            'original_unit': unit,
-            'source': source,
-            'timestamp': timestamp.isoformat(),
-            'corrections': [],
-            'warnings': [],
-            'checks_passed': []
-        }
-        
-        # Get user's actual height if available
-        user_height = DataQualityPreprocessor.get_user_height(user_id) if user_id else DataQualityPreprocessor.DEFAULT_HEIGHT_M
-        
-        # 1. Convert units based on explicit unit parameter
-        unit_lower = unit.lower() if unit else 'kg'
-        if unit_lower in ['lb', 'lbs', 'pound', 'pounds']:
-            # Explicitly marked as pounds - convert
-            weight_kg = weight * 0.453592
-            metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
-            weight = weight_kg
-        elif unit_lower in ['st', 'stone', 'stones']:
-            # Explicitly marked as stones - convert
-            weight_kg = weight * 6.35029
-            metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
-            weight = weight_kg
-        elif unit_lower not in ['kg', 'kilogram', 'kilograms']:
-            # Unknown unit - add warning but continue
-            metadata['warnings'].append(f'Unknown unit: {unit}')
-        
-        # 2. BMI detection - only for kg values that look suspiciously like BMI
-        if unit_lower in ['kg', 'kilogram', 'kilograms'] and 15 <= weight <= 50:
-            # Calculate what weight would be for this BMI
-            implied_weight = weight * (user_height ** 2)
-            
-            # Check if implied weight is reasonable
-            if 40 <= implied_weight <= 200:
-                # High confidence this is BMI
-                metadata['warnings'].append(
-                    f'Value {weight:.1f} likely BMI (implies {implied_weight:.1f}kg weight for height {user_height:.2f}m)'
-                )
-                metadata['corrections'].append(f'Converted BMI {weight:.1f} to weight {implied_weight:.1f}kg')
-                weight = implied_weight
-            elif 30 <= implied_weight <= 250:
-                # Moderate confidence - check source
-                if 'connectivehealth' in source.lower():
-                    metadata['warnings'].append(f'Value {weight:.1f} appears to be BMI from {source}')
-                    metadata['corrections'].append(f'Converted BMI {weight:.1f} to weight {implied_weight:.1f}kg')
-                    weight = implied_weight
-                else:
-                    metadata['warnings'].append(f'Value {weight:.1f} might be BMI')
-        
-        # 3. Validate against physiological limits using BMI
-        implied_bmi = weight / (user_height ** 2)
-        
-        if implied_bmi < DataQualityPreprocessor.BMI_IMPOSSIBLE_LOW:
-            metadata['warnings'].append(
-                f'Implied BMI {implied_bmi:.1f} physiologically impossible (height: {user_height:.2f}m)'
-            )
-            metadata['rejected'] = f'BMI {implied_bmi:.1f} outside physiological limits'
-            return None, metadata
-        
-        if implied_bmi > DataQualityPreprocessor.BMI_IMPOSSIBLE_HIGH:
-            metadata['rejected'] = f'Implied BMI {implied_bmi:.1f} physiologically impossible'
-            return None, metadata
-        
-        # Warnings for suspicious but possible values
-        if implied_bmi < DataQualityPreprocessor.BMI_SUSPICIOUS_LOW:
-            metadata['warnings'].append(f'Implied BMI {implied_bmi:.1f} suspiciously low')
-        
-        if implied_bmi > DataQualityPreprocessor.BMI_SUSPICIOUS_HIGH:
-            metadata['warnings'].append(f'Implied BMI {implied_bmi:.1f} suspiciously high')
-        
-        metadata['checks_passed'].append('physiological_limits')
-        metadata['implied_bmi'] = round(implied_bmi, 1)
-        metadata['user_height_m'] = round(user_height, 2)
-        
-        # Add BMI classification
-        if implied_bmi < 18.5:
-            metadata['bmi_category'] = 'underweight'
-        elif implied_bmi < 25:
-            metadata['bmi_category'] = 'normal'
-        elif implied_bmi < 30:
-            metadata['bmi_category'] = 'overweight'
-        else:
-            metadata['bmi_category'] = 'obese'
-        
-        # 4. Flag high-risk sources
-        if 'iglucose' in source.lower():
-            metadata['warnings'].append('High-outlier source - increased scrutiny')
-            metadata['high_risk'] = True
-        
-        return weight, metadata
-
-
-class AdaptiveOutlierDetector:
-    """Adaptive outlier detection based on source reliability."""
-    
-    # Outlier rates per 1000 from analysis
-    SOURCE_PROFILES = {
-        'care-team-upload': {
-            'outlier_rate': 3.6,
-            'reliability': 'excellent'
-        },
-        'patient-upload': {
-            'outlier_rate': 13.0,
-            'reliability': 'excellent'
-        },
-        'internal-questionnaire': {
-            'outlier_rate': 14.0,
-            'reliability': 'good'
-        },
-        'patient-device': {
-            'outlier_rate': 20.7,
-            'reliability': 'good'
-        },
-        'https://connectivehealth.io': {
-            'outlier_rate': 35.8,
-            'reliability': 'moderate'
-        },
-        'https://api.iglucose.com': {
-            'outlier_rate': 151.4,
-            'reliability': 'poor'
-        }
-    }
-    
-    @staticmethod
-    def get_adaptive_threshold(source: str, time_gap_days: int) -> float:
-        """
-        Get outlier threshold based on source reliability and time gap.
-        
-        Args:
-            source: Data source identifier
-            time_gap_days: Days since last measurement
-            
-        Returns:
-            Maximum acceptable weight change in kg
-        """
-        profile = AdaptiveOutlierDetector.SOURCE_PROFILES.get(source, {})
-        outlier_rate = profile.get('outlier_rate', 50.0)
-        
-        # Base physiological limit: 2kg/week is extreme but possible
-        physiological_rate = 2.0 / 7.0  # kg per day
-        
-        if outlier_rate > 100:  # Very unreliable (iGlucose)
-            # Much stricter - only allow 1kg/week
-            max_rate = 1.0 / 7.0
-            threshold = max(3.0, max_rate * time_gap_days)
-        elif outlier_rate > 30:  # Moderate reliability
-            # Standard physiological limit
-            max_rate = physiological_rate
-            threshold = max(5.0, max_rate * time_gap_days)
-        else:  # Excellent reliability
-            # More lenient - trust the source more
-            max_rate = physiological_rate * 1.5
-            threshold = max(10.0, max_rate * time_gap_days)
-        
-        # Cap at reasonable maximum
-        return min(threshold, 20.0)
-    
-    @staticmethod
-    def check_outlier(
-        weight_change: float,
-        source: str,
-        time_gap_days: int
-    ) -> Tuple[bool, Optional[str]]:
-        """
-        Check if weight change is an outlier.
-        
-        Returns:
-            (is_outlier, reason)
-        """
-        threshold = AdaptiveOutlierDetector.get_adaptive_threshold(source, time_gap_days)
-        
-        if abs(weight_change) > threshold:
-            profile = AdaptiveOutlierDetector.SOURCE_PROFILES.get(source, {})
-            reliability = profile.get('reliability', 'unknown')
-            
-            reason = (f"Weight change {weight_change:.1f}kg exceeds threshold "
-                     f"{threshold:.1f}kg for {reliability} source over {time_gap_days} days")
-            return True, reason
-        
-        return False, None
-
-
-class AdaptiveKalmanConfig:
-    """Adapt Kalman filter parameters based on source quality."""
-    
-    # Noise multipliers based on source reliability
-    NOISE_MULTIPLIERS = {
-        'care-team-upload': 0.5,           # Most reliable - trust more
-        'patient-upload': 0.7,              # Very reliable
-        'internal-questionnaire': 0.8,      # Reliable but sparse
-        'patient-device': 1.0,              # Baseline
-        'https://connectivehealth.io': 1.5, # Less reliable
-        'https://api.iglucose.com': 3.0     # Least reliable - trust less
-    }
-    
-    @staticmethod
-    def get_adapted_config(source: str, base_config: Dict) -> Dict:
-        """
-        Adapt Kalman configuration based on source reliability.
-        
-        Args:
-            source: Data source identifier
-            base_config: Base Kalman configuration
-            
-        Returns:
-            Adapted configuration
-        """
-        config = base_config.copy()
-        
-        # Get noise multiplier for this source
-        multiplier = AdaptiveKalmanConfig.NOISE_MULTIPLIERS.get(source, 1.0)
-        
-        # Adjust measurement noise
-        # Higher noise = Kalman trusts measurement less
-        base_noise = config.get('measurement_noise', 1.0)
-        config['measurement_noise'] = base_noise * multiplier
-        
-        # For very unreliable sources, also increase initial uncertainty
-        if multiplier > 2.0:
-            config['initial_uncertainty'] = config.get('initial_uncertainty', 10.0) * 1.5
-        
-        return config
-
-
-class SourceQualityMonitor:
-    """Monitor source quality in real-time."""
-    
-    def __init__(self, window_size: int = 1000):
-        """Initialize monitor with rolling window."""
-        self.window_size = window_size
-        self.stats = defaultdict(lambda: {
-            'measurements': deque(maxlen=window_size),
-            'outliers': deque(maxlen=window_size),
-            'rejections': deque(maxlen=window_size),
-            'alerts': []
-        })
-    
-    def record_measurement(
-        self,
-        source: str,
-        is_outlier: bool,
-        is_rejected: bool
-    ) -> Optional[Dict]:
-        """
-        Record measurement and check for quality issues.
-        
-        Returns:
-            Alert dictionary if quality issue detected, None otherwise
-        """
-        stats = self.stats[source]
-        stats['measurements'].append(1)
-        stats['outliers'].append(1 if is_outlier else 0)
-        stats['rejections'].append(1 if is_rejected else 0)
-        
-        # Need minimum measurements for statistics
-        if len(stats['measurements']) < 100:
-            return None
-        
-        # Calculate current rates
-        outlier_rate = sum(stats['outliers']) / len(stats['measurements']) * 1000
-        rejection_rate = sum(stats['rejections']) / len(stats['measurements']) * 1000
-        
-        # Get expected rates
-        profile = AdaptiveOutlierDetector.SOURCE_PROFILES.get(source, {})
-        expected_outlier_rate = profile.get('outlier_rate', 30.0)
-        
-        alert = None
-        
-        # Check for degradation
-        if outlier_rate > expected_outlier_rate * 1.5:
-            alert = {
-                'type': 'quality_degradation',
-                'source': source,
-                'metric': 'outlier_rate',
-                'current': outlier_rate,
-                'expected': expected_outlier_rate,
-                'severity': 'high' if outlier_rate > expected_outlier_rate * 2 else 'medium',
-                'message': f"{source} outlier rate {outlier_rate:.1f}/1000 "
-                          f"exceeds expected {expected_outlier_rate:.1f}/1000"
-            }
-            stats['alerts'].append(alert)
-        
-        # Check for improvement in bad sources
-        elif source == 'https://api.iglucose.com' and outlier_rate < 100:
-            alert = {
-                'type': 'quality_improvement',
-                'source': source,
-                'metric': 'outlier_rate',
-                'current': outlier_rate,
-                'expected': expected_outlier_rate,
-                'severity': 'info',
-                'message': f"{source} showing improvement: {outlier_rate:.1f}/1000"
-            }
-        
-        return alert
-    
-    def get_source_summary(self, source: str) -> Dict:
-        """Get quality summary for a source."""
-        stats = self.stats[source]
-        
-        if not stats['measurements']:
-            return {'status': 'no_data'}
-        
-        total = len(stats['measurements'])
-        outlier_rate = sum(stats['outliers']) / total * 1000 if total > 0 else 0
-        rejection_rate = sum(stats['rejections']) / total * 1000 if total > 0 else 0
-        
-        return {
-            'measurements': total,
-            'outlier_rate': outlier_rate,
-            'rejection_rate': rejection_rate,
-            'recent_alerts': stats['alerts'][-5:] if stats['alerts'] else []
-        }
-
-
-# Global monitor instance
-quality_monitor = SourceQualityMonitor()
 
 
 def process_weight_enhanced(
@@ -949,7 +237,6 @@ def process_weight_enhanced(
         Processing result with additional metadata, or None if rejected
     """
     
-    # Step 1: Pre-process data with unit conversion and BMI detection
     cleaned_weight, preprocess_metadata = DataQualityPreprocessor.preprocess(
         weight, source, timestamp, user_id, unit
     )
@@ -975,8 +262,6 @@ def process_weight_enhanced(
             }
         }
     
-    # Step 2: Adapt configuration based on source
-    # Get time gap for adaptive thresholds
     db = get_state_db()
     state = db.get_state(user_id)
     
@@ -984,38 +269,29 @@ def process_weight_enhanced(
     if state and state.get('last_timestamp'):
         time_gap_days = (timestamp - state['last_timestamp']).days
     
-    # FIXED: Use unified threshold calculator with explicit percentage unit
     adapted_config = processing_config.copy()
     
-    # Get threshold as percentage (what the base processor expects)
     threshold_result = ThresholdCalculator.get_extreme_deviation_threshold(
         source=source,
         time_gap_days=time_gap_days,
-        current_weight=cleaned_weight,  # Use cleaned weight as reference
-        unit='percentage'  # Explicitly request percentage
+        current_weight=cleaned_weight,
+        unit='percentage'
     )
     
     adapted_config['extreme_threshold'] = threshold_result.value
-    
-    # Store both units for debugging/transparency
     adapted_config['extreme_threshold_pct'] = threshold_result.value
     adapted_config['extreme_threshold_kg'] = threshold_result.metadata.get('absolute_threshold_kg')
     
-    # Step 3: Adapt Kalman configuration using unified calculator
     adapted_kalman = kalman_config.copy()
     
-    # Get noise multiplier from threshold calculator
     noise_multiplier = ThresholdCalculator.get_measurement_noise_multiplier(source)
     
-    # Adjust measurement noise based on source reliability
     base_noise = kalman_config.get('observation_covariance', 1.0)
     adapted_kalman['observation_covariance'] = base_noise * noise_multiplier
     
-    # For very unreliable sources, also increase initial uncertainty
     if noise_multiplier > 2.0:
         adapted_kalman['initial_variance'] = kalman_config.get('initial_variance', 1.0) * 1.5
     
-    # Step 4: Process with original Kalman filter
     result = WeightProcessor.process_weight(
         user_id=user_id,
         weight=cleaned_weight,
@@ -1025,14 +301,11 @@ def process_weight_enhanced(
         kalman_config=adapted_kalman
     )
     
-    # Step 5: Monitor and enhance result
     if result:
-        # Check if it was an outlier
         is_outlier = False
         outlier_reason = None
         if state and state.get('last_state') is not None:
             last_state = state['last_state']
-            # Extract weight value from state
             try:
                 if isinstance(last_state, (list, tuple, np.ndarray)):
                     last_weight = float(last_state[0])
@@ -1044,33 +317,26 @@ def process_weight_enhanced(
                     weight_change, source, time_gap_days
                 )
             except (IndexError, TypeError, ValueError):
-                # If we can't extract last weight, skip outlier check
                 pass
         
-        # Record for monitoring
-        is_rejected = result.get('rejected', False)
+        is_rejected = result.get('rejected', False) or not result.get('accepted', True)
         alert = quality_monitor.record_measurement(source, is_outlier, is_rejected)
         
-        # Enhance result with metadata
         result['preprocessing_metadata'] = preprocess_metadata
         
-        # Include threshold information with units
         result['threshold_info'] = {
             'extreme_threshold_pct': adapted_config.get('extreme_threshold_pct'),
             'extreme_threshold_kg': adapted_config.get('extreme_threshold_kg'),
             'source_reliability': ThresholdCalculator.get_source_reliability(source),
-            'measurement_noise_multiplier': noise_multiplier if 'noise_multiplier' in locals() else 1.0
+            'measurement_noise_multiplier': noise_multiplier
         }
         
-        # Legacy fields for backward compatibility
         result['adaptive_threshold'] = adapted_config['extreme_threshold']
         result['measurement_noise_used'] = adapted_kalman.get('observation_covariance', 1.0)
         
-        # Add BMI details
         user_height = DataQualityPreprocessor.get_user_height(user_id)
         implied_bmi = round(cleaned_weight / (user_height ** 2), 1)
         
-        # Determine BMI category
         if implied_bmi < 18.5:
             bmi_category = 'underweight'
         elif implied_bmi < 25:
@@ -1093,13 +359,12 @@ def process_weight_enhanced(
             'warnings': preprocess_metadata.get('warnings', [])
         }
         
-        # Add rejection insights
         if result.get('accepted') == False:
             rejection_reason = result.get('reason', '')
             result['rejection_insights'] = {
                 'category': categorize_rejection_enhanced(rejection_reason),
                 'severity': get_rejection_severity(rejection_reason, weight_change if 'weight_change' in locals() else 0),
-                'source_reliability': AdaptiveOutlierDetector.SOURCE_PROFILES.get(source, {}).get('reliability', 'unknown'),
+                'source_reliability': ThresholdCalculator.get_source_reliability(source),
                 'adaptive_threshold_used': adapted_config['extreme_threshold'],
                 'outlier_detected': is_outlier,
                 'outlier_reason': outlier_reason
@@ -1108,536 +373,10 @@ def process_weight_enhanced(
         if alert:
             result['quality_alert'] = alert
         
-        # Add source quality summary
         result['source_quality'] = quality_monitor.get_source_summary(source)
     
     return result
 
-
-class BMIValidator:
-    """
-    Validates weight measurements using BMI thresholds and percentage changes.
-    Detects when Kalman filter should be reset due to unrealistic changes.
-    """
-    
-    BMI_CRITICAL_LOW = 15.0
-    BMI_SEVERE_LOW = 16.0
-    BMI_UNDERWEIGHT = 18.5
-    BMI_OVERWEIGHT = 25.0
-    BMI_OBESE = 30.0
-    BMI_SEVERE_OBESE = 35.0
-    BMI_MORBID_OBESE = 40.0
-    BMI_CRITICAL_HIGH = 50.0
-    
-    @staticmethod
-    def calculate_bmi(weight_kg: float, height_m: Optional[float]) -> Optional[float]:
-        """Calculate BMI if height is available."""
-        if height_m is None or height_m <= 0:
-            return None
-        return weight_kg / (height_m ** 2)
-    
-    @staticmethod
-    def should_reset_kalman(
-        current_weight: float,
-        last_weight: float,
-        time_delta_hours: float,
-        height_m: Optional[float] = None,
-        source: Optional[str] = None
-    ) -> Tuple[bool, Optional[str]]:
-        """
-        Determine if Kalman filter should be reset based on physiological impossibility.
-        
-        Returns:
-            (should_reset, reason)
-        """
-        if last_weight <= 0:
-            return False, None
-        
-        weight_change = current_weight - last_weight
-        pct_change = (weight_change / last_weight) * 100
-        daily_rate = (weight_change / (time_delta_hours / 24)) if time_delta_hours > 0 else weight_change
-        
-        if current_weight < 30:
-            return True, f"Weight below minimum threshold: {current_weight:.1f}kg"
-        
-        if current_weight > 300:
-            return True, f"Weight above maximum threshold: {current_weight:.1f}kg"
-        
-        if abs(pct_change) > 50:
-            return True, f"Extreme change > 50%: {pct_change:+.1f}%"
-        
-        if time_delta_hours < 1 and abs(pct_change) > 30:
-            return True, f"Instant change > 30%: {pct_change:+.1f}% in {time_delta_hours:.1f}h"
-        
-        if time_delta_hours <= 24:
-            if abs(pct_change) > 20:
-                return True, f"Daily change > 20%: {pct_change:+.1f}%"
-            if abs(weight_change) > 10:
-                return True, f"Daily change > 10kg: {weight_change:+.1f}kg"
-        
-        if time_delta_hours <= 168:
-            if abs(pct_change) > 30:
-                return True, f"Weekly change > 30%: {pct_change:+.1f}%"
-        
-        if abs(daily_rate) > 3.0:
-            return True, f"Daily rate > 3kg/day: {daily_rate:+.1f}kg/day"
-        
-        if height_m and height_m > 0:
-            current_bmi = BMIValidator.calculate_bmi(current_weight, height_m)
-            last_bmi = BMIValidator.calculate_bmi(last_weight, height_m)
-            
-            if current_bmi:
-                if current_bmi < BMIValidator.BMI_CRITICAL_LOW:
-                    return True, f"Critical BMI < {BMIValidator.BMI_CRITICAL_LOW}: {current_bmi:.1f}"
-                
-                if current_bmi > BMIValidator.BMI_CRITICAL_HIGH:
-                    return True, f"Critical BMI > {BMIValidator.BMI_CRITICAL_HIGH}: {current_bmi:.1f}"
-                
-                if current_bmi < BMIValidator.BMI_SEVERE_LOW and abs(pct_change) > 20:
-                    return True, f"Severe underweight (BMI {current_bmi:.1f}) with {pct_change:+.1f}% change"
-                
-                if current_bmi > BMIValidator.BMI_MORBID_OBESE and abs(pct_change) > 20:
-                    return True, f"Morbid obesity (BMI {current_bmi:.1f}) with {pct_change:+.1f}% change"
-                
-                if last_bmi:
-                    bmi_change = abs(current_bmi - last_bmi)
-                    if bmi_change > 10:
-                        return True, f"BMI change > 10: {last_bmi:.1f} → {current_bmi:.1f}"
-        
-        suspicious_sources = {'iglucose', 'api.iglucose.com', 'https://api.iglucose.com'}
-        if source and any(s in source.lower() for s in suspicious_sources):
-            if abs(pct_change) > 25:
-                return True, f"Suspicious source with > 25% change: {pct_change:+.1f}%"
-        
-        return False, None
-    
-    @staticmethod
-    def get_confidence_multiplier(
-        current_weight: float,
-        last_weight: float,
-        time_delta_hours: float,
-        height_m: Optional[float] = None
-    ) -> float:
-        """
-        Get a confidence multiplier for Kalman filter based on measurement plausibility.
-        Lower values = less trust in measurement.
-        
-        Returns:
-            Multiplier between 0.1 and 1.0
-        """
-        if last_weight <= 0:
-            return 1.0
-        
-        pct_change = abs((current_weight - last_weight) / last_weight) * 100
-        
-        if pct_change < 5:
-            base_confidence = 1.0
-        elif pct_change < 10:
-            base_confidence = 0.9
-        elif pct_change < 15:
-            base_confidence = 0.7
-        elif pct_change < 20:
-            base_confidence = 0.5
-        elif pct_change < 30:
-            base_confidence = 0.3
-        else:
-            base_confidence = 0.1
-        
-        if time_delta_hours < 1:
-            time_factor = 0.5
-        elif time_delta_hours < 24:
-            time_factor = 0.8
-        elif time_delta_hours < 168:
-            time_factor = 0.9
-        else:
-            time_factor = 1.0
-        
-        bmi_factor = 1.0
-        if height_m and height_m > 0:
-            bmi = BMIValidator.calculate_bmi(current_weight, height_m)
-            if bmi:
-                if bmi < BMIValidator.BMI_SEVERE_LOW or bmi > BMIValidator.BMI_MORBID_OBESE:
-                    bmi_factor = 0.5
-                elif bmi < BMIValidator.BMI_UNDERWEIGHT or bmi > BMIValidator.BMI_SEVERE_OBESE:
-                    bmi_factor = 0.7
-                else:
-                    bmi_factor = 1.0
-        
-        return max(0.1, base_confidence * time_factor * bmi_factor)
-    
-    @staticmethod
-    def get_rejection_reason(
-        current_weight: float,
-        last_weight: float,
-        time_delta_hours: float,
-        height_m: Optional[float] = None
-    ) -> Optional[str]:
-        """
-        Get a detailed rejection reason for impossible measurements.
-        """
-        if last_weight <= 0:
-            return None
-        
-        weight_change = current_weight - last_weight
-        pct_change = (weight_change / last_weight) * 100
-        
-        if current_weight < 30:
-            return f"Weight {current_weight:.1f}kg below human minimum"
-        
-        if current_weight > 300:
-            return f"Weight {current_weight:.1f}kg above human maximum"
-        
-        if height_m and height_m > 0:
-            bmi = BMIValidator.calculate_bmi(current_weight, height_m)
-            if bmi:
-                if bmi < 13:
-                    return f"BMI {bmi:.1f} incompatible with life"
-                if bmi > 60:
-                    return f"BMI {bmi:.1f} physiologically impossible"
-        
-        if time_delta_hours <= 1:
-            max_change = min(3.0, last_weight * 0.03)
-            if abs(weight_change) > max_change:
-                return f"Change {weight_change:+.1f}kg exceeds 1-hour limit of {max_change:.1f}kg"
-        
-        elif time_delta_hours <= 24:
-            max_change = min(5.0, last_weight * 0.05)
-            if abs(weight_change) > max_change:
-                return f"Change {weight_change:+.1f}kg exceeds daily limit of {max_change:.1f}kg"
-        
-        elif time_delta_hours <= 168:
-            max_change = min(7.0, last_weight * 0.07)
-            if abs(weight_change) > max_change:
-                return f"Change {weight_change:+.1f}kg exceeds weekly limit of {max_change:.1f}kg"
-        
-        else:
-            days = time_delta_hours / 24
-            max_sustained_rate = 1.5
-            max_change = days * max_sustained_rate
-            if abs(weight_change) > max_change:
-                return f"Change {weight_change:+.1f}kg exceeds sustained rate of {max_sustained_rate}kg/day over {days:.0f} days"
-        
-        return None
-
-class ThresholdResult:
-    """Result from threshold calculation with explicit units."""
-    
-    def __init__(self, value: float, unit: str, metadata: Optional[Dict] = None):
-        self.value = value
-        self.unit = unit
-        self.metadata = metadata or {}
-    
-    def to_dict(self) -> Dict:
-        """Convert to dictionary for serialization."""
-        return {
-            'value': self.value,
-            'unit': self.unit,
-            'metadata': self.metadata
-        }
-
-
-class ThresholdCalculator:
-    """
-    Unified threshold calculator with explicit unit handling.
-    All methods are static to maintain stateless architecture.
-    """
-    
-    # Source reliability profiles based on empirical data (outliers per 1000)
-    SOURCE_PROFILES = {
-        'care-team-upload': {
-            'outlier_rate': 3.6,
-            'reliability': 'excellent',
-            'noise_multiplier': 0.5
-        },
-        'patient-upload': {
-            'outlier_rate': 13.0,
-            'reliability': 'excellent',
-            'noise_multiplier': 0.7
-        },
-        'internal-questionnaire': {
-            'outlier_rate': 14.0,
-            'reliability': 'good',
-            'noise_multiplier': 0.8
-        },
-        'patient-device': {
-            'outlier_rate': 20.7,
-            'reliability': 'good',
-            'noise_multiplier': 1.0
-        },
-        'https://connectivehealth.io': {
-            'outlier_rate': 35.8,
-            'reliability': 'moderate',
-            'noise_multiplier': 1.5
-        },
-        'https://api.iglucose.com': {
-            'outlier_rate': 151.4,
-            'reliability': 'poor',
-            'noise_multiplier': 3.0
-        }
-    }
-    
-    # Default profile for unknown sources (median behavior)
-    DEFAULT_PROFILE = {
-        'outlier_rate': 20.0,
-        'reliability': 'unknown',
-        'noise_multiplier': 1.0
-    }
-    
-    @staticmethod
-    def get_extreme_deviation_threshold(
-        source: str,
-        time_gap_days: float,
-        current_weight: float,
-        unit: Literal['percentage', 'kg'] = 'percentage'
-    ) -> ThresholdResult:
-        """
-        Calculate adaptive threshold for extreme deviation detection.
-        
-        Args:
-            source: Data source identifier
-            time_gap_days: Days since last measurement
-            current_weight: Current weight in kg (for percentage calculation)
-            unit: 'percentage' (0.0-1.0) or 'kg' for absolute weight
-            
-        Returns:
-            ThresholdResult with value in requested units and metadata
-        """
-        # Get source profile
-        profile = ThresholdCalculator.SOURCE_PROFILES.get(
-            source, 
-            ThresholdCalculator.DEFAULT_PROFILE
-        )
-        
-        # Calculate absolute threshold in kg
-        absolute_kg = ThresholdCalculator._calculate_adaptive_threshold_kg(
-            profile['outlier_rate'],
-            time_gap_days
-        )
-        
-        # Prepare metadata
-        metadata = {
-            'source': source,
-            'source_reliability': profile['reliability'],
-            'outlier_rate_per_1000': profile['outlier_rate'],
-            'time_gap_days': time_gap_days,
-            'weight_reference_kg': current_weight,
-            'absolute_threshold_kg': absolute_kg
-        }
-        
-        if unit == 'percentage':
-            # Convert to percentage with bounds
-            percentage = absolute_kg / current_weight
-            
-            # Apply reasonable bounds for percentage mode
-            MIN_PERCENTAGE = 0.03  # 3% minimum even for good sources
-            MAX_PERCENTAGE = 0.30  # 30% maximum even for bad sources
-            
-            bounded_percentage = max(MIN_PERCENTAGE, min(percentage, MAX_PERCENTAGE))
-            
-            metadata['unbounded_percentage'] = percentage
-            metadata['bounds_applied'] = percentage != bounded_percentage
-            metadata['percentage_threshold'] = bounded_percentage
-            
-            return ThresholdResult(bounded_percentage, 'percentage', metadata)
-            
-        elif unit == 'kg':
-            return ThresholdResult(absolute_kg, 'kg', metadata)
-            
-        else:
-            raise ValueError(f"Unknown unit: {unit}. Use 'percentage' or 'kg'")
-    
-    @staticmethod
-    def _calculate_adaptive_threshold_kg(
-        outlier_rate: float,
-        time_gap_days: float
-    ) -> float:
-        """
-        Calculate absolute threshold in kg based on source reliability.
-        
-        Args:
-            outlier_rate: Outliers per 1000 measurements
-            time_gap_days: Days since last measurement
-            
-        Returns:
-            Threshold in kg
-        """
-        # Base physiological limit: 2kg/week is extreme but possible
-        physiological_rate_kg_per_day = 2.0 / 7.0
-        
-        if outlier_rate > 100:  # Very unreliable (e.g., iGlucose)
-            # Much stricter - only allow 1kg/week
-            max_rate = 1.0 / 7.0
-            threshold = max(3.0, max_rate * time_gap_days)
-        elif outlier_rate > 30:  # Moderate reliability
-            # Standard physiological limit
-            max_rate = physiological_rate_kg_per_day
-            threshold = max(5.0, max_rate * time_gap_days)
-        else:  # Excellent reliability
-            # More lenient - trust the source more
-            max_rate = physiological_rate_kg_per_day * 1.5
-            threshold = max(10.0, max_rate * time_gap_days)
-        
-        # Cap at reasonable maximum
-        return min(threshold, 20.0)
-    
-    @staticmethod
-    def get_physiological_limit(
-        time_delta_hours: float,
-        last_weight: float,
-        config: Dict,
-        unit: Literal['kg', 'percentage'] = 'kg'
-    ) -> ThresholdResult:
-        """
-        Get physiological limits with explicit units.
-        Based on framework document recommendations.
-        
-        Args:
-            time_delta_hours: Hours since last measurement
-            last_weight: Previous weight in kg
-            config: Configuration dictionary
-            unit: 'kg' or 'percentage' for return value
-            
-        Returns:
-            ThresholdResult with limit in requested units
-        """
-        phys_config = config.get('physiological', {})
-        
-        # Determine base limits
-        if not phys_config.get('enable_physiological_limits', True):
-            # Legacy mode - use simple percentage
-            legacy_pct = config.get('max_daily_change_pct', 
-                                   config.get('max_daily_change', 0.05))
-            limit_kg = legacy_pct * last_weight
-            reason = "legacy percentage limit"
-            
-        elif time_delta_hours < 1:
-            percent_limit = phys_config.get('max_change_1h_pct',
-                                           phys_config.get('max_change_1h_percent', 0.02))
-            absolute_limit = phys_config.get('max_change_1h_kg',
-                                            phys_config.get('max_change_1h_absolute', 3.0))
-            reason = "hydration/bathroom"
-            
-        elif time_delta_hours < 6:
-            percent_limit = phys_config.get('max_change_6h_pct',
-                                           phys_config.get('max_change_6h_percent', 0.025))
-            absolute_limit = phys_config.get('max_change_6h_kg',
-                                            phys_config.get('max_change_6h_absolute', 4.0))
-            reason = "meals+hydration"
-            
-        elif time_delta_hours <= 24:
-            percent_limit = phys_config.get('max_change_24h_pct',
-                                           phys_config.get('max_change_24h_percent', 0.035))
-            absolute_limit = phys_config.get('max_change_24h_kg',
-                                            phys_config.get('max_change_24h_absolute', 5.0))
-            reason = "daily fluctuation"
-            
-        else:
-            # Sustained changes
-            daily_rate = phys_config.get('max_sustained_kg_per_day',
-                                        phys_config.get('max_sustained_daily', 1.5))
-            days = time_delta_hours / 24
-            absolute_limit = days * daily_rate
-            percent_limit = absolute_limit / last_weight
-            reason = f"sustained ({daily_rate}kg/day)"
-        
-        # Calculate final limit in kg
-        if 'limit_kg' not in locals():
-            percentage_based = last_weight * percent_limit
-            limit_kg = min(percentage_based, absolute_limit)
-            
-            if limit_kg == absolute_limit and time_delta_hours <= 24:
-                reason += f" (capped at {absolute_limit}kg)"
-        
-        # Apply tolerance
-        if time_delta_hours > 24:
-            tolerance = phys_config.get('sustained_tolerance', 0.25)  # 25% for sustained
-        else:
-            tolerance = phys_config.get('limit_tolerance', 0.10)  # 10% for short-term
-        
-        effective_limit_kg = limit_kg * (1 + tolerance)
-        
-        # Prepare metadata
-        metadata = {
-            'time_delta_hours': time_delta_hours,
-            'last_weight_kg': last_weight,
-            'base_limit_kg': limit_kg,
-            'tolerance_applied': tolerance,
-            'effective_limit_kg': effective_limit_kg,
-            'reason': reason
-        }
-        
-        # Return in requested units
-        if unit == 'kg':
-            return ThresholdResult(effective_limit_kg, 'kg', metadata)
-        elif unit == 'percentage':
-            percentage = effective_limit_kg / last_weight
-            metadata['percentage_limit'] = percentage
-            return ThresholdResult(percentage, 'percentage', metadata)
-        else:
-            raise ValueError(f"Unknown unit: {unit}. Use 'kg' or 'percentage'")
-    
-    @staticmethod
-    def convert_threshold(
-        value: float,
-        from_unit: str,
-        to_unit: str,
-        reference_weight: float
-    ) -> float:
-        """
-        Convert threshold between units.
-        
-        Args:
-            value: Threshold value in from_unit
-            from_unit: Current unit ('kg' or 'percentage')
-            to_unit: Target unit ('kg' or 'percentage')
-            reference_weight: Weight in kg for conversion
-            
-        Returns:
-            Converted value in to_unit
-        """
-        if from_unit == to_unit:
-            return value
-        
-        if from_unit == 'kg' and to_unit == 'percentage':
-            return value / reference_weight
-        elif from_unit == 'percentage' and to_unit == 'kg':
-            return value * reference_weight
-        else:
-            raise ValueError(f"Cannot convert from {from_unit} to {to_unit}")
-    
-    @staticmethod
-    def get_measurement_noise_multiplier(source: str) -> float:
-        """
-        Get Kalman filter measurement noise multiplier for source.
-        
-        Args:
-            source: Data source identifier
-            
-        Returns:
-            Noise multiplier (1.0 = baseline)
-        """
-        profile = ThresholdCalculator.SOURCE_PROFILES.get(
-            source,
-            ThresholdCalculator.DEFAULT_PROFILE
-        )
-        return profile['noise_multiplier']
-    
-    @staticmethod
-    def get_source_reliability(source: str) -> str:
-        """
-        Get reliability classification for source.
-        
-        Args:
-            source: Data source identifier
-            
-        Returns:
-            Reliability level: 'excellent', 'good', 'moderate', 'poor', or 'unknown'
-        """
-        profile = ThresholdCalculator.SOURCE_PROFILES.get(
-            source,
-            ThresholdCalculator.DEFAULT_PROFILE
-        )
-        return profile['reliability']
 
 class DynamicResetManager:
     """
@@ -1651,25 +390,23 @@ class DynamicResetManager:
     - Configurable voting mechanism for combined decisions
     """
     
-    # Default configuration
     DEFAULT_CONFIG = {
-        'questionnaire_gap_days': 10,      # Shorter gap after questionnaire
-        'standard_gap_days': 30,           # Standard gap for reset
-        'variance_threshold': 0.15,        # 15% variance triggers reset
-        'trend_reversal_threshold': 0.5,   # 0.5 kg/day trend reversal
-        'change_point_z_score': 3.0,       # Z-score for change point detection
-        'cusum_k_factor': 0.5,             # CUSUM allowance factor
-        'cusum_h_factor': 4.0,             # CUSUM decision factor
-        'min_history_for_changepoint': 5,  # Minimum measurements for change detection
-        'max_history_length': 20,          # Maximum history to keep
-        'combined_vote_threshold': 2,      # Votes needed for combined reset
-        'enable_questionnaire_gap': True,  # Enable questionnaire gap strategy
-        'enable_variance_reset': True,     # Enable variance detection
-        'enable_reliability_reset': True,  # Enable source reliability
-        'enable_changepoint_reset': False, # Disable by default (more aggressive)
+        'questionnaire_gap_days': 10,
+        'standard_gap_days': 30,
+        'variance_threshold': 0.15,
+        'trend_reversal_threshold': 0.5,
+        'change_point_z_score': 3.0,
+        'cusum_k_factor': 0.5,
+        'cusum_h_factor': 4.0,
+        'min_history_for_changepoint': 5,
+        'max_history_length': 20,
+        'combined_vote_threshold': 2,
+        'enable_questionnaire_gap': True,
+        'enable_variance_reset': True,
+        'enable_reliability_reset': True,
+        'enable_changepoint_reset': False,
     }
     
-    # Source reliability gap thresholds (days)
     RELIABILITY_GAPS = {
         'excellent': 45,
         'good': 30,
@@ -1678,12 +415,11 @@ class DynamicResetManager:
         'unknown': 25
     }
     
-    # Questionnaire source patterns
     QUESTIONNAIRE_SOURCES = [
         'questionnaire',
         'internal-questionnaire',
         'initial-questionnaire',
-        'care-team-upload',  # Often contains questionnaire data
+        'care-team-upload',
     ]
     
     def __init__(self, config: Optional[Dict] = None):
@@ -1694,7 +430,7 @@ class DynamicResetManager:
             config: Optional configuration dictionary to override defaults
         """
         self.config = {**self.DEFAULT_CONFIG, **(config or {})}
-        self.reset_history = deque(maxlen=100)  # Track recent resets
+        self.reset_history = deque(maxlen=100)
         
     def should_reset(
         self,
@@ -1719,7 +455,6 @@ class DynamicResetManager:
             Tuple of (should_reset, reason, metadata)
         """
         
-        # Initialize metadata
         metadata = {
             'timestamp': timestamp,
             'source': source,
@@ -1727,11 +462,9 @@ class DynamicResetManager:
             'method': method
         }
         
-        # No previous state - no reset needed
         if not state or not state.get('last_timestamp'):
             return False, "No previous state", metadata
         
-        # Calculate time gap
         last_timestamp = state['last_timestamp']
         if isinstance(last_timestamp, str):
             last_timestamp = datetime.fromisoformat(last_timestamp)
@@ -1739,9 +472,7 @@ class DynamicResetManager:
         gap_days = (timestamp - last_timestamp).total_seconds() / 86400
         metadata['gap_days'] = gap_days
         
-        # Choose reset method
         if method == 'auto':
-            # Auto-select based on configuration
             if self.config['enable_questionnaire_gap']:
                 method = 'questionnaire_gap'
             elif self.config['enable_variance_reset']:
@@ -1751,7 +482,6 @@ class DynamicResetManager:
             else:
                 method = 'standard'
         
-        # Apply selected method
         if method == 'questionnaire_gap':
             return self._questionnaire_gap_reset(source, gap_days, state, metadata)
         elif method == 'variance':
@@ -1763,7 +493,6 @@ class DynamicResetManager:
         elif method == 'combined':
             return self._combined_reset(current_weight, timestamp, source, state, gap_days, metadata)
         else:
-            # Standard gap-based reset
             if gap_days > self.config['standard_gap_days']:
                 reason = f"Standard gap reset ({gap_days:.1f} days)"
                 metadata['reset_type'] = 'standard_gap'
@@ -1779,10 +508,8 @@ class DynamicResetManager:
     ) -> Tuple[bool, str, Dict]:
         """Apply questionnaire-specific gap threshold."""
         
-        # Check if last source was questionnaire
         last_source = state.get('last_source', '')
         
-        # Check if last measurement was from questionnaire
         is_post_questionnaire = any(
             q in last_source.lower() 
             for q in self.QUESTIONNAIRE_SOURCES
@@ -1819,7 +546,6 @@ class DynamicResetManager:
         if state.get('last_state') is None:
             return False, "No state history", metadata
         
-        # Extract last filtered weight
         last_state = state['last_state']
         if isinstance(last_state, np.ndarray):
             if len(last_state.shape) > 1:
@@ -1832,7 +558,6 @@ class DynamicResetManager:
             filtered_weight = last_state[0] if isinstance(last_state, (list, tuple)) else last_state
             trend = 0
         
-        # Calculate deviation
         deviation = abs(current_weight - filtered_weight)
         deviation_pct = deviation / filtered_weight
         
@@ -1841,13 +566,11 @@ class DynamicResetManager:
         metadata['deviation_pct'] = deviation_pct
         metadata['trend'] = trend
         
-        # Check variance threshold
         if deviation_pct > self.config['variance_threshold']:
             reason = f"High variance reset (deviation: {deviation_pct:.1%})"
             metadata['reset_type'] = 'variance'
             return True, reason, metadata
         
-        # Check trend reversal
         if abs(trend) > self.config['trend_reversal_threshold']:
             weight_change = current_weight - filtered_weight
             if np.sign(weight_change) != np.sign(trend):
@@ -1865,7 +588,6 @@ class DynamicResetManager:
     ) -> Tuple[bool, str, Dict]:
         """Apply source reliability-based thresholds."""
         
-        # Get source reliability
         reliability = ThresholdCalculator.get_source_reliability(source)
         threshold = self.RELIABILITY_GAPS.get(reliability, 30)
         
@@ -1887,33 +609,28 @@ class DynamicResetManager:
     ) -> Tuple[bool, str, Dict]:
         """Statistical change point detection using CUSUM."""
         
-        # Initialize measurement history if needed
         if 'measurement_history' not in state:
             state['measurement_history'] = []
         
         history = state['measurement_history']
         history.append(current_weight)
         
-        # Limit history length
         if len(history) > self.config['max_history_length']:
             history = history[-self.config['max_history_length']:]
             state['measurement_history'] = history
         
         metadata['history_length'] = len(history)
         
-        # Need minimum history
         if len(history) < self.config['min_history_for_changepoint']:
             return False, "Insufficient history", metadata
         
-        # Calculate statistics
-        recent_history = history[:-1]  # Exclude current
+        recent_history = history[:-1]
         mean = np.mean(recent_history)
         std = np.std(recent_history) if len(recent_history) > 1 else 1.0
         
         metadata['history_mean'] = mean
         metadata['history_std'] = std
         
-        # Z-score test
         if std > 0:
             z_score = abs((current_weight - mean) / std)
             metadata['z_score'] = z_score
@@ -1921,14 +638,12 @@ class DynamicResetManager:
             if z_score > self.config['change_point_z_score']:
                 reason = f"Change point detected (z-score: {z_score:.2f})"
                 metadata['reset_type'] = 'change_point'
-                # Reset history after change point
                 state['measurement_history'] = [current_weight]
                 return True, reason, metadata
         
-        # CUSUM test for more gradual changes
         if len(history) >= 10:
-            k = self.config['cusum_k_factor'] * std  # Allowance
-            h = self.config['cusum_h_factor'] * std  # Threshold
+            k = self.config['cusum_k_factor'] * std
+            h = self.config['cusum_h_factor'] * std
             
             cusum_pos = 0
             cusum_neg = 0
@@ -1963,7 +678,6 @@ class DynamicResetManager:
         reasons = []
         vote_details = {}
         
-        # Method 1: Questionnaire gap
         if self.config['enable_questionnaire_gap']:
             reset, reason, _ = self._questionnaire_gap_reset(source, gap_days, state, {})
             if reset:
@@ -1971,7 +685,6 @@ class DynamicResetManager:
                 reasons.append(reason)
                 vote_details['questionnaire'] = reason
         
-        # Method 2: Variance
         if self.config['enable_variance_reset']:
             reset, reason, _ = self._variance_reset(current_weight, state, {})
             if reset:
@@ -1979,7 +692,6 @@ class DynamicResetManager:
                 reasons.append(reason)
                 vote_details['variance'] = reason
         
-        # Method 3: Source reliability
         if self.config['enable_reliability_reset']:
             reset, reason, _ = self._reliability_reset(source, gap_days, {})
             if reset:
@@ -1987,7 +699,6 @@ class DynamicResetManager:
                 reasons.append(reason)
                 vote_details['reliability'] = reason
         
-        # Method 4: Change point
         if self.config['enable_changepoint_reset']:
             reset, reason, _ = self._changepoint_reset(current_weight, state, {})
             if reset:
@@ -2000,7 +711,6 @@ class DynamicResetManager:
         metadata['vote_details'] = vote_details
         metadata['vote_threshold'] = self.config['combined_vote_threshold']
         
-        # Check if enough votes for reset
         if len(votes) >= self.config['combined_vote_threshold']:
             reason = f"Combined reset ({len(votes)} triggers: {', '.join(votes)})"
             metadata['reset_type'] = 'combined'
@@ -2057,7 +767,7 @@ class DynamicResetManager:
             'total_resets': len(self.reset_history),
             'reset_types': reset_types,
             'average_gap_days': total_gap_days / len(self.reset_history) if self.reset_history else 0,
-            'recent_resets': list(self.reset_history)[-5:]  # Last 5 resets
+            'recent_resets': list(self.reset_history)[-5:]
         }
     
     def update_state_with_source(self, state: Dict, source: str):
@@ -2070,6 +780,5 @@ class DynamicResetManager:
         """
         state['last_source'] = source
         
-        # Initialize measurement history if using change point detection
         if self.config['enable_changepoint_reset'] and 'measurement_history' not in state:
             state['measurement_history'] = []

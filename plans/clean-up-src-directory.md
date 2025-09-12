@@ -1,150 +1,228 @@
-# Plan: Clean Up Src Directory
+# Plan: Clean Up and Refactor src Directory
 
 ## Summary
-Consolidate and clean up the src directory to achieve a minimal three-file architecture (processor, database, visualization) while removing all unused/legacy code. The goal is to have a clean, maintainable codebase with logical separation of concerns.
+Comprehensive refactoring of the weight stream processor source code to improve maintainability, readability, and code organization. The codebase has grown organically with many features added incrementally, resulting in large monolithic files (processor.py has 2,075 lines) with mixed responsibilities and duplicated logic. Goal is to create a clean, modular architecture while preserving all functionality.
 
 ## Context
-- Source: User request for src directory cleanup
-- Current state: 10 files in src/, many appear to be legacy/backup versions
-- Main.py currently imports from: processor, processor_database, reprocessor, visualization
-- Tests import from various src files including enhanced/dynamic variants
+- Source: User request for code cleanup and refactoring
+- Current state: 4 main files in src/ totaling ~3,700 lines, plus 6 backup/experimental files
+- Main issues identified:
+  - processor.py is 2,075 lines with 6+ classes and mixed responsibilities
+  - Multiple validation and quality components mixed together
+  - Duplicated threshold calculation logic
+  - Complex nested conditionals throughout
+  - No clear separation of concerns
 - Assumptions:
-  - The latest working implementation is in processor.py (with process_weight_enhanced)
-  - processor_database.py handles all state persistence
-  - visualization.py handles all visualization logic
-  - Other files are likely iterations/experiments that can be consolidated
+  - Functionality must be preserved (no breaking changes)
+  - Tests must continue to pass
+  - Performance should not degrade
+  - Architecture constraints (stateless processor) must be maintained
 
 ## Requirements
 ### Functional
-- Maintain all current functionality (weight processing, state management, visualization)
-- Preserve test compatibility (update imports as needed)
-- Keep the stateless architecture pattern intact
-- Maintain BMI validation and data quality features
+- Preserve all existing functionality
+- Maintain backward compatibility with existing tests
+- Keep stateless architecture for WeightProcessor
+- Maintain separation between processing logic and state management
+- Preserve all validation and quality features (BMI, physiological limits, etc.)
 
 ### Non-functional
-- Maximum 3-4 core files in src/
-- Clear separation of concerns
-- No code duplication
-- Clean, logical naming
+- Reduce file sizes (target: <500 lines per file where possible)
+- Eliminate code duplication
+- Improve separation of concerns
+- Standardize naming conventions
+- Improve code readability and maintainability
+- Clear module boundaries
 
 ## Alternatives
 
-### Option A: Strict Three-File Architecture
-- Approach: Merge everything into exactly 3 files (processor.py, database.py, visualization.py)
+### Option A: Minimal Consolidation (Quick Fix)
+- Approach: Simply remove backup files and consolidate into 3-4 main files
 - Pros:
-  - Absolute minimal file count
-  - Very clear structure
-  - Easy to navigate
+  - Quick to implement (2-3 hours)
+  - Minimal risk of breaking changes
+  - Easy to review and test
 - Cons:
-  - May result in very large files
-  - Could mix unrelated concerns
-  - Harder to test individual components
-- Risks: Loss of modularity, difficult maintenance if files become too large
+  - Doesn't address fundamental issues
+  - processor.py remains at 2,075 lines
+  - Code duplication persists
+  - Mixed responsibilities continue
+- Risks: Technical debt continues to grow
 
-### Option B: Core Three + Essential Utilities
-- Approach: Keep 3 core files plus 1-2 utility files for specific concerns (e.g., reprocessor.py for batch operations)
+### Option B: Moderate Refactoring (Balanced)
+- Approach: Create logical modules within src/ (6-8 files) with clear responsibilities
 - Pros:
-  - Clean separation while maintaining modularity
-  - Easier to test specific features
-  - More maintainable file sizes
+  - Good balance of effort and improvement
+  - Manageable file sizes (300-500 lines)
+  - Clear separation of concerns
+  - Easier to test and maintain
 - Cons:
-  - Slightly more files than absolute minimum
-  - Need to decide what qualifies as "essential"
-- Risks: Scope creep leading to more utility files over time
+  - More files than current structure
+  - Requires updating all imports
+  - 8-10 hours of work
+- Risks: Import compatibility issues during migration
 
-### Option C: Feature-Based Consolidation
-- Approach: Organize by feature domains (processing, persistence, visualization, validation)
+### Option C: Full Modular Architecture (Comprehensive)
+- Approach: Create proper package structure with submodules (15-20 files)
 - Pros:
-  - Logical grouping of related functionality
-  - Good balance of file count and organization
-  - Natural boundaries for testing
+  - Best long-term maintainability
+  - Excellent separation of concerns
+  - Each file has single responsibility
+  - Highly testable
 - Cons:
-  - May result in 4-5 files instead of 3
-  - Some features span multiple domains
-- Risks: Unclear boundaries between domains
+  - Significant effort (15-20 hours)
+  - Many import changes needed
+  - More complex directory structure
+- Risks: Over-engineering for current needs
 
 ## Recommendation
-**Option B: Core Three + Essential Utilities**
+**Option B: Moderate Refactoring (Balanced)**
 
 Rationale:
-- Maintains the desired three-file core structure
-- Allows keeping reprocessor.py as it serves a distinct batch processing purpose
-- Achieves 90% reduction in file count while maintaining code clarity
-- Easier migration path with less risk of breaking changes
+- Addresses the core problems without over-engineering
+- Reduces processor.py from 2,075 lines to ~300 lines
+- Creates maintainable file sizes (300-500 lines each)
+- Clear separation makes future changes easier
+- Reasonable effort (8-10 hours) with good ROI
+- Lower risk than full restructuring while still providing significant improvements
 
 ## High-Level Design
 
 ### Target Structure
 ```
 src/
-├── processor.py         # All weight processing logic (stateless)
-├── database.py          # State persistence (renamed from processor_database.py)
-├── visualization.py     # All visualization logic
-└── reprocessor.py       # Batch/daily cleanup operations (kept as utility)
+├── processor.py         # Core weight processing orchestration (~300 lines)
+├── kalman.py           # Kalman filter logic (~250 lines)
+├── validation.py       # All validation logic (BMI, physiological, thresholds) (~400 lines)
+├── quality.py          # Data quality and preprocessing (~400 lines)
+├── database.py         # State persistence (~270 lines)
+├── reprocessor.py      # Batch reprocessing (~440 lines)
+├── visualization.py    # Dashboard and charts (~900 lines)
+└── models.py          # Data models and constants (~200 lines)
 ```
 
-### Consolidation Map
-1. **processor.py** (merge into existing):
-   - Keep current process_weight_enhanced, DataQualityPreprocessor
-   - Merge BMIValidator class from bmi_validator.py
-   - Merge ThresholdCalculator from threshold_calculator.py
-   - Merge DynamicResetManager from dynamic_reset_manager.py
-   - Keep all WeightProcessor static methods
+### Module Responsibilities
 
-2. **database.py** (rename from processor_database.py):
-   - Keep all existing ProcessorStateDB, ProcessorDatabase classes
-   - No changes needed, just rename for consistency
+1. **processor.py** (Orchestration Layer):
+   - WeightProcessor class with main process_weight method
+   - Orchestrates validation, quality, and Kalman filtering
+   - Delegates to specialized modules
+   - Maintains stateless architecture
 
-3. **visualization.py**:
-   - Already complete, no changes needed
+2. **kalman.py** (Filter Logic):
+   - Extract from processor: _initialize_kalman_immediate, _update_kalman_state
+   - Kalman filter configuration and operations
+   - State prediction and update logic
+   - Innovation and confidence calculations
 
-4. **reprocessor.py**:
-   - Keep as-is for batch processing operations
-   - Already well-integrated with main.py
+3. **validation.py** (Validation Layer):
+   - BMIValidator class (from current processor.py)
+   - ThresholdCalculator class (from current processor.py)
+   - Physiological limits validation
+   - Weight validation methods
+   - Rejection categorization
 
-### Files to Remove
-- processor_backup.py (old backup)
-- processor_dynamic.py (experimental version)
-- processor_enhanced.py (functionality merged into processor.py)
-- bmi_validator.py (merged into processor.py)
-- threshold_calculator.py (merged into processor.py)
-- dynamic_reset_manager.py (merged into processor.py)
+4. **quality.py** (Data Quality Layer):
+   - DataQualityPreprocessor class
+   - AdaptiveOutlierDetector class
+   - SourceQualityMonitor class
+   - AdaptiveKalmanConfig class
+   - Unit conversion and BMI detection
+
+5. **database.py** (Persistence Layer):
+   - Current ProcessorStateDB (no changes needed)
+   - State serialization/deserialization
+   - Snapshot management
+
+6. **models.py** (Data Structures):
+   - ThresholdResult class
+   - DynamicResetManager class
+   - Constants (SOURCE_PROFILES, etc.)
+   - Helper functions (categorize_rejection, etc.)
+
+### Dependency Flow
+```
+main.py
+   ↓
+processor.py → kalman.py
+   ↓        ↘
+validation.py  quality.py
+   ↓              ↓
+models.py ← database.py
+```
 
 ## Implementation Plan (No Code)
 
-### Phase 1: Analysis & Backup
-1. Create backup of entire src/ directory
-2. Analyze all test imports to create migration map
-3. Document all public APIs that need to be preserved
-4. Identify exact functions/classes used by main.py and tests
+### Phase 1: Preparation (1 hour)
+1. Create backup of entire src/ directory to src_backup_[timestamp]/
+2. Create detailed import dependency map from tests and main.py
+3. Document all public APIs that must be preserved
+4. Set up test harness to verify functionality after each step
 
-### Phase 2: Consolidation
-1. **Merge validation classes into processor.py**:
-   - Copy BMIValidator class and methods
-   - Copy ThresholdCalculator class and methods
-   - Copy DynamicResetManager class and methods
-   - Ensure no circular dependencies
+### Phase 2: Extract Models and Constants (1 hour)
+1. Create models.py file
+2. Move ThresholdResult class from processor.py
+3. Move all constants (SOURCE_PROFILES, etc.)
+4. Move helper functions (categorize_rejection, get_rejection_severity)
+5. Update imports in processor.py
+6. Run tests to verify
 
-2. **Rename processor_database.py to database.py**:
-   - Simple file rename
-   - Update all imports in processor.py
+### Phase 3: Extract Kalman Logic (1.5 hours)
+1. Create kalman.py file
+2. Extract Kalman-specific methods from WeightProcessor:
+   - _initialize_kalman_immediate
+   - _update_kalman_state
+   - _calculate_confidence
+   - _create_result (Kalman-specific parts)
+3. Create KalmanFilterManager class to encapsulate logic
+4. Update WeightProcessor to use KalmanFilterManager
+5. Run tests to verify
 
-3. **Update import statements**:
-   - Update main.py imports
-   - Create import compatibility mapping for tests
-   - Use find/replace for bulk import updates
+### Phase 4: Extract Validation Logic (2 hours)
+1. Create validation.py file
+2. Move BMIValidator class from processor.py
+3. Move ThresholdCalculator class from processor.py
+4. Move validation methods from WeightProcessor:
+   - _validate_weight
+   - _get_physiological_limit
+5. Consolidate duplicate validation logic
+6. Update processor.py imports
+7. Run tests to verify
 
-### Phase 3: Testing & Verification
-1. Run main.py with test data to verify functionality
-2. Run all tests and fix import errors
-3. Verify visualization generation still works
-4. Test batch reprocessing functionality
+### Phase 5: Extract Quality Components (2 hours)
+1. Create quality.py file
+2. Move DataQualityPreprocessor class
+3. Move AdaptiveOutlierDetector class
+4. Move SourceQualityMonitor class
+5. Move AdaptiveKalmanConfig class
+6. Move process_weight_enhanced wrapper logic
+7. Update processor.py to use quality module
+8. Run tests to verify
 
-### Phase 4: Cleanup
-1. Remove old/unused files
-2. Update any documentation references
-3. Verify no broken imports remain
-4. Clean up any temporary compatibility code
+### Phase 6: Refactor Core Processor (1.5 hours)
+1. Simplify WeightProcessor class:
+   - Keep only process_weight orchestration
+   - Delegate to validation, quality, kalman modules
+   - Remove all moved methods
+2. Clean up imports and organization
+3. Add clear module docstrings
+4. Ensure stateless architecture maintained
+5. Run tests to verify
+
+### Phase 7: Update Imports and Tests (1 hour)
+1. Update main.py imports
+2. Update all test file imports systematically
+3. Add backward compatibility imports if needed
+4. Run full test suite
+5. Fix any remaining import issues
+
+### Phase 8: Cleanup and Documentation (1 hour)
+1. Remove backup/experimental files:
+   - src_backup_* directories
+   - Any other legacy files
+2. Update code comments and docstrings
+3. Verify all functionality with manual testing
+4. Create migration notes for future reference
 
 ## Validation & Rollout
 
@@ -192,13 +270,16 @@ src/
 - **Recovery**: Git history still available in previous commits
 
 ## Acceptance Criteria
-- [ ] Src directory contains maximum 4 files
+- [ ] processor.py reduced from 2,075 to ~300 lines
+- [ ] No file exceeds 500 lines (except visualization.py at ~900)
 - [ ] All current functionality preserved
 - [ ] No duplicate code across files
-- [ ] All tests pass without modification (except imports)
+- [ ] All tests pass (with import updates only)
 - [ ] main.py runs successfully with real data
-- [ ] Clear separation of concerns maintained
+- [ ] Clear separation of concerns achieved
 - [ ] No performance degradation
+- [ ] Each module has single, clear responsibility
+- [ ] Dependency flow is unidirectional (no circular imports)
 
 ## Out of Scope
 - Refactoring algorithm logic
@@ -209,23 +290,70 @@ src/
 - Adding new features
 
 ## Open Questions
-1. Should we keep reprocessor.py or merge it into processor.py?
-   - Recommendation: Keep it separate for clarity
-2. Should database.py keep the "processor" prefix?
-   - Recommendation: No, simpler is better
+1. Should we keep visualization.py at 900 lines or split it further?
+   - Recommendation: Keep as-is for now, it's cohesive
+2. Should DynamicResetManager stay in models.py or move to validation.py?
+   - Recommendation: models.py since it's more of a manager than validator
 3. Should we create an __init__.py for cleaner imports?
-   - Recommendation: Not necessary with current structure
-4. Should we add type hints during consolidation?
-   - Recommendation: No, keep changes minimal
+   - Recommendation: Yes, to maintain backward compatibility
+4. Should we add type hints during refactoring?
+   - Recommendation: Only where it improves clarity, not comprehensive
+5. Is 8 modules too many compared to current 4?
+   - Recommendation: The clarity gained outweighs the file count increase
+
+## Code Quality Improvements
+
+### Specific Issues to Address
+
+1. **Deep Nesting in processor.py**:
+   - _process_weight_internal has 6+ levels of nesting
+   - Extract guard clauses and early returns
+   - Break into smaller, focused methods
+
+2. **Duplicate Threshold Logic**:
+   - Threshold calculations appear in 3+ places
+   - Consolidate into single source of truth
+   - Use consistent units (percentage vs kg)
+
+3. **Mixed Responsibilities**:
+   - WeightProcessor handles processing, validation, and quality
+   - Separate concerns into appropriate modules
+   - Clear interfaces between modules
+
+4. **Complex Conditionals**:
+   - Many if/elif chains with complex conditions
+   - Extract to named boolean methods
+   - Use strategy pattern where appropriate
+
+5. **Inconsistent Naming**:
+   - Mix of camelCase and snake_case
+   - Abbreviations (ni, pct, etc.)
+   - Standardize throughout
+
+## Timeline Estimate
+
+- Phase 1 (Preparation): 1 hour
+- Phase 2 (Models): 1 hour  
+- Phase 3 (Kalman): 1.5 hours
+- Phase 4 (Validation): 2 hours
+- Phase 5 (Quality): 2 hours
+- Phase 6 (Processor): 1.5 hours
+- Phase 7 (Imports): 1 hour
+- Phase 8 (Cleanup): 1 hour
+
+**Total: 11 hours**
 
 ## Review Cycle
 ### Self-Review Notes
-- Verified all imports in main.py and major test files
-- Confirmed consolidation strategy maintains separation of concerns
-- File size estimates: processor.py (~1200 lines), database.py (~400 lines), visualization.py (~600 lines)
-- Risk assessment complete with mitigation strategies
+- Analyzed processor.py line-by-line to identify extraction points
+- Verified module boundaries avoid circular dependencies
+- Confirmed all test imports can be updated systematically
+- File size targets are achievable with proposed structure
+- Risk mitigation strategies are comprehensive
 
-### Revisions
-- Added reprocessor.py to final structure (initially missed its importance for batch operations)
-- Clarified that processor.py will remain stateless despite consolidation
-- Added import compatibility mapping step for smoother test migration
+### Revisions After Analysis
+- Added kalman.py as separate module (initially part of processor)
+- Moved DynamicResetManager to models.py (better fit than validation)
+- Increased time estimate from 8-10 to 11 hours based on code analysis
+- Added specific code quality improvements section
+- Clarified dependency flow diagram
