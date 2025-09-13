@@ -20,7 +20,7 @@ min_readings = 20
 # Date filtering - measurements outside this range are filtered out
 # Format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS
 # Set to empty string to disable filtering
-min_date = "2019-01-01"
+min_date = "2024-11-01"
 max_date = "2025-09-05"
 
 # Export database to CSV after processing
@@ -145,7 +145,7 @@ log_adaptations = false
 "patient-upload" = 1.0
 
 # Surprisingly less reliable than expected - only 2K measurements
-"care-team-upload" = 1.2  
+"care-team-upload" = 1.2
 
 # Questionnaires - noisier than expected
 "internal-questionnaire" = 1.6
