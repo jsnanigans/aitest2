@@ -20,10 +20,14 @@ class KalmanFilterManager:
     def initialize_immediate(
         weight: float,
         timestamp: datetime,
-        kalman_config: dict
+        kalman_config: dict,
+        observation_covariance: Optional[float] = None
     ) -> Dict[str, Any]:
         """Initialize Kalman filter immediately with first measurement."""
         initial_variance = kalman_config.get("initial_variance", KALMAN_DEFAULTS['initial_variance'])
+        
+        # Use passed observation_covariance if provided, otherwise use config value
+        obs_cov = observation_covariance if observation_covariance is not None else kalman_config.get("observation_covariance", KALMAN_DEFAULTS['observation_covariance'])
         
         kalman_params = {
             'initial_state_mean': [weight, 0],
@@ -32,7 +36,7 @@ class KalmanFilterManager:
                 [kalman_config.get("transition_covariance_weight", KALMAN_DEFAULTS['transition_covariance_weight']), 0],
                 [0, kalman_config.get("transition_covariance_trend", KALMAN_DEFAULTS['transition_covariance_trend'])]
             ],
-            'observation_covariance': [[kalman_config.get("observation_covariance", KALMAN_DEFAULTS['observation_covariance'])]],
+            'observation_covariance': [[obs_cov]],
         }
         
         return {
@@ -51,7 +55,8 @@ class KalmanFilterManager:
         weight: float,
         timestamp: datetime,
         source: str,
-        processing_config: dict
+        processing_config: dict,
+        observation_covariance: Optional[float] = None
     ) -> Dict[str, Any]:
         """Update Kalman filter state with new measurement."""
         time_delta_days = 1.0
@@ -63,13 +68,17 @@ class KalmanFilterManager:
             time_delta_days = max(0.1, min(30.0, delta))
         
         kalman_params = state['kalman_params']
+        
+        # Use passed observation_covariance if provided, otherwise use stored value
+        obs_cov = observation_covariance if observation_covariance is not None else kalman_params['observation_covariance'][0][0]
+        
         kalman = KalmanFilter(
             transition_matrices=np.array([[1, time_delta_days], [0, 1]]),
             observation_matrices=np.array([[1, 0]]),
             initial_state_mean=np.array(kalman_params['initial_state_mean']),
             initial_state_covariance=np.array(kalman_params['initial_state_covariance']),
             transition_covariance=np.array(kalman_params['transition_covariance']),
-            observation_covariance=np.array(kalman_params['observation_covariance']),
+            observation_covariance=np.array([[obs_cov]]),
         )
         
         observation = np.array([[weight]])
@@ -136,7 +145,8 @@ class KalmanFilterManager:
         weight: float,
         timestamp: datetime,
         source: str,
-        accepted: bool
+        accepted: bool,
+        observation_covariance: Optional[float] = None
     ) -> Optional[Dict[str, Any]]:
         """Create result dictionary from current state."""
         if state.get('last_state') is None:
@@ -160,7 +170,11 @@ class KalmanFilterManager:
             else:
                 current_covariance = last_covariance
             
-            obs_covariance = state['kalman_params']['observation_covariance'][0][0]
+            # Use passed observation_covariance if provided, otherwise use stored value
+            if observation_covariance is not None:
+                obs_covariance = observation_covariance
+            else:
+                obs_covariance = state['kalman_params']['observation_covariance'][0][0]
             innovation_variance = current_covariance[0, 0] + obs_covariance
             normalized_innovation = (
                 abs(innovation) / np.sqrt(innovation_variance)

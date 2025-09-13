@@ -412,12 +412,16 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 DataQualityPreprocessor.load_height_data()
             
             # Always use enhanced processor with BMI detection and data quality improvements
+            # Pass full config in processing_config so adaptive noise settings are available
+            processing_config_with_full = config["processing"].copy()
+            processing_config_with_full["config"] = config  # Add full config for adaptive noise
+            
             result = process_weight_enhanced(
                 user_id=user_id,
                 weight=weight,
                 timestamp=timestamp,
                 source=source,
-                processing_config=config["processing"],
+                processing_config=processing_config_with_full,
                 kalman_config=config["kalman"],
                 unit=unit  # Pass unit for enhanced processing
             )

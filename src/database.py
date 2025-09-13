@@ -273,14 +273,13 @@ class ProcessorStateDB:
         with open(csv_path, 'w', newline='') as csvfile:
             fieldnames = [
                 'user_id',
-                'last_timestamp', 
+                'last_timestamp',
                 'last_weight',
                 'last_trend',
                 'has_kalman_params',
                 'process_noise',
                 'measurement_noise',
                 'initial_uncertainty',
-                'min_uncertainty',
                 'has_adapted_params',
                 'adapted_process_noise',
                 'adapted_measurement_noise',
@@ -306,7 +305,6 @@ class ProcessorStateDB:
                     'process_noise': '',
                     'measurement_noise': '',
                     'initial_uncertainty': '',
-                    'min_uncertainty': '',
                     'has_adapted_params': 'false',
                     'adapted_process_noise': '',
                     'adapted_measurement_noise': '',
@@ -382,8 +380,6 @@ class ProcessorStateDB:
                                 row['initial_uncertainty'] = str(init_cov)
                         else:
                             row['initial_uncertainty'] = str(init_cov)
-                        
-                        row['min_uncertainty'] = str(params.get('min_uncertainty', ''))
                 
                 if state.get('adapted_params'):
                     row['has_adapted_params'] = 'true'

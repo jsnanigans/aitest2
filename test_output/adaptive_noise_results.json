@@ -1,0 +1,34 @@
+{
+  "test_data": {
+    "num_measurements": 149,
+    "sources": {
+      "patient-device": 100,
+      "care-team-upload": 15,
+      "https://api.iglucose.com": 34
+    },
+    "true_final_weight": 76.79698564248986
+  },
+  "adaptive_metrics": {
+    "final_error": 1.5401998567176776,
+    "stability": 0.3730377899453126,
+    "acceptance_rate": 0.8859060402684564,
+    "avg_confidence": 0.7895399940808445,
+    "avg_innovation": 0.6746305942464546,
+    "avg_noise": 4.907080536912753,
+    "num_measurements": 149
+  },
+  "fixed_metrics": {
+    "final_error": 1.5401998567176776,
+    "stability": 0.3730377899453126,
+    "acceptance_rate": 0.8859060402684564,
+    "avg_confidence": 0.7895399940808445,
+    "avg_innovation": 0.6746305942464546,
+    "avg_noise": 3.4900000000000015,
+    "num_measurements": 149
+  },
+  "improvements": {
+    "error_reduction_pct": 0.0,
+    "stability_improvement_pct": 0.0,
+    "acceptance_rate_change_pp": 0.0
+  }
+}

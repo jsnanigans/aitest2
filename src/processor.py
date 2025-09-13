@@ -21,7 +21,8 @@ try:
     from .models import (
         QUESTIONNAIRE_SOURCES,
         categorize_rejection_enhanced,
-        get_rejection_severity
+        get_rejection_severity,
+        KALMAN_DEFAULTS
     )
 except ImportError:
     from database import ProcessorStateDB, get_state_db
@@ -36,8 +37,22 @@ except ImportError:
     from models import (
         QUESTIONNAIRE_SOURCES,
         categorize_rejection_enhanced,
-        get_rejection_severity
+        get_rejection_severity,
+        KALMAN_DEFAULTS
     )
+
+
+def get_adaptive_noise_multiplier(source: str, config: Dict) -> float:
+    """Get noise multiplier from config for a given source."""
+    adaptive_config = config.get('adaptive_noise', {})
+    
+    if not adaptive_config.get('enabled', False):
+        return 1.0
+    
+    multipliers = adaptive_config.get('multipliers', {})
+    default_multiplier = adaptive_config.get('default_multiplier', 1.5)
+    
+    return multipliers.get(source, default_multiplier)
 
 
 class WeightProcessor:
@@ -55,6 +70,7 @@ class WeightProcessor:
         processing_config: Dict,
         kalman_config: Dict,
         db=None,
+        observation_covariance: Optional[float] = None
     ) -> Optional[Dict]:
         """
         Process a single weight measurement for a user.
@@ -82,11 +98,14 @@ class WeightProcessor:
             state = db.create_initial_state()
         
         result, updated_state = WeightProcessor._process_weight_internal(
-            weight, timestamp, source, state, processing_config, kalman_config, user_id
+            weight, timestamp, source, state, processing_config, kalman_config, user_id, observation_covariance
         )
         
         if updated_state:
             updated_state['last_source'] = source
+            # Save adapted parameters if present in result
+            if result.get('adapted_params'):
+                updated_state['adapted_params'] = result['adapted_params']
             updated_state['last_attempt_timestamp'] = timestamp
             if not result.get('accepted', False):
                 updated_state['rejection_count_since_accept'] = updated_state.get('rejection_count_since_accept', 0) + 1
@@ -109,7 +128,8 @@ class WeightProcessor:
         state: Dict[str, Any],
         processing_config: dict,
         kalman_config: dict,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        observation_covariance: Optional[float] = None
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
         Internal processing logic - pure functional.
@@ -133,16 +153,19 @@ class WeightProcessor:
             processing_config['user_height_m'] = user_height
         
         if not state.get('kalman_params'):
+            # Use passed observation_covariance if provided, otherwise use config value
+            obs_cov = observation_covariance if observation_covariance is not None else kalman_config.get('observation_covariance', KALMAN_DEFAULTS['observation_covariance'])
+            
             new_state = KalmanFilterManager.initialize_immediate(
-                weight, timestamp, kalman_config
+                weight, timestamp, kalman_config, obs_cov
             )
             
             new_state = KalmanFilterManager.update_state(
-                new_state, weight, timestamp, source, processing_config
+                new_state, weight, timestamp, source, processing_config, obs_cov
             )
             
             result = KalmanFilterManager.create_result(
-                new_state, weight, timestamp, source, True
+                new_state, weight, timestamp, source, True, obs_cov
             )
             return result, new_state
         
@@ -180,14 +203,17 @@ class WeightProcessor:
                     "was_gap_reset_attempted": True
                 }, None
             
+            # Use passed observation_covariance if provided
+            obs_cov = observation_covariance if observation_covariance is not None else kalman_config.get('observation_covariance', KALMAN_DEFAULTS['observation_covariance'])
+            
             new_state = KalmanFilterManager.initialize_immediate(
-                weight, timestamp, kalman_config
+                weight, timestamp, kalman_config, obs_cov
             )
             new_state = KalmanFilterManager.update_state(
-                new_state, weight, timestamp, source, processing_config
+                new_state, weight, timestamp, source, processing_config, obs_cov
             )
             result = KalmanFilterManager.create_result(
-                new_state, weight, timestamp, source, True
+                new_state, weight, timestamp, source, True, obs_cov
             )
             result['was_reset'] = True
             result['gap_days'] = attempt_gap_days
@@ -232,12 +258,15 @@ class WeightProcessor:
                     "source": source,
                 }, None
         
+        # Use passed observation_covariance if provided
+        obs_cov = observation_covariance if observation_covariance is not None else kalman_config.get('observation_covariance', KALMAN_DEFAULTS['observation_covariance'])
+        
         new_state = KalmanFilterManager.update_state(
-            new_state, weight, timestamp, source, processing_config
+            new_state, weight, timestamp, source, processing_config, obs_cov
         )
         
         result = KalmanFilterManager.create_result(
-            new_state, weight, timestamp, source, True
+            new_state, weight, timestamp, source, True, obs_cov
         )
         
         return result, new_state
@@ -333,10 +362,31 @@ def process_weight_enhanced(
     
     adapted_kalman = kalman_config.copy()
     
-    noise_multiplier = ThresholdCalculator.get_measurement_noise_multiplier(source)
+    # Get noise multiplier from config if adaptive noise is enabled
+    config = processing_config.get('config', {})
+    adaptive_config = config.get('adaptive_noise', {})
     
-    base_noise = kalman_config.get('observation_covariance', 1.0)
-    adapted_kalman['observation_covariance'] = base_noise * noise_multiplier
+    if adaptive_config.get('enabled', False):
+        multipliers = adaptive_config.get('multipliers', {})
+        default_multiplier = adaptive_config.get('default_multiplier', 1.5)
+        noise_multiplier = multipliers.get(source, default_multiplier)
+    else:
+        # Fall back to old method if adaptive noise is disabled
+        noise_multiplier = ThresholdCalculator.get_measurement_noise_multiplier(source)
+    
+    base_noise = kalman_config.get('observation_covariance', KALMAN_DEFAULTS['observation_covariance'])
+    adapted_observation_covariance = base_noise * noise_multiplier
+    adapted_kalman['observation_covariance'] = adapted_observation_covariance
+    
+    # Track adapted parameters if they differ from base
+    adapted_params = None
+    if noise_multiplier != 1.0:
+        adapted_params = {
+            'process_noise': adapted_kalman.get('transition_covariance_weight', kalman_config.get('transition_covariance_weight')),
+            'measurement_noise': adapted_kalman['observation_covariance'],
+            'noise_multiplier': noise_multiplier,
+            'source': source
+        }
     
     if noise_multiplier > 2.0:
         adapted_kalman['initial_variance'] = kalman_config.get('initial_variance', 1.0) * 1.5
@@ -347,8 +397,13 @@ def process_weight_enhanced(
         timestamp=timestamp,
         source=source,
         processing_config=adapted_config,
-        kalman_config=adapted_kalman
+        kalman_config=adapted_kalman,
+        observation_covariance=adapted_observation_covariance
     )
+    
+    # Add adapted parameters to result if they exist
+    if adapted_params:
+        result['adapted_params'] = adapted_params
     
     if result:
         is_outlier = False
@@ -423,6 +478,14 @@ def process_weight_enhanced(
             result['quality_alert'] = alert
         
         result['source_quality'] = quality_monitor.get_source_summary(source)
+    
+    # Save adapted parameters to database if they exist
+    if adapted_params and result.get("accepted"):
+        db = get_state_db()
+        state = db.get_state(user_id)
+        if state:
+            state["adapted_params"] = adapted_params
+            db.save_state(user_id, state)
     
     return result
 

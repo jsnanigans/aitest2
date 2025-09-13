@@ -53,6 +53,10 @@ test_users = [
 min_weight = 30.0
 max_weight = 400.0
 
+# BMI validation limits
+min_valid_bmi = 10.0
+max_valid_bmi = 90.0
+
 # Maximum daily change allowed (as fraction)
 max_daily_change = 0.05  # was 0.03
 
@@ -120,6 +124,42 @@ sustained_tolerance = 0.50  # Optimized: +100% from baseline (was 0.25)
 
 # Enable graduated physiological limits
 enable_physiological_limits = true
+
+[adaptive_noise]
+# Enable adaptive measurement noise based on source reliability
+# Optimized from analysis of 709K+ measurements across 15K+ users (2025-09-13)
+enabled = true
+
+# Default multiplier for unknown sources
+default_multiplier = 1.5
+
+# Log adaptation decisions (for debugging)
+log_adaptations = false
+
+[adaptive_noise.multipliers]
+# Lower = more trusted, higher = less trusted
+# Multiplier is applied to observation_covariance (base: 3.49)
+# IMPORTANT: These values are data-driven, not assumptions!
+
+# Most reliable (baseline) - 23K measurements from 5K users
+"patient-upload" = 1.0
+
+# Surprisingly less reliable than expected - only 2K measurements
+"care-team-upload" = 1.2  
+
+# Questionnaires - noisier than expected
+"internal-questionnaire" = 1.6
+"initial-questionnaire" = 1.6
+"questionnaire" = 1.6
+
+# Moderate reliability - 171K measurements
+"https://connectivehealth.io" = 2.2
+
+# Higher noise - 297K measurements (largest source)
+"patient-device" = 2.5
+
+# Highest noise but better than assumed - 195K measurements
+"https://api.iglucose.com" = 2.6
 
 [logging]
 # Progress update interval (rows)
