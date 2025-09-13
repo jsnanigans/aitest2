@@ -87,7 +87,17 @@ class WeightProcessor:
         
         if updated_state:
             updated_state['last_source'] = source
+            updated_state['last_attempt_timestamp'] = timestamp
+            if not result.get('accepted', False):
+                updated_state['rejection_count_since_accept'] = updated_state.get('rejection_count_since_accept', 0) + 1
+            else:
+                updated_state['rejection_count_since_accept'] = 0
             db.save_state(user_id, updated_state)
+        else:
+            if state:
+                state['last_attempt_timestamp'] = timestamp
+                state['rejection_count_since_accept'] = state.get('rejection_count_since_accept', 0) + 1
+                db.save_state(user_id, state)
         
         return result
 
@@ -109,6 +119,12 @@ class WeightProcessor:
             Result is never None - all measurements are processed
         """
         new_state = state.copy()
+        
+        # Migrate old state format to include new fields
+        if 'last_attempt_timestamp' not in new_state and 'last_timestamp' in new_state:
+            new_state['last_attempt_timestamp'] = new_state['last_timestamp']
+        if 'rejection_count_since_accept' not in new_state:
+            new_state['rejection_count_since_accept'] = 0
         
         # Get user height and add to processing config
         if user_id:
@@ -134,12 +150,17 @@ class WeightProcessor:
             timestamp, new_state.get('last_timestamp')
         )
         
+        last_attempt = state.get('last_attempt_timestamp', state.get('last_timestamp'))
+        attempt_gap_days = KalmanFilterManager.calculate_time_delta_days(
+            timestamp, last_attempt
+        )
+        
         reset_gap_days = kalman_config.get("reset_gap_days", 30)
         
         if state.get('last_source') in QUESTIONNAIRE_SOURCES:
             reset_gap_days = kalman_config.get("questionnaire_reset_days", 10)
         
-        if time_delta_days > reset_gap_days:
+        if attempt_gap_days > reset_gap_days:
             height_m = processing_config.get('user_height_m', 1.7)
             min_bmi = processing_config.get('min_valid_bmi', 10.0)
             max_bmi = processing_config.get('max_valid_bmi', 60.0)
@@ -169,8 +190,9 @@ class WeightProcessor:
                 new_state, weight, timestamp, source, True
             )
             result['was_reset'] = True
-            result['gap_days'] = time_delta_days
-            result['reset_reason'] = f"Gap reset after {time_delta_days:.1f} days"
+            result['gap_days'] = attempt_gap_days
+            result['reset_reason'] = f"Gap reset after {attempt_gap_days:.1f} days of no data"
+            result['rejection_count_before_reset'] = state.get('rejection_count_since_accept', 0)
             return result, new_state
         
         is_valid, rejection_reason = PhysiologicalValidator.validate_weight(
@@ -492,12 +514,13 @@ class DynamicResetManager:
         if not state or not state.get('last_timestamp'):
             return False, "No previous state", metadata
         
-        last_timestamp = state['last_timestamp']
-        if isinstance(last_timestamp, str):
-            last_timestamp = datetime.fromisoformat(last_timestamp)
+        last_attempt = state.get('last_attempt_timestamp', state.get('last_timestamp'))
+        if isinstance(last_attempt, str):
+            last_attempt = datetime.fromisoformat(last_attempt)
         
-        gap_days = (timestamp - last_timestamp).total_seconds() / 86400
+        gap_days = (timestamp - last_attempt).total_seconds() / 86400
         metadata['gap_days'] = gap_days
+        metadata['rejection_count_since_accept'] = state.get('rejection_count_since_accept', 0)
         
         if method == 'auto':
             if self.config['enable_questionnaire_gap']:
