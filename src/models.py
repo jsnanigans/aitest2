@@ -106,15 +106,21 @@ PHYSIOLOGICAL_LIMITS = {
     'MIN_WEIGHT': 30,
     'MAX_WEIGHT': 400,
     'DEFAULT_HEIGHT_M': 1.67,
-    'MAX_DAILY_CHANGE_KG': 5.0,
-    'MAX_SUSTAINED_DAILY_KG': 1.5
+    'MAX_DAILY_CHANGE_KG': 6.44,  # Optimized from 5.0
+    'MAX_SUSTAINED_DAILY_KG': 2.57,  # Optimized from 1.5
+    'MAX_CHANGE_1H': 4.22,  # New optimized value
+    'MAX_CHANGE_6H': 6.23,  # New optimized value
+    'MAX_CHANGE_24H': 6.44,  # New optimized value
+    'LIMIT_TOLERANCE': 0.2493,  # Optimized from 0.10
+    'SUSTAINED_TOLERANCE': 0.50,  # Optimized from 0.25
+    'SESSION_VARIANCE': 5.81  # Optimized from 5.0
 }
 
 KALMAN_DEFAULTS = {
-    'initial_variance': 1.0,
-    'transition_covariance_weight': 0.1,
-    'transition_covariance_trend': 0.001,
-    'observation_covariance': 1.0,
+    'initial_variance': 0.361,  # Optimized from 1.0
+    'transition_covariance_weight': 0.0160,  # Optimized from 0.1
+    'transition_covariance_trend': 0.0001,  # Optimized from 0.001
+    'observation_covariance': 3.490,  # Optimized from 1.0
     'reset_gap_days': 30,
     'questionnaire_reset_days': 10
 }

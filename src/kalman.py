@@ -7,6 +7,11 @@ from typing import Dict, Tuple, Optional, Any
 import numpy as np
 from pykalman import KalmanFilter
 
+try:
+    from .models import KALMAN_DEFAULTS
+except ImportError:
+    from models import KALMAN_DEFAULTS
+
 
 class KalmanFilterManager:
     """Manages Kalman filter operations for weight processing."""
@@ -18,16 +23,16 @@ class KalmanFilterManager:
         kalman_config: dict
     ) -> Dict[str, Any]:
         """Initialize Kalman filter immediately with first measurement."""
-        initial_variance = kalman_config.get("initial_variance", 1.0)
+        initial_variance = kalman_config.get("initial_variance", KALMAN_DEFAULTS['initial_variance'])
         
         kalman_params = {
             'initial_state_mean': [weight, 0],
             'initial_state_covariance': [[initial_variance, 0], [0, 0.001]],
             'transition_covariance': [
-                [kalman_config.get("transition_covariance_weight", 0.1), 0],
-                [0, kalman_config.get("transition_covariance_trend", 0.001)]
+                [kalman_config.get("transition_covariance_weight", KALMAN_DEFAULTS['transition_covariance_weight']), 0],
+                [0, kalman_config.get("transition_covariance_trend", KALMAN_DEFAULTS['transition_covariance_trend'])]
             ],
-            'observation_covariance': [[kalman_config.get("observation_covariance", 1.0)]],
+            'observation_covariance': [[kalman_config.get("observation_covariance", KALMAN_DEFAULTS['observation_covariance'])]],
         }
         
         return {
@@ -109,8 +114,9 @@ class KalmanFilterManager:
     @staticmethod
     def reset_state(state: Dict[str, Any], new_weight: float) -> Dict[str, Any]:
         """Reset Kalman state after long gap."""
+        initial_variance = KALMAN_DEFAULTS['initial_variance']
         state['last_state'] = np.array([[new_weight, 0]])
-        state['last_covariance'] = np.array([[[1.0, 0], [0, 0.001]]])
+        state['last_covariance'] = np.array([[[initial_variance, 0], [0, 0.001]]])
         state['last_raw_weight'] = new_weight
         
         if state.get('kalman_params'):

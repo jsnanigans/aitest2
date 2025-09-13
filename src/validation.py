@@ -59,18 +59,18 @@ class PhysiologicalValidator:
         
         if time_delta_hours < 1:
             percent_limit = phys_config.get('max_change_1h_percent', 0.02)
-            absolute_limit = phys_config.get('max_change_1h_absolute', 3.0)
+            absolute_limit = phys_config.get('max_change_1h_absolute', PHYSIOLOGICAL_LIMITS.get('MAX_CHANGE_1H', 4.22))
             reason = "hydration/bathroom"
         elif time_delta_hours < 6:
             percent_limit = phys_config.get('max_change_6h_percent', 0.025)
-            absolute_limit = phys_config.get('max_change_6h_absolute', 4.0)
+            absolute_limit = phys_config.get('max_change_6h_absolute', PHYSIOLOGICAL_LIMITS.get('MAX_CHANGE_6H', 6.23))
             reason = "meals+hydration"
         elif time_delta_hours <= 24:
             percent_limit = phys_config.get('max_change_24h_percent', 0.035)
-            absolute_limit = phys_config.get('max_change_24h_absolute', 5.0)
+            absolute_limit = phys_config.get('max_change_24h_absolute', PHYSIOLOGICAL_LIMITS.get('MAX_CHANGE_24H', 6.44))
             reason = "daily fluctuation"
         else:
-            daily_rate = phys_config.get('max_sustained_daily', 1.5)
+            daily_rate = phys_config.get('max_sustained_daily', PHYSIOLOGICAL_LIMITS.get('MAX_SUSTAINED_DAILY_KG', 2.57))
             days = time_delta_hours / 24
             absolute_limit = days * daily_rate
             percent_limit = absolute_limit / last_weight
@@ -129,9 +129,9 @@ class PhysiologicalValidator:
         
         phys_config = config.get('physiological', {})
         if time_delta_hours > 24:
-            tolerance = phys_config.get('sustained_tolerance', 0.25)
+            tolerance = phys_config.get('sustained_tolerance', PHYSIOLOGICAL_LIMITS.get('SUSTAINED_TOLERANCE', 0.50))
         else:
-            tolerance = phys_config.get('limit_tolerance', 0.10)
+            tolerance = phys_config.get('limit_tolerance', PHYSIOLOGICAL_LIMITS.get('LIMIT_TOLERANCE', 0.2493))
         effective_limit = max_change * (1 + tolerance)
         
         if change > effective_limit:
@@ -141,7 +141,7 @@ class PhysiologicalValidator:
         session_timeout = phys_config.get('session_timeout_minutes', 5) / 60
         
         if time_delta_hours < session_timeout:
-            session_variance_threshold = phys_config.get('session_variance_threshold', 5.0)
+            session_variance_threshold = phys_config.get('session_variance_threshold', PHYSIOLOGICAL_LIMITS.get('SESSION_VARIANCE', 5.81))
             if change > session_variance_threshold:
                 return False, (f"Session variance {change:.1f}kg exceeds threshold "
                               f"{session_variance_threshold}kg (likely different user)")
