@@ -4,6 +4,7 @@ Manages persistent Kalman state for all users
 Initially in-memory with JSON serialization, can be backed by files or database later
 """
 
+import csv
 import json
 from datetime import datetime
 from pathlib import Path
@@ -255,6 +256,153 @@ class ProcessorStateDB:
         if state:
             return state.get('last_timestamp')
         return None
+
+    def export_to_csv(self, filepath: str) -> int:
+        """
+        Export all user states to CSV format.
+        
+        Args:
+            filepath: Path to save the CSV file
+            
+        Returns:
+            Number of users exported
+        """
+        csv_path = Path(filepath)
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(csv_path, 'w', newline='') as csvfile:
+            fieldnames = [
+                'user_id',
+                'last_timestamp', 
+                'last_weight',
+                'last_trend',
+                'has_kalman_params',
+                'process_noise',
+                'measurement_noise',
+                'initial_uncertainty',
+                'min_uncertainty',
+                'has_adapted_params',
+                'adapted_process_noise',
+                'adapted_measurement_noise',
+                'state_reset_count',
+                'last_reset_timestamp'
+            ]
+            
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            users_exported = 0
+            for user_id in sorted(self.states.keys()):
+                state = self.get_state(user_id)
+                if not state:
+                    continue
+                    
+                row = {
+                    'user_id': user_id,
+                    'last_timestamp': '',
+                    'last_weight': '',
+                    'last_trend': '',
+                    'has_kalman_params': 'false',
+                    'process_noise': '',
+                    'measurement_noise': '',
+                    'initial_uncertainty': '',
+                    'min_uncertainty': '',
+                    'has_adapted_params': 'false',
+                    'adapted_process_noise': '',
+                    'adapted_measurement_noise': '',
+                    'state_reset_count': '0',
+                    'last_reset_timestamp': ''
+                }
+                
+                if state.get('last_timestamp'):
+                    row['last_timestamp'] = state['last_timestamp'].isoformat() if isinstance(state['last_timestamp'], datetime) else str(state['last_timestamp'])
+                
+                if state.get('last_state') is not None:
+                    try:
+                        last_state = state['last_state']
+                        if isinstance(last_state, np.ndarray):
+                            # Handle 2D array (multiple states)
+                            if len(last_state.shape) > 1:
+                                # Get the most recent state (last row)
+                                current_state = last_state[-1]
+                                row['last_weight'] = f"{float(current_state[0]):.2f}"
+                                row['last_trend'] = f"{float(current_state[1]):.4f}"
+                            else:
+                                # 1D array
+                                row['last_weight'] = f"{float(last_state[0]):.2f}"
+                                row['last_trend'] = f"{float(last_state[1]):.4f}"
+                        elif isinstance(last_state, (list, tuple)) and len(last_state) >= 2:
+                            # Handle list/tuple
+                            if isinstance(last_state[0], (list, tuple, np.ndarray)):
+                                # Nested structure - get last element
+                                current_state = last_state[-1]
+                                row['last_weight'] = f"{float(current_state[0]):.2f}"
+                                row['last_trend'] = f"{float(current_state[1]):.4f}"
+                            else:
+                                # Flat structure
+                                row['last_weight'] = f"{float(last_state[0]):.2f}"
+                                row['last_trend'] = f"{float(last_state[1]):.4f}"
+                    except (TypeError, IndexError, ValueError):
+                        pass
+                
+                if state.get('kalman_params'):
+                    row['has_kalman_params'] = 'true'
+                    params = state['kalman_params']
+                    
+                    if isinstance(params, dict):
+                        # Extract transition covariance (process noise)
+                        trans_cov = params.get('transition_covariance', '')
+                        if trans_cov and isinstance(trans_cov, (list, np.ndarray)):
+                            try:
+                                # Get the weight component of process noise
+                                row['process_noise'] = str(trans_cov[0][0] if isinstance(trans_cov[0], (list, np.ndarray)) else trans_cov[0])
+                            except:
+                                row['process_noise'] = str(trans_cov)
+                        else:
+                            row['process_noise'] = str(trans_cov)
+                        
+                        # Extract observation covariance (measurement noise)
+                        obs_cov = params.get('observation_covariance', '')
+                        if obs_cov and isinstance(obs_cov, (list, np.ndarray)):
+                            try:
+                                # Get the scalar value
+                                row['measurement_noise'] = str(obs_cov[0][0] if isinstance(obs_cov[0], (list, np.ndarray)) else obs_cov[0])
+                            except:
+                                row['measurement_noise'] = str(obs_cov)
+                        else:
+                            row['measurement_noise'] = str(obs_cov)
+                        
+                        # Extract initial state covariance
+                        init_cov = params.get('initial_state_covariance', '')
+                        if init_cov and isinstance(init_cov, (list, np.ndarray)):
+                            try:
+                                # Get the weight uncertainty component
+                                row['initial_uncertainty'] = str(init_cov[0][0] if isinstance(init_cov[0], (list, np.ndarray)) else init_cov[0])
+                            except:
+                                row['initial_uncertainty'] = str(init_cov)
+                        else:
+                            row['initial_uncertainty'] = str(init_cov)
+                        
+                        row['min_uncertainty'] = str(params.get('min_uncertainty', ''))
+                
+                if state.get('adapted_params'):
+                    row['has_adapted_params'] = 'true'
+                    adapted = state['adapted_params']
+                    
+                    if isinstance(adapted, dict):
+                        row['adapted_process_noise'] = str(adapted.get('process_noise', ''))
+                        row['adapted_measurement_noise'] = str(adapted.get('measurement_noise', ''))
+                
+                if state.get('state_reset_count'):
+                    row['state_reset_count'] = str(state['state_reset_count'])
+                
+                if state.get('last_reset_timestamp'):
+                    row['last_reset_timestamp'] = state['last_reset_timestamp'].isoformat() if isinstance(state['last_reset_timestamp'], datetime) else str(state['last_reset_timestamp'])
+                
+                writer.writerow(row)
+                users_exported += 1
+        
+        return users_exported
 
 
 # Alias for compatibility

@@ -142,7 +142,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     # Track daily data for cleanup
     current_day = None
     daily_measurements = defaultdict(lambda: defaultdict(list))
-    db = ProcessorStateDB()
+    db = get_state_db()
 
     stats = {
         "total_rows": 0,
@@ -598,6 +598,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             json.dump(debug_log, f, indent=2, default=str)
     
     print(f"Debug reports saved to {debug_dir}")
+    
+    # Export database to CSV if enabled
+    if config.get("data", {}).get("export_database", True):
+        db_dump_file = output_path / f"db_dump_{timestamp}.csv"
+        users_exported = db.export_to_csv(str(db_dump_file))
+        print(f"\nDatabase dump saved to {db_dump_file} ({users_exported} users)")
 
     # Generate visualizations if enabled
     if config.get("visualization", {}).get("enabled", True):
@@ -678,11 +684,31 @@ Examples:
     parser.add_argument("--config", default="config.toml", help="Configuration file (default: config.toml)")
     parser.add_argument("--no-viz", action="store_true", help="Skip visualization generation")
     parser.add_argument("--limit", type=int, help="Alias for --max-users")
+    parser.add_argument("--dump-db", action="store_true", help="Export database to CSV and exit")
+    parser.add_argument("--db-output", help="Output path for database dump CSV")
+    parser.add_argument("--no-db-dump", action="store_true", help="Skip database dump after processing")
     
     args = parser.parse_args()
     
     # Load config
     config = load_config(args.config)
+    
+    # Handle standalone database dump
+    if args.dump_db:
+        from src.database import get_state_db
+        db = get_state_db()
+        
+        if args.db_output:
+            output_file = args.db_output
+        else:
+            timestamp = datetime.now().strftime(config["logging"]["timestamp_format"])
+            output_dir = Path(config["data"]["output_dir"])
+            output_dir.mkdir(exist_ok=True)
+            output_file = output_dir / f"db_dump_{timestamp}.csv"
+        
+        users_exported = db.export_to_csv(str(output_file))
+        print(f"Database dump saved to {output_file} ({users_exported} users)")
+        sys.exit(0)
     
     # Override config with CLI arguments
     csv_file = args.csv_file or config["data"]["csv_file"]
@@ -708,6 +734,9 @@ Examples:
         
     if args.no_viz:
         config["visualization"]["enabled"] = False
+    
+    if args.no_db_dump:
+        config.setdefault("data", {})["export_database"] = False
     
     if not Path(csv_file).exists():
         print(f"Error: File {csv_file} not found")
