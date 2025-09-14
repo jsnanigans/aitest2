@@ -16,7 +16,7 @@ import math
 from src.database import get_state_db
 from src.processor import process_measurement
 from src.visualization import create_dashboard
-from src.quality import DataQualityPreprocessor
+from src.validation import DataQualityPreprocessor
 
 
 def load_config(config_path: str = "config.toml") -> dict:
