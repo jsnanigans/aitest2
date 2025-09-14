@@ -90,7 +90,7 @@ def create_enhanced_dashboard(results: List[Dict[str, Any]],
     
     fig.write_html(
         str(html_file),
-        include_plotlyjs='cdn',
+        include_plotlyjs='directory',
         config={
             'displayModeBar': True,
             'displaylogo': False,
