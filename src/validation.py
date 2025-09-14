@@ -1,618 +1,696 @@
 """
-Validation logic for weight measurements.
+Unified validation and data quality module for weight processing.
+Combines physiological validation, BMI detection, and data preprocessing.
 """
 
-from datetime import datetime
-from typing import Dict, Tuple, Optional, Any, Literal
+from datetime import datetime, timedelta
+from typing import Dict, List, Tuple, Optional, Any
+from collections import defaultdict, deque
 import numpy as np
+import pandas as pd
+
 try:
-    from .models import (
-        ThresholdResult, 
-        SOURCE_PROFILES, 
+    from .constants import (
+        SOURCE_PROFILES,
         DEFAULT_PROFILE,
         BMI_LIMITS,
-        PHYSIOLOGICAL_LIMITS
+        PHYSIOLOGICAL_LIMITS,
+        get_source_reliability,
+        get_noise_multiplier,
+        categorize_rejection_enhanced,
+        get_rejection_severity
     )
 except ImportError:
-    from models import (
-        ThresholdResult, 
-        SOURCE_PROFILES, 
+    from constants import (
+        SOURCE_PROFILES,
         DEFAULT_PROFILE,
         BMI_LIMITS,
-        PHYSIOLOGICAL_LIMITS
+        PHYSIOLOGICAL_LIMITS,
+        get_source_reliability,
+        get_noise_multiplier,
+        categorize_rejection_enhanced,
+        get_rejection_severity
     )
 
 
 class PhysiologicalValidator:
-    """Validates weight measurements against physiological limits."""
+    """Validates weight measurements against physiological constraints."""
+    
+    ABSOLUTE_MIN_WEIGHT = PHYSIOLOGICAL_LIMITS['ABSOLUTE_MIN_WEIGHT']
+    ABSOLUTE_MAX_WEIGHT = PHYSIOLOGICAL_LIMITS['ABSOLUTE_MAX_WEIGHT']
+    SUSPICIOUS_MIN_WEIGHT = PHYSIOLOGICAL_LIMITS['SUSPICIOUS_MIN_WEIGHT']
+    SUSPICIOUS_MAX_WEIGHT = PHYSIOLOGICAL_LIMITS['SUSPICIOUS_MAX_WEIGHT']
+    
+    MAX_DAILY_CHANGE_KG = PHYSIOLOGICAL_LIMITS['MAX_DAILY_CHANGE_KG']
+    MAX_WEEKLY_CHANGE_KG = PHYSIOLOGICAL_LIMITS['MAX_WEEKLY_CHANGE_KG']
+    TYPICAL_DAILY_VARIATION_KG = PHYSIOLOGICAL_LIMITS['TYPICAL_DAILY_VARIATION_KG']
     
     @staticmethod
-    def calculate_time_delta_hours(
-        current_timestamp: datetime,
-        last_timestamp: Optional[datetime]
-    ) -> float:
-        """Calculate hours between measurements."""
-        if last_timestamp is None:
-            return float('inf')
-        
-        if isinstance(last_timestamp, str):
-            last_timestamp = datetime.fromisoformat(last_timestamp)
-        
-        delta = (current_timestamp - last_timestamp).total_seconds() / 3600
-        return max(0.0, delta)
-    
-    @staticmethod
-    def get_physiological_limit(
-        time_delta_hours: float,
-        last_weight: float,
-        config: dict
-    ) -> tuple[float, str]:
-        """
-        Get maximum allowed weight change based on time elapsed.
-        Based on framework document recommendations (Section 3.1).
-        """
-        phys_config = config.get('physiological', {})
-        
-        if not phys_config.get('enable_physiological_limits', True):
-            legacy_limit = config.get('max_daily_change', 0.05) * last_weight
-            return legacy_limit, "legacy percentage limit"
-        
-        if time_delta_hours < 1:
-            percent_limit = phys_config.get('max_change_1h_percent', 0.02)
-            absolute_limit = phys_config.get('max_change_1h_absolute', PHYSIOLOGICAL_LIMITS.get('MAX_CHANGE_1H', 4.22))
-            reason = "hydration/bathroom"
-        elif time_delta_hours < 6:
-            percent_limit = phys_config.get('max_change_6h_percent', 0.025)
-            absolute_limit = phys_config.get('max_change_6h_absolute', PHYSIOLOGICAL_LIMITS.get('MAX_CHANGE_6H', 6.23))
-            reason = "meals+hydration"
-        elif time_delta_hours <= 24:
-            percent_limit = phys_config.get('max_change_24h_percent', 0.035)
-            absolute_limit = phys_config.get('max_change_24h_absolute', PHYSIOLOGICAL_LIMITS.get('MAX_CHANGE_24H', 6.44))
-            reason = "daily fluctuation"
-        else:
-            daily_rate = phys_config.get('max_sustained_daily', PHYSIOLOGICAL_LIMITS.get('MAX_SUSTAINED_DAILY_KG', 2.57))
-            days = time_delta_hours / 24
-            absolute_limit = days * daily_rate
-            percent_limit = absolute_limit / last_weight
-            reason = f"sustained ({daily_rate}kg/day)"
-        
-        percentage_based = last_weight * percent_limit
-        limit = min(percentage_based, absolute_limit)
-        
-        if limit == absolute_limit and time_delta_hours <= 24:
-            reason += f" (capped at {absolute_limit}kg)"
-        
-        return limit, reason
-    
-    @staticmethod
-    def validate_weight(
-        weight: float,
-        config: dict,
-        state: Optional[Dict[str, Any]],
-        timestamp: Optional[datetime] = None
-    ) -> tuple[bool, Optional[str]]:
-        """
-        Validate weight with physiological limits.
-        Returns (is_valid, rejection_reason).
-        """
-        min_weight = config.get('min_weight', PHYSIOLOGICAL_LIMITS['MIN_WEIGHT'])
-        max_weight = config.get('max_weight', PHYSIOLOGICAL_LIMITS['MAX_WEIGHT'])
-        
-        if weight < min_weight or weight > max_weight:
-            return False, f"Weight {weight}kg outside bounds [{min_weight}, {max_weight}]"
-        
-        if state is None:
-            return True, None
-        
-        if 'last_raw_weight' in state:
-            last_weight = state['last_raw_weight']
-        elif state.get('last_state') is not None:
-            last_state_val = state.get('last_state')
-            if isinstance(last_state_val, np.ndarray):
-                last_weight = last_state_val[-1][0] if len(last_state_val.shape) > 1 else last_state_val[0]
-            else:
-                last_weight = last_state_val[0] if isinstance(last_state_val, (list, tuple)) else last_state_val
-        else:
-            return True, None
-        
-        if timestamp and state.get('last_timestamp'):
-            time_delta_hours = PhysiologicalValidator.calculate_time_delta_hours(
-                timestamp, state.get('last_timestamp')
-            )
-        else:
-            time_delta_hours = 24
-        
-        change = abs(weight - last_weight)
-        max_change, reason = PhysiologicalValidator.get_physiological_limit(
-            time_delta_hours, last_weight, config
-        )
-        
-        phys_config = config.get('physiological', {})
-        if time_delta_hours > 24:
-            tolerance = phys_config.get('sustained_tolerance', PHYSIOLOGICAL_LIMITS.get('SUSTAINED_TOLERANCE', 0.50))
-        else:
-            tolerance = phys_config.get('limit_tolerance', PHYSIOLOGICAL_LIMITS.get('LIMIT_TOLERANCE', 0.2493))
-        effective_limit = max_change * (1 + tolerance)
-        
-        if change > effective_limit:
-            return False, (f"Change of {change:.1f}kg in {time_delta_hours:.1f}h "
-                          f"exceeds {reason} limit of {max_change:.1f}kg")
-        
-        session_timeout = phys_config.get('session_timeout_minutes', 5) / 60
-        
-        if time_delta_hours < session_timeout:
-            session_variance_threshold = phys_config.get('session_variance_threshold', PHYSIOLOGICAL_LIMITS.get('SESSION_VARIANCE', 5.81))
-            if change > session_variance_threshold:
-                return False, (f"Session variance {change:.1f}kg exceeds threshold "
-                              f"{session_variance_threshold}kg (likely different user)")
-        
+    def validate_absolute_limits(weight: float) -> Tuple[bool, Optional[str]]:
+        """Check if weight is within absolute physiological limits."""
+        if weight < PhysiologicalValidator.ABSOLUTE_MIN_WEIGHT:
+            return False, f"Weight {weight:.1f}kg below absolute minimum {PhysiologicalValidator.ABSOLUTE_MIN_WEIGHT}kg"
+        if weight > PhysiologicalValidator.ABSOLUTE_MAX_WEIGHT:
+            return False, f"Weight {weight:.1f}kg above absolute maximum {PhysiologicalValidator.ABSOLUTE_MAX_WEIGHT}kg"
         return True, None
+    
+    @staticmethod
+    def check_suspicious_range(weight: float) -> Optional[str]:
+        """Check if weight is in suspicious range."""
+        if weight < PhysiologicalValidator.SUSPICIOUS_MIN_WEIGHT:
+            return f"Weight {weight:.1f}kg suspiciously low"
+        if weight > PhysiologicalValidator.SUSPICIOUS_MAX_WEIGHT:
+            return f"Weight {weight:.1f}kg suspiciously high"
+        return None
+    
+    @staticmethod
+    def validate_rate_of_change(
+        current_weight: float,
+        previous_weight: float,
+        time_diff_hours: float,
+        source: str = None
+    ) -> Tuple[bool, Optional[str], float]:
+        """
+        Validate rate of weight change.
+        
+        Returns:
+            (is_valid, rejection_reason, daily_change_rate)
+        """
+        if time_diff_hours <= 0:
+            return True, None, 0.0
+        
+        weight_diff = abs(current_weight - previous_weight)
+        daily_rate = (weight_diff / time_diff_hours) * 24
+        
+        source_profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE) if source else DEFAULT_PROFILE
+        max_daily_change = source_profile.get('max_daily_change_kg', PhysiologicalValidator.MAX_DAILY_CHANGE_KG)
+        
+        if daily_rate > max_daily_change:
+            hours_str = f"{time_diff_hours:.1f}h" if time_diff_hours < 24 else f"{time_diff_hours/24:.1f}d"
+            return False, f"Change of {weight_diff:.1f}kg in {hours_str} exceeds max rate", daily_rate
+        
+        return True, None, daily_rate
+    
+    @staticmethod
+    def check_measurement_pattern(
+        measurements: List[Tuple[datetime, float]],
+        window_hours: float = 24
+    ) -> Dict[str, Any]:
+        """
+        Analyze measurement patterns for anomalies.
+        
+        Args:
+            measurements: List of (timestamp, weight) tuples
+            window_hours: Time window to analyze
+            
+        Returns:
+            Dictionary with pattern analysis results
+        """
+        if len(measurements) < 2:
+            return {'sufficient_data': False}
+        
+        measurements = sorted(measurements, key=lambda x: x[0])
+        
+        now = measurements[-1][0]
+        window_start = now - timedelta(hours=window_hours)
+        recent = [(t, w) for t, w in measurements if t >= window_start]
+        
+        if len(recent) < 2:
+            return {'sufficient_data': False}
+        
+        weights = [w for _, w in recent]
+        mean_weight = np.mean(weights)
+        std_weight = np.std(weights)
+        
+        oscillation_count = 0
+        for i in range(1, len(weights) - 1):
+            if (weights[i] > weights[i-1] and weights[i] > weights[i+1]) or \
+               (weights[i] < weights[i-1] and weights[i] < weights[i+1]):
+                oscillation_count += 1
+        
+        return {
+            'sufficient_data': True,
+            'mean': mean_weight,
+            'std': std_weight,
+            'cv': std_weight / mean_weight if mean_weight > 0 else 0,
+            'measurement_count': len(recent),
+            'oscillation_ratio': oscillation_count / (len(weights) - 2) if len(weights) > 2 else 0,
+            'range': max(weights) - min(weights),
+            'suspicious_pattern': std_weight > PhysiologicalValidator.TYPICAL_DAILY_VARIATION_KG * 2
+        }
+    
+    @staticmethod
+    def validate_comprehensive(
+        weight: float,
+        previous_weight: Optional[float] = None,
+        time_diff_hours: Optional[float] = None,
+        source: Optional[str] = None,
+        recent_measurements: Optional[List[Tuple[datetime, float]]] = None
+    ) -> Dict[str, Any]:
+        """
+        Comprehensive validation combining all checks.
+        
+        Returns:
+            Dictionary with validation results and metadata
+        """
+        result = {
+            'valid': True,
+            'weight': weight,
+            'checks': [],
+            'warnings': [],
+            'rejection_reason': None
+        }
+        
+        is_valid, reason = PhysiologicalValidator.validate_absolute_limits(weight)
+        if not is_valid:
+            result['valid'] = False
+            result['rejection_reason'] = reason
+            return result
+        result['checks'].append('absolute_limits')
+        
+        warning = PhysiologicalValidator.check_suspicious_range(weight)
+        if warning:
+            result['warnings'].append(warning)
+        
+        if previous_weight is not None and time_diff_hours is not None:
+            is_valid, reason, rate = PhysiologicalValidator.validate_rate_of_change(
+                weight, previous_weight, time_diff_hours, source
+            )
+            if not is_valid:
+                result['valid'] = False
+                result['rejection_reason'] = reason
+                result['daily_change_rate'] = rate
+                return result
+            result['checks'].append('rate_of_change')
+            result['daily_change_rate'] = rate
+        
+        if recent_measurements:
+            pattern_analysis = PhysiologicalValidator.check_measurement_pattern(recent_measurements)
+            if pattern_analysis.get('sufficient_data'):
+                result['pattern_analysis'] = pattern_analysis
+                if pattern_analysis.get('suspicious_pattern'):
+                    result['warnings'].append('Suspicious measurement pattern detected')
+        
+        return result
 
 
 class BMIValidator:
-    """
-    Validates weight measurements using BMI thresholds and percentage changes.
-    Detects when Kalman filter should be reset due to unrealistic changes.
-    """
+    """Validates BMI-related measurements and detects BMI vs weight confusion."""
+    
+    BMI_RANGE = (BMI_LIMITS['IMPOSSIBLE_LOW'], BMI_LIMITS['IMPOSSIBLE_HIGH'])
+    WEIGHT_RANGE = (PHYSIOLOGICAL_LIMITS['ABSOLUTE_MIN_WEIGHT'], PHYSIOLOGICAL_LIMITS['ABSOLUTE_MAX_WEIGHT'])
     
     @staticmethod
-    def calculate_bmi(weight_kg: float, height_m: Optional[float]) -> Optional[float]:
-        """Calculate BMI if height is available."""
-        if height_m is None or height_m <= 0:
-            return None
+    def calculate_bmi(weight_kg: float, height_m: float) -> float:
+        """Calculate BMI from weight and height."""
+        if height_m <= 0:
+            return 0
         return weight_kg / (height_m ** 2)
     
     @staticmethod
-    def should_reset_kalman(
-        current_weight: float,
-        last_weight: float,
-        time_delta_hours: float,
-        height_m: Optional[float] = None,
-        source: Optional[str] = None
-    ) -> Tuple[bool, Optional[str]]:
+    def is_likely_bmi(value: float, unit: str = 'kg') -> bool:
         """
-        Determine if Kalman filter should be reset based on physiological impossibility.
-        
-        Returns:
-            (should_reset, reason)
-        """
-        if last_weight <= 0:
-            return False, None
-        
-        weight_change = current_weight - last_weight
-        pct_change = (weight_change / last_weight) * 100
-        daily_rate = (weight_change / (time_delta_hours / 24)) if time_delta_hours > 0 else weight_change
-        
-        if current_weight < PHYSIOLOGICAL_LIMITS['MIN_WEIGHT']:
-            return True, f"Weight below minimum threshold: {current_weight:.1f}kg"
-        
-        if current_weight > 300:
-            return True, f"Weight above maximum threshold: {current_weight:.1f}kg"
-        
-        if abs(pct_change) > 50:
-            return True, f"Extreme change > 50%: {pct_change:+.1f}%"
-        
-        if time_delta_hours < 1 and abs(pct_change) > 30:
-            return True, f"Instant change > 30%: {pct_change:+.1f}% in {time_delta_hours:.1f}h"
-        
-        if time_delta_hours <= 24:
-            if abs(pct_change) > 20:
-                return True, f"Daily change > 20%: {pct_change:+.1f}%"
-            if abs(weight_change) > 10:
-                return True, f"Daily change > 10kg: {weight_change:+.1f}kg"
-        
-        if time_delta_hours <= 168:
-            if abs(pct_change) > 30:
-                return True, f"Weekly change > 30%: {pct_change:+.1f}%"
-        
-        if abs(daily_rate) > 3.0:
-            return True, f"Daily rate > 3kg/day: {daily_rate:+.1f}kg/day"
-        
-        if height_m and height_m > 0:
-            current_bmi = BMIValidator.calculate_bmi(current_weight, height_m)
-            last_bmi = BMIValidator.calculate_bmi(last_weight, height_m)
-            
-            if current_bmi:
-                if current_bmi < BMI_LIMITS['CRITICAL_LOW']:
-                    return True, f"Critical BMI < {BMI_LIMITS['CRITICAL_LOW']}: {current_bmi:.1f}"
-                
-                if current_bmi > BMI_LIMITS['CRITICAL_HIGH']:
-                    return True, f"Critical BMI > {BMI_LIMITS['CRITICAL_HIGH']}: {current_bmi:.1f}"
-                
-                if current_bmi < BMI_LIMITS['SEVERE_LOW'] and abs(pct_change) > 20:
-                    return True, f"Severe underweight (BMI {current_bmi:.1f}) with {pct_change:+.1f}% change"
-                
-                if current_bmi > BMI_LIMITS['MORBID_OBESE'] and abs(pct_change) > 20:
-                    return True, f"Morbid obesity (BMI {current_bmi:.1f}) with {pct_change:+.1f}% change"
-                
-                if last_bmi:
-                    bmi_change = abs(current_bmi - last_bmi)
-                    if bmi_change > 10:
-                        return True, f"BMI change > 10: {last_bmi:.1f} → {current_bmi:.1f}"
-        
-        suspicious_sources = {'iglucose', 'api.iglucose.com', 'https://api.iglucose.com'}
-        if source and any(s in source.lower() for s in suspicious_sources):
-            if abs(pct_change) > 25:
-                return True, f"Suspicious source with > 25% change: {pct_change:+.1f}%"
-        
-        return False, None
-    
-    @staticmethod
-    def validate_weight_bmi_only(
-        weight_kg: float,
-        height_m: Optional[float] = None,
-        min_bmi: float = 10.0,
-        max_bmi: float = 60.0
-    ) -> Tuple[bool, Optional[str]]:
-        """
-        Validate weight using only BMI bounds (for post-gap measurements).
+        Check if a value is likely BMI rather than weight.
         
         Args:
-            weight_kg: Weight in kilograms
-            height_m: Height in meters (optional)
-            min_bmi: Minimum valid BMI (default 10.0)
-            max_bmi: Maximum valid BMI (default 60.0)
+            value: The numeric value to check
+            unit: The stated unit ('kg', 'lb', etc.)
             
         Returns:
-            (is_valid, rejection_reason)
+            True if value is likely BMI
         """
-        if weight_kg < PHYSIOLOGICAL_LIMITS['MIN_WEIGHT']:
-            return False, f"Weight below absolute minimum: {weight_kg:.1f}kg < {PHYSIOLOGICAL_LIMITS['MIN_WEIGHT']}kg"
+        if unit.lower() in ['bmi', 'kg/m2', 'kg/m^2']:
+            return True
         
-        if weight_kg > 300:
-            return False, f"Weight above absolute maximum: {weight_kg:.1f}kg > 300kg"
+        if unit.lower() in ['kg', 'kilogram', 'kilograms']:
+            if 15 <= value <= 50:
+                return True
         
-        if height_m and height_m > 0:
-            bmi = BMIValidator.calculate_bmi(weight_kg, height_m)
-            if bmi:
-                if bmi < min_bmi:
-                    return False, f"BMI below minimum: {bmi:.1f} < {min_bmi}"
-                if bmi > max_bmi:
-                    return False, f"BMI above maximum: {bmi:.1f} > {max_bmi}"
-        
+        return False
+    
+    @staticmethod
+    def convert_bmi_to_weight(bmi: float, height_m: float) -> float:
+        """Convert BMI to weight given height."""
+        return bmi * (height_m ** 2)
+    
+    @staticmethod
+    def validate_bmi(bmi: float) -> Tuple[bool, Optional[str]]:
+        """Validate if BMI is within physiological limits."""
+        if bmi < BMI_LIMITS['IMPOSSIBLE_LOW']:
+            return False, f"BMI {bmi:.1f} below physiological minimum"
+        if bmi > BMI_LIMITS['IMPOSSIBLE_HIGH']:
+            return False, f"BMI {bmi:.1f} above physiological maximum"
         return True, None
     
     @staticmethod
-    def get_confidence_multiplier(
-        current_weight: float,
-        last_weight: float,
-        time_delta_hours: float,
-        height_m: Optional[float] = None
-    ) -> float:
-        """
-        Get a confidence multiplier for Kalman filter based on measurement plausibility.
-        Lower values = less trust in measurement.
-        
-        Returns:
-            Multiplier between 0.1 and 1.0
-        """
-        if last_weight <= 0:
-            return 1.0
-        
-        pct_change = abs((current_weight - last_weight) / last_weight) * 100
-        
-        if pct_change < 5:
-            base_confidence = 1.0
-        elif pct_change < 10:
-            base_confidence = 0.9
-        elif pct_change < 15:
-            base_confidence = 0.7
-        elif pct_change < 20:
-            base_confidence = 0.5
-        elif pct_change < 30:
-            base_confidence = 0.3
+    def categorize_bmi(bmi: float) -> str:
+        """Categorize BMI into standard categories."""
+        if bmi < BMI_LIMITS['UNDERWEIGHT']:
+            return 'underweight'
+        elif bmi < BMI_LIMITS['OVERWEIGHT']:
+            return 'normal'
+        elif bmi < BMI_LIMITS['OBESE']:
+            return 'overweight'
         else:
-            base_confidence = 0.1
-        
-        if time_delta_hours < 1:
-            time_factor = 0.5
-        elif time_delta_hours < 24:
-            time_factor = 0.8
-        elif time_delta_hours < 168:
-            time_factor = 0.9
-        else:
-            time_factor = 1.0
-        
-        bmi_factor = 1.0
-        if height_m and height_m > 0:
-            bmi = BMIValidator.calculate_bmi(current_weight, height_m)
-            if bmi:
-                if bmi < BMI_LIMITS['SEVERE_LOW'] or bmi > BMI_LIMITS['MORBID_OBESE']:
-                    bmi_factor = 0.5
-                elif bmi < BMI_LIMITS['UNDERWEIGHT'] or bmi > BMI_LIMITS['SEVERE_OBESE']:
-                    bmi_factor = 0.7
-                else:
-                    bmi_factor = 1.0
-        
-        return max(0.1, base_confidence * time_factor * bmi_factor)
+            return 'obese'
     
     @staticmethod
-    def get_rejection_reason(
-        current_weight: float,
-        last_weight: float,
-        time_delta_hours: float,
-        height_m: Optional[float] = None
-    ) -> Optional[str]:
+    def detect_and_convert(
+        value: float,
+        unit: str,
+        height_m: float,
+        source: Optional[str] = None
+    ) -> Tuple[float, bool, Dict[str, Any]]:
         """
-        Get a detailed rejection reason for impossible measurements.
+        Detect if value is BMI and convert to weight if needed.
+        
+        Args:
+            value: The input value
+            unit: The stated unit
+            height_m: User's height in meters
+            source: Data source (some sources are more likely to send BMI)
+            
+        Returns:
+            (weight_kg, was_converted, metadata)
         """
-        if last_weight <= 0:
+        metadata = {
+            'original_value': value,
+            'original_unit': unit,
+            'height_m': height_m
+        }
+        
+        unit_lower = unit.lower() if unit else 'kg'
+        
+        if unit_lower in ['lb', 'lbs', 'pound', 'pounds']:
+            weight_kg = value * 0.453592
+            metadata['conversion'] = f'{value:.1f} lb to {weight_kg:.1f} kg'
+            return weight_kg, False, metadata
+        
+        if unit_lower in ['st', 'stone', 'stones']:
+            weight_kg = value * 6.35029
+            metadata['conversion'] = f'{value:.1f} st to {weight_kg:.1f} kg'
+            return weight_kg, False, metadata
+        
+        if BMIValidator.is_likely_bmi(value, unit):
+            weight_kg = BMIValidator.convert_bmi_to_weight(value, height_m)
+            
+            if PHYSIOLOGICAL_LIMITS['ABSOLUTE_MIN_WEIGHT'] <= weight_kg <= PHYSIOLOGICAL_LIMITS['ABSOLUTE_MAX_WEIGHT']:
+                metadata['detected_as_bmi'] = True
+                metadata['conversion'] = f'BMI {value:.1f} to weight {weight_kg:.1f} kg'
+                metadata['confidence'] = 'high' if 'connectivehealth' in (source or '').lower() else 'medium'
+                return weight_kg, True, metadata
+        
+        return value, False, metadata
+    
+    @staticmethod
+    def validate_weight_bmi_consistency(
+        weight_kg: float,
+        height_m: float,
+        source: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Validate consistency between weight and implied BMI.
+        
+        Returns:
+            Dictionary with validation results
+        """
+        bmi = BMIValidator.calculate_bmi(weight_kg, height_m)
+        
+        result = {
+            'weight_kg': weight_kg,
+            'height_m': height_m,
+            'bmi': bmi,
+            'bmi_category': BMIValidator.categorize_bmi(bmi),
+            'valid': True,
+            'warnings': []
+        }
+        
+        is_valid, reason = BMIValidator.validate_bmi(bmi)
+        if not is_valid:
+            result['valid'] = False
+            result['rejection_reason'] = reason
+            return result
+        
+        if bmi < BMI_LIMITS['SUSPICIOUS_LOW']:
+            result['warnings'].append(f'BMI {bmi:.1f} suspiciously low')
+        elif bmi > BMI_LIMITS['SUSPICIOUS_HIGH']:
+            result['warnings'].append(f'BMI {bmi:.1f} suspiciously high')
+        
+        if source and 'iglucose' in source.lower():
+            result['warnings'].append('High-outlier source detected')
+            result['high_risk'] = True
+        
+        return result
+    
+    @staticmethod
+    def estimate_height_from_weights_and_bmis(
+        weight_bmi_pairs: List[Tuple[float, float]]
+    ) -> Optional[float]:
+        """
+        Estimate user height from pairs of weights and BMIs.
+        
+        Args:
+            weight_bmi_pairs: List of (weight_kg, bmi) tuples
+            
+        Returns:
+            Estimated height in meters or None if insufficient data
+        """
+        if len(weight_bmi_pairs) < 2:
             return None
         
-        weight_change = current_weight - last_weight
-        pct_change = (weight_change / last_weight) * 100
+        heights = []
+        for weight, bmi in weight_bmi_pairs:
+            if bmi > 0:
+                height = np.sqrt(weight / bmi)
+                if 1.0 <= height <= 2.5:  
+                    heights.append(height)
         
-        if current_weight < PHYSIOLOGICAL_LIMITS['MIN_WEIGHT']:
-            return f"Weight {current_weight:.1f}kg below human minimum"
+        if not heights:
+            return None
         
-        if current_weight > 300:
-            return f"Weight {current_weight:.1f}kg above human maximum"
+        return np.median(heights)
+    
+    @staticmethod
+    def detect_unit_confusion(
+        measurements: List[Tuple[datetime, float, str]],
+        height_m: float
+    ) -> Dict[str, Any]:
+        """
+        Detect patterns of unit confusion in measurements.
         
-        if height_m and height_m > 0:
-            bmi = BMIValidator.calculate_bmi(current_weight, height_m)
-            if bmi:
-                if bmi < 13:
-                    return f"BMI {bmi:.1f} incompatible with life"
-                if bmi > 60:
-                    return f"BMI {bmi:.1f} physiologically impossible"
+        Args:
+            measurements: List of (timestamp, value, unit) tuples
+            height_m: User's height in meters
+            
+        Returns:
+            Analysis of potential unit confusion patterns
+        """
+        if len(measurements) < 3:
+            return {'sufficient_data': False}
         
-        if time_delta_hours <= 1:
-            max_change = min(3.0, last_weight * 0.03)
-            if abs(weight_change) > max_change:
-                return f"Change {weight_change:+.1f}kg exceeds 1-hour limit of {max_change:.1f}kg"
+        potential_bmis = []
+        potential_weights = []
         
-        elif time_delta_hours <= 24:
-            max_change = min(5.0, last_weight * 0.05)
-            if abs(weight_change) > max_change:
-                return f"Change {weight_change:+.1f}kg exceeds daily limit of {max_change:.1f}kg"
+        for _, value, unit in measurements:
+            if 15 <= value <= 50:
+                potential_bmis.append(value)
+            if 40 <= value <= 300:
+                potential_weights.append(value)
         
-        elif time_delta_hours <= 168:
-            max_change = min(7.0, last_weight * 0.07)
-            if abs(weight_change) > max_change:
-                return f"Change {weight_change:+.1f}kg exceeds weekly limit of {max_change:.1f}kg"
+        bmi_ratio = len(potential_bmis) / len(measurements)
+        weight_ratio = len(potential_weights) / len(measurements)
         
-        else:
-            days = time_delta_hours / 24
-            max_sustained_rate = PHYSIOLOGICAL_LIMITS['MAX_SUSTAINED_DAILY_KG']
-            max_change = days * max_sustained_rate
-            if abs(weight_change) > max_change:
-                return f"Change {weight_change:+.1f}kg exceeds sustained rate of {max_sustained_rate}kg/day over {days:.0f} days"
+        result = {
+            'sufficient_data': True,
+            'total_measurements': len(measurements),
+            'potential_bmi_count': len(potential_bmis),
+            'potential_weight_count': len(potential_weights),
+            'bmi_ratio': bmi_ratio,
+            'weight_ratio': weight_ratio
+        }
         
-        return None
+        if bmi_ratio > 0.3:
+            result['likely_confusion'] = 'frequent_bmi_values'
+            result['recommendation'] = 'Check source configuration for unit settings'
+        
+        if len(potential_bmis) > 0 and len(potential_weights) > 0:
+            bmi_mean = np.mean(potential_bmis)
+            implied_weight = bmi_mean * (height_m ** 2)
+            weight_mean = np.mean(potential_weights)
+            
+            if abs(implied_weight - weight_mean) < 10:
+                result['pattern_detected'] = 'consistent_bmi_weight_relationship'
+                result['confidence'] = 'high'
+        
+        return result
 
 
 class ThresholdCalculator:
-    """
-    Unified threshold calculator with explicit unit handling.
-    All methods are static to maintain stateless architecture.
-    """
+    """Calculate adaptive thresholds for weight validation."""
     
     @staticmethod
-    def get_extreme_deviation_threshold(
+    def calculate_adaptive_threshold(
         source: str,
-        time_gap_days: float,
-        current_weight: float,
-        unit: Literal['percentage', 'kg'] = 'percentage'
-    ) -> ThresholdResult:
+        time_gap_hours: float,
+        base_weight: float,
+        measurement_noise: float = 0.5
+    ) -> float:
         """
-        Calculate adaptive threshold for extreme deviation detection.
+        Calculate adaptive threshold based on source and time gap.
         
         Args:
             source: Data source identifier
-            time_gap_days: Days since last measurement
-            current_weight: Current weight in kg (for percentage calculation)
-            unit: 'percentage' (0.0-1.0) or 'kg' for absolute weight
-            
-        Returns:
-            ThresholdResult with value in requested units and metadata
-        """
-        profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
-        
-        absolute_kg = ThresholdCalculator._calculate_adaptive_threshold_kg(
-            profile['outlier_rate'],
-            time_gap_days
-        )
-        
-        metadata = {
-            'source': source,
-            'source_reliability': profile['reliability'],
-            'outlier_rate_per_1000': profile['outlier_rate'],
-            'time_gap_days': time_gap_days,
-            'weight_reference_kg': current_weight,
-            'absolute_threshold_kg': absolute_kg
-        }
-        
-        if unit == 'percentage':
-            percentage = absolute_kg / current_weight
-            
-            MIN_PERCENTAGE = 0.03
-            MAX_PERCENTAGE = 0.30
-            
-            bounded_percentage = max(MIN_PERCENTAGE, min(percentage, MAX_PERCENTAGE))
-            
-            metadata['unbounded_percentage'] = percentage
-            metadata['bounds_applied'] = percentage != bounded_percentage
-            metadata['percentage_threshold'] = bounded_percentage
-            
-            return ThresholdResult(bounded_percentage, 'percentage', metadata)
-            
-        elif unit == 'kg':
-            return ThresholdResult(absolute_kg, 'kg', metadata)
-            
-        else:
-            raise ValueError(f"Unknown unit: {unit}. Use 'percentage' or 'kg'")
-    
-    @staticmethod
-    def _calculate_adaptive_threshold_kg(
-        outlier_rate: float,
-        time_gap_days: float
-    ) -> float:
-        """
-        Calculate absolute threshold in kg based on source reliability.
-        
-        Args:
-            outlier_rate: Outliers per 1000 measurements
-            time_gap_days: Days since last measurement
+            time_gap_hours: Hours since last measurement
+            base_weight: Reference weight for percentage calculations
+            measurement_noise: Base measurement noise in kg
             
         Returns:
             Threshold in kg
         """
-        physiological_rate_kg_per_day = 2.0 / 7.0
+        source_profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
         
-        if outlier_rate > 100:
-            max_rate = 1.0 / 7.0
-            threshold = max(3.0, max_rate * time_gap_days)
-        elif outlier_rate > 30:
-            max_rate = physiological_rate_kg_per_day
-            threshold = max(5.0, max_rate * time_gap_days)
-        else:
-            max_rate = physiological_rate_kg_per_day * 1.5
-            threshold = max(10.0, max_rate * time_gap_days)
+        base_threshold = source_profile.get('base_threshold_kg', 2.0)
         
-        return min(threshold, 20.0)
+        time_factor = 1.0 + (time_gap_hours / 24.0) * 0.5
+        time_factor = min(time_factor, 3.0)
+        
+        weight_factor = 1.0 + (base_weight / 100.0) * 0.1
+        
+        noise_factor = 1.0 + measurement_noise
+        
+        threshold = base_threshold * time_factor * weight_factor * noise_factor
+        
+        max_threshold = source_profile.get('max_threshold_kg', 10.0)
+        threshold = min(threshold, max_threshold)
+        
+        return threshold
     
     @staticmethod
-    def get_physiological_limit(
-        time_delta_hours: float,
-        last_weight: float,
-        config: Dict,
-        unit: Literal['kg', 'percentage'] = 'kg'
-    ) -> ThresholdResult:
-        """
-        Get physiological limits with explicit units.
-        Based on framework document recommendations.
-        
-        Args:
-            time_delta_hours: Hours since last measurement
-            last_weight: Previous weight in kg
-            config: Configuration dictionary
-            unit: 'kg' or 'percentage' for return value
-            
-        Returns:
-            ThresholdResult with limit in requested units
-        """
-        phys_config = config.get('physiological', {})
-        
-        if not phys_config.get('enable_physiological_limits', True):
-            legacy_pct = config.get('max_daily_change_pct', 
-                                   config.get('max_daily_change', 0.05))
-            limit_kg = legacy_pct * last_weight
-            reason = "legacy percentage limit"
-            
-        elif time_delta_hours < 1:
-            percent_limit = phys_config.get('max_change_1h_pct',
-                                           phys_config.get('max_change_1h_percent', 0.02))
-            absolute_limit = phys_config.get('max_change_1h_kg',
-                                            phys_config.get('max_change_1h_absolute', 3.0))
-            reason = "hydration/bathroom"
-            
-        elif time_delta_hours < 6:
-            percent_limit = phys_config.get('max_change_6h_pct',
-                                           phys_config.get('max_change_6h_percent', 0.025))
-            absolute_limit = phys_config.get('max_change_6h_kg',
-                                            phys_config.get('max_change_6h_absolute', 4.0))
-            reason = "meals+hydration"
-            
-        elif time_delta_hours <= 24:
-            percent_limit = phys_config.get('max_change_24h_pct',
-                                           phys_config.get('max_change_24h_percent', 0.035))
-            absolute_limit = phys_config.get('max_change_24h_kg',
-                                            phys_config.get('max_change_24h_absolute', 5.0))
-            reason = "daily fluctuation"
-            
-        else:
-            daily_rate = phys_config.get('max_sustained_kg_per_day',
-                                        phys_config.get('max_sustained_daily', 1.5))
-            days = time_delta_hours / 24
-            absolute_limit = days * daily_rate
-            percent_limit = absolute_limit / last_weight
-            reason = f"sustained ({daily_rate}kg/day)"
-        
-        if 'limit_kg' not in locals():
-            percentage_based = last_weight * percent_limit
-            limit_kg = min(percentage_based, absolute_limit)
-            
-            if limit_kg == absolute_limit and time_delta_hours <= 24:
-                reason += f" (capped at {absolute_limit}kg)"
-        
-        if time_delta_hours > 24:
-            tolerance = phys_config.get('sustained_tolerance', 0.25)
-        else:
-            tolerance = phys_config.get('limit_tolerance', 0.10)
-        
-        effective_limit_kg = limit_kg * (1 + tolerance)
-        
-        metadata = {
-            'time_delta_hours': time_delta_hours,
-            'last_weight_kg': last_weight,
-            'base_limit_kg': limit_kg,
-            'tolerance_applied': tolerance,
-            'effective_limit_kg': effective_limit_kg,
-            'reason': reason
-        }
-        
-        if unit == 'kg':
-            return ThresholdResult(effective_limit_kg, 'kg', metadata)
-        elif unit == 'percentage':
-            percentage = effective_limit_kg / last_weight
-            metadata['percentage_limit'] = percentage
-            return ThresholdResult(percentage, 'percentage', metadata)
-        else:
-            raise ValueError(f"Unknown unit: {unit}. Use 'kg' or 'percentage'")
-    
-    @staticmethod
-    def convert_threshold(
-        value: float,
-        from_unit: str,
-        to_unit: str,
-        reference_weight: float
+    def calculate_rate_based_threshold(
+        recent_changes: List[float],
+        time_gap_hours: float,
+        source: str
     ) -> float:
         """
-        Convert threshold between units.
+        Calculate threshold based on recent rate of change.
         
         Args:
-            value: Threshold value in from_unit
-            from_unit: Current unit ('kg' or 'percentage')
-            to_unit: Target unit ('kg' or 'percentage')
-            reference_weight: Weight in kg for conversion
+            recent_changes: List of recent weight changes
+            time_gap_hours: Hours since last measurement
+            source: Data source identifier
             
         Returns:
-            Converted value in to_unit
+            Rate-based threshold in kg
         """
-        if from_unit == to_unit:
-            return value
+        if not recent_changes:
+            return ThresholdCalculator.calculate_adaptive_threshold(source, time_gap_hours, 70.0)
         
-        if from_unit == 'kg' and to_unit == 'percentage':
-            return value / reference_weight
-        elif from_unit == 'percentage' and to_unit == 'kg':
-            return value * reference_weight
+        mean_change = np.mean(np.abs(recent_changes))
+        std_change = np.std(recent_changes) if len(recent_changes) > 1 else mean_change
+        
+        expected_change = mean_change * (time_gap_hours / 24.0)
+        
+        threshold = expected_change + 2 * std_change
+        
+        source_profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
+        max_threshold = source_profile.get('max_threshold_kg', 10.0)
+        
+        return min(threshold, max_threshold)
+    
+    @staticmethod
+    def calculate_confidence_based_threshold(
+        confidence: float,
+        base_threshold: float,
+        source: str
+    ) -> float:
+        """
+        Adjust threshold based on confidence level.
+        
+        Args:
+            confidence: Confidence level (0-1)
+            base_threshold: Base threshold in kg
+            source: Data source identifier
+            
+        Returns:
+            Adjusted threshold in kg
+        """
+        source_profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
+        
+        if confidence > 0.8:
+            multiplier = source_profile.get('high_confidence_multiplier', 0.8)
+        elif confidence > 0.5:
+            multiplier = 1.0
         else:
-            raise ValueError(f"Cannot convert from {from_unit} to {to_unit}")
+            multiplier = source_profile.get('low_confidence_multiplier', 1.5)
+        
+        return base_threshold * multiplier
     
     @staticmethod
-    def get_measurement_noise_multiplier(source: str) -> float:
+    def get_rejection_threshold(
+        source: str,
+        category: str = 'default'
+    ) -> float:
         """
-        Get Kalman filter measurement noise multiplier for source.
+        Get rejection threshold for specific source and category.
         
         Args:
             source: Data source identifier
+            category: Rejection category
             
         Returns:
-            Noise multiplier (1.0 = baseline)
+            Rejection threshold in kg
         """
-        profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
-        return profile['noise_multiplier']
+        source_profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
+        
+        category_thresholds = {
+            'spike': source_profile.get('spike_threshold_kg', 5.0),
+            'drift': source_profile.get('drift_threshold_kg', 3.0),
+            'noise': source_profile.get('noise_threshold_kg', 2.0),
+            'default': source_profile.get('base_threshold_kg', 2.0)
+        }
+        
+        return category_thresholds.get(category, category_thresholds['default'])
+
+
+class DataQualityPreprocessor:
+    """Pre-process and clean data before Kalman filtering."""
+    
+    DEFAULT_HEIGHT_M = PHYSIOLOGICAL_LIMITS['DEFAULT_HEIGHT_M']
+    
+    _height_data = None
+    _height_data_loaded = False
+    
+    @classmethod
+    def load_height_data(cls):
+        """Load height data from CSV file once."""
+        if not cls._height_data_loaded:
+            try:
+                df = pd.read_csv('data/2025-09-11_height_values_latest.csv')
+                df['value_m'] = df.apply(lambda row: cls._convert_height_to_meters(
+                    row['value_quantity'], row['unit']
+                ), axis=1)
+                cls._height_data = df.set_index('user_id')['value_m'].to_dict()
+                cls._height_data_loaded = True
+                print(f"Loaded height data for {len(cls._height_data)} users")
+            except Exception as e:
+                print(f"Could not load height data: {e}")
+                cls._height_data = {}
+                cls._height_data_loaded = True
     
     @staticmethod
-    def get_source_reliability(source: str) -> str:
+    def _convert_height_to_meters(value: float, unit: str) -> float:
+        """Convert height to meters."""
+        unit_lower = unit.lower() if unit else 'm'
+        
+        if 'cm' in unit_lower or 'centimeter' in unit_lower:
+            return value / 100.0
+        elif 'in' in unit_lower or 'inch' in unit_lower:
+            return value * 0.0254
+        elif 'ft' in unit_lower or 'feet' in unit_lower:
+            return value * 0.3048
+        elif 'm' in unit_lower or 'meter' in unit_lower:
+            return value
+        else:
+            return value / 100.0
+    
+    @classmethod
+    def get_user_height(cls, user_id: str) -> float:
+        """Get user's height in meters, using default if not found."""
+        if not cls._height_data_loaded:
+            cls.load_height_data()
+        
+        return cls._height_data.get(user_id, cls.DEFAULT_HEIGHT_M)
+    
+    @staticmethod
+    def preprocess(weight: float, source: str, timestamp: datetime, user_id: Optional[str] = None, unit: str = 'kg') -> Tuple[Optional[float], Dict]:
         """
-        Get reliability classification for source.
+        Clean and standardize weight data with BMI detection.
         
         Args:
+            weight: The weight value
             source: Data source identifier
-            
+            timestamp: Measurement timestamp
+            user_id: User identifier for height lookup
+            unit: Unit of the weight measurement
+        
         Returns:
-            Reliability level: 'excellent', 'good', 'moderate', 'poor', or 'unknown'
+            (cleaned_weight, metadata) or (None, metadata) if rejected
         """
-        profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
-        return profile['reliability']
+        metadata = {
+            'original_weight': weight,
+            'original_unit': unit,
+            'source': source,
+            'timestamp': timestamp.isoformat(),
+            'corrections': [],
+            'warnings': [],
+            'checks_passed': []
+        }
+        
+        user_height = DataQualityPreprocessor.get_user_height(user_id) if user_id else DataQualityPreprocessor.DEFAULT_HEIGHT_M
+        
+        unit_lower = unit.lower() if unit else 'kg'
+        if unit_lower in ['lb', 'lbs', 'pound', 'pounds']:
+            weight_kg = weight * 0.453592
+            metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
+            weight = weight_kg
+        elif unit_lower in ['st', 'stone', 'stones']:
+            weight_kg = weight * 6.35029
+            metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
+            weight = weight_kg
+        elif unit_lower not in ['kg', 'kilogram', 'kilograms']:
+            metadata['warnings'].append(f'Unknown unit: {unit}')
+        
+        if unit_lower in ['kg', 'kilogram', 'kilograms'] and 15 <= weight <= 50:
+            implied_weight = weight * (user_height ** 2)
+            
+            if 40 <= implied_weight <= 200:
+                metadata['warnings'].append(
+                    f'Value {weight:.1f} likely BMI (implies {implied_weight:.1f}kg weight for height {user_height:.2f}m)'
+                )
+                metadata['corrections'].append(f'Converted BMI {weight:.1f} to weight {implied_weight:.1f}kg')
+                weight = implied_weight
+            elif 30 <= implied_weight <= 250:
+                if 'connectivehealth' in source.lower():
+                    metadata['warnings'].append(f'Value {weight:.1f} appears to be BMI from {source}')
+                    metadata['corrections'].append(f'Converted BMI {weight:.1f} to weight {implied_weight:.1f}kg')
+                    weight = implied_weight
+                else:
+                    metadata['warnings'].append(f'Value {weight:.1f} might be BMI')
+        
+        implied_bmi = weight / (user_height ** 2)
+        
+        if implied_bmi < BMI_LIMITS['IMPOSSIBLE_LOW']:
+            metadata['warnings'].append(
+                f'Implied BMI {implied_bmi:.1f} physiologically impossible (height: {user_height:.2f}m)'
+            )
+            metadata['rejected'] = f'BMI {implied_bmi:.1f} outside physiological limits'
+            return None, metadata
+        
+        if implied_bmi > BMI_LIMITS['IMPOSSIBLE_HIGH']:
+            metadata['rejected'] = f'Implied BMI {implied_bmi:.1f} physiologically impossible'
+            return None, metadata
+        
+        if implied_bmi < BMI_LIMITS['SUSPICIOUS_LOW']:
+            metadata['warnings'].append(f'Implied BMI {implied_bmi:.1f} suspiciously low')
+        
+        if implied_bmi > BMI_LIMITS['SUSPICIOUS_HIGH']:
+            metadata['warnings'].append(f'Implied BMI {implied_bmi:.1f} suspiciously high')
+        
+        metadata['checks_passed'].append('physiological_limits')
+        metadata['implied_bmi'] = round(implied_bmi, 1)
+        metadata['user_height_m'] = round(user_height, 2)
+        
+        if implied_bmi < BMI_LIMITS['UNDERWEIGHT']:
+            metadata['bmi_category'] = 'underweight'
+        elif implied_bmi < BMI_LIMITS['OVERWEIGHT']:
+            metadata['bmi_category'] = 'normal'
+        elif implied_bmi < BMI_LIMITS['OBESE']:
+            metadata['bmi_category'] = 'overweight'
+        else:
+            metadata['bmi_category'] = 'obese'
+        
+        if 'iglucose' in source.lower():
+            metadata['warnings'].append('High-outlier source - increased scrutiny')
+            metadata['high_risk'] = True
+        
+        return weight, metadata

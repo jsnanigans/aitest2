@@ -8,9 +8,9 @@ import numpy as np
 from pykalman import KalmanFilter
 
 try:
-    from .models import KALMAN_DEFAULTS
+    from .constants import KALMAN_DEFAULTS
 except ImportError:
-    from models import KALMAN_DEFAULTS
+    from constants import KALMAN_DEFAULTS
 
 
 class KalmanFilterManager:

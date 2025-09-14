@@ -9,10 +9,8 @@ import numpy as np
 
 from .database import get_state_db
 from .kalman import KalmanFilterManager
-from .validation import PhysiologicalValidator, BMIValidator, ThresholdCalculator
-from .quality import DataQualityPreprocessor
-# Import constants directly from models for now
-from .models import QUESTIONNAIRE_SOURCES
+from .validation import PhysiologicalValidator, BMIValidator, ThresholdCalculator, DataQualityPreprocessor
+from .constants import QUESTIONNAIRE_SOURCES
 
 # Hard-coded constants (to be moved to constants.py)
 MIN_WEIGHT = 30.0
@@ -30,7 +28,7 @@ SOURCE_NOISE_MULTIPLIERS = {
     "patient-device": 2.5,
     "https://api.iglucose.com": 2.6,
 }
-from .models import KALMAN_DEFAULTS, categorize_rejection_enhanced, get_rejection_severity
+from .constants import KALMAN_DEFAULTS, categorize_rejection_enhanced, get_rejection_severity
 
 
 def process_measurement(
@@ -110,9 +108,12 @@ def process_measurement(
         # Reset if gap is too large
         if gap_days > reset_gap_days:
             # Validate with BMI before reset
-            is_valid, rejection_reason = BMIValidator.validate_weight_bmi_only(
-                cleaned_weight, user_height, MIN_VALID_BMI, MAX_VALID_BMI
+            # Use BMI consistency validation
+            bmi_result = BMIValidator.validate_weight_bmi_consistency(
+                cleaned_weight, user_height, source
             )
+            is_valid = bmi_result['valid']
+            rejection_reason = bmi_result.get('rejection_reason')
             
             if not is_valid:
                 return {
@@ -168,12 +169,25 @@ def process_measurement(
     
     # Step 5: Physiological validation
     processing_config = config.get('processing', {})
-    is_valid, rejection_reason = PhysiologicalValidator.validate_weight(
-        cleaned_weight, 
-        {'min_weight': MIN_WEIGHT, 'max_weight': MAX_WEIGHT, **processing_config},
-        state,
-        timestamp
+    
+    # Use comprehensive validation
+    previous_weight = None
+    time_diff_hours = None
+    if state and 'weight' in state:
+        previous_weight = state['weight']
+        if 'timestamp' in state:
+            prev_time = datetime.fromisoformat(state['timestamp'])
+            time_diff_hours = (timestamp - prev_time).total_seconds() / 3600
+    
+    validation_result = PhysiologicalValidator.validate_comprehensive(
+        cleaned_weight,
+        previous_weight=previous_weight,
+        time_diff_hours=time_diff_hours,
+        source=source
     )
+    
+    is_valid = validation_result['valid']
+    rejection_reason = validation_result.get('rejection_reason')
     
     if not is_valid:
         return {

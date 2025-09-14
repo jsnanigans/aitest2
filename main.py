@@ -11,6 +11,7 @@ import sys
 import tomllib
 from datetime import datetime
 from pathlib import Path
+import math
 
 from src.database import get_state_db
 from src.processor import process_measurement
@@ -168,14 +169,22 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 if user_id in skipped_users:
                     continue
             
-            # Parse weight
+            # Parse weight with validation
             weight_str = row.get("weight", "").strip()
             if not weight_str or weight_str.upper() == "NULL":
                 continue
             
             try:
                 weight = float(weight_str)
+                # Validate weight is reasonable
+                if weight <= 0 or weight > 1000:  # Basic sanity check
+                    stats["invalid_weight"] = stats.get("invalid_weight", 0) + 1
+                    continue
+                if math.isnan(weight) or math.isinf(weight):
+                    stats["invalid_weight"] = stats.get("invalid_weight", 0) + 1
+                    continue
             except (ValueError, TypeError):
+                stats["parse_errors"] = stats.get("parse_errors", 0) + 1
                 continue
             
             # Parse metadata
@@ -201,16 +210,22 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 stats["date_filtered"] += 1
                 continue
             
-            # Process measurement
-            result = process_measurement(
-                user_id=user_id,
-                weight=weight,
-                timestamp=timestamp,
-                source=source,
-                config=config,
-                unit=unit,
-                db=db
-            )
+            # Process measurement with error boundary
+            try:
+                result = process_measurement(
+                    user_id=user_id,
+                    weight=weight,
+                    timestamp=timestamp,
+                    source=source,
+                    config=config,
+                    unit=unit,
+                    db=db
+                )
+            except Exception as e:
+                stats["processing_errors"] = stats.get("processing_errors", 0) + 1
+                if config.get("logging", {}).get("verbose", False):
+                    print(f"Error processing {user_id}: {e}")
+                continue
             
             # Track results
             if result:
