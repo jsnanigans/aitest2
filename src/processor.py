@@ -179,10 +179,20 @@ def process_measurement(
     # Get previous weight and time diff
     previous_weight = None
     time_diff_hours = None
-    if state and 'weight' in state:
-        previous_weight = state['weight']
-        if 'timestamp' in state:
-            prev_time = datetime.fromisoformat(state['timestamp'])
+    
+    # Try to get previous weight from Kalman state
+    if state:
+        current_weight, _ = KalmanFilterManager.get_current_state_values(state)
+        if current_weight is not None:
+            previous_weight = current_weight
+        elif 'last_raw_weight' in state:
+            previous_weight = state['last_raw_weight']
+        
+        # Get time diff
+        if 'last_timestamp' in state:
+            prev_time = state['last_timestamp']
+            if isinstance(prev_time, str):
+                prev_time = datetime.fromisoformat(prev_time)
             time_diff_hours = (timestamp - prev_time).total_seconds() / 3600
     
     # Get recent weights for statistical analysis

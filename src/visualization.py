@@ -17,7 +17,8 @@ except ImportError:
 
 def create_weight_timeline(results: List[Dict[str, Any]], 
                           user_id: str,
-                          output_dir: str = "output") -> str:
+                          output_dir: str = "output",
+                          use_enhanced: bool = True) -> str:
     """
     Create an interactive weight timeline with quality analysis hover details.
     
@@ -25,10 +26,20 @@ def create_weight_timeline(results: List[Dict[str, Any]],
         results: List of measurement results
         user_id: User identifier
         output_dir: Output directory for HTML file
+        use_enhanced: Use enhanced visualization with subplots
         
     Returns:
         Path to generated HTML file
     """
+    # Try to use enhanced visualization if available and requested
+    if use_enhanced and create_enhanced_weight_timeline is not None:
+        try:
+            return create_enhanced_weight_timeline(results, user_id, output_dir)
+        except Exception as e:
+            # Fall back to basic visualization on error
+            print(f"Warning: Enhanced visualization failed, using basic: {e}")
+    
+    # Basic visualization fallback
     if not PLOTLY_AVAILABLE:
         raise ImportError("Plotly is required for visualization")
     
@@ -292,3 +303,12 @@ try:
     from .viz_index import create_index_from_results
 except ImportError:
     from viz_index import create_index_from_results
+
+# Import enhanced visualization
+try:
+    from .viz_enhanced import create_enhanced_weight_timeline
+except ImportError:
+    try:
+        from viz_enhanced import create_enhanced_weight_timeline
+    except ImportError:
+        create_enhanced_weight_timeline = None

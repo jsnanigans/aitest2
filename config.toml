@@ -27,8 +27,8 @@ questionnaire_reset_days = 10
 [visualization]
 enabled = true
 mode = "interactive"  # "interactive" | "static" | "auto"
-use_diagnostic = true  # Use new diagnostic dashboard as primary visualization
-use_enhanced = true  # Use enhanced dashboard with Kalman insights (fallback)
+use_enhanced = true  # Use enhanced dashboard with quality insights and Kalman details (primary)
+use_basic_fallback = true  # Fall back to basic visualization if enhanced fails
 verbosity = "auto"  # "silent" | "minimal" | "normal" | "verbose" | "auto"
 theme = "plotly_white"  # Plotly theme name
 dashboard_dpi = 100

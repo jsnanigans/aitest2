@@ -1,0 +1,521 @@
+{
+  "stats": {
+    "total_rows": 15,
+    "accepted": 5,
+    "rejected": 10,
+    "date_filtered": 0,
+    "start_time": "2025-09-14 21:03:30.674576"
+  },
+  "users": {
+    "user001": [
+      {
+        "timestamp": "2025-09-14 21:03:30.674730",
+        "raw_weight": 75.5,
+        "filtered_weight": 75.5,
+        "trend": 0.0,
+        "trend_weekly": 0.0,
+        "accepted": true,
+        "confidence": 1.0,
+        "innovation": 0.0,
+        "normalized_innovation": 0.0,
+        "source": "patient-device",
+        "kalman_confidence_upper": 76.70232117044738,
+        "kalman_confidence_lower": 74.29767882955262,
+        "kalman_variance": 0.36139404922648954,
+        "prediction_error": 0.0,
+        "stage": "initialization",
+        "preprocessing": {
+          "original_weight": 75.5,
+          "original_unit": "kg",
+          "source": "patient-device",
+          "timestamp": "2025-09-14T21:03:30.674730",
+          "corrections": [],
+          "warnings": [],
+          "checks_passed": [
+            "physiological_limits"
+          ],
+          "implied_bmi": 27.1,
+          "user_height_m": 1.67,
+          "bmi_category": "overweight"
+        },
+        "noise_multiplier": 2.5
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.675480",
+        "raw_weight": 75.3,
+        "cleaned_weight": 75.3,
+        "source": "patient-device",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.765
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.765
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 75.3,
+            "source": "patient-device",
+            "previous_weight": 75.5,
+            "time_diff_hours": 2.0833333333333333e-07
+          }
+        }
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.675527",
+        "raw_weight": 75.4,
+        "cleaned_weight": 75.4,
+        "source": "patient-device",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.765
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.765
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 75.4,
+            "source": "patient-device",
+            "previous_weight": 75.5,
+            "time_diff_hours": 2.2138888888888888e-07
+          }
+        }
+      }
+    ],
+    "user002": [
+      {
+        "timestamp": "2025-09-14 21:03:30.675557",
+        "raw_weight": 82.1,
+        "filtered_weight": 82.1,
+        "trend": 0.0,
+        "trend_weekly": 0.0,
+        "accepted": true,
+        "confidence": 1.0,
+        "innovation": 0.0,
+        "normalized_innovation": 0.0,
+        "source": "patient-upload",
+        "kalman_confidence_upper": 83.26662558461571,
+        "kalman_confidence_lower": 80.93337441538428,
+        "kalman_variance": 0.34025381366999313,
+        "prediction_error": 0.0,
+        "stage": "initialization",
+        "preprocessing": {
+          "original_weight": 82.1,
+          "original_unit": "kg",
+          "source": "patient-upload",
+          "timestamp": "2025-09-14T21:03:30.675557",
+          "corrections": [],
+          "warnings": [],
+          "checks_passed": [
+            "physiological_limits"
+          ],
+          "implied_bmi": 29.4,
+          "user_height_m": 1.67,
+          "bmi_category": "overweight"
+        },
+        "noise_multiplier": 1.0
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.675835",
+        "raw_weight": 82.0,
+        "cleaned_weight": 82.0,
+        "source": "patient-upload",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.95
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.95
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 82.0,
+            "source": "patient-upload",
+            "previous_weight": 82.1,
+            "time_diff_hours": 7.722222222222222e-08
+          }
+        }
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.675861",
+        "raw_weight": 81.9,
+        "cleaned_weight": 81.9,
+        "source": "patient-upload",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.95
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.95
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 81.9,
+            "source": "patient-upload",
+            "previous_weight": 82.1,
+            "time_diff_hours": 8.444444444444446e-08
+          }
+        }
+      }
+    ],
+    "user003": [
+      {
+        "timestamp": "2025-09-14 21:03:30.675881",
+        "raw_weight": 68.5,
+        "filtered_weight": 68.5,
+        "trend": 0.0,
+        "trend_weekly": 0.0,
+        "accepted": true,
+        "confidence": 1.0,
+        "innovation": 0.0,
+        "normalized_innovation": 0.0,
+        "source": "patient-device",
+        "kalman_confidence_upper": 69.70232117044738,
+        "kalman_confidence_lower": 67.29767882955262,
+        "kalman_variance": 0.36139404922648954,
+        "prediction_error": 0.0,
+        "stage": "initialization",
+        "preprocessing": {
+          "original_weight": 68.5,
+          "original_unit": "kg",
+          "source": "patient-device",
+          "timestamp": "2025-09-14T21:03:30.675881",
+          "corrections": [],
+          "warnings": [],
+          "checks_passed": [
+            "physiological_limits"
+          ],
+          "implied_bmi": 24.6,
+          "user_height_m": 1.67,
+          "bmi_category": "normal"
+        },
+        "noise_multiplier": 2.5
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.676135",
+        "raw_weight": 68.4,
+        "cleaned_weight": 68.4,
+        "source": "patient-device",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.765
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.765
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 68.4,
+            "source": "patient-device",
+            "previous_weight": 68.5,
+            "time_diff_hours": 7.055555555555556e-08
+          }
+        }
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.676159",
+        "raw_weight": 68.3,
+        "cleaned_weight": 68.3,
+        "source": "patient-device",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.765
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.765
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 68.3,
+            "source": "patient-device",
+            "previous_weight": 68.5,
+            "time_diff_hours": 7.722222222222222e-08
+          }
+        }
+      }
+    ],
+    "user004": [
+      {
+        "timestamp": "2025-09-14 21:03:30.676183",
+        "raw_weight": 91.2,
+        "filtered_weight": 91.2,
+        "trend": 0.0,
+        "trend_weekly": 0.0,
+        "accepted": true,
+        "confidence": 1.0,
+        "innovation": 0.0,
+        "normalized_innovation": 0.0,
+        "source": "internal-questionnaire",
+        "kalman_confidence_upper": 92.38855479969995,
+        "kalman_confidence_lower": 90.01144520030006,
+        "kalman_variance": 0.35316562797244094,
+        "prediction_error": 0.0,
+        "stage": "initialization",
+        "preprocessing": {
+          "original_weight": 91.2,
+          "original_unit": "kg",
+          "source": "internal-questionnaire",
+          "timestamp": "2025-09-14T21:03:30.676183",
+          "corrections": [],
+          "warnings": [],
+          "checks_passed": [
+            "physiological_limits"
+          ],
+          "implied_bmi": 32.7,
+          "user_height_m": 1.67,
+          "bmi_category": "obese"
+        },
+        "noise_multiplier": 1.6
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.676424",
+        "raw_weight": 91.0,
+        "cleaned_weight": 91.0,
+        "source": "internal-questionnaire",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.8075
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.8075
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 91.0,
+            "source": "internal-questionnaire",
+            "previous_weight": 91.2,
+            "time_diff_hours": 6.694444444444445e-08
+          }
+        }
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.676446",
+        "raw_weight": 90.8,
+        "cleaned_weight": 90.8,
+        "source": "internal-questionnaire",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.8075
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.8075
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 90.8,
+            "source": "internal-questionnaire",
+            "previous_weight": 91.2,
+            "time_diff_hours": 7.305555555555556e-08
+          }
+        }
+      }
+    ],
+    "user005": [
+      {
+        "timestamp": "2025-09-14 21:03:30.676463",
+        "raw_weight": 77.7,
+        "filtered_weight": 77.7,
+        "trend": 0.0,
+        "trend_weekly": 0.0,
+        "accepted": true,
+        "confidence": 1.0,
+        "innovation": 0.0,
+        "normalized_innovation": 0.0,
+        "source": "patient-upload",
+        "kalman_confidence_upper": 78.86662558461572,
+        "kalman_confidence_lower": 76.53337441538429,
+        "kalman_variance": 0.34025381366999313,
+        "prediction_error": 0.0,
+        "stage": "initialization",
+        "preprocessing": {
+          "original_weight": 77.7,
+          "original_unit": "kg",
+          "source": "patient-upload",
+          "timestamp": "2025-09-14T21:03:30.676463",
+          "corrections": [],
+          "warnings": [],
+          "checks_passed": [
+            "physiological_limits"
+          ],
+          "implied_bmi": 27.9,
+          "user_height_m": 1.67,
+          "bmi_category": "overweight"
+        },
+        "noise_multiplier": 1.0
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.676693",
+        "raw_weight": 77.5,
+        "cleaned_weight": 77.5,
+        "source": "patient-upload",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.95
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.95
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 77.5,
+            "source": "patient-upload",
+            "previous_weight": 77.7,
+            "time_diff_hours": 6.38888888888889e-08
+          }
+        }
+      },
+      {
+        "accepted": false,
+        "timestamp": "2025-09-14 21:03:30.676717",
+        "raw_weight": 77.3,
+        "cleaned_weight": 77.3,
+        "source": "patient-upload",
+        "reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+        "stage": "quality_scoring",
+        "quality_score": 0.0,
+        "quality_components": {
+          "safety": 1.0,
+          "plausibility": 0.8,
+          "consistency": 0.0,
+          "reliability": 0.95
+        },
+        "quality_details": {
+          "overall": 0.0,
+          "components": {
+            "safety": 1.0,
+            "plausibility": 0.8,
+            "consistency": 0.0,
+            "reliability": 0.95
+          },
+          "threshold": 0.6,
+          "accepted": false,
+          "rejection_reason": "Quality score 0.00 below threshold 0.6 (weakest: consistency=0.00)",
+          "metadata": {
+            "weight": 77.3,
+            "source": "patient-upload",
+            "previous_weight": 77.7,
+            "time_diff_hours": 7.055555555555556e-08
+          }
+        }
+      }
+    ]
+  }
+}

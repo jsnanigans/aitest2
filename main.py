@@ -321,8 +321,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 
                 try:
                     from src.visualization import create_weight_timeline
+                    # Use enhanced visualization if configured
+                    use_enhanced = config.get("visualization", {}).get("use_enhanced", True)
                     dashboard_path = create_weight_timeline(
-                        results, user_id, str(viz_dir)
+                        results, user_id, str(viz_dir), use_enhanced=use_enhanced
                     )
                     if dashboard_path:
                         successful += 1

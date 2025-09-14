@@ -1,0 +1,2 @@
+user_id,last_timestamp,last_weight,last_trend,has_kalman_params,process_noise,measurement_noise,initial_uncertainty,has_adapted_params,adapted_process_noise,adapted_measurement_noise,state_reset_count,last_reset_timestamp
+demo_user,2025-09-14T21:03:40.355105,85.00,0.0000,true,0.016,8.725000000000001,0.361,false,,,0,

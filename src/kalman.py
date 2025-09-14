@@ -164,6 +164,7 @@ class KalmanFilterManager:
         innovation = weight - filtered_weight
         
         last_covariance = state.get('last_covariance')
+        current_covariance = None
         if last_covariance is not None:
             if len(last_covariance.shape) > 2:
                 current_covariance = last_covariance[-1]
@@ -186,6 +187,20 @@ class KalmanFilterManager:
         
         confidence = KalmanFilterManager.calculate_confidence(normalized_innovation)
         
+        # Calculate confidence intervals (±2σ)
+        if current_covariance is not None:
+            confidence_interval = 2.0 * np.sqrt(current_covariance[0, 0])
+            kalman_upper = filtered_weight + confidence_interval
+            kalman_lower = filtered_weight - confidence_interval
+            kalman_variance = float(current_covariance[0, 0])
+        else:
+            kalman_upper = filtered_weight
+            kalman_lower = filtered_weight
+            kalman_variance = None
+        
+        # Calculate prediction error
+        prediction_error = innovation if accepted else None
+        
         return {
             "timestamp": timestamp,
             "raw_weight": weight,
@@ -197,6 +212,10 @@ class KalmanFilterManager:
             "innovation": float(innovation),
             "normalized_innovation": float(normalized_innovation),
             "source": source,
+            "kalman_confidence_upper": float(kalman_upper),
+            "kalman_confidence_lower": float(kalman_lower),
+            "kalman_variance": kalman_variance,
+            "prediction_error": float(prediction_error) if prediction_error is not None else None,
         }
     
     @staticmethod
