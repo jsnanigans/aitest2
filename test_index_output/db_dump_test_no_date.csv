@@ -1,4 +1,0 @@
-user_id,last_timestamp,last_weight,last_trend,has_kalman_params,process_noise,measurement_noise,initial_uncertainty,has_adapted_params,adapted_process_noise,adapted_measurement_noise,state_reset_count,last_reset_timestamp
-user001,2025-09-14T19:45:07.152994,75.49,-0.0000,true,0.016,8.725000000000001,0.361,false,,,0,
-user002,2025-09-14T19:45:07.153724,82.07,-0.0000,true,0.016,3.49,0.361,false,,,0,
-user003,2025-09-14T19:45:07.154411,68.49,-0.0000,true,0.016,8.725000000000001,0.361,false,,,0,
