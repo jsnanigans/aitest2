@@ -15,8 +15,12 @@ import math
 
 from src.database import get_state_db
 from src.processor import process_measurement
-from src.visualization import create_dashboard
 from src.validation import DataQualityPreprocessor
+
+try:
+    from src.viz_router import create_dashboard
+except ImportError:
+    from src.visualization import create_dashboard
 
 
 def load_config(config_path: str = "config.toml") -> dict:
@@ -281,22 +285,71 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     
     # Generate visualizations if enabled
     if config.get("visualization", {}).get("enabled", True):
-        print("\nGenerating visualizations...")
         viz_dir = output_path / f"viz_{timestamp_str}"
         viz_dir.mkdir(exist_ok=True)
         
-        for idx, (user_id, results) in enumerate(user_results.items(), 1):
-            if idx % 10 == 0:
-                print(f"  [{idx}/{len(user_results)}] Visualizing...")
+        total_users = len(user_results)
+        if total_users > 0:
+            print(f"\nGenerating visualizations for {total_users} user(s)...")
             
+            # Set visualization verbosity based on number of users
             try:
-                create_dashboard(
-                    user_id, results, str(viz_dir), config["visualization"]
-                )
-            except Exception as e:
-                print(f"  Error visualizing {user_id}: {e}")
-        
-        print(f"Visualizations saved to {viz_dir}")
+                from src.viz_logger import set_verbosity, VizLogger
+                if total_users > 10:
+                    set_verbosity(VizLogger.SILENT)  # Silent for many users
+                elif total_users > 1:
+                    set_verbosity(VizLogger.MINIMAL)  # Minimal for a few users
+                else:
+                    set_verbosity(VizLogger.NORMAL)  # Normal for single user
+            except ImportError:
+                pass
+            
+            successful = 0
+            failed = 0
+            
+            for idx, (user_id, results) in enumerate(user_results.items(), 1):
+                # Progress indicator for large batches
+                if total_users > 10 and idx % 10 == 0:
+                    print(f"  Progress: {idx}/{total_users} ({idx*100//total_users}%)")
+                elif total_users <= 10:
+                    print(f"  [{idx}/{total_users}] User {user_id[:8]}...", end=" ")
+                
+                try:
+                    dashboard_path = create_dashboard(
+                        results, user_id, str(viz_dir), config
+                    )
+                    if dashboard_path:
+                        successful += 1
+                        if total_users <= 10:
+                            print("✓")
+                    else:
+                        failed += 1
+                        if total_users <= 10:
+                            print("✗")
+                except Exception as e:
+                    failed += 1
+                    if total_users <= 10:
+                        print(f"✗ ({str(e)[:30]})")
+                    elif config.get("logging", {}).get("verbose", False):
+                        print(f"    Error for {user_id}: {e}")
+            
+            # Summary
+            if total_users > 1:
+                print(f"\nVisualization complete: {successful} successful, {failed} failed")
+            
+            # Generate index.html for dashboard navigation
+            if successful > 0:
+                try:
+                    from src.viz_index import create_index_from_results
+                    index_path = create_index_from_results(
+                        results_file=str(results_file),
+                        output_dir=str(viz_dir)
+                    )
+                    print(f"Dashboard index: {index_path}")
+                except Exception as e:
+                    print(f"Warning: Could not generate index.html: {e}")
+            
+            print(f"Output: {viz_dir}")
     
     return user_results, stats
 

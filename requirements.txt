@@ -1,4 +1,8 @@
-# Minimal requirements for simplified weight processor
+# Requirements for weight processor with interactive dashboards
 numpy>=1.20.0
 pykalman>=0.9.5
-matplotlib>=3.5.0python-dateutil
+matplotlib>=3.5.0
+python-dateutil>=2.8.0
+plotly>=5.18.0
+pandas>=2.0.0
+kaleido>=0.2.1

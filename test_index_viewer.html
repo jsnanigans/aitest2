@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Index Viewer Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        iframe { width: 100%; height: 600px; border: 2px solid #333; }
+    </style>
+</head>
+<body>
+    <h1>Testing Dashboard Index Viewer</h1>
+    
+    <div class="test">
+        <h2>Test 1: Load Index in IFrame</h2>
+        <p>The index.html should load below with the user list and dashboard viewer:</p>
+        <iframe src="output_demo/viz_test_no_date/index.html" id="testFrame"></iframe>
+    </div>
+    
+    <div class="test">
+        <h2>Test 2: Verify Features</h2>
+        <ul>
+            <li>✓ User list should show 5 users (user001-user005)</li>
+            <li>✓ Each user should show total/accepted/rejected counts</li>
+            <li>✓ Clicking a user should load their dashboard</li>
+            <li>✓ Sort dropdown should work</li>
+            <li>✓ Search box should filter users</li>
+            <li>✓ Arrow keys should navigate between users</li>
+        </ul>
+    </div>
+    
+    <script>
+        window.onload = function() {
+            const iframe = document.getElementById('testFrame');
+            iframe.onload = function() {
+                console.log('Index loaded successfully');
+            };
+            iframe.onerror = function() {
+                console.error('Failed to load index');
+            };
+        };
+    </script>
+</body>
+</html>
