@@ -1,28 +1,25 @@
 """
 Unified Quality Scoring System for weight measurements.
-Combines multiple validation checks into a single quality score.
-STATELESS DESIGN - Minimal state requirements, no complex history needed.
+STATELESS DESIGN - Processes one measurement at a time with minimal context.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Any
-from datetime import datetime, timedelta
-import numpy as np
+from typing import Dict, List, Optional, Any
+from datetime import datetime
 from collections import deque
+import numpy as np
 
 try:
     from .constants import (
         PHYSIOLOGICAL_LIMITS,
         SOURCE_PROFILES,
         DEFAULT_PROFILE,
-        get_source_reliability
     )
 except ImportError:
     from constants import (
         PHYSIOLOGICAL_LIMITS,
         SOURCE_PROFILES,
         DEFAULT_PROFILE,
-        get_source_reliability
     )
 
 
@@ -44,7 +41,10 @@ class QualityScore:
         
         if not self.accepted and not self.rejection_reason:
             min_component = min(self.components.items(), key=lambda x: x[1])
-            self.rejection_reason = f"Quality score {self.overall:.2f} below threshold {self.threshold} (weakest: {min_component[0]}={min_component[1]:.2f})"
+            self.rejection_reason = (
+                f"Quality score {self.overall:.2f} below threshold {self.threshold} "
+                f"(weakest: {min_component[0]}={min_component[1]:.2f})"
+            )
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for serialization."""
@@ -60,8 +60,8 @@ class QualityScore:
 
 class QualityScorer:
     """
-    Calculates unified quality scores for weight measurements.
-    STATELESS - Minimal state requirements, only needs previous weight and time.
+    Calculates quality scores for weight measurements.
+    STATELESS - Only needs previous weight and time difference.
     """
     
     COMPONENT_WEIGHTS = {
@@ -73,13 +73,13 @@ class QualityScorer:
     
     SAFETY_CRITICAL_THRESHOLD = 0.3
     
+    # Time-based thresholds (research-based: 2-3% daily variation is normal)
+    HOURLY_MAX_KG = 3.0
+    DAILY_MAX_KG = 2.0
+    DAILY_RATE_MAX_KG = 2.0
+    
     def __init__(self, config: Optional[Dict] = None):
-        """
-        Initialize the quality scorer.
-        
-        Args:
-            config: Optional configuration overrides
-        """
+        """Initialize with optional config overrides."""
         self.config = config or {}
         self.weights = self.config.get('component_weights', self.COMPONENT_WEIGHTS)
         self.threshold = self.config.get('threshold', 0.6)
@@ -95,23 +95,23 @@ class QualityScorer:
         user_height_m: float = 1.67
     ) -> QualityScore:
         """
-        Calculate overall quality score for a weight measurement.
-        STATELESS - Works with minimal state (just previous weight and time).
+        Calculate overall quality score.
         
         Args:
-            weight: The weight measurement in kg
+            weight: Current measurement in kg
             source: Data source identifier
-            previous_weight: Previous weight measurement from state
-            time_diff_hours: Hours since previous measurement
-            recent_weights: Optional list of recent weights (not required)
-            user_height_m: User's height in meters
+            previous_weight: Last accepted weight
+            time_diff_hours: Hours since last measurement
+            recent_weights: Optional recent weights (not required)
+            user_height_m: User height for BMI calculation
             
         Returns:
-            QualityScore object with overall and component scores
+            QualityScore with overall and component scores
         """
         components = {}
         
-        components['safety'] = self.calculate_safety_score(weight, user_height_m)
+        # Safety check (physiological limits)
+        components['safety'] = self._calculate_safety(weight, user_height_m)
         
         if components['safety'] < self.SAFETY_CRITICAL_THRESHOLD:
             return QualityScore(
@@ -121,20 +121,20 @@ class QualityScorer:
                 rejection_reason=f"Safety score {components['safety']:.2f} below critical threshold"
             )
         
-        components['plausibility'] = self.calculate_plausibility_score(
+        # Other components
+        components['plausibility'] = self._calculate_plausibility(
             weight, recent_weights, previous_weight
         )
-        
-        components['consistency'] = self.calculate_consistency_score(
+        components['consistency'] = self._calculate_consistency(
             weight, previous_weight, time_diff_hours
         )
+        components['reliability'] = self._calculate_reliability(source)
         
-        components['reliability'] = self.calculate_reliability_score(source)
-        
+        # Combine scores
         if self.use_harmonic_mean:
-            overall = self._weighted_harmonic_mean(components, self.weights)
+            overall = self._harmonic_mean(components, self.weights)
         else:
-            overall = self._weighted_arithmetic_mean(components, self.weights)
+            overall = self._arithmetic_mean(components, self.weights)
         
         return QualityScore(
             overall=overall,
@@ -148,30 +148,22 @@ class QualityScorer:
             }
         )
     
-    def calculate_safety_score(self, weight: float, height_m: float) -> float:
-        """
-        Calculate safety score based on physiological limits.
-        
-        Uses exponential penalty for values approaching limits.
-        
-        Args:
-            weight: Weight in kg
-            height_m: Height in meters
-            
-        Returns:
-            Score from 0.0 (unsafe) to 1.0 (safe)
-        """
+    def _calculate_safety(self, weight: float, height_m: float) -> float:
+        """Check if weight is within physiological limits."""
         abs_min = PHYSIOLOGICAL_LIMITS['ABSOLUTE_MIN_WEIGHT']
         abs_max = PHYSIOLOGICAL_LIMITS['ABSOLUTE_MAX_WEIGHT']
         sus_min = PHYSIOLOGICAL_LIMITS['SUSPICIOUS_MIN_WEIGHT']
         sus_max = PHYSIOLOGICAL_LIMITS['SUSPICIOUS_MAX_WEIGHT']
         
+        # Hard limits
         if weight < abs_min or weight > abs_max:
             return 0.0
         
+        # Safe range
         if sus_min <= weight <= sus_max:
             return 1.0
         
+        # Exponential penalty approaching limits
         if weight < sus_min:
             distance_ratio = (sus_min - weight) / (sus_min - abs_min)
         else:
@@ -179,6 +171,7 @@ class QualityScorer:
         
         score = np.exp(-3 * distance_ratio)
         
+        # BMI check
         bmi = weight / (height_m ** 2)
         if bmi < 15 or bmi > 60:
             score *= 0.5
@@ -187,52 +180,34 @@ class QualityScorer:
         
         return max(0.0, min(1.0, score))
     
-    def calculate_plausibility_score(
+    def _calculate_plausibility(
         self,
         weight: float,
-        recent_weights: Optional[List[float]] = None,
-        previous_weight: Optional[float] = None
+        recent_weights: Optional[List[float]],
+        previous_weight: Optional[float]
     ) -> float:
-        """
-        Calculate plausibility based on statistical deviation.
-        Simplified version that doesn't require complex state.
-        
-        Args:
-            weight: Current weight measurement
-            recent_weights: Optional list of recent weights
-            previous_weight: Previous weight if recent_weights not available
-            
-        Returns:
-            Score from 0.0 (implausible) to 1.0 (plausible)
-        """
-        # If we have recent weights, use them
+        """Check statistical plausibility."""
+        # Use recent weights if available
         if recent_weights and len(recent_weights) >= 3:
             recent_array = np.array(recent_weights[-20:])
             mean = np.mean(recent_array)
-            std = np.std(recent_array)
+            std = max(np.std(recent_array), 0.5)
             
-            if std < 0.5:
-                std = 0.5
-            
-            z_score = abs(weight - mean) / std
-            
-        # Otherwise, use simple comparison with previous weight
+        # Fall back to previous weight
         elif previous_weight is not None:
-            # Estimate reasonable variance based on typical body weight
-            baseline = (weight + previous_weight) / 2
-            # Assume 2% standard deviation for body weight
-            std = baseline * 0.02
-            if std < 0.5:
-                std = 0.5
-            
             mean = previous_weight
-            z_score = abs(weight - mean) / std
+            # Assume 2% standard deviation for body weight
+            baseline = (weight + previous_weight) / 2
+            std = max(baseline * 0.02, 0.5)
             
         else:
-            # No history available, be lenient
+            # No history available
             return 0.8
         
-        # Score based on z-score
+        # Calculate z-score
+        z_score = abs(weight - mean) / std
+        
+        # Score based on deviation
         if z_score <= 1:
             return 1.0
         elif z_score <= 2:
@@ -240,90 +215,66 @@ class QualityScorer:
         elif z_score <= 3:
             return 0.7
         else:
-            score = np.exp(-0.5 * (z_score - 3))
-            return max(0.0, min(0.5, score))
+            return max(0.0, min(0.5, np.exp(-0.5 * (z_score - 3))))
     
-    def calculate_consistency_score(
+    def _calculate_consistency(
         self,
         weight: float,
-        previous_weight: Optional[float] = None,
-        time_diff_hours: Optional[float] = None
+        previous_weight: Optional[float],
+        time_diff_hours: Optional[float]
     ) -> float:
-        """
-        Calculate consistency based on rate of change.
-        Improved to handle short time periods based on research.
-        STATELESS - Only uses previous weight and time.
-        
-        Args:
-            weight: Current weight
-            previous_weight: Previous weight from state
-            time_diff_hours: Time since previous measurement
-            
-        Returns:
-            Score from 0.0 (inconsistent) to 1.0 (consistent)
-        """
+        """Check consistency with previous measurement."""
         if previous_weight is None or time_diff_hours is None or time_diff_hours <= 0:
             return 0.8
         
         weight_diff = abs(weight - previous_weight)
-        baseline_weight = (weight + previous_weight) / 2
-        weight_diff_percent = (weight_diff / baseline_weight) * 100
         
-        # Time-aware thresholds
+        # Time-based thresholds
         if time_diff_hours < 6:
-            # Within 6 hours: very lenient for normal fluctuations
-            if weight_diff <= 3.0:  # Up to 3kg is normal within hours
+            # Within 6 hours: very lenient
+            if weight_diff <= self.HOURLY_MAX_KG:
                 return 1.0
             else:
-                excess = (weight_diff - 3.0) / 3.0
+                excess = (weight_diff - self.HOURLY_MAX_KG) / self.HOURLY_MAX_KG
                 return max(0.0, 0.7 * np.exp(-2 * excess))
                 
         elif time_diff_hours < 24:
-            # Within a day: use hybrid approach
-            # Small absolute changes always OK
-            if weight_diff <= 2.0:
+            # Within a day: moderate thresholds
+            if weight_diff <= self.DAILY_MAX_KG:
                 return 1.0
-            # Moderate changes get high scores
             elif weight_diff <= 4.0:
-                # Linear decay from 1.0 to 0.8
-                return 1.0 - 0.1 * (weight_diff - 2.0)
-            # Large changes use percentage
-            elif weight_diff_percent <= 5.0:
-                return 0.7
+                return 1.0 - 0.1 * (weight_diff - self.DAILY_MAX_KG)
             else:
-                excess = (weight_diff_percent - 5.0) / 5.0
-                return max(0.0, 0.5 * np.exp(-2 * excess))
+                # Use percentage for large changes
+                baseline = (weight + previous_weight) / 2
+                percent = (weight_diff / baseline) * 100
+                if percent <= 5.0:
+                    return 0.7
+                else:
+                    excess = (percent - 5.0) / 5.0
+                    return max(0.0, 0.5 * np.exp(-2 * excess))
         
         else:
-            # For longer periods: use daily rate
+            # Longer periods: daily rate
             daily_rate = weight_diff / (time_diff_hours / 24)
             
-            # Research-based but practical thresholds
-            if daily_rate <= 2.0:  # Up to 2kg/day for longer periods
+            if daily_rate <= self.DAILY_RATE_MAX_KG:
                 return 1.0
             elif daily_rate <= 4.0:
-                # Linear decay from 1.0 to 0.5
-                return 1.0 - 0.25 * (daily_rate - 2.0)
+                return 1.0 - 0.25 * (daily_rate - self.DAILY_RATE_MAX_KG)
             elif daily_rate <= 6.44:  # Physiological max
                 return 0.5 - 0.3 * ((daily_rate - 4.0) / 2.44)
             else:
                 excess = (daily_rate - 6.44) / 6.44
                 return max(0.0, 0.2 * np.exp(-2 * excess))
     
-    def calculate_reliability_score(self, source: str) -> float:
-        """
-        Calculate reliability score based on source.
-        
-        Args:
-            source: Data source identifier
-            
-        Returns:
-            Score from 0.0 (unreliable) to 1.0 (reliable)
-        """
+    def _calculate_reliability(self, source: str) -> float:
+        """Score based on data source reliability."""
         profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
         reliability = profile.get('reliability', 'unknown')
         
-        reliability_scores = {
+        # Base scores
+        scores = {
             'excellent': 1.0,
             'good': 0.85,
             'moderate': 0.7,
@@ -331,8 +282,9 @@ class QualityScorer:
             'unknown': 0.6
         }
         
-        base_score = reliability_scores.get(reliability, 0.6)
+        base_score = scores.get(reliability, 0.6)
         
+        # Adjust for outlier rate
         outlier_rate = profile.get('outlier_rate', 20.0)
         if outlier_rate < 5:
             multiplier = 1.0
@@ -345,23 +297,8 @@ class QualityScorer:
         
         return base_score * multiplier
     
-    def _weighted_harmonic_mean(
-        self,
-        components: Dict[str, float],
-        weights: Dict[str, float]
-    ) -> float:
-        """
-        Calculate weighted harmonic mean of component scores.
-        
-        Harmonic mean penalizes low scores more than arithmetic mean.
-        
-        Args:
-            components: Component scores
-            weights: Component weights
-            
-        Returns:
-            Weighted harmonic mean
-        """
+    def _harmonic_mean(self, components: Dict[str, float], weights: Dict[str, float]) -> float:
+        """Calculate weighted harmonic mean (penalizes low scores)."""
         total_weight = sum(weights.get(k, 0) for k in components)
         if total_weight == 0:
             return 0.0
@@ -374,26 +311,10 @@ class QualityScorer:
             else:
                 return 0.0
         
-        if weighted_sum == 0:
-            return 0.0
-        
-        return total_weight / weighted_sum
+        return total_weight / weighted_sum if weighted_sum > 0 else 0.0
     
-    def _weighted_arithmetic_mean(
-        self,
-        components: Dict[str, float],
-        weights: Dict[str, float]
-    ) -> float:
-        """
-        Calculate weighted arithmetic mean of component scores.
-        
-        Args:
-            components: Component scores
-            weights: Component weights
-            
-        Returns:
-            Weighted arithmetic mean
-        """
+    def _arithmetic_mean(self, components: Dict[str, float], weights: Dict[str, float]) -> float:
+        """Calculate weighted arithmetic mean."""
         total_weight = sum(weights.get(k, 0) for k in components)
         if total_weight == 0:
             return 0.0
@@ -405,16 +326,33 @@ class QualityScorer:
         
         return weighted_sum / total_weight
     
+    def calculate_consistency_score(
+        self,
+        weight: float,
+        previous_weight: Optional[float] = None,
+        time_diff_hours: Optional[float] = None
+    ) -> float:
+        """Public method for backward compatibility."""
+        return self._calculate_consistency(weight, previous_weight, time_diff_hours)
+    
+    def calculate_plausibility_score(
+        self,
+        weight: float,
+        recent_weights: Optional[List[float]] = None
+    ) -> float:
+        """Public method for backward compatibility."""
+        return self._calculate_plausibility(weight, recent_weights, None)
+    
+    def calculate_safety_score(self, weight: float, height_m: float) -> float:
+        """Public method for backward compatibility."""
+        return self._calculate_safety(weight, height_m)
+    
+    def calculate_reliability_score(self, source: str) -> float:
+        """Public method for backward compatibility."""
+        return self._calculate_reliability(source)
+    
     def explain_score(self, quality_score: QualityScore) -> str:
-        """
-        Generate human-readable explanation of the quality score.
-        
-        Args:
-            quality_score: QualityScore object
-            
-        Returns:
-            Explanation string
-        """
+        """Generate human-readable explanation."""
         lines = [
             f"Quality Score: {quality_score.overall:.2f}/{quality_score.threshold:.1f}",
             f"Status: {'ACCEPTED' if quality_score.accepted else 'REJECTED'}",
@@ -431,22 +369,23 @@ class QualityScorer:
             lines.append(f"Rejection Reason: {quality_score.rejection_reason}")
         
         return "\n".join(lines)
+    
+    def _weighted_harmonic_mean(self, components: Dict[str, float], weights: Dict[str, float]) -> float:
+        """Backward compatibility alias for tests."""
+        return self._harmonic_mean(components, weights)
+    
+    def _weighted_arithmetic_mean(self, components: Dict[str, float], weights: Dict[str, float]) -> float:
+        """Backward compatibility alias for tests."""
+        return self._arithmetic_mean(components, weights)
 
 
 class MeasurementHistory:
     """
-    Maintains rolling window of recent measurements for statistical analysis.
-    NOTE: This is only used for testing/analysis, not in production processor.
-    The actual processor maintains minimal state in the database.
+    Test utility for maintaining measurement history.
+    NOT used in production (processor is stateless).
     """
     
     def __init__(self, max_size: int = 20):
-        """
-        Initialize measurement history.
-        
-        Args:
-            max_size: Maximum number of measurements to keep
-        """
         self.max_size = max_size
         self.weights: deque = deque(maxlen=max_size)
         self.timestamps: deque = deque(maxlen=max_size)
@@ -459,7 +398,7 @@ class MeasurementHistory:
         self.quality_scores.append(quality_score)
     
     def get_recent_weights(self, min_quality: float = 0.6) -> List[float]:
-        """Get recent weights above minimum quality threshold."""
+        """Get recent weights above quality threshold."""
         return [
             w for w, q in zip(self.weights, self.quality_scores)
             if q >= min_quality
@@ -479,3 +418,11 @@ class MeasurementHistory:
             'max': np.max(weights_array),
             'count': len(weights_array)
         }
+
+    def _weighted_harmonic_mean(self, components: Dict[str, float], weights: Dict[str, float]) -> float:
+        """Public alias for backward compatibility with tests."""
+        return self._harmonic_mean(components, weights)
+    
+    def _weighted_arithmetic_mean(self, components: Dict[str, float], weights: Dict[str, float]) -> float:
+        """Public alias for backward compatibility with tests."""
+        return self._arithmetic_mean(components, weights)

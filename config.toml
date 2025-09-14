@@ -1,9 +1,9 @@
-# Weight Stream Processor Configuration (Simplified)
+# Weight Stream Processor Configuration
 
 [data]
 csv_file = "./data/2025-09-05_optimized.csv"
 output_dir = "output"
-max_users = 20
+max_users = 100
 user_offset = 100
 min_readings = 20
 min_date = "2015-01-01"
@@ -11,9 +11,9 @@ max_date = "2025-09-05"
 export_database = true
 
 [processing]
-# Core thresholds only - physiological limits are now hard-coded
-extreme_threshold = 0.20
-kalman_cleanup_threshold = 4.0
+# Core processing thresholds
+extreme_threshold = 0.20  # Deviation threshold for Kalman filter
+kalman_cleanup_threshold = 4.0  # Z-score for outlier removal
 
 [kalman]
 # Optimized parameters from evolutionary algorithm (2025-09-13)
@@ -26,12 +26,10 @@ questionnaire_reset_days = 10
 
 [visualization]
 enabled = true
-mode = "interactive"  # "interactive" | "static" | "auto"
-use_enhanced = true  # Use enhanced dashboard with quality insights and Kalman details (primary)
-use_basic_fallback = true  # Fall back to basic visualization if enhanced fails
+mode = "interactive"  # "interactive" | "static"
+use_enhanced = true  # Use enhanced dashboard with quality insights
 verbosity = "auto"  # "silent" | "minimal" | "normal" | "verbose" | "auto"
-theme = "plotly_white"  # Plotly theme name
-dashboard_dpi = 100
+theme = "plotly_white"
 dashboard_figsize = [16, 10]
 moving_average_window = 7
 cropped_months = 24
@@ -40,22 +38,18 @@ cropped_months = 24
 enable_webgl = true
 max_points_before_decimation = 10000
 default_time_range = "3M"  # 1W, 1M, 3M, 1Y, All
-enable_animations = true
 
 [visualization.quality]
 show_quality_scores = true
 quality_color_scheme = "RdYlGn"  # Red-Yellow-Green
 highlight_threshold_zone = true
-threshold_buffer = 0.05  # Highlight 0.55-0.65
+threshold_buffer = 0.05  # Highlight zone around threshold
 show_component_details = true
-enable_insights = true
-insight_limit = 5
 
 [visualization.export]
 png_width = 1920
 png_height = 1080
 png_scale = 2  # For retina displays
-include_logo = false
 
 [adaptive_noise]
 enabled = true
@@ -66,14 +60,13 @@ progress_interval = 10000
 timestamp_format = "test_no_date"
 
 [quality_scoring]
-# Enable the new quality scoring system
-enabled = true  # Set to true to enable (currently in shadow mode)
-threshold = 0.6  # Measurements below this score are rejected
-use_harmonic_mean = true  # Use harmonic mean (penalizes low scores more)
+enabled = true  # Enable quality scoring system
+threshold = 0.6  # Acceptance threshold
+use_harmonic_mean = true  # Penalizes low component scores
 
-# Component weights (must sum to 1.0)
 [quality_scoring.component_weights]
-safety = 0.35        # Physiological limits
-plausibility = 0.25  # Statistical deviation
-consistency = 0.25   # Rate of change
-reliability = 0.15   # Source reliability
+# Weights must sum to 1.0
+safety = 0.35        # Physiological limits check
+plausibility = 0.25  # Statistical deviation check
+consistency = 0.25   # Rate of change check
+reliability = 0.15   # Source reliability check

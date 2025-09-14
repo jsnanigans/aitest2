@@ -44,7 +44,9 @@ class KalmanFilterManager:
             'last_state': np.array([[weight, 0]]),
             'last_covariance': np.array([[[initial_variance, 0], [0, 0.001]]]),
             'last_timestamp': timestamp,
+            'last_attempt_timestamp': timestamp,
             'last_raw_weight': weight,
+            'rejection_count_since_accept': 0,
         }
     
     @staticmethod
@@ -112,7 +114,9 @@ class KalmanFilterManager:
         state['last_state'] = new_last_state
         state['last_covariance'] = new_last_covariance
         state['last_timestamp'] = timestamp
+        state['last_attempt_timestamp'] = timestamp
         state['last_raw_weight'] = weight
+        state['rejection_count_since_accept'] = 0
         
         return state
     
