@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Index Viewer</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        iframe { width: 100%; height: 600px; border: 2px solid #333; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Debug Index Viewer</h1>
+    
+    <div class="log" id="log">
+        <h3>Console Output:</h3>
+        <pre id="console"></pre>
+    </div>
+    
+    <button onclick="checkData()">Check Dashboard Data</button>
+    <button onclick="testClick()">Test First User Click</button>
+    
+    <iframe src="test_index_output/viz_test_no_date/index.html" id="testFrame"></iframe>
+    
+    <script>
+        const log = (msg) => {
+            document.getElementById('console').innerHTML += msg + '\n';
+        };
+        
+        window.onload = function() {
+            const iframe = document.getElementById('testFrame');
+            iframe.onload = function() {
+                log('✓ Index loaded');
+                
+                // Access the iframe's window
+                const iframeWindow = iframe.contentWindow;
+                
+                // Check if DASHBOARD_DATA exists
+                if (iframeWindow.DASHBOARD_DATA) {
+                    log('✓ DASHBOARD_DATA found');
+                    log('  Users: ' + iframeWindow.DASHBOARD_DATA.users.length);
+                    
+                    // Check first user
+                    const firstUser = iframeWindow.DASHBOARD_DATA.users[0];
+                    log('  First user: ' + firstUser.id);
+                    log('  Dashboard file: ' + firstUser.dashboard_file);
+                    
+                    // Check viewer
+                    if (iframeWindow.viewer) {
+                        log('✓ Viewer initialized');
+                        log('  Current user: ' + (iframeWindow.viewer.currentUser ? iframeWindow.viewer.currentUser.id : 'none'));
+                    }
+                } else {
+                    log('✗ DASHBOARD_DATA not found');
+                }
+            };
+        };
+        
+        function checkData() {
+            const iframe = document.getElementById('testFrame');
+            const iframeWindow = iframe.contentWindow;
+            
+            if (iframeWindow.viewer && iframeWindow.viewer.currentUser) {
+                log('\nCurrent user object:');
+                log(JSON.stringify(iframeWindow.viewer.currentUser, null, 2));
+            } else {
+                log('\nNo current user selected');
+            }
+        }
+        
+        function testClick() {
+            const iframe = document.getElementById('testFrame');
+            const iframeWindow = iframe.contentWindow;
+            
+            if (iframeWindow.viewer && iframeWindow.viewer.filteredUsers.length > 0) {
+                log('\nManually selecting first user...');
+                const firstUser = iframeWindow.viewer.filteredUsers[0];
+                log('User to select: ' + JSON.stringify(firstUser, null, 2));
+                iframeWindow.viewer.selectUser(firstUser);
+                log('Selection complete');
+            }
+        }
+    </script>
+</body>
+</html>

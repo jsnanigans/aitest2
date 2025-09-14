@@ -1,0 +1,6 @@
+user_id,last_timestamp,last_weight,last_trend,has_kalman_params,process_noise,measurement_noise,initial_uncertainty,has_adapted_params,adapted_process_noise,adapted_measurement_noise,state_reset_count,last_reset_timestamp
+user001,2023-01-05T08:00:00,75.44,-0.0006,true,0.016,5.235,0.361,false,,,0,
+user002,2023-01-05T09:00:00,81.93,-0.0006,true,0.016,5.235,0.361,false,,,0,
+user003,2023-01-05T07:30:00,68.43,-0.0006,true,0.016,5.235,0.361,false,,,0,
+user004,2023-01-05T10:00:00,94.85,-0.0014,true,0.016,5.235,0.361,false,,,0,
+user005,2023-01-05T06:00:00,71.93,-0.0006,true,0.016,5.235,0.361,false,,,0,

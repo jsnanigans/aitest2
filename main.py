@@ -100,10 +100,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         print(f"  Date filter: {min_date_str} to {max_date_str}")
     print()
     
-    # First pass: count readings if min_readings is set
+    # First pass: count readings per user (always do this to properly filter)
     user_reading_counts = {}
-    if min_readings > 0 and not test_mode:
-        print(f"Counting readings per user (min_readings={min_readings})...")
+    eligible_users = []  # Users that meet min_readings criteria
+    
+    if not test_mode:
+        print(f"Analyzing user data (min_readings={min_readings}, max_users={max_users})...")
         with open(csv_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -129,6 +131,26 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                         continue
                 
                 user_reading_counts[user_id] = user_reading_counts.get(user_id, 0) + 1
+        
+        # Determine eligible users based on min_readings
+        for user_id, count in sorted(user_reading_counts.items()):  # Sort for consistent ordering
+            if count >= min_readings:
+                eligible_users.append(user_id)
+        
+        # Apply user_offset and max_users to eligible users
+        if user_offset > 0 and user_offset < len(eligible_users):
+            eligible_users = eligible_users[user_offset:]
+        elif user_offset >= len(eligible_users):
+            eligible_users = []  # Offset beyond available users
+        
+        if max_users > 0 and len(eligible_users) > max_users:
+            eligible_users = eligible_users[:max_users]
+        
+        eligible_users_set = set(eligible_users)
+        
+        print(f"  Found {len(user_reading_counts)} total users")
+        print(f"  {len([u for u, c in user_reading_counts.items() if c >= min_readings])} users with >= {min_readings} readings")
+        print(f"  Processing {len(eligible_users)} users (after offset={user_offset}, max={max_users})")
     
     # Main processing loop
     with open(csv_path) as f:
@@ -151,26 +173,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 continue
             
             # User filtering
-            if test_mode and user_id not in test_users_set:
-                continue
-            
-            if not test_mode:
-                # Check min_readings
-                if min_readings > 0 and user_reading_counts.get(user_id, 0) < min_readings:
+            if test_mode:
+                if user_id not in test_users_set:
                     continue
-                
-                # Handle offset and max_users
-                if user_id not in seen_users:
-                    seen_users.add(user_id)
-                    
-                    if len(seen_users) <= user_offset:
-                        skipped_users.add(user_id)
-                        continue
-                    
-                    if max_users > 0 and len(processed_users) >= max_users:
-                        break
-                
-                if user_id in skipped_users:
+            else:
+                # Only process users in the eligible set
+                if user_id not in eligible_users_set:
                     continue
             
             # Parse weight with validation
@@ -294,13 +302,13 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             
             # Set visualization verbosity based on number of users
             try:
-                from src.viz_logger import set_verbosity, VizLogger
+                from src.utils import set_verbosity
                 if total_users > 10:
-                    set_verbosity(VizLogger.SILENT)  # Silent for many users
+                    set_verbosity(0)  # Silent for many users
                 elif total_users > 1:
-                    set_verbosity(VizLogger.MINIMAL)  # Minimal for a few users
+                    set_verbosity(1)  # Minimal for a few users
                 else:
-                    set_verbosity(VizLogger.NORMAL)  # Normal for single user
+                    set_verbosity(2)  # Normal for single user
             except ImportError:
                 pass
             
@@ -340,9 +348,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             # Generate index.html for dashboard navigation
             if successful > 0:
                 try:
-                    from src.viz_index import create_index_from_results
+                    from src.visualization import create_index_from_results
                     index_path = create_index_from_results(
-                        results_file=str(results_file),
+                        all_results=user_results,
                         output_dir=str(viz_dir)
                     )
                     print(f"Dashboard index: {index_path}")

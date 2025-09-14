@@ -1,359 +1,372 @@
-# Plan: Clean Up and Refactor src Directory
+# Plan: Clean Up src Directory - Visualization Consolidation Focus
 
 ## Summary
-Comprehensive refactoring of the weight stream processor source code to improve maintainability, readability, and code organization. The codebase has grown organically with many features added incrementally, resulting in large monolithic files (processor.py has 2,075 lines) with mixed responsibilities and duplicated logic. Goal is to create a clean, modular architecture while preserving all functionality.
+Consolidate and reorganize the src directory to eliminate redundancy, improve maintainability, and establish clear module boundaries. The current structure has significant duplication in visualization modules (12 viz_* files with ~5,845 lines) and needs streamlining.
 
 ## Context
-- Source: User request for code cleanup and refactoring
-- Current state: 4 main files in src/ totaling ~3,700 lines, plus 6 backup/experimental files
+- Source: User request to clean up src directory after reviewing all files
+- Current state: 21 files in src/ directory
+  - Core processing: 6 files (~2,500 lines)
+  - Visualization: 12 viz_* files (~5,845 lines) + main visualization.py (954 lines)
+  - Utilities: 3 files (logging, constants, init)
 - Main issues identified:
-  - processor.py is 2,075 lines with 6+ classes and mixed responsibilities
-  - Multiple validation and quality components mixed together
-  - Duplicated threshold calculation logic
-  - Complex nested conditionals throughout
-  - No clear separation of concerns
+  - Massive duplication in visualization (12 separate viz files!)
+  - Multiple dashboard implementations (diagnostic has 3 versions)
+  - Temporary patch file (viz_diagnostic_fix.py)
+  - Unclear which visualization is primary
+  - Router pattern adds unnecessary complexity
 - Assumptions:
-  - Functionality must be preserved (no breaking changes)
-  - Tests must continue to pass
-  - Performance should not degrade
-  - Architecture constraints (stateless processor) must be maintained
+  - No backward compatibility required (per guidelines)
+  - Prefer updating existing tools over creating new ones
+  - Maintain stateless processor architecture
+  - Use latest Python 3.11+ syntax
 
 ## Requirements
 ### Functional
-- Preserve all existing functionality
-- Maintain backward compatibility with existing tests
-- Keep stateless architecture for WeightProcessor
-- Maintain separation between processing logic and state management
-- Preserve all validation and quality features (BMI, physiological limits, etc.)
+- Maintain all current functionality
+- Preserve stateless processing architecture
+- Keep core processing pipeline intact
+- Ensure tests continue to pass
+- Consolidate visualization features into unified interface
 
 ### Non-functional
-- Reduce file sizes (target: <500 lines per file where possible)
-- Eliminate code duplication
-- Improve separation of concerns
-- Standardize naming conventions
-- Improve code readability and maintainability
-- Clear module boundaries
+- Reduce visualization files from 12 to 1-2 maximum
+- Eliminate code duplication (target: 50%+ reduction)
+- Improve module organization and naming
+- Establish clear separation of concerns
+- Simplify import structure
+- Remove temporary/patch files
 
 ## Alternatives
 
-### Option A: Minimal Consolidation (Quick Fix)
-- Approach: Simply remove backup files and consolidate into 3-4 main files
+### Option A: Minimal Consolidation
+- Approach: Just delete unused viz files, keep the rest
 - Pros:
-  - Quick to implement (2-3 hours)
-  - Minimal risk of breaking changes
-  - Easy to review and test
+  - Very quick (1 hour)
+  - Low risk
+  - Minimal test changes
 - Cons:
-  - Doesn't address fundamental issues
-  - processor.py remains at 2,075 lines
-  - Code duplication persists
-  - Mixed responsibilities continue
-- Risks: Technical debt continues to grow
+  - Doesn't fix duplication
+  - Still have 5-6 viz files
+  - Confusion remains
+- Risks: Problem persists
 
-### Option B: Moderate Refactoring (Balanced)
-- Approach: Create logical modules within src/ (6-8 files) with clear responsibilities
+### Option B: Full Restructure with Subpackages
+- Approach: Create subpackages (core/, viz/, utils/)
 - Pros:
-  - Good balance of effort and improvement
-  - Manageable file sizes (300-500 lines)
   - Clear separation of concerns
-  - Easier to test and maintain
+  - Scalable structure
+  - Better organization
 - Cons:
-  - More files than current structure
-  - Requires updating all imports
-  - 8-10 hours of work
-- Risks: Import compatibility issues during migration
+  - More complex refactoring
+  - All imports need updating
+  - Over-engineering for project size
+- Risks: Higher chance of breaking changes
 
-### Option C: Full Modular Architecture (Comprehensive)
-- Approach: Create proper package structure with submodules (15-20 files)
+### Option C: Targeted Visualization Consolidation
+- Approach: Merge all viz files into 1-2 files, clean up core modules
 - Pros:
-  - Best long-term maintainability
-  - Excellent separation of concerns
-  - Each file has single responsibility
-  - Highly testable
+  - Addresses main pain point (12 viz files)
+  - Significant code reduction
+  - Maintains flat structure
+  - Reasonable effort (4-6 hours)
 - Cons:
-  - Significant effort (15-20 hours)
-  - Many import changes needed
-  - More complex directory structure
-- Risks: Over-engineering for current needs
+  - visualization.py will be larger (~1500 lines)
+  - Some complexity in merged file
+- Risks: Need careful merging to avoid losing features
 
 ## Recommendation
-**Option B: Moderate Refactoring (Balanced)**
+**Option C: Targeted Visualization Consolidation**
 
 Rationale:
-- Addresses the core problems without over-engineering
-- Reduces processor.py from 2,075 lines to ~300 lines
-- Creates maintainable file sizes (300-500 lines each)
-- Clear separation makes future changes easier
-- Reasonable effort (8-10 hours) with good ROI
-- Lower risk than full restructuring while still providing significant improvements
+- Directly addresses the biggest problem (12 visualization files)
+- Reduces total files from 21 to ~10
+- Eliminates ~3,000 lines of duplicate code
+- Maintains simplicity with flat structure
+- Reasonable effort (4-6 hours) with high impact
+- Low risk since core processing untouched
 
 ## High-Level Design
 
 ### Target Structure
 ```
 src/
-├── processor.py         # Core weight processing orchestration (~300 lines)
-├── kalman.py           # Kalman filter logic (~250 lines)
-├── validation.py       # All validation logic (BMI, physiological, thresholds) (~400 lines)
-├── quality.py          # Data quality and preprocessing (~400 lines)
-├── database.py         # State persistence (~270 lines)
-├── reprocessor.py      # Batch reprocessing (~440 lines)
-├── visualization.py    # Dashboard and charts (~900 lines)
-└── models.py          # Data models and constants (~200 lines)
+├── __init__.py              # Public API exports
+├── constants.py             # All constants and profiles (keep as-is)
+├── database.py              # State persistence (keep as-is)
+├── kalman.py               # Kalman filter logic (keep as-is)
+├── processor.py            # Core processing (keep as-is)
+├── quality_scorer.py       # Quality scoring (keep as-is)
+├── validation.py           # All validation logic (keep as-is)
+├── visualization.py        # Unified visualization (~1500 lines)
+└── utils.py                # Logging and utilities (merge from logging_utils)
 ```
 
-### Module Responsibilities
-
-1. **processor.py** (Orchestration Layer):
-   - WeightProcessor class with main process_weight method
-   - Orchestrates validation, quality, and Kalman filtering
-   - Delegates to specialized modules
-   - Maintains stateless architecture
-
-2. **kalman.py** (Filter Logic):
-   - Extract from processor: _initialize_kalman_immediate, _update_kalman_state
-   - Kalman filter configuration and operations
-   - State prediction and update logic
-   - Innovation and confidence calculations
-
-3. **validation.py** (Validation Layer):
-   - BMIValidator class (from current processor.py)
-   - ThresholdCalculator class (from current processor.py)
-   - Physiological limits validation
-   - Weight validation methods
-   - Rejection categorization
-
-4. **quality.py** (Data Quality Layer):
-   - DataQualityPreprocessor class
-   - AdaptiveOutlierDetector class
-   - SourceQualityMonitor class
-   - AdaptiveKalmanConfig class
-   - Unit conversion and BMI detection
-
-5. **database.py** (Persistence Layer):
-   - Current ProcessorStateDB (no changes needed)
-   - State serialization/deserialization
-   - Snapshot management
-
-6. **models.py** (Data Structures):
-   - ThresholdResult class
-   - DynamicResetManager class
-   - Constants (SOURCE_PROFILES, etc.)
-   - Helper functions (categorize_rejection, etc.)
-
-### Dependency Flow
+### Files to Remove
 ```
-main.py
-   ↓
-processor.py → kalman.py
-   ↓        ↘
-validation.py  quality.py
-   ↓              ↓
-models.py ← database.py
+src/
+├── viz_constants.py        → merge into visualization.py
+├── viz_diagnostic.py       → merge into visualization.py
+├── viz_diagnostic_fix.py   → DELETE (temporary patch)
+├── viz_diagnostic_simple.py → merge into visualization.py
+├── viz_export.py          → merge into visualization.py
+├── viz_index.py           → merge into visualization.py
+├── viz_kalman.py          → merge into visualization.py
+├── viz_logger.py          → merge into utils.py
+├── viz_plotly.py          → merge into visualization.py
+├── viz_plotly_enhanced.py → merge into visualization.py
+├── viz_quality.py         → merge into visualization.py
+├── viz_router.py          → merge into visualization.py
+└── logging_utils.py       → merge into utils.py
+```
+
+### Consolidated Module Design
+
+#### visualization.py Structure
+```python
+# Single unified visualization module with clear sections:
+
+# 1. Constants and Configuration
+CHART_COLORS = {...}
+PLOTLY_CONFIG = {...}
+
+# 2. Base Dashboard Class
+class BaseDashboard:
+    """Common functionality for all dashboards"""
+
+# 3. Dashboard Implementations  
+class DiagnosticDashboard(BaseDashboard):
+    """Unified diagnostic dashboard (merge 3 versions)"""
+
+class InteractiveDashboard(BaseDashboard):
+    """Plotly interactive dashboard (merge 2 versions)"""
+
+class StaticDashboard(BaseDashboard):
+    """Matplotlib static dashboard"""
+
+# 4. Specialized Visualizations
+class KalmanVisualizer:
+    """Kalman-specific charts"""
+
+class QualityVisualizer:
+    """Quality score visualizations"""
+
+class IndexVisualizer:
+    """Index/overview visualizations"""
+
+# 5. Export Functions
+def export_dashboard(...)
+def export_to_pdf(...)
+def export_to_html(...)
+
+# 6. Router/Factory
+def create_dashboard(results, user_id, config):
+    """Smart router that picks appropriate dashboard"""
+```
+
+#### utils.py Structure
+```python
+# Merged utilities module
+
+# 1. Logging
+class StructuredLogger:
+    """From logging_utils.py"""
+
+# 2. Performance
+class PerformanceTimer:
+    """From logging_utils.py"""
+
+# 3. Visualization Utilities
+def get_logger():
+    """From viz_logger.py"""
+
+# 4. General Utilities
+def format_timestamp(...)
+def safe_divide(...)
 ```
 
 ## Implementation Plan (No Code)
 
-### Phase 1: Preparation (1 hour)
-1. Create backup of entire src/ directory to src_backup_[timestamp]/
-2. Create detailed import dependency map from tests and main.py
-3. Document all public APIs that must be preserved
-4. Set up test harness to verify functionality after each step
+### Phase 1: Analysis and Backup (30 min)
+1. Create backup of src/ directory
+2. Map all imports from viz_* files
+3. Identify unique vs duplicate functionality
+4. Document which tests use which viz modules
+5. Create function mapping spreadsheet
 
-### Phase 2: Extract Models and Constants (1 hour)
-1. Create models.py file
-2. Move ThresholdResult class from processor.py
-3. Move all constants (SOURCE_PROFILES, etc.)
-4. Move helper functions (categorize_rejection, get_rejection_severity)
-5. Update imports in processor.py
-6. Run tests to verify
+### Phase 2: Create Unified Visualization Structure (1 hour)
+1. Start with current visualization.py as base
+2. Create class hierarchy:
+   - BaseDashboard abstract class
+   - DiagnosticDashboard (merge 3 versions)
+   - InteractiveDashboard (merge plotly versions)
+   - StaticDashboard (existing matplotlib)
+3. Add specialized visualizer classes:
+   - KalmanVisualizer
+   - QualityVisualizer
+   - IndexVisualizer
+4. Set up configuration constants section
 
-### Phase 3: Extract Kalman Logic (1.5 hours)
-1. Create kalman.py file
-2. Extract Kalman-specific methods from WeightProcessor:
-   - _initialize_kalman_immediate
-   - _update_kalman_state
-   - _calculate_confidence
-   - _create_result (Kalman-specific parts)
-3. Create KalmanFilterManager class to encapsulate logic
-4. Update WeightProcessor to use KalmanFilterManager
-5. Run tests to verify
+### Phase 3: Merge Diagnostic Dashboards (1 hour)
+1. Compare viz_diagnostic.py, viz_diagnostic_simple.py
+2. Identify common functionality
+3. Create single configurable DiagnosticDashboard class
+4. Merge unique features from each version
+5. Remove viz_diagnostic_fix.py patch logic
+6. Test diagnostic dashboard generation
 
-### Phase 4: Extract Validation Logic (2 hours)
-1. Create validation.py file
-2. Move BMIValidator class from processor.py
-3. Move ThresholdCalculator class from processor.py
-4. Move validation methods from WeightProcessor:
-   - _validate_weight
-   - _get_physiological_limit
-5. Consolidate duplicate validation logic
-6. Update processor.py imports
-7. Run tests to verify
+### Phase 4: Merge Plotly Implementations (45 min)
+1. Compare viz_plotly.py and viz_plotly_enhanced.py
+2. Merge into single InteractiveDashboard class
+3. Add configuration flags for enhanced features
+4. Consolidate plotly configuration
+5. Test interactive dashboard generation
 
-### Phase 5: Extract Quality Components (2 hours)
-1. Create quality.py file
-2. Move DataQualityPreprocessor class
-3. Move AdaptiveOutlierDetector class
-4. Move SourceQualityMonitor class
-5. Move AdaptiveKalmanConfig class
-6. Move process_weight_enhanced wrapper logic
-7. Update processor.py to use quality module
-8. Run tests to verify
+### Phase 5: Integrate Specialized Visualizations (45 min)
+1. Extract KalmanVisualizer from viz_kalman.py
+2. Extract QualityVisualizer from viz_quality.py
+3. Extract IndexVisualizer from viz_index.py
+4. Integrate as methods/classes in visualization.py
+5. Ensure they work with main dashboards
 
-### Phase 6: Refactor Core Processor (1.5 hours)
-1. Simplify WeightProcessor class:
-   - Keep only process_weight orchestration
-   - Delegate to validation, quality, kalman modules
-   - Remove all moved methods
-2. Clean up imports and organization
-3. Add clear module docstrings
-4. Ensure stateless architecture maintained
-5. Run tests to verify
+### Phase 6: Merge Router and Export Logic (30 min)
+1. Extract router logic from viz_router.py
+2. Implement as create_dashboard factory function
+3. Merge export functions from viz_export.py
+4. Add smart mode detection (interactive vs static)
+5. Test routing logic with different configs
 
-### Phase 7: Update Imports and Tests (1 hour)
-1. Update main.py imports
-2. Update all test file imports systematically
-3. Add backward compatibility imports if needed
-4. Run full test suite
-5. Fix any remaining import issues
+### Phase 7: Consolidate Utilities (30 min)
+1. Create utils.py from logging_utils.py
+2. Add viz_logger.py content
+3. Add any utility functions from viz_constants.py
+4. Update all imports to use utils.py
+5. Test logging functionality
 
-### Phase 8: Cleanup and Documentation (1 hour)
-1. Remove backup/experimental files:
-   - src_backup_* directories
-   - Any other legacy files
-2. Update code comments and docstrings
-3. Verify all functionality with manual testing
-4. Create migration notes for future reference
+### Phase 8: Update Imports and Clean Up (1 hour)
+1. Update __init__.py exports
+2. Fix imports in processor.py, main.py
+3. Update all test file imports
+4. Delete all viz_*.py files
+5. Delete logging_utils.py
+6. Run full test suite
+
+### Phase 9: Testing and Validation (30 min)
+1. Run all unit tests
+2. Test each visualization mode
+3. Verify data processing unchanged
+4. Test with sample CSV files
+5. Check for any missing functionality
 
 ## Validation & Rollout
 
 ### Test Strategy
-- Unit tests: Verify all moved classes/functions work correctly
-- Integration tests: Ensure main.py processes data correctly
-- Import tests: Check all test files can import needed functions
-- Regression tests: Compare output before/after consolidation
+- Run existing test suite after each phase
+- Test all visualization modes:
+  - Static (matplotlib)
+  - Interactive (plotly)
+  - Diagnostic (unified version)
+- Verify data processing unchanged
+- Test with all sample CSV files
+- Check HTML output generation
 
 ### Manual QA Checklist
-- [ ] main.py runs without import errors
-- [ ] All visualization features work
-- [ ] Batch reprocessing works correctly
-- [ ] All existing tests pass
-- [ ] No circular import issues
-- [ ] File sizes remain manageable (<1000 lines each)
+- [ ] main.py processes CSV files correctly
+- [ ] Static visualization works
+- [ ] Interactive dashboard generates
+- [ ] Diagnostic dashboard displays properly
+- [ ] Export functions work (HTML, PDF if configured)
+- [ ] Kalman visualizations render
+- [ ] Quality score charts display
+- [ ] Index viewer works (if used)
+- [ ] All tests pass
+- [ ] No import errors
 
 ### Rollout Plan
-1. Create feature branch for cleanup
-2. Implement changes incrementally with commits for each phase
-3. Run full test suite after each phase
-4. Manual testing with sample data
-5. Merge to main after verification
+1. Create feature branch: `cleanup-viz-consolidation`
+2. Implement phases with commits after each
+3. Run tests continuously during development
+4. Manual testing with test data files
+5. Create before/after comparison
+6. Merge to main branch
 
 ## Risks & Mitigations
 
-### Risk 1: Breaking Test Dependencies
-- **Impact**: High - Many tests depend on specific imports
-- **Mitigation**: Create detailed import migration map before starting
-- **Recovery**: Keep backup of original structure
+### Risk 1: Lost Visualization Features
+- **Impact**: High - Some unique features might be missed during merge
+- **Mitigation**: Careful feature mapping before consolidation
+- **Recovery**: Backup allows restoration of specific features
 
-### Risk 2: Circular Import Issues
-- **Impact**: Medium - Merging files might create circular dependencies
-- **Mitigation**: Careful analysis of import chains, use lazy imports if needed
-- **Recovery**: Refactor to break circular dependencies
+### Risk 2: Large visualization.py File
+- **Impact**: Medium - File will be ~1500 lines
+- **Mitigation**: Good class organization and clear sections
+- **Recovery**: Can split into viz_core.py and viz_components.py if needed
 
-### Risk 3: Large File Sizes
-- **Impact**: Low - Merged processor.py might become too large
-- **Mitigation**: Monitor file size, consider keeping more utility files if needed
-- **Recovery**: Split back into feature-specific modules
+### Risk 3: Test Import Failures
+- **Impact**: Medium - Tests import from specific viz modules
+- **Mitigation**: Update imports systematically, test continuously
+- **Recovery**: Add compatibility imports in __init__.py
 
-### Risk 4: Lost Git History
-- **Impact**: Low - File deletions lose git blame history
-- **Mitigation**: Document consolidation in commit messages
-- **Recovery**: Git history still available in previous commits
+### Risk 4: Configuration Compatibility
+- **Impact**: Low - Config might reference old module names
+- **Mitigation**: Add fallback handling in router logic
+- **Recovery**: Update config.toml files
 
 ## Acceptance Criteria
-- [ ] processor.py reduced from 2,075 to ~300 lines
-- [ ] No file exceeds 500 lines (except visualization.py at ~900)
-- [ ] All current functionality preserved
-- [ ] No duplicate code across files
-- [ ] All tests pass (with import updates only)
-- [ ] main.py runs successfully with real data
-- [ ] Clear separation of concerns achieved
-- [ ] No performance degradation
-- [ ] Each module has single, clear responsibility
-- [ ] Dependency flow is unidirectional (no circular imports)
+- [ ] Reduced from 21 to ~9 files in src/
+- [ ] Eliminated all 12 viz_*.py files
+- [ ] Single visualization.py handles all viz needs
+- [ ] Removed ~3,000 lines of duplicate code
+- [ ] All tests pass
+- [ ] All visualization modes work
+- [ ] No functionality lost
+- [ ] Clear module boundaries
+- [ ] Simplified import structure
+- [ ] No temporary/patch files remain
 
 ## Out of Scope
-- Refactoring algorithm logic
-- Changing public APIs
-- Modifying test logic (only import updates)
-- Updating configuration structure
+- Refactoring core processing logic
+- Changing algorithms
+- Database schema changes
 - Performance optimizations
 - Adding new features
+- Modifying test logic (only import updates)
 
 ## Open Questions
-1. Should we keep visualization.py at 900 lines or split it further?
-   - Recommendation: Keep as-is for now, it's cohesive
-2. Should DynamicResetManager stay in models.py or move to validation.py?
-   - Recommendation: models.py since it's more of a manager than validator
-3. Should we create an __init__.py for cleaner imports?
-   - Recommendation: Yes, to maintain backward compatibility
-4. Should we add type hints during refactoring?
-   - Recommendation: Only where it improves clarity, not comprehensive
-5. Is 8 modules too many compared to current 4?
-   - Recommendation: The clarity gained outweighs the file count increase
-
-## Code Quality Improvements
-
-### Specific Issues to Address
-
-1. **Deep Nesting in processor.py**:
-   - _process_weight_internal has 6+ levels of nesting
-   - Extract guard clauses and early returns
-   - Break into smaller, focused methods
-
-2. **Duplicate Threshold Logic**:
-   - Threshold calculations appear in 3+ places
-   - Consolidate into single source of truth
-   - Use consistent units (percentage vs kg)
-
-3. **Mixed Responsibilities**:
-   - WeightProcessor handles processing, validation, and quality
-   - Separate concerns into appropriate modules
-   - Clear interfaces between modules
-
-4. **Complex Conditionals**:
-   - Many if/elif chains with complex conditions
-   - Extract to named boolean methods
-   - Use strategy pattern where appropriate
-
-5. **Inconsistent Naming**:
-   - Mix of camelCase and snake_case
-   - Abbreviations (ni, pct, etc.)
-   - Standardize throughout
+1. Should visualization.py be split if it exceeds 1500 lines?
+   - Recommendation: Keep unified for now, split only if it exceeds 2000 lines
+2. Should we keep viz_export.py separate for modularity?
+   - Recommendation: No, merge it for consistency
+3. Is the index viewer functionality actively used?
+   - Recommendation: Keep it but as optional feature
+4. Should quality_scorer.py be merged with validation.py?
+   - Recommendation: Keep separate, they have different purposes
 
 ## Timeline Estimate
 
-- Phase 1 (Preparation): 1 hour
-- Phase 2 (Models): 1 hour  
-- Phase 3 (Kalman): 1.5 hours
-- Phase 4 (Validation): 2 hours
-- Phase 5 (Quality): 2 hours
-- Phase 6 (Processor): 1.5 hours
-- Phase 7 (Imports): 1 hour
-- Phase 8 (Cleanup): 1 hour
+- Phase 1 (Analysis): 30 minutes
+- Phase 2 (Structure): 1 hour
+- Phase 3 (Diagnostic): 1 hour
+- Phase 4 (Plotly): 45 minutes
+- Phase 5 (Specialized): 45 minutes
+- Phase 6 (Router/Export): 30 minutes
+- Phase 7 (Utilities): 30 minutes
+- Phase 8 (Imports): 1 hour
+- Phase 9 (Testing): 30 minutes
 
-**Total: 11 hours**
+**Total: 6 hours**
 
 ## Review Cycle
 ### Self-Review Notes
-- Analyzed processor.py line-by-line to identify extraction points
-- Verified module boundaries avoid circular dependencies
-- Confirmed all test imports can be updated systematically
-- File size targets are achievable with proposed structure
-- Risk mitigation strategies are comprehensive
+- Reviewed all 21 files in src/ directory
+- Identified 12 visualization files as primary cleanup target
+- Visualization has most duplication (~5,845 lines across 12 files)
+- Core processing modules are relatively well-organized
+- Focus on consolidation over restructuring
 
 ### Revisions After Analysis
-- Added kalman.py as separate module (initially part of processor)
-- Moved DynamicResetManager to models.py (better fit than validation)
-- Increased time estimate from 8-10 to 11 hours based on code analysis
-- Added specific code quality improvements section
-- Clarified dependency flow diagram
+- Changed focus from processor.py refactoring to visualization consolidation
+- Reduced scope to target highest-impact improvements
+- Decreased time estimate from 11 to 6 hours
+- Prioritized removing duplicate dashboard implementations
+- Added specific file removal list
