@@ -42,6 +42,7 @@ def find_dashboard_files(output_dir: str, user_stats: List[Dict[str, Any]]) -> L
         user_id = user["id"]
 
         possible_files = [
+            f"{user_id}.html",  # New simplified dashboard format
             f"dashboard_enhanced_{user_id}.html",
             f"dashboard_{user_id}.html",
             f"viz_{user_id}.html"

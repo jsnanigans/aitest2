@@ -58,12 +58,49 @@ def create_dashboard(results: List[Dict[str, Any]],
     
     use_interactive = should_use_interactive(config, output_format)
     
-    # Check if we should use enhanced dashboard (with Kalman insights)
+    # Check if we should use diagnostic dashboard (new default)
+    use_diagnostic = config.get("visualization", {}).get("use_diagnostic", True)
     use_enhanced = config.get("visualization", {}).get("use_enhanced", True)
     
     if use_interactive:
         try:
-            if use_enhanced:
+            if use_diagnostic:
+                # Use simplified diagnostic dashboard as primary visualization
+                try:
+                    from .viz_diagnostic_simple import SimpleDiagnosticDashboard
+                    dashboard = SimpleDiagnosticDashboard()
+                    fig = dashboard.create_dashboard(results, user_id, config)
+                    
+                    # Save to HTML
+                    output_path = Path(output_dir)
+                    output_path.mkdir(exist_ok=True, parents=True)
+                    dashboard_file = output_path / f"{user_id}.html"
+                    fig.write_html(str(dashboard_file))
+                    
+                    # Also create diagnostic report
+                    try:
+                        from .viz_diagnostic import create_diagnostic_report
+                        report = create_diagnostic_report(results, user_id)
+                        report_file = output_path / f"{user_id}_report.txt"
+                        with open(report_file, "w") as f:
+                            f.write(report)
+                    except:
+                        pass  # Report is optional
+                    
+                    return str(dashboard_file)
+                except (ImportError, Exception) as e:
+                    logger.warning(f"Diagnostic dashboard failed: {e}, falling back to enhanced")
+                    # Fall back to enhanced dashboard
+                    if use_enhanced:
+                        try:
+                            from .viz_plotly_enhanced import create_enhanced_dashboard
+                            return create_enhanced_dashboard(results, user_id, output_dir, config)
+                        except:
+                            pass
+                    # Fall back to standard interactive
+                    from .viz_plotly import create_interactive_dashboard
+                    return create_interactive_dashboard(results, user_id, output_dir, config)
+            elif use_enhanced:
                 # Try to use enhanced dashboard with Kalman insights
                 try:
                     from .viz_plotly_enhanced import create_enhanced_dashboard

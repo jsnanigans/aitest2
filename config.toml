@@ -3,8 +3,8 @@
 [data]
 csv_file = "./data/2025-09-05_optimized.csv"
 output_dir = "output"
-max_users = 50
-user_offset = 0
+max_users = 20
+user_offset = 100
 min_readings = 20
 min_date = "2015-01-01"
 max_date = "2025-09-05"
@@ -27,7 +27,8 @@ questionnaire_reset_days = 10
 [visualization]
 enabled = true
 mode = "interactive"  # "interactive" | "static" | "auto"
-use_enhanced = true  # Use enhanced dashboard with Kalman insights
+use_diagnostic = true  # Use new diagnostic dashboard as primary visualization
+use_enhanced = true  # Use enhanced dashboard with Kalman insights (fallback)
 verbosity = "auto"  # "silent" | "minimal" | "normal" | "verbose" | "auto"
 theme = "plotly_white"  # Plotly theme name
 dashboard_dpi = 100
