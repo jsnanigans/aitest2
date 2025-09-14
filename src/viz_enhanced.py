@@ -102,7 +102,7 @@ def create_enhanced_weight_timeline(
             data_point['hover_text'] = _create_enhanced_rejected_hover(r, data_point)
             rejected_data.append(data_point)
     
-    # Create subplots
+    # Create subplots with shared x-axes
     fig = make_subplots(
         rows=3, cols=1,
         row_heights=[0.5, 0.25, 0.25],
@@ -116,7 +116,8 @@ def create_enhanced_weight_timeline(
             [{"secondary_y": False}],
             [{"secondary_y": False}],
             [{"secondary_y": False}]
-        ]
+        ],
+        shared_xaxes=True  # This links all x-axes together
     )
     
     # Main weight timeline (Row 1)
@@ -152,10 +153,38 @@ def create_enhanced_weight_timeline(
         updatemenus=[_create_visibility_menu()],
     )
     
-    # Update axes
-    fig.update_xaxes(showgrid=True, gridcolor='#E0E0E0', row=1, col=1)
+    # Update axes - x-axes are shared so zooming one affects all
+    # Add range selector buttons to the top subplot for easy time navigation
+    fig.update_xaxes(
+        showgrid=True, 
+        gridcolor='#E0E0E0',
+        rangeselector=dict(
+            buttons=list([
+                dict(count=7, label="1w", step="day", stepmode="backward"),
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=3, label="3m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(count=1, label="1y", step="year", stepmode="backward"),
+                dict(step="all", label="All")
+            ]),
+            x=0.01,
+            y=1.05
+        ),
+        rangeslider=dict(visible=False),  # Hide on first subplot
+        row=1, col=1
+    )
     fig.update_xaxes(showgrid=True, gridcolor='#E0E0E0', row=2, col=1)
-    fig.update_xaxes(showgrid=True, gridcolor='#E0E0E0', row=3, col=1)
+    # Add range slider to bottom subplot for fine control
+    fig.update_xaxes(
+        showgrid=True, 
+        gridcolor='#E0E0E0', 
+        title_text='Date',
+        rangeslider=dict(
+            visible=True,
+            thickness=0.05
+        ),
+        row=3, col=1
+    )
     
     fig.update_yaxes(title_text="Weight (kg)", showgrid=True, gridcolor='#E0E0E0', row=1, col=1)
     fig.update_yaxes(title_text="Quality Score", range=[0, 1.1], showgrid=True, gridcolor='#E0E0E0', row=2, col=1)

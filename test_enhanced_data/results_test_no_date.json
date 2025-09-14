@@ -4,12 +4,12 @@
     "accepted": 5,
     "rejected": 10,
     "date_filtered": 0,
-    "start_time": "2025-09-14 21:03:30.674576"
+    "start_time": "2025-09-14 21:07:13.334948"
   },
   "users": {
     "user001": [
       {
-        "timestamp": "2025-09-14 21:03:30.674730",
+        "timestamp": "2025-09-14 21:07:13.335396",
         "raw_weight": 75.5,
         "filtered_weight": 75.5,
         "trend": 0.0,
@@ -28,7 +28,7 @@
           "original_weight": 75.5,
           "original_unit": "kg",
           "source": "patient-device",
-          "timestamp": "2025-09-14T21:03:30.674730",
+          "timestamp": "2025-09-14T21:07:13.335396",
           "corrections": [],
           "warnings": [],
           "checks_passed": [
@@ -42,7 +42,7 @@
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.675480",
+        "timestamp": "2025-09-14 21:07:13.337216",
         "raw_weight": 75.3,
         "cleaned_weight": 75.3,
         "source": "patient-device",
@@ -70,13 +70,13 @@
             "weight": 75.3,
             "source": "patient-device",
             "previous_weight": 75.5,
-            "time_diff_hours": 2.0833333333333333e-07
+            "time_diff_hours": 5.055555555555556e-07
           }
         }
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.675527",
+        "timestamp": "2025-09-14 21:07:13.337270",
         "raw_weight": 75.4,
         "cleaned_weight": 75.4,
         "source": "patient-device",
@@ -104,14 +104,14 @@
             "weight": 75.4,
             "source": "patient-device",
             "previous_weight": 75.5,
-            "time_diff_hours": 2.2138888888888888e-07
+            "time_diff_hours": 5.205555555555555e-07
           }
         }
       }
     ],
     "user002": [
       {
-        "timestamp": "2025-09-14 21:03:30.675557",
+        "timestamp": "2025-09-14 21:07:13.337301",
         "raw_weight": 82.1,
         "filtered_weight": 82.1,
         "trend": 0.0,
@@ -130,7 +130,7 @@
           "original_weight": 82.1,
           "original_unit": "kg",
           "source": "patient-upload",
-          "timestamp": "2025-09-14T21:03:30.675557",
+          "timestamp": "2025-09-14T21:07:13.337301",
           "corrections": [],
           "warnings": [],
           "checks_passed": [
@@ -144,7 +144,7 @@
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.675835",
+        "timestamp": "2025-09-14 21:07:13.337595",
         "raw_weight": 82.0,
         "cleaned_weight": 82.0,
         "source": "patient-upload",
@@ -172,13 +172,13 @@
             "weight": 82.0,
             "source": "patient-upload",
             "previous_weight": 82.1,
-            "time_diff_hours": 7.722222222222222e-08
+            "time_diff_hours": 8.166666666666667e-08
           }
         }
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.675861",
+        "timestamp": "2025-09-14 21:07:13.337622",
         "raw_weight": 81.9,
         "cleaned_weight": 81.9,
         "source": "patient-upload",
@@ -206,14 +206,14 @@
             "weight": 81.9,
             "source": "patient-upload",
             "previous_weight": 82.1,
-            "time_diff_hours": 8.444444444444446e-08
+            "time_diff_hours": 8.916666666666666e-08
           }
         }
       }
     ],
     "user003": [
       {
-        "timestamp": "2025-09-14 21:03:30.675881",
+        "timestamp": "2025-09-14 21:07:13.337642",
         "raw_weight": 68.5,
         "filtered_weight": 68.5,
         "trend": 0.0,
@@ -232,7 +232,7 @@
           "original_weight": 68.5,
           "original_unit": "kg",
           "source": "patient-device",
-          "timestamp": "2025-09-14T21:03:30.675881",
+          "timestamp": "2025-09-14T21:07:13.337642",
           "corrections": [],
           "warnings": [],
           "checks_passed": [
@@ -246,7 +246,7 @@
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.676135",
+        "timestamp": "2025-09-14 21:07:13.337889",
         "raw_weight": 68.4,
         "cleaned_weight": 68.4,
         "source": "patient-device",
@@ -274,13 +274,13 @@
             "weight": 68.4,
             "source": "patient-device",
             "previous_weight": 68.5,
-            "time_diff_hours": 7.055555555555556e-08
+            "time_diff_hours": 6.86111111111111e-08
           }
         }
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.676159",
+        "timestamp": "2025-09-14 21:07:13.337915",
         "raw_weight": 68.3,
         "cleaned_weight": 68.3,
         "source": "patient-device",
@@ -308,14 +308,14 @@
             "weight": 68.3,
             "source": "patient-device",
             "previous_weight": 68.5,
-            "time_diff_hours": 7.722222222222222e-08
+            "time_diff_hours": 7.583333333333334e-08
           }
         }
       }
     ],
     "user004": [
       {
-        "timestamp": "2025-09-14 21:03:30.676183",
+        "timestamp": "2025-09-14 21:07:13.337941",
         "raw_weight": 91.2,
         "filtered_weight": 91.2,
         "trend": 0.0,
@@ -334,7 +334,7 @@
           "original_weight": 91.2,
           "original_unit": "kg",
           "source": "internal-questionnaire",
-          "timestamp": "2025-09-14T21:03:30.676183",
+          "timestamp": "2025-09-14T21:07:13.337941",
           "corrections": [],
           "warnings": [],
           "checks_passed": [
@@ -348,7 +348,7 @@
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.676424",
+        "timestamp": "2025-09-14 21:07:13.338198",
         "raw_weight": 91.0,
         "cleaned_weight": 91.0,
         "source": "internal-questionnaire",
@@ -376,13 +376,13 @@
             "weight": 91.0,
             "source": "internal-questionnaire",
             "previous_weight": 91.2,
-            "time_diff_hours": 6.694444444444445e-08
+            "time_diff_hours": 7.138888888888889e-08
           }
         }
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.676446",
+        "timestamp": "2025-09-14 21:07:13.338222",
         "raw_weight": 90.8,
         "cleaned_weight": 90.8,
         "source": "internal-questionnaire",
@@ -410,14 +410,14 @@
             "weight": 90.8,
             "source": "internal-questionnaire",
             "previous_weight": 91.2,
-            "time_diff_hours": 7.305555555555556e-08
+            "time_diff_hours": 7.805555555555555e-08
           }
         }
       }
     ],
     "user005": [
       {
-        "timestamp": "2025-09-14 21:03:30.676463",
+        "timestamp": "2025-09-14 21:07:13.338242",
         "raw_weight": 77.7,
         "filtered_weight": 77.7,
         "trend": 0.0,
@@ -436,7 +436,7 @@
           "original_weight": 77.7,
           "original_unit": "kg",
           "source": "patient-upload",
-          "timestamp": "2025-09-14T21:03:30.676463",
+          "timestamp": "2025-09-14T21:07:13.338242",
           "corrections": [],
           "warnings": [],
           "checks_passed": [
@@ -450,7 +450,7 @@
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.676693",
+        "timestamp": "2025-09-14 21:07:13.338479",
         "raw_weight": 77.5,
         "cleaned_weight": 77.5,
         "source": "patient-upload",
@@ -478,13 +478,13 @@
             "weight": 77.5,
             "source": "patient-upload",
             "previous_weight": 77.7,
-            "time_diff_hours": 6.38888888888889e-08
+            "time_diff_hours": 6.583333333333333e-08
           }
         }
       },
       {
         "accepted": false,
-        "timestamp": "2025-09-14 21:03:30.676717",
+        "timestamp": "2025-09-14 21:07:13.338505",
         "raw_weight": 77.3,
         "cleaned_weight": 77.3,
         "source": "patient-upload",
@@ -512,7 +512,7 @@
             "weight": 77.3,
             "source": "patient-upload",
             "previous_weight": 77.7,
-            "time_diff_hours": 7.055555555555556e-08
+            "time_diff_hours": 7.305555555555556e-08
           }
         }
       }
