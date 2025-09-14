@@ -17,18 +17,7 @@ from .database import (
 )
 
 # Visualization - unified module
-from .visualization import (
-    create_dashboard,
-    create_diagnostic_report,
-    create_index_from_results,
-    BaseDashboard,
-    StaticDashboard,
-    InteractiveDashboard,
-    DiagnosticDashboard,
-    KalmanVisualizer,
-    QualityVisualizer,
-    IndexVisualizer
-)
+from .visualization import create_weight_timeline
 
 # Constants
 from .constants import (
@@ -88,16 +77,7 @@ __all__ = [
     'get_state_db',
     
     # Visualization
-    'create_dashboard',
-    'create_diagnostic_report',
-    'create_index_from_results',
-    'BaseDashboard',
-    'StaticDashboard',
-    'InteractiveDashboard',
-    'DiagnosticDashboard',
-    'KalmanVisualizer',
-    'QualityVisualizer',
-    'IndexVisualizer',
+    'create_weight_timeline',
     
     # Constants
     'ThresholdResult',

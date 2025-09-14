@@ -1,0 +1,64 @@
+================================================================================
+DIAGNOSTIC REPORT - User 03b995d5-5b3e-4b1b-ae56-ef33c740f30b
+================================================================================
+
+SUMMARY STATISTICS
+----------------------------------------
+Total Measurements: 66
+Accepted: 66 (100.0%)
+Rejected: 0
+Unique Sources: 4
+
+Weight Statistics:
+  Mean: 69.7 kg
+  Std Dev: 12.13 kg
+  Range: 58.1 - 94.3 kg
+
+========================================
+REJECTION ANALYSIS
+----------------------------------------
+No rejections found
+
+========================================
+SOURCE ANALYSIS
+----------------------------------------
+
+https://connectivehealth.io:
+  Total: 39
+  Accepted: 39 (100.0%)
+  Rejected: 0
+
+patient-upload:
+  Total: 22
+  Accepted: 22 (100.0%)
+  Rejected: 0
+
+care-team-upload:
+  Total: 4
+  Accepted: 4 (100.0%)
+  Rejected: 0
+
+internal-questionnaire:
+  Total: 1
+  Accepted: 1 (100.0%)
+  Rejected: 0
+
+========================================
+DATA QUALITY INDICATORS
+----------------------------------------
+
+Significant gaps found: 64
+  2015-03-24 to 2015-06-24: 92.0 days
+  2015-06-24 to 2015-10-15: 113.0 days
+  2015-10-15 to 2016-05-09: 207.0 days
+  2016-05-09 to 2016-08-31: 114.0 days
+  2016-08-31 to 2017-02-02: 155.0 days
+
+Kalman Filter Performance:
+  Mean Confidence: 0.958
+  Min Confidence: 0.461
+  Max Confidence: 1.000
+
+================================================================================
+Report generated: 2025-09-14T20:24:16.991980
+================================================================================

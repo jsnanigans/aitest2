@@ -17,10 +17,7 @@ from src.database import get_state_db
 from src.processor import process_measurement
 from src.validation import DataQualityPreprocessor
 
-try:
-    from src.viz_router import create_dashboard
-except ImportError:
-    from src.visualization import create_dashboard
+from src.visualization import create_weight_timeline
 
 
 def load_config(config_path: str = "config.toml") -> dict:
@@ -323,8 +320,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                     print(f"  [{idx}/{total_users}] User {user_id[:8]}...", end=" ")
                 
                 try:
-                    dashboard_path = create_dashboard(
-                        results, user_id, str(viz_dir), config
+                    from src.visualization import create_weight_timeline
+                    dashboard_path = create_weight_timeline(
+                        results, user_id, str(viz_dir)
                     )
                     if dashboard_path:
                         successful += 1
