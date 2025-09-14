@@ -38,3 +38,16 @@ default_multiplier = 1.5
 [logging]
 progress_interval = 10000
 timestamp_format = "test_no_date"
+
+[quality_scoring]
+# Enable the new quality scoring system
+enabled = false  # Set to true to enable (currently in shadow mode)
+threshold = 0.6  # Measurements below this score are rejected
+use_harmonic_mean = true  # Use harmonic mean (penalizes low scores more)
+
+# Component weights (must sum to 1.0)
+[quality_scoring.component_weights]
+safety = 0.35        # Physiological limits
+plausibility = 0.25  # Statistical deviation
+consistency = 0.25   # Rate of change
+reliability = 0.15   # Source reliability

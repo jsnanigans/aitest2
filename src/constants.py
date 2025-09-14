@@ -206,6 +206,21 @@ PROCESSING_DEFAULTS = {
     'kalman_cleanup_threshold': 2.0
 }
 
+# Quality scoring defaults
+QUALITY_SCORING_DEFAULTS = {
+    'enabled': False,
+    'threshold': 0.6,
+    'use_harmonic_mean': True,
+    'component_weights': {
+        'safety': 0.35,
+        'plausibility': 0.25,
+        'consistency': 0.25,
+        'reliability': 0.15
+    },
+    'safety_critical_threshold': 0.3,
+    'history_window_size': 20
+}
+
 # Session detection
 SESSION_TIMEOUT_MINUTES = 5.0
 SESSION_VARIANCE_THRESHOLD = 5.81  # kg

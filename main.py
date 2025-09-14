@@ -212,12 +212,17 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             
             # Process measurement with error boundary
             try:
+                # Merge quality scoring config into main config
+                full_config = config.copy()
+                if 'quality_scoring' not in full_config:
+                    full_config['quality_scoring'] = {}
+                
                 result = process_measurement(
                     user_id=user_id,
                     weight=weight,
                     timestamp=timestamp,
                     source=source,
-                    config=config,
+                    config=full_config,
                     unit=unit,
                     db=db
                 )

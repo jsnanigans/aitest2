@@ -33,6 +33,12 @@ except ImportError:
     )
 
 
+try:
+    from .quality_scorer import QualityScorer, QualityScore, MeasurementHistory
+except ImportError:
+    from quality_scorer import QualityScorer, QualityScore, MeasurementHistory
+
+
 class PhysiologicalValidator:
     """Validates weight measurements against physiological constraints."""
     
@@ -138,6 +144,41 @@ class PhysiologicalValidator:
             'range': max(weights) - min(weights),
             'suspicious_pattern': std_weight > PhysiologicalValidator.TYPICAL_DAILY_VARIATION_KG * 2
         }
+    
+    @staticmethod
+    def calculate_quality_score(
+        weight: float,
+        source: str,
+        previous_weight: Optional[float] = None,
+        time_diff_hours: Optional[float] = None,
+        recent_weights: Optional[List[float]] = None,
+        user_height_m: float = 1.67,
+        config: Optional[Dict] = None
+    ) -> QualityScore:
+        """
+        Calculate quality score for a weight measurement.
+        
+        Args:
+            weight: Weight measurement in kg
+            source: Data source identifier
+            previous_weight: Previous weight measurement
+            time_diff_hours: Hours since previous measurement
+            recent_weights: List of recent accepted weights
+            user_height_m: User's height in meters
+            config: Optional configuration overrides
+            
+        Returns:
+            QualityScore object with overall and component scores
+        """
+        scorer = QualityScorer(config)
+        return scorer.calculate_quality_score(
+            weight=weight,
+            source=source,
+            previous_weight=previous_weight,
+            time_diff_hours=time_diff_hours,
+            recent_weights=recent_weights,
+            user_height_m=user_height_m
+        )
     
     @staticmethod
     def validate_comprehensive(
