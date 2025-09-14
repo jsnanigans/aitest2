@@ -1,7 +1,6 @@
 """
 Unified Quality Scoring System for weight measurements.
 Combines multiple validation checks into a single quality score.
-STATELESS DESIGN - Minimal state requirements, no complex history needed.
 """
 
 from dataclasses import dataclass
@@ -59,10 +58,7 @@ class QualityScore:
 
 
 class QualityScorer:
-    """
-    Calculates unified quality scores for weight measurements.
-    STATELESS - Minimal state requirements, only needs previous weight and time.
-    """
+    """Calculates unified quality scores for weight measurements."""
     
     COMPONENT_WEIGHTS = {
         'safety': 0.35,
@@ -96,14 +92,13 @@ class QualityScorer:
     ) -> QualityScore:
         """
         Calculate overall quality score for a weight measurement.
-        STATELESS - Works with minimal state (just previous weight and time).
         
         Args:
             weight: The weight measurement in kg
             source: Data source identifier
-            previous_weight: Previous weight measurement from state
+            previous_weight: Previous weight measurement
             time_diff_hours: Hours since previous measurement
-            recent_weights: Optional list of recent weights (not required)
+            recent_weights: List of recent accepted weights for statistics
             user_height_m: User's height in meters
             
         Returns:
@@ -122,7 +117,7 @@ class QualityScorer:
             )
         
         components['plausibility'] = self.calculate_plausibility_score(
-            weight, recent_weights, previous_weight
+            weight, recent_weights
         )
         
         components['consistency'] = self.calculate_consistency_score(
@@ -190,49 +185,32 @@ class QualityScorer:
     def calculate_plausibility_score(
         self,
         weight: float,
-        recent_weights: Optional[List[float]] = None,
-        previous_weight: Optional[float] = None
+        recent_weights: Optional[List[float]] = None
     ) -> float:
         """
         Calculate plausibility based on statistical deviation.
-        Simplified version that doesn't require complex state.
+        
+        Uses z-score with Gaussian decay.
         
         Args:
             weight: Current weight measurement
-            recent_weights: Optional list of recent weights
-            previous_weight: Previous weight if recent_weights not available
+            recent_weights: List of recent accepted weights
             
         Returns:
             Score from 0.0 (implausible) to 1.0 (plausible)
         """
-        # If we have recent weights, use them
-        if recent_weights and len(recent_weights) >= 3:
-            recent_array = np.array(recent_weights[-20:])
-            mean = np.mean(recent_array)
-            std = np.std(recent_array)
-            
-            if std < 0.5:
-                std = 0.5
-            
-            z_score = abs(weight - mean) / std
-            
-        # Otherwise, use simple comparison with previous weight
-        elif previous_weight is not None:
-            # Estimate reasonable variance based on typical body weight
-            baseline = (weight + previous_weight) / 2
-            # Assume 2% standard deviation for body weight
-            std = baseline * 0.02
-            if std < 0.5:
-                std = 0.5
-            
-            mean = previous_weight
-            z_score = abs(weight - mean) / std
-            
-        else:
-            # No history available, be lenient
+        if not recent_weights or len(recent_weights) < 3:
             return 0.8
         
-        # Score based on z-score
+        recent_array = np.array(recent_weights[-20:])
+        mean = np.mean(recent_array)
+        std = np.std(recent_array)
+        
+        if std < 0.5:
+            std = 0.5
+        
+        z_score = abs(weight - mean) / std
+        
         if z_score <= 1:
             return 1.0
         elif z_score <= 2:
@@ -251,12 +229,10 @@ class QualityScorer:
     ) -> float:
         """
         Calculate consistency based on rate of change.
-        Improved to handle short time periods based on research.
-        STATELESS - Only uses previous weight and time.
         
         Args:
             weight: Current weight
-            previous_weight: Previous weight from state
+            previous_weight: Previous weight
             time_diff_hours: Time since previous measurement
             
         Returns:
@@ -266,49 +242,20 @@ class QualityScorer:
             return 0.8
         
         weight_diff = abs(weight - previous_weight)
-        baseline_weight = (weight + previous_weight) / 2
-        weight_diff_percent = (weight_diff / baseline_weight) * 100
+        daily_rate = (weight_diff / time_diff_hours) * 24
         
-        # Time-aware thresholds
-        if time_diff_hours < 6:
-            # Within 6 hours: very lenient for normal fluctuations
-            if weight_diff <= 3.0:  # Up to 3kg is normal within hours
-                return 1.0
-            else:
-                excess = (weight_diff - 3.0) / 3.0
-                return max(0.0, 0.7 * np.exp(-2 * excess))
-                
-        elif time_diff_hours < 24:
-            # Within a day: use hybrid approach
-            # Small absolute changes always OK
-            if weight_diff <= 2.0:
-                return 1.0
-            # Moderate changes get high scores
-            elif weight_diff <= 4.0:
-                # Linear decay from 1.0 to 0.8
-                return 1.0 - 0.1 * (weight_diff - 2.0)
-            # Large changes use percentage
-            elif weight_diff_percent <= 5.0:
-                return 0.7
-            else:
-                excess = (weight_diff_percent - 5.0) / 5.0
-                return max(0.0, 0.5 * np.exp(-2 * excess))
+        max_daily = PHYSIOLOGICAL_LIMITS['MAX_DAILY_CHANGE_KG']
+        typical_daily = PHYSIOLOGICAL_LIMITS['TYPICAL_DAILY_VARIATION_KG']
         
+        if daily_rate <= typical_daily:
+            return 1.0
+        elif daily_rate <= max_daily:
+            ratio = (daily_rate - typical_daily) / (max_daily - typical_daily)
+            return 1.0 - (0.5 * ratio)
         else:
-            # For longer periods: use daily rate
-            daily_rate = weight_diff / (time_diff_hours / 24)
-            
-            # Research-based but practical thresholds
-            if daily_rate <= 2.0:  # Up to 2kg/day for longer periods
-                return 1.0
-            elif daily_rate <= 4.0:
-                # Linear decay from 1.0 to 0.5
-                return 1.0 - 0.25 * (daily_rate - 2.0)
-            elif daily_rate <= 6.44:  # Physiological max
-                return 0.5 - 0.3 * ((daily_rate - 4.0) / 2.44)
-            else:
-                excess = (daily_rate - 6.44) / 6.44
-                return max(0.0, 0.2 * np.exp(-2 * excess))
+            excess_ratio = (daily_rate - max_daily) / max_daily
+            score = 0.5 * np.exp(-2 * excess_ratio)
+            return max(0.0, score)
     
     def calculate_reliability_score(self, source: str) -> float:
         """
@@ -434,11 +381,7 @@ class QualityScorer:
 
 
 class MeasurementHistory:
-    """
-    Maintains rolling window of recent measurements for statistical analysis.
-    NOTE: This is only used for testing/analysis, not in production processor.
-    The actual processor maintains minimal state in the database.
-    """
+    """Maintains rolling window of recent measurements for statistical analysis."""
     
     def __init__(self, max_size: int = 20):
         """

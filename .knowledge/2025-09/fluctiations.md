@@ -1,0 +1,15 @@
+### 1.1 The Intrinsic Variability of Human Body Weight
+
+Body weight is not a static number but a dynamic variable that fluctuates over multiple time scales. These variations are not errors but are part of the signal itself.
+
+#### Diurnal Fluctuations
+
+An adult's body weight naturally fluctuates throughout a 24-hour period. Studies and clinical observations indicate a typical range of 1 to 2 kg (approximately 2.2 to 4.4 lbs).3 Some sources suggest this variation can be as high as 2-3% of an individual's total body weight.1 These short-term changes are primarily driven by the balance of intake and output: consumption of food and beverages, hydration status, and the elimination of waste through urine and stool.3 Water retention, influenced by sodium and carbohydrate intake, is a major contributor to these rapid shifts.4 This physiological reality has a direct and critical implication for algorithm design: a simple, static threshold for what constitutes an outlier (e.g., "any change greater than 5 lbs in a day is an error") is fundamentally flawed. For a 200 lb individual, a normal physiological fluctuation of 2.5% is exactly 5 lbs. Therefore, any outlier detection threshold must be dynamic and scaled to the user's current estimated weight and their observed historical variability. This necessity points toward adaptive models that can learn an individual's unique fluctuation patterns.
+
+#### Weekly Rhythms
+
+Beyond daily changes, a distinct weekly rhythm in body weight is well-documented in research. This pattern is consistently characterized by an increase in weight over the weekend, peaking around Sunday or Monday, followed by a gradual decline throughout the weekdays.8 Studies have quantified this within-week fluctuation at approximately 0.35% of body weight.11 This cycle is strongly linked to behavioral changes, such as different dietary patterns and social activities on weekends compared to weekdays.8 Importantly, this weekly pattern is not merely noise; it is a predictable signal. An advanced algorithm should not flag a consistent Monday morning weight increase as an anomaly but rather recognize it as an expected part of the user's weekly cycle. This understanding motivates the use of feature engineering (e.g., creating "day-of-the-week" features) and time-series models capable of capturing seasonality, such as SARIMA (Seasonal ARIMA) or machine learning models that can learn from these temporal features.
+
+#### Hormonal and Environmental Factors
+
+Other factors introduce variability over longer or more irregular time frames. For many women, the menstrual cycle can cause significant temporary weight gain due to hormonal changes and associated water retention.3 Stress, which elevates cortisol levels, can also impact fluid balance and appetite.4 Furthermore, external events like holidays (e.g., Christmas) and seasonal changes are known to cause short-term weight gains that may not be fully compensated for in the subsequent months, contributing to long-term weight creep.8 Medications, particularly those affecting metabolism or hormones, can also be a significant source of weight change.3
