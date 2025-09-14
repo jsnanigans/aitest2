@@ -5,10 +5,7 @@ Weight Stream Processor Package
 # Import all public APIs for backward compatibility
 from .processor import (
     WeightProcessor,
-    process_weight_enhanced,
-    DynamicResetManager,
-    categorize_rejection_enhanced,
-    get_rejection_severity
+    process_weight_enhanced
 )
 
 from .database import (
@@ -52,7 +49,6 @@ __all__ = [
     # Core processor
     'WeightProcessor',
     'process_weight_enhanced',
-    'DynamicResetManager',
     
     # Database
     'ProcessorStateDB',
@@ -82,8 +78,4 @@ __all__ = [
     
     # Kalman
     'KalmanFilterManager',
-    
-    # Helper functions
-    'categorize_rejection_enhanced',
-    'get_rejection_severity',
 ]

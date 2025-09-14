@@ -56,13 +56,8 @@ class WeightReprocessor:
         if db is None:
             db = ProcessorDatabase()
         
-        snapshot_id = db.create_snapshot(user_id, datetime.now())
-        
-        state_before_date = db.get_state_before_date(user_id, start_date)
-        if state_before_date:
-            db.save_state(user_id, state_before_date)
-        else:
-            db.clear_state(user_id)
+        # Simplified: no snapshots, just clear and reprocess
+        db.delete_state(user_id)
         
         relevant_measurements = [
             m for m in measurements 
@@ -91,7 +86,6 @@ class WeightReprocessor:
                 })
         
         return {
-            'snapshot_id': snapshot_id,
             'start_date': start_date,
             'measurements_processed': len(relevant_measurements),
             'successful': len(results),

@@ -165,51 +165,6 @@ class ProcessorStateDB:
             'storage_path': str(self.storage_path) if self.storage_path else 'memory-only'
         }
 
-    def create_snapshot(self, user_id: str, timestamp: datetime) -> str:
-        """
-        Create a snapshot of current state for rollback.
-
-        Args:
-            user_id: User identifier
-            timestamp: Timestamp for the snapshot
-
-        Returns:
-            Snapshot ID
-        """
-        if user_id not in self.states:
-            return None
-
-        snapshot_id = f"{user_id}_{timestamp.isoformat()}"
-
-        if not hasattr(self, 'snapshots'):
-            self.snapshots = {}
-
-        self.snapshots[snapshot_id] = self._make_serializable(
-            self.states[user_id].copy()
-        )
-
-        return snapshot_id
-
-    def restore_snapshot(self, user_id: str, snapshot_id: str) -> bool:
-        """
-        Restore state from a snapshot.
-
-        Args:
-            user_id: User identifier
-            snapshot_id: Snapshot ID to restore
-
-        Returns:
-            True if restored, False if snapshot not found
-        """
-        if not hasattr(self, 'snapshots'):
-            return False
-
-        if snapshot_id not in self.snapshots:
-            return False
-
-        self.states[user_id] = self.snapshots[snapshot_id].copy()
-        return True
-
     def get_state_before_date(self, user_id: str, date: datetime) -> Optional[Dict[str, Any]]:
         """
         Get the last known state before a specific date.

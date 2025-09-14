@@ -128,11 +128,8 @@ def process_measurement(
             
             # Reset state for fresh start
             state = db.create_initial_state()
-            was_reset = True
-            reset_reason = f"Gap of {gap_days:.1f} days"
-    else:
-        was_reset = False
-        reset_reason = None
+            state['was_reset'] = True
+            state['reset_reason'] = f"Gap of {gap_days:.1f} days"
     
     # Step 4: Initialize Kalman if needed
     if not state.get('kalman_params'):
@@ -155,10 +152,6 @@ def process_measurement(
         result['stage'] = 'initialization'
         result['preprocessing'] = preprocess_metadata
         result['noise_multiplier'] = noise_multiplier
-        if 'was_reset' in locals() and was_reset:
-            result['was_reset'] = True
-            result['reset_reason'] = reset_reason
-            result['gap_days'] = gap_days
         
         # Save state
         state['last_source'] = source
@@ -231,12 +224,6 @@ def process_measurement(
     result['preprocessing'] = preprocess_metadata
     result['noise_multiplier'] = noise_multiplier
     result['stage'] = 'accepted'
-    
-    # Add reset info if applicable
-    if 'was_reset' in locals() and was_reset:
-        result['was_reset'] = True
-        result['reset_reason'] = reset_reason
-        result['gap_days'] = gap_days
     
     # Calculate BMI details
     implied_bmi = cleaned_weight / (user_height ** 2)

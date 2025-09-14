@@ -1,0 +1,170 @@
+# Weight Stream Processor Configuration
+
+[data]
+# CSV file to process
+csv_file = "./data/2025-09-05_optimized.csv"
+
+# Output directory for results and visualizations
+output_dir = "output"
+
+# Maximum number of users to process (0 = unlimited)
+max_users = 100
+
+# Number of users to skip at the beginning (useful for resuming or testing)
+user_offset = 0
+
+# Minimum number of readings required to process a user (0 = no minimum)
+# Users with fewer readings are skipped and don't count towards max_users
+min_readings = 20
+
+# Date filtering - measurements outside this range are filtered out
+# Format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS
+# Set to empty string to disable filtering
+min_date = "2024-11-01"
+max_date = "2025-09-05"
+
+# Export database to CSV after processing
+export_database = true
+
+
+
+# List of specific user IDs to process
+test_users = [
+  # "0040872d-333a-4ace-8c5a-b2fcd056e65a", # user with extremely noisy data
+  # "b1c7ec66-85f9-4ecc-b7b8-46742f5e78db",
+  # "42f31300-fae5-4719-a4e4-f63d61e624cc",
+  # "8823af48-caa8-4b57-9e2c-dc19c509f2e3",
+  # "1e87d3ab-20b1-479d-ad4d-8986e1af38da", # long gap
+  # "0093a653-476b-4401-bbec-33a89abc2b18", # User with sparse historical data
+  # "4d5054c4-2492-4cd8-a15c-53381fb6bd49", # spiky data
+  # "1a452430-7351-4b8c-b921-4fb17f8a29cc", # single outlier should be rejected
+  # "5a4e195f-47d4-4f6e-aab4-1e29a1830e63", # some obvious outliers, some smaller outliers that should be rejected
+  # "3e3ca1f5-3a99-4bc4-93e0-80781d7749e2", # initial outlier, throws off all future data
+  # "77c8fbf5-2dca-419a-a602-93f47e3d5d84", # multiple initial outliers, throws off all future data
+  # "48f3ae0e-8688-4b15-8f30-537224646426", # good data before and after gap but big difference across gap
+]
+
+# 0040872d-333a-4ace-8c5a-b2fcd056e65a - user with extremely noisy data
+
+[processing]
+# min_init_readings = 10  # No longer used - immediate processing enabled
+
+# Weight validation limits (kg)
+min_weight = 30.0
+max_weight = 400.0
+
+# BMI validation limits
+min_valid_bmi = 10.0
+max_valid_bmi = 90.0
+
+# Maximum daily change allowed (as fraction)
+max_daily_change = 0.05  # was 0.03
+
+# Extreme deviation threshold for rejecting measurements
+extreme_threshold = 0.20  # was 0.30
+
+# Kalman-guided cleanup threshold (kg)
+# Measurements more than this far from Kalman prediction are rejected during daily cleanup
+kalman_cleanup_threshold = 4.0
+
+[kalman]
+# Optimized via evolutionary algorithm (2025-09-13)
+# Initial variance scaling
+initial_variance = 0.361  # Optimized: -63.9% from baseline
+
+# Process noise covariance matrix values
+transition_covariance_weight = 0.0160  # Optimized: -84% from baseline
+transition_covariance_trend = 0.0001  # Optimized: -90% from baseline (10x stiffer)
+
+# Observation noise
+observation_covariance = 3.490  # Optimized: +249% from baseline
+
+# Reset threshold - days without data before resetting state
+reset_gap_days = 30
+
+[visualization]
+# Dashboard settings
+dashboard_dpi = 100
+dashboard_figsize = [16, 10]
+
+# Moving average window for trend analysis
+moving_average_window = 7
+
+# Time range for cropped views (in months)
+# Shows the last N months of data for each user
+cropped_months = 24
+
+[physiological]
+# Maximum weight changes by time period
+# Based on framework document recommendations (Section 3.1)
+# "daily fluctuations up to 2-3% of body weight"
+# Adjusted to be less restrictive for legitimate weight loss scenarios
+
+# Percentage limits for different time periods
+max_change_1h_percent = 0.02     # 2% for < 1 hour (was 1.5%)
+max_change_6h_percent = 0.025    # 2.5% for < 6 hours (was 2%)
+max_change_24h_percent = 0.035   # 3.5% for ≤ 24 hours (framework says up to 3%, allowing slightly more)
+
+# Absolute limits (kg) - Optimized via evolutionary algorithm
+max_change_1h_absolute = 4.22     # Optimized: +40.7% from baseline (was 3.0)
+max_change_6h_absolute = 6.23     # Optimized: +55.8% from baseline (was 4.0)
+max_change_24h_absolute = 6.44    # Optimized: +28.8% from baseline (was 5.0)
+
+# Long-term sustained change - Optimized for real-world patterns
+max_sustained_daily = 2.57         # Optimized: +71.3% from baseline (was 1.5)
+# Note: Accommodates GLP-1 medications, aggressive diets, and natural variations
+
+# Session detection for multi-user identification
+session_timeout_minutes = 5.0     # Group measurements within 5 minutes
+session_variance_threshold = 5.81  # Optimized: +16.2% from baseline (was 5.0)
+
+# Tolerance for borderline cases - Optimized
+limit_tolerance = 0.2493  # Optimized: +149.3% from baseline (was 0.10)
+sustained_tolerance = 0.50  # Optimized: +100% from baseline (was 0.25)
+
+# Enable graduated physiological limits
+enable_physiological_limits = true
+
+[adaptive_noise]
+# Enable adaptive measurement noise based on source reliability
+# Optimized from analysis of 709K+ measurements across 15K+ users (2025-09-13)
+enabled = true
+
+# Default multiplier for unknown sources
+default_multiplier = 1.5
+
+# Log adaptation decisions (for debugging)
+log_adaptations = false
+
+[adaptive_noise.multipliers]
+# Lower = more trusted, higher = less trusted
+# Multiplier is applied to observation_covariance (base: 3.49)
+# IMPORTANT: These values are data-driven, not assumptions!
+
+# Most reliable (baseline) - 23K measurements from 5K users
+"patient-upload" = 1.0
+
+# Surprisingly less reliable than expected - only 2K measurements
+"care-team-upload" = 1.2
+
+# Questionnaires - noisier than expected
+"internal-questionnaire" = 1.6
+"initial-questionnaire" = 1.6
+"questionnaire" = 1.6
+
+# Moderate reliability - 171K measurements
+"https://connectivehealth.io" = 2.2
+
+# Higher noise - 297K measurements (largest source)
+"patient-device" = 2.5
+
+# Highest noise but better than assumed - 195K measurements
+"https://api.iglucose.com" = 2.6
+
+[logging]
+# Progress update interval (rows)
+progress_interval = 10000
+
+# Date format for output files
+# timestamp_format = "%Y%m%d_%H%M%S"
+timestamp_format = "test_no_date"
