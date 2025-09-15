@@ -221,6 +221,27 @@ QUALITY_SCORING_DEFAULTS = {
     'history_window_size': 20
 }
 
+# Visualization marker symbols for source types
+SOURCE_MARKER_SYMBOLS = {
+    'care-team-upload': 'triangle-up',
+    'patient-upload': 'circle',
+    'internal-questionnaire': 'square',
+    'initial-questionnaire': 'square',
+    'patient-device': 'diamond',
+    'https://connectivehealth.io': 'hexagon',
+    'https://api.iglucose.com': 'hexagon',
+    'questionnaire': 'square',
+    'default': 'circle'
+}
+
+# Rejection severity color mapping
+REJECTION_SEVERITY_COLORS = {
+    'Critical': '#8B0000',  # Dark red for impossible values
+    'High': '#CC0000',      # Medium-dark red for extreme deviations
+    'Medium': '#FF4444',    # Medium red for suspicious values
+    'Low': '#FF9999'        # Light red for minor issues
+}
+
 # Session detection
 SESSION_TIMEOUT_MINUTES = 5.0
 SESSION_VARIANCE_THRESHOLD = 5.81  # kg

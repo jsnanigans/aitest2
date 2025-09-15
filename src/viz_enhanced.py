@@ -15,6 +15,11 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
+try:
+    from .constants import SOURCE_MARKER_SYMBOLS, REJECTION_SEVERITY_COLORS, get_rejection_severity
+except ImportError:
+    from constants import SOURCE_MARKER_SYMBOLS, REJECTION_SEVERITY_COLORS, get_rejection_severity
+
 
 def create_enhanced_weight_timeline(
     results: List[Dict[str, Any]], 
@@ -56,18 +61,31 @@ def create_enhanced_weight_timeline(
     # Process data
     accepted_data = []
     rejected_data = []
+    reset_events = []
     
     for r in results:
         timestamp = r.get('timestamp')
         if isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp)
         
+        source = r.get('source', 'unknown')
+        marker_symbol = SOURCE_MARKER_SYMBOLS.get(source, SOURCE_MARKER_SYMBOLS['default'])
+        
+        # Check for reset events
+        if r.get('was_reset', False):
+            reset_events.append({
+                'timestamp': timestamp,
+                'reason': r.get('reset_reason', 'Unknown'),
+                'gap_days': r.get('gap_days', 0)
+            })
+        
         # Extract enhanced data
         data_point = {
             'timestamp': timestamp,
             'raw_weight': r.get('raw_weight'),
             'filtered_weight': r.get('filtered_weight'),
-            'source': r.get('source', 'unknown'),
+            'source': source,
+            'marker_symbol': marker_symbol,
             'confidence': r.get('confidence', 0),
             'innovation': r.get('innovation', 0),
             'normalized_innovation': r.get('normalized_innovation', 0),
@@ -76,6 +94,9 @@ def create_enhanced_weight_timeline(
             'kalman_variance': r.get('kalman_variance'),
             'trend': r.get('trend', 0),
             'trend_weekly': r.get('trend_weekly', 0),
+            'was_reset': r.get('was_reset', False),
+            'reset_reason': r.get('reset_reason'),
+            'gap_days': r.get('gap_days'),
         }
         
         # Extract quality components
@@ -98,7 +119,12 @@ def create_enhanced_weight_timeline(
             data_point['hover_text'] = _create_enhanced_accepted_hover(r, data_point)
             accepted_data.append(data_point)
         else:
-            data_point['reason'] = r.get('reason', 'Unknown')
+            reason = r.get('reason', 'Unknown')
+            weight_change = abs(r.get('raw_weight', 0) - r.get('filtered_weight', r.get('raw_weight', 0)))
+            severity = get_rejection_severity(reason, weight_change)
+            
+            data_point['reason'] = reason
+            data_point['severity'] = severity
             data_point['hover_text'] = _create_enhanced_rejected_hover(r, data_point)
             rejected_data.append(data_point)
     
@@ -129,6 +155,67 @@ def create_enhanced_weight_timeline(
     # Innovation/Residuals (Row 3)
     _add_innovation_traces(fig, accepted_data, rejected_data, colors, row=3)
     
+    # Add reset event vertical lines across all subplots (subtle, behind data)
+    if reset_events:
+        for reset in reset_events:
+            # Add vertical line shape that spans all subplots
+            fig.add_shape(
+                type="line",
+                x0=reset['timestamp'],
+                x1=reset['timestamp'],
+                y0=0,
+                y1=1,
+                yref="paper",
+                line=dict(
+                    color='rgba(255, 102, 0, 0.2)',  # Very transparent orange
+                    width=1,  # Thin line
+                    dash="dot"  # Dotted line
+                ),
+                layer="below"  # Place behind the data
+            )
+            
+            # Add subtle annotation at the top
+            fig.add_annotation(
+                x=reset['timestamp'],
+                y=1.01,
+                yref="paper",
+                text=f"{reset['gap_days']:.0f}d",
+                showarrow=False,
+                font=dict(size=8, color='rgba(255, 102, 0, 0.5)'),
+                bgcolor='rgba(255, 255, 255, 0.7)',
+                bordercolor='rgba(255, 102, 0, 0.2)',
+                borderwidth=0.5,
+                align="center"
+            )
+    
+    # Add invisible traces for source type legend
+    source_types = {
+        'care-team-upload': ('Care Team', 'triangle-up'),
+        'patient-upload': ('Patient Upload', 'circle'),
+        'internal-questionnaire': ('Questionnaire', 'square'),
+        'patient-device': ('Device', 'diamond'),
+        'https://connectivehealth.io': ('ConnectiveHealth', 'hexagon'),
+        'https://api.iglucose.com': ('iGlucose', 'hexagon')
+    }
+    
+    # Add legend entries for source types (only to first subplot)
+    for source_key, (display_name, symbol) in source_types.items():
+        fig.add_trace(go.Scatter(
+            x=[None],
+            y=[None],
+            mode='markers',
+            name=f"{display_name}",
+            marker=dict(
+                size=10,
+                symbol=symbol,
+                color='gray',
+                line=dict(color='darkgray', width=1)
+            ),
+            showlegend=True,
+            legendgroup='sources',
+            legendgrouptitle_text="Source Types"
+        ), row=1, col=1)
+    
     # Update layout
     stats = _calculate_enhanced_stats(results, accepted_data, rejected_data)
     
@@ -144,9 +231,13 @@ def create_enhanced_weight_timeline(
         legend=dict(
             x=1.02,
             y=1,
-            bgcolor='rgba(255, 255, 255, 0.9)',
-            bordercolor='rgba(0, 0, 0, 0.2)',
-            borderwidth=1
+            bgcolor='rgba(255, 255, 255, 0.95)',
+            bordercolor='rgba(0, 0, 0, 0.3)',
+            borderwidth=2,
+            font=dict(size=9),
+            itemsizing='constant',
+            tracegroupgap=15,
+            groupclick='toggleitem'
         ),
         plot_bgcolor='#FAFAFA',
         paper_bgcolor='white',
@@ -237,6 +328,7 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
                         y=0.85,
                         len=0.3
                     ),
+                    symbol=[d['marker_symbol'] for d in accepted_data],
                     line=dict(color='white', width=1)
                 ),
                 text=[d['hover_text'] for d in accepted_data],
@@ -294,26 +386,34 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
                 row=row, col=1
             )
     
-    # Raw measurements - Rejected
+    # Raw measurements - Rejected (grouped by severity)
     if rejected_data:
-        fig.add_trace(
-            go.Scatter(
-                x=[d['timestamp'] for d in rejected_data],
-                y=[d['raw_weight'] for d in rejected_data],
-                mode='markers',
-                name='Raw (Rejected)',
-                marker=dict(
-                    size=12,
-                    color=colors['raw_rejected'],
-                    symbol='x',
-                    line=dict(color='darkred', width=2)
+        severity_groups = {}
+        for d in rejected_data:
+            severity = d.get('severity', 'Low')
+            if severity not in severity_groups:
+                severity_groups[severity] = []
+            severity_groups[severity].append(d)
+        
+        for severity, data_points in severity_groups.items():
+            fig.add_trace(
+                go.Scatter(
+                    x=[d['timestamp'] for d in data_points],
+                    y=[d['raw_weight'] for d in data_points],
+                    mode='markers',
+                    name=f'Rejected ({severity})',
+                    marker=dict(
+                        size=12,
+                        color=REJECTION_SEVERITY_COLORS.get(severity, '#FF0000'),
+                        symbol=[d['marker_symbol'] for d in data_points],
+                        line=dict(color='#8B0000', width=1)
+                    ),
+                    text=[d['hover_text'] for d in data_points],
+                    hovertemplate='%{text}<extra></extra>',
+                    legendgroup='rejected',
                 ),
-                text=[d['hover_text'] for d in rejected_data],
-                hovertemplate='%{text}<extra></extra>',
-                legendgroup='raw',
-            ),
-            row=row, col=1
-        )
+                row=row, col=1
+            )
 
 
 def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict], colors: Dict, row: int):
@@ -505,6 +605,19 @@ def _create_enhanced_accepted_hover(result: Dict[str, Any], data_point: Dict[str
         f"<b>✓ ACCEPTED</b>",
         f"<b>Date:</b> {timestamp.strftime('%Y-%m-%d %H:%M')}",
         f"<b>Source:</b> {_format_source(data_point['source'])}",
+    ]
+    
+    # Add reset information if applicable
+    if data_point.get('was_reset', False):
+        lines.extend([
+            "",
+            f"<b>⚠️ KALMAN FILTER RESET</b>",
+        ])
+        if data_point.get('gap_days'):
+            lines.append(f"<b>Data Gap:</b> {data_point['gap_days']:.1f} days")
+        lines.append(f"<b>Filter reinitialized from this measurement</b>")
+    
+    lines.extend([
         "",
         "<b>Weight Data:</b>",
         f"  Raw: {data_point['raw_weight']:.2f} kg",
@@ -515,7 +628,7 @@ def _create_enhanced_accepted_hover(result: Dict[str, Any], data_point: Dict[str
         f"  Confidence: {data_point.get('confidence', 0):.1%}",
         f"  Innovation: {data_point.get('innovation', 0):.2f} kg",
         f"  Normalized: {data_point.get('normalized_innovation', 0):.2f}σ",
-    ]
+    ])
     
     if data_point.get('kalman_upper') is not None:
         lines.extend([
@@ -548,6 +661,7 @@ def _create_enhanced_rejected_hover(result: Dict[str, Any], data_point: Dict[str
         f"<b>Source:</b> {_format_source(data_point['source'])}",
         f"<b>Weight:</b> {data_point['raw_weight']:.2f} kg",
         f"<b>Reason:</b> {data_point.get('reason', 'Unknown')}",
+        f"<b>Severity:</b> {data_point.get('severity', 'Unknown')}",
     ]
     
     if data_point.get('quality_score') is not None:

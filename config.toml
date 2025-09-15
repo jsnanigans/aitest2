@@ -51,6 +51,19 @@ png_width = 1920
 png_height = 1080
 png_scale = 2  # For retina displays
 
+[visualization.markers]
+show_source_icons = true  # Use different marker shapes for each source type
+show_source_legend = true  # Display legend for source types
+show_reset_markers = true  # Display reset event annotations
+reset_marker_color = "#FF6600"  # Orange color for reset markers
+reset_marker_opacity = 0.2  # Transparency of reset lines (0-1)
+reset_marker_width = 1  # Width of reset lines
+reset_marker_style = "dot"  # "solid" | "dash" | "dot"
+
+[visualization.rejection]
+show_severity_colors = true  # Use color intensity to show rejection severity
+group_by_severity = true  # Create separate legend entries for each severity level
+
 [adaptive_noise]
 enabled = true
 default_multiplier = 1.5

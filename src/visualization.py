@@ -14,11 +14,17 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
+try:
+    from .constants import SOURCE_MARKER_SYMBOLS, REJECTION_SEVERITY_COLORS, get_rejection_severity
+except ImportError:
+    from constants import SOURCE_MARKER_SYMBOLS, REJECTION_SEVERITY_COLORS, get_rejection_severity
+
 
 def create_weight_timeline(results: List[Dict[str, Any]], 
                           user_id: str,
                           output_dir: str = "output",
-                          use_enhanced: bool = True) -> str:
+                          use_enhanced: bool = True,
+                          config: Optional[Dict[str, Any]] = None) -> str:
     """
     Create an interactive weight timeline with quality analysis hover details.
     
@@ -34,7 +40,7 @@ def create_weight_timeline(results: List[Dict[str, Any]],
     # Try to use enhanced visualization if available and requested
     if use_enhanced and create_enhanced_weight_timeline is not None:
         try:
-            return create_enhanced_weight_timeline(results, user_id, output_dir)
+            return create_enhanced_weight_timeline(results, user_id, output_dir, config)
         except Exception as e:
             # Fall back to basic visualization on error
             print(f"Warning: Enhanced visualization failed, using basic: {e}")
@@ -46,8 +52,24 @@ def create_weight_timeline(results: List[Dict[str, Any]],
     if not results:
         raise ValueError("No results to visualize")
     
+    # Get configuration options
+    viz_config = config.get('visualization', {}) if config else {}
+    marker_config = viz_config.get('markers', {})
+    rejection_config = viz_config.get('rejection', {})
+    
+    show_source_icons = marker_config.get('show_source_icons', True)
+    show_source_legend = marker_config.get('show_source_legend', True)
+    show_reset_markers = marker_config.get('show_reset_markers', True)
+    reset_marker_color = marker_config.get('reset_marker_color', '#FF6600')
+    reset_marker_opacity = marker_config.get('reset_marker_opacity', 0.2)
+    reset_marker_width = marker_config.get('reset_marker_width', 1)
+    reset_marker_style = marker_config.get('reset_marker_style', 'dot')
+    show_severity_colors = rejection_config.get('show_severity_colors', True)
+    group_by_severity = rejection_config.get('group_by_severity', True)
+    
     accepted_data = []
     rejected_data = []
+    reset_events = []
     
     for r in results:
         timestamp = r.get('timestamp')
@@ -55,6 +77,18 @@ def create_weight_timeline(results: List[Dict[str, Any]],
             timestamp = datetime.fromisoformat(timestamp)
         
         quality_info = _extract_quality_info(r)
+        source = r.get('source', 'unknown')
+        
+        # Get marker symbol for source (if enabled)
+        marker_symbol = SOURCE_MARKER_SYMBOLS.get(source, SOURCE_MARKER_SYMBOLS['default']) if show_source_icons else 'circle'
+        
+        # Check for reset events (if enabled)
+        if show_reset_markers and r.get('was_reset', False):
+            reset_events.append({
+                'timestamp': timestamp,
+                'reason': r.get('reset_reason', 'Unknown'),
+                'gap_days': r.get('gap_days', 0)
+            })
         
         if r.get('accepted', False):
             accepted_data.append({
@@ -65,21 +99,74 @@ def create_weight_timeline(results: List[Dict[str, Any]],
                 'innovation': r.get('innovation', 0),
                 'quality_score': quality_info['score'],
                 'quality_details': quality_info['details'],
-                'source': r.get('source', 'unknown'),
+                'source': source,
+                'marker_symbol': marker_symbol,  # Always use source-based marker
+                'was_reset': r.get('was_reset', False),
+                'reset_reason': r.get('reset_reason'),
+                'gap_days': r.get('gap_days'),
                 'hover_text': _create_accepted_hover(r, quality_info)
             })
         else:
+            # Calculate rejection severity for color
+            reason = r.get('reason', 'Unknown')
+            weight_change = abs(r.get('raw_weight', 0) - r.get('filtered_weight', r.get('raw_weight', 0)))
+            severity = get_rejection_severity(reason, weight_change)
+            
             rejected_data.append({
                 'timestamp': timestamp,
                 'weight': r.get('raw_weight'),
-                'reason': r.get('reason', 'Unknown'),
+                'reason': reason,
+                'severity': severity,
                 'quality_score': quality_info['score'],
                 'quality_details': quality_info['details'],
-                'source': r.get('source', 'unknown'),
+                'source': source,
+                'marker_symbol': marker_symbol,
                 'hover_text': _create_rejected_hover(r, quality_info)
             })
     
     fig = go.Figure()
+    
+    # Add reset event vertical lines FIRST (so they appear behind data)
+    if reset_events and (accepted_data or rejected_data):
+        # Get y-axis range from data
+        all_weights = []
+        if accepted_data:
+            all_weights.extend([d['weight'] for d in accepted_data])
+        if rejected_data:
+            all_weights.extend([d['weight'] for d in rejected_data])
+        
+        if all_weights:
+            y_min = min(all_weights) * 0.98
+            y_max = max(all_weights) * 1.02
+            
+            for reset in reset_events:
+                # Add vertical line as a trace (behind other data)
+                fig.add_trace(go.Scatter(
+                    x=[reset['timestamp'], reset['timestamp']],
+                    y=[y_min, y_max],
+                    mode='lines',
+                    name=f"Reset ({reset['gap_days']:.0f}d gap)",
+                    line=dict(
+                        color=f'rgba({int(reset_marker_color[1:3], 16)}, {int(reset_marker_color[3:5], 16)}, {int(reset_marker_color[5:7], 16)}, {reset_marker_opacity})',
+                        width=reset_marker_width,
+                        dash=reset_marker_style
+                    ),
+                    showlegend=False,  # Don't show in legend
+                    hovertemplate=f"<b>Kalman Reset</b><br>Gap: {reset['gap_days']:.0f} days<br>%{{x}}<extra></extra>"
+                ))
+                
+                # Add subtle annotation at the top
+                fig.add_annotation(
+                    x=reset['timestamp'],
+                    y=y_max,
+                    text=f"{reset['gap_days']:.0f}d",
+                    showarrow=False,
+                    yshift=5,
+                    font=dict(size=8, color='rgba(255, 102, 0, 0.6)'),
+                    bgcolor='rgba(255, 255, 255, 0.7)',
+                    bordercolor='rgba(255, 102, 0, 0.3)',
+                    borderwidth=0.5
+                )
     
     if accepted_data:
         fig.add_trace(go.Scatter(
@@ -101,6 +188,7 @@ def create_weight_timeline(results: List[Dict[str, Any]],
                     y=0.5,
                     len=0.5
                 ),
+                symbol=[d['marker_symbol'] for d in accepted_data],
                 line=dict(color='#1B5E20', width=1)
             ),
             text=[d['hover_text'] for d in accepted_data],
@@ -108,20 +196,75 @@ def create_weight_timeline(results: List[Dict[str, Any]],
         ))
     
     if rejected_data:
-        fig.add_trace(go.Scatter(
-            x=[d['timestamp'] for d in rejected_data],
-            y=[d['weight'] for d in rejected_data],
-            mode='markers',
-            name='Rejected',
-            marker=dict(
-                size=12,
-                color='#C62828',
-                symbol='x',
-                line=dict(color='#B71C1C', width=2)
-            ),
-            text=[d['hover_text'] for d in rejected_data],
-            hovertemplate='%{text}<extra></extra>'
-        ))
+        if group_by_severity and show_severity_colors:
+            # Create separate traces for each severity level to show in legend
+            severity_groups = {}
+            for d in rejected_data:
+                severity = d['severity']
+                if severity not in severity_groups:
+                    severity_groups[severity] = []
+                severity_groups[severity].append(d)
+            
+            for severity, data_points in severity_groups.items():
+                fig.add_trace(go.Scatter(
+                    x=[d['timestamp'] for d in data_points],
+                    y=[d['weight'] for d in data_points],
+                    mode='markers',
+                    name=f'Rejected ({severity})',
+                    marker=dict(
+                        size=12,
+                        color=REJECTION_SEVERITY_COLORS.get(severity, '#FF0000') if show_severity_colors else '#C62828',
+                        symbol=[d['marker_symbol'] for d in data_points],
+                        line=dict(color='#8B0000', width=1)
+                    ),
+                    text=[d['hover_text'] for d in data_points],
+                    hovertemplate='%{text}<extra></extra>'
+                ))
+        else:
+            # Single trace for all rejected points
+            fig.add_trace(go.Scatter(
+                x=[d['timestamp'] for d in rejected_data],
+                y=[d['weight'] for d in rejected_data],
+                mode='markers',
+                name='Rejected',
+                marker=dict(
+                    size=12,
+                    color=[REJECTION_SEVERITY_COLORS.get(d['severity'], '#FF0000') for d in rejected_data] if show_severity_colors else '#C62828',
+                    symbol=[d['marker_symbol'] for d in rejected_data],
+                    line=dict(color='#8B0000', width=1)
+                ),
+                text=[d['hover_text'] for d in rejected_data],
+                hovertemplate='%{text}<extra></extra>'
+            ))
+    
+    # Add invisible traces for source type legend (if enabled)
+    if show_source_legend:
+        source_types = {
+            'care-team-upload': ('Care Team', 'triangle-up'),
+            'patient-upload': ('Patient Upload', 'circle'),
+            'internal-questionnaire': ('Questionnaire', 'square'),
+            'patient-device': ('Device', 'diamond'),
+            'https://connectivehealth.io': ('ConnectiveHealth', 'hexagon'),
+            'https://api.iglucose.com': ('iGlucose', 'hexagon')
+        }
+        
+        # Add legend entries for source types
+        for source_key, (display_name, symbol) in source_types.items():
+            fig.add_trace(go.Scatter(
+                x=[None],
+                y=[None],
+                mode='markers',
+                name=f"Source: {display_name}",
+                marker=dict(
+                    size=10,
+                    symbol=symbol,
+                    color='gray',
+                    line=dict(color='darkgray', width=1)
+                ),
+                showlegend=True,
+                legendgroup='sources',
+                legendgrouptitle_text="Source Types"
+            ))
     
     stats = _calculate_stats(results, accepted_data, rejected_data)
     
@@ -139,9 +282,12 @@ def create_weight_timeline(results: List[Dict[str, Any]],
         legend=dict(
             x=0.02,
             y=0.98,
-            bgcolor='rgba(255, 255, 255, 0.9)',
-            bordercolor='rgba(0, 0, 0, 0.2)',
-            borderwidth=1
+            bgcolor='rgba(255, 255, 255, 0.95)',
+            bordercolor='rgba(0, 0, 0, 0.3)',
+            borderwidth=1,
+            font=dict(size=10),
+            tracegroupgap=20,
+            itemsizing='constant'
         ),
         plot_bgcolor='#FAFAFA',
         paper_bgcolor='white',
@@ -211,6 +357,13 @@ def _create_accepted_hover(result: Dict[str, Any], quality_info: Dict[str, Any])
         f"<b>Weight:</b> {result.get('filtered_weight', 0):.2f} kg",
         f"<b>Raw:</b> {result.get('raw_weight', 0):.2f} kg"
     ]
+    
+    # Add reset information if applicable
+    if result.get('was_reset', False):
+        lines.append(f"<b>⚠️ KALMAN FILTER RESET</b>")
+        if result.get('gap_days'):
+            lines.append(f"<b>Data Gap:</b> {result['gap_days']:.1f} days")
+        lines.append(f"<b>Filter reinitialized from this measurement</b>")
     
     if 'confidence' in result:
         lines.append(f"<b>Confidence:</b> {result['confidence']:.3f}")

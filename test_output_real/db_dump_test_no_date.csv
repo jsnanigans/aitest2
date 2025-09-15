@@ -1,0 +1,2 @@
+user_id,last_timestamp,last_weight,last_trend,last_source,last_raw_weight,weight_change,measurement_count,process_noise,measurement_noise,initial_uncertainty
+001adb56-40a5-4ef2-a092-e20915e0fb81,2025-09-03T16:16:39,61.42,-0.0472,patient-upload,61.23,0.19,27,0.016,5.5840000000000005,0.361
