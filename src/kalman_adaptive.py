@@ -4,6 +4,7 @@ Adaptive Kalman filter parameters for post-reset period.
 
 from datetime import datetime
 from typing import Dict, Tuple, Optional, Any
+import numpy as np
 
 def get_adaptive_kalman_params(
     reset_timestamp: Optional[datetime],
@@ -16,15 +17,7 @@ def get_adaptive_kalman_params(
     Get adaptive Kalman parameters that gradually transition from 
     loose (adaptive) to tight (normal) configuration after a reset.
     
-    Args:
-        reset_timestamp: When the reset occurred
-        current_timestamp: Current measurement timestamp
-        base_config: Base Kalman configuration
-        adaptive_days: Days over which to transition (default 7)
-        state: Optional state dict containing reset parameters
-    
-    Returns:
-        Dictionary with adaptive Kalman parameters
+    Uses multipliers from reset parameters to scale base config values.
     """
     
     if reset_timestamp is None:
@@ -35,24 +28,28 @@ def get_adaptive_kalman_params(
     # Check if we have custom reset parameters in state
     if state and state.get('reset_parameters'):
         reset_params = state['reset_parameters']
-        adaptive_days = reset_params.get('adaptive_days', adaptive_days)
+        adaptation_days = reset_params.get('adaptation_days', adaptive_days)
         
-        # Use parameters from reset
-        weight_boost = reset_params.get('weight_boost_factor', 10)
-        trend_boost = reset_params.get('trend_boost_factor', 100)
+        # Get multipliers from reset parameters
+        initial_var_mult = reset_params.get('initial_variance_multiplier', 5)
+        weight_noise_mult = reset_params.get('weight_noise_multiplier', 20)
+        trend_noise_mult = reset_params.get('trend_noise_multiplier', 200)
+        obs_noise_mult = reset_params.get('observation_noise_multiplier', 0.5)
         
-        # Calculate adaptive values based on reset type
+        # Apply multipliers to base config
+        base_initial_var = base_config.get('initial_variance', 0.361)
         base_weight_cov = base_config.get('transition_covariance_weight', 0.016)
         base_trend_cov = base_config.get('transition_covariance_trend', 0.0001)
+        base_obs_cov = base_config.get('observation_covariance', 3.4)
         
         adaptive_params = {
-            'initial_variance': 5.0,
-            'transition_covariance_weight': base_weight_cov * weight_boost,
-            'transition_covariance_trend': base_trend_cov * trend_boost,
-            'observation_covariance': 2.0,
+            'initial_variance': base_initial_var * initial_var_mult,
+            'transition_covariance_weight': base_weight_cov * weight_noise_mult,
+            'transition_covariance_trend': base_trend_cov * trend_noise_mult,
+            'observation_covariance': base_obs_cov * obs_noise_mult,
         }
     else:
-        # Use default adaptive parameters
+        # Use default adaptive parameters (shouldn't happen with proper reset)
         adaptive_params = {
             'initial_variance': 5.0,
             'transition_covariance_weight': 0.5,
@@ -60,11 +57,21 @@ def get_adaptive_kalman_params(
             'observation_covariance': 2.0,
         }
     
-    if days_since_reset >= adaptive_days:
+    # Check if we're still in adaptation period
+    if days_since_reset >= adaptation_days:
         return base_config
     
-    decay_factor = min(1.0, days_since_reset / adaptive_days)
+    # Calculate decay factor based on days since reset
+    decay_rate = reset_params.get('adaptation_decay_rate', 2.5) if state else 2.5
+    measurements_since = state.get('measurements_since_reset', 0) if state else 0
     
+    # Use measurement-based decay if available, otherwise time-based
+    if measurements_since > 0:
+        decay_factor = 1.0 - np.exp(-measurements_since / decay_rate)
+    else:
+        decay_factor = min(1.0, days_since_reset / adaptation_days)
+    
+    # Interpolate between adaptive and base parameters
     result = {}
     for key in base_config:
         if key in adaptive_params:
@@ -76,17 +83,9 @@ def get_adaptive_kalman_params(
     
     return result
 
-
 def should_use_adaptive_params(state: Dict[str, Any], adaptive_days: int = 7) -> bool:
     """
     Check if adaptive parameters should be used based on reset history.
-    
-    Args:
-        state: Current processor state
-        adaptive_days: Days to use adaptive params after reset
-    
-    Returns:
-        True if within adaptive period after reset
     """
     reset_events = state.get('reset_events', [])
     if not reset_events:
@@ -109,18 +108,15 @@ def should_use_adaptive_params(state: Dict[str, Any], adaptive_days: int = 7) ->
     
     days_since_reset = (current_timestamp - reset_timestamp).total_seconds() / 86400.0
     
-    return days_since_reset < adaptive_days
-
+    # Use adaptation_days from reset parameters if available
+    reset_params = state.get('reset_parameters', {})
+    adaptation_days = reset_params.get('adaptation_days', adaptive_days)
+    
+    return days_since_reset < adaptation_days
 
 def get_reset_timestamp(state: Dict[str, Any]) -> Optional[datetime]:
     """
     Get the timestamp of the most recent reset event.
-    
-    Args:
-        state: Current processor state
-    
-    Returns:
-        Timestamp of last reset, or None if no resets
     """
     reset_events = state.get('reset_events', [])
     if not reset_events:

@@ -38,12 +38,12 @@ quality_threshold = 0.4
 [kalman.reset.initial]
 # Initial reset for first measurement (aggressive adaptation)
 enabled = true
-weight_boost_factor = 20
-trend_boost_factor = 100
-decay_rate = 3
-warmup_measurements = 10
-adaptive_days = 10
-quality_threshold = 0.4
+weight_boost_factor = 30  # Very aggressive for initial (was 20)
+trend_boost_factor = 200  # Very aggressive for initial (was 100)
+decay_rate = 2  # Faster decay for quicker adaptation (was 3)
+warmup_measurements = 15  # More measurements for initial learning (was 10)
+adaptive_days = 14  # Two weeks for initial adaptation (was 10)
+quality_threshold = 0.3  # Very lenient for initial (was 0.4)
 
 [kalman.reset.soft]
 # Soft reset for manual data entry (gentle adaptation)

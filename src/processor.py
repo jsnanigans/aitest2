@@ -252,7 +252,10 @@ def process_measurement(
         in_adaptive_period = False
         if state:
             measurements_since_reset = state.get("measurements_since_reset", 100)
-            if measurements_since_reset < 10:  # First 10 measurements
+            # Get adaptive parameters from reset state
+            reset_params = state.get('reset_parameters', {})
+            warmup_measurements = reset_params.get('adaptation_measurements', reset_params.get('warmup_measurements', 10))
+            if measurements_since_reset < warmup_measurements:
                 in_adaptive_period = True
             else:
                 # Also check time-based (7 days)
@@ -262,14 +265,18 @@ def process_measurement(
                     reset_timestamp = timestamp
                 if reset_timestamp:
                     days_since = (timestamp - reset_timestamp).total_seconds() / 86400.0
-                    if days_since < 7:
+                    adaptive_days = reset_params.get('adaptation_days', reset_params.get('adaptive_days', 7))
+                    if days_since < adaptive_days:
                         in_adaptive_period = True
         
         # Adjust quality config if in adaptive period
         adaptive_quality_config = quality_config.copy()
         if in_adaptive_period:
             # Lower threshold during adaptation
-            adaptive_quality_config["threshold"] = 0.4  # vs normal 0.6
+            # Use threshold from reset parameters if available
+            reset_params = state.get('reset_parameters', {})
+            adaptive_threshold = reset_params.get('quality_acceptance_threshold', reset_params.get('quality_threshold', 0.4))
+            adaptive_quality_config['threshold'] = adaptive_threshold
             # Adjust component weights to be more forgiving
             if "component_weights" in adaptive_quality_config:
                 weights = adaptive_quality_config["component_weights"].copy()
