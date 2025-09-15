@@ -35,6 +35,65 @@ SOURCE_NOISE_MULTIPLIERS = {
 from .constants import KALMAN_DEFAULTS, categorize_rejection_enhanced, get_rejection_severity
 
 
+def handle_gap_detection(state: Dict[str, Any], current_timestamp: datetime, config: Dict[str, Any]) -> Dict[str, Any]:
+    """Detect gap and initialize buffer if needed."""
+    gap_config = config.get('kalman', {}).get('gap_handling', {})
+    if not gap_config.get('enabled', True):
+        return state
+    
+    gap_threshold = gap_config.get('gap_threshold_days', 10)
+    
+    if state.get('last_timestamp'):
+        last_timestamp = state['last_timestamp']
+        if isinstance(last_timestamp, str):
+            last_timestamp = datetime.fromisoformat(last_timestamp)
+        
+        gap_days = (current_timestamp - last_timestamp).total_seconds() / 86400.0
+        
+        if gap_days > gap_threshold:
+            state['gap_buffer'] = {
+                'active': True,
+                'gap_days': gap_days,
+                'gap_detected_at': current_timestamp.isoformat(),
+                'measurements': [],
+                'target_size': gap_config.get('warmup_size', 3),
+                'timeout_days': gap_config.get('max_warmup_days', 7)
+            }
+            
+            if state.get('last_state') is not None:
+                _, trend = KalmanFilterManager.get_current_state_values(state)
+                if trend is not None:
+                    state['gap_buffer']['pre_gap_trend'] = float(trend)
+    
+    return state
+
+
+def update_gap_buffer(state: Dict[str, Any], weight: float, timestamp: datetime, source: str) -> Tuple[Dict[str, Any], bool]:
+    """Add measurement to buffer and check completion."""
+    buffer = state.get('gap_buffer', {})
+    
+    if not buffer.get('active'):
+        return state, False
+    
+    buffer['measurements'].append({
+        'weight': weight,
+        'timestamp': timestamp.isoformat(),
+        'source': source
+    })
+    
+    is_complete = False
+    if len(buffer['measurements']) >= buffer['target_size']:
+        is_complete = True
+    elif len(buffer['measurements']) >= 2:
+        first_timestamp = datetime.fromisoformat(buffer['measurements'][0]['timestamp'])
+        time_span_days = (timestamp - first_timestamp).total_seconds() / 86400
+        if time_span_days >= buffer['timeout_days']:
+            is_complete = True
+    
+    state['gap_buffer'] = buffer
+    return state, is_complete
+
+
 def process_measurement(
     user_id: str,
     weight: float,
@@ -94,9 +153,10 @@ def process_measurement(
     # Add user height to config for validation
     user_height = DataQualityPreprocessor.get_user_height(user_id)
     
-    # Step 3: Check for gaps and potential reset
+    # Step 3: Check for gaps and handle buffer
     kalman_config = config.get('kalman', {})
-    reset_gap_days = kalman_config.get('reset_gap_days', 30)
+    gap_handling_config = kalman_config.get('gap_handling', {})
+    gap_handling_enabled = gap_handling_config.get('enabled', True)
     
     if state.get('last_timestamp'):
         last_timestamp = state['last_timestamp']
@@ -105,39 +165,74 @@ def process_measurement(
         
         gap_days = (timestamp - last_timestamp).total_seconds() / 86400.0
         
-        # Adjust reset gap for questionnaire sources
-        if state.get('last_source') in QUESTIONNAIRE_SOURCES:
-            reset_gap_days = kalman_config.get('questionnaire_reset_days', 10)
+        # Check if gap handling is enabled and gap exceeds threshold
+        gap_threshold = gap_handling_config.get('gap_threshold_days', 10)
         
-        # Reset if gap is too large
-        if gap_days > reset_gap_days:
-            # Validate with BMI before reset
-            # Use BMI consistency validation
-            bmi_result = BMIValidator.validate_weight_bmi_consistency(
-                cleaned_weight, user_height, source
+        if gap_handling_enabled and gap_days > gap_threshold:
+            # Initialize gap buffer for adaptive handling
+            state = handle_gap_detection(state, timestamp, config)
+    
+    # Step 3.5: Handle gap buffer if active
+    gap_buffer = state.get('gap_buffer')
+    if gap_buffer and gap_buffer.get('active'):
+        state, buffer_complete = update_gap_buffer(state, cleaned_weight, timestamp, source)
+        
+        if buffer_complete:
+            # Initialize Kalman from buffer
+            buffer_state = KalmanFilterManager.initialize_from_buffer(state['gap_buffer'], config)
+            state.update(buffer_state)
+            state['gap_buffer']['active'] = False
+            state['last_timestamp'] = timestamp
+            state['last_source'] = source
+            state['last_raw_weight'] = cleaned_weight
+            
+            # Process the last measurement through Kalman
+            adaptive_config = config.get('adaptive_noise', {})
+            if adaptive_config.get('enabled', True):
+                default_multiplier = adaptive_config.get('default_multiplier', 1.5)
+                noise_multiplier = SOURCE_NOISE_MULTIPLIERS.get(source, default_multiplier)
+            else:
+                noise_multiplier = 1.0
+            observation_covariance = kalman_config.get('observation_covariance', 3.49) * noise_multiplier
+            
+            state = KalmanFilterManager.update_state(
+                state, cleaned_weight, timestamp, source, {}, observation_covariance
             )
-            is_valid = bmi_result['valid']
-            rejection_reason = bmi_result.get('rejection_reason')
             
-            if not is_valid:
-                return {
-                    'accepted': False,
-                    'timestamp': timestamp,
-                    'raw_weight': weight,
-                    'cleaned_weight': cleaned_weight,
-                    'source': source,
-                    'reason': f"Post-gap BMI validation failed: {rejection_reason}",
-                    'gap_days': gap_days,
-                    'stage': 'gap_validation'
-                }
+            result = KalmanFilterManager.create_result(
+                state, cleaned_weight, timestamp, source, True, observation_covariance
+            )
             
-            # Reset state for fresh start
-            state = db.create_initial_state()
-            was_reset = True
-            reset_reason = f"Gap of {gap_days:.1f} days"
-    else:
-        was_reset = False
-        reset_reason = None
+            result['stage'] = 'gap_buffer_complete'
+            result['gap_buffer_size'] = len(state['gap_buffer']['measurements'])
+            result['gap_days'] = state['gap_buffer']['gap_days']
+            result['preprocessing'] = preprocess_metadata
+            result['noise_multiplier'] = noise_multiplier
+            
+            db.save_state(user_id, state)
+            return result
+        else:
+            # Buffer not complete, return preliminary result
+            result = {
+                'accepted': True,
+                'timestamp': timestamp,
+                'raw_weight': weight,
+                'cleaned_weight': cleaned_weight,
+                'source': source,
+                'stage': 'gap_buffer_collecting',
+                'gap_buffer_size': len(state['gap_buffer']['measurements']),
+                'gap_buffer_target': state['gap_buffer']['target_size'],
+                'preprocessing': preprocess_metadata,
+                'filtered_weight': cleaned_weight,
+                'trend': 0.0,
+                'confidence': 0.5
+            }
+            
+            state['last_timestamp'] = timestamp
+            state['last_source'] = source
+            state['last_raw_weight'] = cleaned_weight
+            db.save_state(user_id, state)
+            return result
     
     # Step 4: Initialize Kalman if needed
     if not state.get('kalman_params'):
@@ -165,10 +260,6 @@ def process_measurement(
         result['stage'] = 'initialization'
         result['preprocessing'] = preprocess_metadata
         result['noise_multiplier'] = noise_multiplier
-        if 'was_reset' in locals() and was_reset:
-            result['was_reset'] = True
-            result['reset_reason'] = reset_reason
-            result['gap_days'] = gap_days
         
         # Save state
         state['last_source'] = source
@@ -291,7 +382,10 @@ def process_measurement(
                 'stage': 'kalman_deviation'
             }
     
-    # Step 7: Update Kalman filter
+    # Step 7: Update Kalman filter with adaptation decay if active
+    if state.get('gap_adaptation', {}).get('active'):
+        state = KalmanFilterManager.apply_adaptation_decay(state, config)
+    
     adaptive_config = config.get('adaptive_noise', {})
     if adaptive_config.get('enabled', True):
         default_multiplier = adaptive_config.get('default_multiplier', 1.5)
@@ -318,11 +412,15 @@ def process_measurement(
         result['quality_score'] = quality_score_value
         result['quality_components'] = quality_components
     
-    # Add reset info if applicable
-    if 'was_reset' in locals() and was_reset:
-        result['was_reset'] = True
-        result['reset_reason'] = reset_reason
-        result['gap_days'] = gap_days
+
+    
+    # Add gap adaptation info if active
+    if state.get('gap_adaptation', {}).get('active'):
+        result['gap_adaptation'] = {
+            'active': True,
+            'measurements_since_gap': state['gap_adaptation']['measurements_since_gap'],
+            'gap_factor': state['gap_adaptation']['gap_factor']
+        }
     
     # Calculate BMI details
     implied_bmi = cleaned_weight / (user_height ** 2)

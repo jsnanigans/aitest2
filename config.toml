@@ -22,8 +22,24 @@ initial_variance = 0.361  # Initial state uncertainty
 transition_covariance_weight = 0.0160  # Process noise for weight
 transition_covariance_trend = 0.0001  # Process noise for trend
 observation_covariance = 3.490  # Measurement noise
-reset_gap_days = 30  # Days before resetting Kalman state
-questionnaire_reset_days = 10  # Days for questionnaire source reset
+
+[kalman.gap_handling]
+# Gap handling configuration for improved Kalman performance after data gaps
+# When enabled, ALL gaps > threshold use adaptive initialization with buffer
+# No hard resets - the system adapts to any gap size using buffer + trend estimation
+# Example: An 18-day gap (common in real data) will trigger buffer collection
+enabled = true  # Enable adaptive gap handling system
+gap_threshold_days = 10  # Minimum gap to trigger adaptive handling (days)
+
+# Buffer configuration - collects measurements after gap for better initialization
+warmup_size = 3  # Number of measurements to collect before initialization
+max_warmup_days = 7  # Maximum days to wait for warmup measurements
+
+# Adaptive parameters - increases uncertainty based on gap duration
+# Larger gaps (30+ days) get higher multipliers automatically (capped at 3x)
+gap_variance_multiplier = 2.0  # Multiplier for weight variance during gaps
+trend_variance_multiplier = 20.0  # Multiplier for trend variance during gaps
+adaptation_decay_rate = 5.0  # Measurements for 63% decay of adaptation
 
 [visualization]
 # Display settings

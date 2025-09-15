@@ -92,6 +92,8 @@ class ProcessorStateDB:
             'last_source': None,
             'last_raw_weight': None,
             'measurement_history': [],
+            'gap_buffer': None,
+            'gap_adaptation': None,
         }
 
     def _make_serializable(self, state: Dict[str, Any]) -> Dict[str, Any]:
