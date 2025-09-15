@@ -186,12 +186,39 @@ class QualityScorer:
         recent_weights: Optional[List[float]],
         previous_weight: Optional[float]
     ) -> float:
-        """Check statistical plausibility."""
+        """Check statistical plausibility with trend awareness."""
         # Use recent weights if available
         if recent_weights and len(recent_weights) >= 3:
             recent_array = np.array(recent_weights[-20:])
             mean = np.mean(recent_array)
-            std = max(np.std(recent_array), 0.5)
+            std = np.std(recent_array)
+            
+            # Detect and account for trends
+            if len(recent_array) >= 4:
+                slope, r_squared = self._calculate_trend(list(recent_array))
+                
+                # If there's a clear trend (R² > 0.5), adjust expectations
+                if r_squared > 0.5:
+                    # Project trend forward
+                    expected_next = recent_array[-1] + slope
+                    
+                    # Use projected value for mean if trend is strong
+                    if r_squared > 0.8:
+                        mean = expected_next
+                    else:
+                        # Blend projection with historical mean
+                        mean = (r_squared * expected_next) + ((1 - r_squared) * mean)
+                
+                # Adjust minimum std for trending data
+                if abs(slope) > 0.1 and r_squared > 0.5:
+                    # For strong trends, allow more variation
+                    min_std = max(1.0, abs(slope) * 3)
+                else:
+                    min_std = 0.5
+            else:
+                min_std = 0.5
+            
+            std = max(std, min_std)
             
         # Fall back to previous weight
         elif previous_weight is not None:
@@ -325,6 +352,30 @@ class QualityScorer:
         )
         
         return weighted_sum / total_weight
+    
+    def _calculate_trend(self, weights: List[float]) -> tuple[float, float]:
+        """Calculate linear trend in weights.
+        
+        Returns:
+            (slope, r_squared) where slope is per measurement and r_squared is fit quality
+        """
+        if len(weights) < 2:
+            return 0.0, 0.0
+        
+        x = np.arange(len(weights))
+        y = np.array(weights)
+        
+        # Linear regression
+        A = np.vstack([x, np.ones(len(x))]).T
+        slope, intercept = np.linalg.lstsq(A, y, rcond=None)[0]
+        
+        # Calculate R-squared
+        y_pred = slope * x + intercept
+        ss_res = np.sum((y - y_pred) ** 2)
+        ss_tot = np.sum((y - np.mean(y)) ** 2)
+        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+        
+        return slope, r_squared
     
     def calculate_consistency_score(
         self,

@@ -1,0 +1,53 @@
+# Less strict configuration for weight stream processor
+# Adjusted to accept more legitimate weight changes
+
+[data]
+csv_file = "./user_0672_complete.csv"
+output_dir = "output_less_strict"
+max_users = 100
+user_offset = 0  # No offset for testing
+min_readings = 20
+min_date = "2015-01-01"
+max_date = "2025-09-05"
+export_database = true
+
+[processing]
+# Increased threshold for more tolerance
+extreme_threshold = 0.25  # Was 0.20 - allows 25% deviation
+kalman_cleanup_threshold = 5.0  # Was 4.0 - less aggressive outlier removal
+
+[kalman]
+# Slightly increased variance parameters for more flexibility
+initial_variance = 0.5  # Was 0.361
+transition_covariance_weight = 0.020  # Was 0.0160
+transition_covariance_trend = 0.0002  # Was 0.0001
+observation_covariance = 4.0  # Was 3.490
+reset_gap_days = 30
+questionnaire_reset_days = 10
+
+[visualization]
+enabled = true
+mode = "interactive"
+use_enhanced = true
+verbosity = "auto"
+theme = "plotly_white"
+
+[adaptive_noise]
+enabled = true
+default_multiplier = 2.0  # Was 1.5 - more tolerance for variation
+
+[logging]
+progress_interval = 10000
+timestamp_format = "test_no_date"
+
+[quality_scoring]
+enabled = true
+threshold = 0.55  # Was 0.6 - slightly lower acceptance threshold
+use_harmonic_mean = true
+
+[quality_scoring.component_weights]
+# Adjusted weights to be less strict on plausibility
+safety = 0.30        # Was 0.35
+plausibility = 0.20  # Was 0.25 - reduced weight
+consistency = 0.30   # Was 0.25 - increased weight
+reliability = 0.20   # Was 0.15 - increased weight

@@ -30,7 +30,7 @@ def load_test_users(filepath: str = "test_users.txt") -> list:
     """Load test user IDs from file."""
     if not Path(filepath).exists():
         return []
-    
+
     users = []
     with open(filepath) as f:
         for line in f:
@@ -47,41 +47,41 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     """
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
-    
+
     # Load height data once
     DataQualityPreprocessor.load_height_data()
-    
+
     # Database for Kalman state
     db = get_state_db()
-    
+
     # Parse configuration
     max_users = config["data"].get("max_users", 0)
     user_offset = config["data"].get("user_offset", 0)
     min_readings = config["data"].get("min_readings", 0)
-    
+
     # Load test users if specified
     test_users_file = config["data"].get("test_users_file", "")
     test_users = load_test_users(test_users_file) if test_users_file else []
     test_mode = bool(test_users)
-    
+
     if test_mode:
         test_users_set = set(test_users)
         max_users = len(test_users)
         user_offset = 0
         print(f"Test mode: Processing {len(test_users)} specific users")
-    
+
     # Date filters
     min_date_str = config["data"].get("min_date", "")
     max_date_str = config["data"].get("max_date", "")
     min_date = parse_timestamp(min_date_str) if min_date_str else None
     max_date = parse_timestamp(max_date_str) if max_date_str else None
-    
+
     # Tracking
     seen_users = set()
     processed_users = set()
     skipped_users = set()
     user_results = {}  # Only store results, not debug info
-    
+
     stats = {
         "total_rows": 0,
         "accepted": 0,
@@ -89,18 +89,18 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         "date_filtered": 0,
         "start_time": datetime.now(),
     }
-    
+
     print(f"Processing {csv_path}...")
     if max_users > 0:
         print(f"  Processing up to {max_users} users")
     if min_date or max_date:
         print(f"  Date filter: {min_date_str} to {max_date_str}")
     print()
-    
+
     # First pass: count readings per user (always do this to properly filter)
     user_reading_counts = {}
     eligible_users = []  # Users that meet min_readings criteria
-    
+
     if not test_mode:
         print(f"Analyzing user data (min_readings={min_readings}, max_users={max_users})...")
         with open(csv_path) as f:
@@ -109,12 +109,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 user_id = row.get("user_id")
                 if not user_id:
                     continue
-                
+
                 # Basic validation
                 weight_str = row.get("weight", "").strip()
                 if not weight_str or weight_str.upper() == "NULL":
                     continue
-                
+
                 # Date check
                 if min_date or max_date:
                     date_str = row.get("effectiveDateTime")
@@ -126,36 +126,36 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                             continue
                     except:
                         continue
-                
+
                 user_reading_counts[user_id] = user_reading_counts.get(user_id, 0) + 1
-        
+
         # Determine eligible users based on min_readings
         for user_id, count in sorted(user_reading_counts.items()):  # Sort for consistent ordering
             if count >= min_readings:
                 eligible_users.append(user_id)
-        
+
         # Apply user_offset and max_users to eligible users
         if user_offset > 0 and user_offset < len(eligible_users):
             eligible_users = eligible_users[user_offset:]
         elif user_offset >= len(eligible_users):
             eligible_users = []  # Offset beyond available users
-        
+
         if max_users > 0 and len(eligible_users) > max_users:
             eligible_users = eligible_users[:max_users]
-        
+
         eligible_users_set = set(eligible_users)
-        
+
         print(f"  Found {len(user_reading_counts)} total users")
         print(f"  {len([u for u, c in user_reading_counts.items() if c >= min_readings])} users with >= {min_readings} readings")
         print(f"  Processing {len(eligible_users)} users (after offset={user_offset}, max={max_users})")
-    
+
     # Main processing loop
     with open(csv_path) as f:
         reader = csv.DictReader(f)
-        
+
         for row in reader:
             stats["total_rows"] += 1
-            
+
             # Progress update
             if stats["total_rows"] % config["logging"]["progress_interval"] == 0:
                 elapsed = (datetime.now() - stats["start_time"]).total_seconds()
@@ -163,12 +163,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 print(f"  Row {stats['total_rows']:,} | "
                       f"Users: {len(processed_users):,} | "
                       f"Rate: {rate:.0f} rows/sec")
-            
+
             # Parse row
             user_id = row.get("user_id")
             if not user_id:
                 continue
-            
+
             # User filtering
             if test_mode:
                 if user_id not in test_users_set:
@@ -177,12 +177,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 # Only process users in the eligible set
                 if user_id not in eligible_users_set:
                     continue
-            
+
             # Parse weight with validation
             weight_str = row.get("weight", "").strip()
             if not weight_str or weight_str.upper() == "NULL":
                 continue
-            
+
             try:
                 weight = float(weight_str)
                 # Validate weight is reasonable
@@ -195,22 +195,22 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             except (ValueError, TypeError):
                 stats["parse_errors"] = stats.get("parse_errors", 0) + 1
                 continue
-            
+
             # Parse metadata
             date_str = row.get("effectiveDateTime")
             source = row.get("source_type") or row.get("source", "unknown")
             unit = (row.get("unit") or "kg").lower().strip()
-            
+
             # Skip BSA measurements
             if 'BSA' in source.upper() or 'm2' in unit or 'm²' in unit:
                 continue
-            
+
             # Parse timestamp
             try:
                 timestamp = parse_timestamp(date_str)
             except:
                 timestamp = datetime.now()
-            
+
             # Apply date filters
             if min_date and timestamp < min_date:
                 stats["date_filtered"] += 1
@@ -218,14 +218,14 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             if max_date and timestamp > max_date:
                 stats["date_filtered"] += 1
                 continue
-            
+
             # Process measurement with error boundary
             try:
                 # Merge quality scoring config into main config
                 full_config = config.copy()
                 if 'quality_scoring' not in full_config:
                     full_config['quality_scoring'] = {}
-                
+
                 result = process_measurement(
                     user_id=user_id,
                     weight=weight,
@@ -240,23 +240,23 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 if config.get("logging", {}).get("verbose", False):
                     print(f"Error processing {user_id}: {e}")
                 continue
-            
+
             # Track results
             if result:
                 if user_id not in user_results:
                     user_results[user_id] = []
                     processed_users.add(user_id)
-                
+
                 user_results[user_id].append(result)
-                
+
                 if result.get('accepted'):
                     stats["accepted"] += 1
                 else:
                     stats["rejected"] += 1
-    
+
     # Final statistics
     elapsed = (datetime.now() - stats["start_time"]).total_seconds()
-    
+
     print(f"\nProcessing Complete:")
     print(f"  Total rows: {stats['total_rows']:,}")
     print(f"  Users processed: {len(processed_users):,}")
@@ -265,38 +265,38 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     print(f"  Measurements accepted: {stats['accepted']:,}")
     print(f"  Measurements rejected: {stats['rejected']:,}")
     print(f"  Time: {elapsed:.1f}s ({stats['total_rows']/elapsed:.0f} rows/sec)")
-    
+
     if stats["accepted"] + stats["rejected"] > 0:
         acceptance_rate = stats['accepted'] / (stats['accepted'] + stats['rejected'])
         print(f"  Acceptance rate: {acceptance_rate:.1%}")
-    
+
     # Save results
     timestamp_str = datetime.now().strftime(config["logging"]["timestamp_format"])
     results_file = output_path / f"results_{timestamp_str}.json"
-    
+
     with open(results_file, "w") as f:
         json.dump({
             "stats": stats,
             "users": user_results
         }, f, indent=2, default=str)
-    
+
     print(f"\nResults saved to {results_file}")
-    
+
     # Export database if requested
     if config["data"].get("export_database", True):
         db_file = output_path / f"db_dump_{timestamp_str}.csv"
         users_exported = db.export_to_csv(str(db_file))
         print(f"Database exported to {db_file} ({users_exported} users)")
-    
+
     # Generate visualizations if enabled
     if config.get("visualization", {}).get("enabled", True):
         viz_dir = output_path / f"viz_{timestamp_str}"
         viz_dir.mkdir(exist_ok=True)
-        
+
         total_users = len(user_results)
         if total_users > 0:
             print(f"\nGenerating visualizations for {total_users} user(s)...")
-            
+
             # Set visualization verbosity based on number of users
             try:
                 from src.utils import set_verbosity
@@ -308,17 +308,17 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                     set_verbosity(2)  # Normal for single user
             except ImportError:
                 pass
-            
+
             successful = 0
             failed = 0
-            
+
             for idx, (user_id, results) in enumerate(user_results.items(), 1):
                 # Progress indicator for large batches
                 if total_users > 10 and idx % 10 == 0:
                     print(f"  Progress: {idx}/{total_users} ({idx*100//total_users}%)")
                 elif total_users <= 10:
                     print(f"  [{idx}/{total_users}] User {user_id[:8]}...", end=" ")
-                
+
                 try:
                     from src.visualization import create_weight_timeline
                     # Use enhanced visualization if configured
@@ -340,11 +340,11 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                         print(f"✗ ({str(e)[:30]})")
                     elif config.get("logging", {}).get("verbose", False):
                         print(f"    Error for {user_id}: {e}")
-            
+
             # Summary
             if total_users > 1:
                 print(f"\nVisualization complete: {successful} successful, {failed} failed")
-            
+
             # Generate index.html for dashboard navigation
             if successful > 0:
                 try:
@@ -356,9 +356,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                     print(f"Dashboard index: {index_path}")
                 except Exception as e:
                     print(f"Warning: Could not generate index.html: {e}")
-            
+
             print(f"Output: {viz_dir}")
-    
+
     return user_results, stats
 
 
@@ -366,7 +366,7 @@ def parse_timestamp(date_str: str) -> datetime:
     """Parse various timestamp formats."""
     if not date_str:
         return datetime.now()
-    
+
     if "T" in date_str:
         return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
     elif " " in date_str:
@@ -385,12 +385,12 @@ if __name__ == "__main__":
     parser.add_argument("--max-users", type=int, help="Maximum users to process")
     parser.add_argument("--no-viz", action="store_true", help="Skip visualizations")
     parser.add_argument("--no-db-export", action="store_true", help="Skip database export")
-    
+
     args = parser.parse_args()
-    
+
     # Load config
     config = load_config(args.config)
-    
+
     # Override with command line arguments
     if args.csv_file:
         config["data"]["csv_file"] = args.csv_file
@@ -402,10 +402,10 @@ if __name__ == "__main__":
         config["visualization"]["enabled"] = False
     if args.no_db_export:
         config["data"]["export_database"] = False
-    
+
     csv_file = config["data"]["csv_file"]
     if not Path(csv_file).exists():
         print(f"Error: File {csv_file} not found")
         sys.exit(1)
-    
+
     stream_process(csv_file, config["data"]["output_dir"], config)
