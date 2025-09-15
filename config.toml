@@ -2,11 +2,12 @@
 
 [data]
 # Input/output settings
-csv_file = "./data/2025-09-05_optimized.csv"  # Input CSV file path
+# csv_file = "./data/2025-09-05_optimized.csv"  # Input CSV file path (preprocessed with scripts/preprocess_csv.py)
+csv_file = "./data/2025-09-05_nocon.csv" # no connective health data
 output_dir = "output"  # Output directory for results
 max_users = 100  # Maximum number of users to process (0 = all)
 user_offset = 0  # Skip this many users at start
-min_readings = 2  # Minimum readings required per user
+min_readings = 20  # Minimum readings required per user
 min_date = "2015-01-01"  # Earliest date to process (YYYY-MM-DD)
 max_date = "2026-01-01"  # Latest date to process (YYYY-MM-DD)
 export_database = true  # Export results to database file
@@ -58,7 +59,7 @@ timestamp_format = "test_no_date"  # Format for output timestamps
 [quality_scoring]
 # Quality scoring system configuration
 enabled = true  # Enable quality scoring system
-threshold = 0.61  # Minimum score for acceptance (0-1)
+threshold = 0.6  # Minimum score for acceptance (0-1)
 use_harmonic_mean = true  # Use harmonic mean (penalizes low scores)
 
 [quality_scoring.component_weights]
