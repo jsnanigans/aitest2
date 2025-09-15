@@ -1,4 +1,0 @@
-user_id,last_timestamp,last_weight,last_trend,has_kalman_params,process_noise,measurement_noise,initial_uncertainty,has_adapted_params,adapted_process_noise,adapted_measurement_noise,state_reset_count,last_reset_timestamp
-00088d03-2305-4032-852a-354d0786ad87,2025-01-22T13:03:37,102.93,-0.0006,true,0.016,5.5840000000000005,0.361,false,,,0,
-000ded70-578d-4b05-8f62-b20b6f5bcf73,2025-03-07T00:00:00,110.68,0.0000,true,0.016,5.5840000000000005,0.361,false,,,0,
-001adb56-40a5-4ef2-a092-e20915e0fb81,2025-09-03T16:16:39,61.35,-0.0486,true,0.016,5.5840000000000005,0.361,false,,,0,
