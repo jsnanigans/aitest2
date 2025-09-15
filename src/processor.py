@@ -180,9 +180,11 @@ def process_measurement(
             noise_multiplier = 1.0
         observation_covariance = adaptive_kalman_config.get('observation_covariance', 3.49) * noise_multiplier
         
-        state = KalmanFilterManager.initialize_immediate(
+        kalman_state = KalmanFilterManager.initialize_immediate(
             cleaned_weight, timestamp, adaptive_kalman_config, observation_covariance
         )
+        # Merge Kalman state with existing state to preserve reset parameters
+        state.update(kalman_state)
     
         state = KalmanFilterManager.update_state(
             state, cleaned_weight, timestamp, source, {}, observation_covariance
@@ -254,8 +256,8 @@ def process_measurement(
             measurements_since_reset = state.get("measurements_since_reset", 100)
             # Get adaptive parameters from reset state
             reset_params = state.get('reset_parameters', {})
-            warmup_measurements = reset_params.get('adaptation_measurements', reset_params.get('warmup_measurements', 10))
-            if measurements_since_reset < warmup_measurements:
+            adaptation_measurements = reset_params.get('adaptation_measurements', 10)
+            if measurements_since_reset < adaptation_measurements:
                 in_adaptive_period = True
             else:
                 # Also check time-based (7 days)
@@ -265,8 +267,8 @@ def process_measurement(
                     reset_timestamp = timestamp
                 if reset_timestamp:
                     days_since = (timestamp - reset_timestamp).total_seconds() / 86400.0
-                    adaptive_days = reset_params.get('adaptation_days', reset_params.get('adaptive_days', 7))
-                    if days_since < adaptive_days:
+                    adaptation_days = reset_params.get('adaptation_days', 7)
+                    if days_since < adaptation_days:
                         in_adaptive_period = True
         
         # Adjust quality config if in adaptive period
@@ -275,7 +277,7 @@ def process_measurement(
             # Lower threshold during adaptation
             # Use threshold from reset parameters if available
             reset_params = state.get('reset_parameters', {})
-            adaptive_threshold = reset_params.get('quality_acceptance_threshold', reset_params.get('quality_threshold', 0.4))
+            adaptive_threshold = reset_params.get('quality_acceptance_threshold', 0.4)
             adaptive_quality_config['threshold'] = adaptive_threshold
             # Adjust component weights to be more forgiving
             if "component_weights" in adaptive_quality_config:
@@ -350,7 +352,22 @@ def process_measurement(
         predicted_weight = current_weight + current_trend * time_delta_days
         deviation = abs(cleaned_weight - predicted_weight) / predicted_weight
         
+        # Check if we're in adaptation phase for more lenient threshold
         extreme_threshold = processing_config.get('extreme_threshold', 0.20)
+        if state:
+            measurements_since_reset = state.get("measurements_since_reset", 100)
+            reset_params = state.get('reset_parameters', {})
+            adaptation_measurements = reset_params.get('adaptation_measurements', 10)
+            if measurements_since_reset < adaptation_measurements:
+                # During adaptation, use a much more lenient threshold
+                # or skip the check entirely if quality_acceptance_threshold is 0
+                quality_threshold = reset_params.get('quality_acceptance_threshold', 0.4)
+                if quality_threshold == 0:
+                    # Skip extreme deviation check during initial adaptation
+                    extreme_threshold = float('inf')  # Effectively disable the check
+                else:
+                    # Use a more lenient threshold
+                    extreme_threshold = 0.5  # 50% deviation allowed during adaptation
         
         if deviation > extreme_threshold:
             pseudo_normalized_innovation = (deviation / extreme_threshold) * 3.0
@@ -445,6 +462,8 @@ def process_measurement(
         state['measurement_history'] = state['measurement_history'][-30:]
     
     # Save updated state
+    # Increment measurements counter for adaptation tracking
+    state['measurements_since_reset'] = state.get('measurements_since_reset', 0) + 1
     state['last_source'] = source
     state['last_timestamp'] = timestamp  # Keep for backward compatibility
     state['last_accepted_timestamp'] = timestamp

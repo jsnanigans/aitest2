@@ -1,127 +1,170 @@
-# Weight Stream Processor Configuration - CLEANED VERSION
+# Weight Stream Processor Configuration - IMPROVED VERSION
 
 [data]
 # Input/output settings
-# csv_file = "./data/2025-09-05_optimized.csv"  # Input CSV file path (preprocessed with scripts/preprocess_csv.py)
 csv_file = "./data/2025-09-05_nocon.csv" # no connective health data
-output_dir = "output"  # Output directory for results
-max_users = 200  # Maximum number of users to process (0 = all)
-user_offset = 0  # Skip this many users at start
-min_readings = 20  # Minimum readings required per user
-min_date = "2015-01-01"  # Earliest date to process (YYYY-MM-DD)
-max_date = "2026-01-01"  # Latest date to process (YYYY-MM-DD)
-export_database = true  # Export results to database file
+output_dir = "output"
+max_users = 200
+user_offset = 0
+min_readings = 20
+min_date = "2015-01-01"
+max_date = "2026-01-01"
+export_database = true
 
 [processing]
-# Core processing parameters
-extreme_threshold = 0.15   # Maximum deviation from Kalman prediction (0.20 = 20%)
+extreme_threshold = 0.15   # Maximum deviation from Kalman prediction (15%)
 
 [kalman]
-# Kalman filter parameters (optimized 2025-09-13)
-initial_variance = 0.361  # Initial state uncertainty
-transition_covariance_weight = 0.016  # Process noise for weight
-transition_covariance_trend = 0.0001  # Process noise for trend
-observation_covariance = 3.4  # Measurement noise
+# Base Kalman filter parameters (for stable state)
+initial_variance = 0.361
+transition_covariance_weight = 0.016
+transition_covariance_trend = 0.0001
+observation_covariance = 3.4
 
-# Reset configuration with different types
-[kalman.reset.hard]
-# Hard reset for 30+ day gaps (aggressive adaptation)
-enabled = true
-gap_threshold_days = 30
-weight_boost_factor = 10
-trend_boost_factor = 100
-decay_rate = 3
-warmup_measurements = 10
-adaptive_days = 7
-quality_threshold = 0.4
+# ============================================================================
+# RESET SYSTEM CONFIGURATION
+# ============================================================================
+# Three types of resets with different adaptation strategies:
+# 1. INITIAL - First measurement ever (most aggressive)
+# 2. HARD - After long gaps (30+ days)
+# 3. SOFT - Manual data entry with significant change
 
 [kalman.reset.initial]
-# Initial reset for first measurement (aggressive adaptation)
+# INITIAL RESET - For the very first measurement(s) of a user
+# This needs to be VERY adaptive since we have no prior knowledge
 enabled = true
-weight_boost_factor = 30  # Very aggressive for initial (was 20)
-trend_boost_factor = 200  # Very aggressive for initial (was 100)
-decay_rate = 2  # Faster decay for quicker adaptation (was 3)
-warmup_measurements = 15  # More measurements for initial learning (was 10)
-adaptive_days = 14  # Two weeks for initial adaptation (was 10)
-quality_threshold = 0.3  # Very lenient for initial (was 0.4)
+
+# Adaptation parameters
+initial_variance_multiplier = 10     # Multiply base variance by this (high uncertainty)
+weight_noise_multiplier = 50         # Process noise multiplier for weight (allows big changes)
+trend_noise_multiplier = 500         # Process noise multiplier for trend (allows any trend)
+observation_noise_multiplier = 20   # Measurement noise multiplier (trust measurements more)
+
+# Adaptation duration
+adaptation_measurements = 30          # Stay adaptive for first 20 measurements
+adaptation_days = 90                  # Stay adaptive for first 3 weeks
+adaptation_decay_rate = 3           # How fast to transition to normal (lower = faster)
+
+# Quality scoring during adaptation
+quality_acceptance_threshold = 0  # Very lenient (25% vs normal 60%)
+quality_safety_weight = 0         # Keep safety checks high
+quality_plausibility_weight = 0
+quality_consistency_weight = 0
+quality_reliability_weight = 0    # Trust the source
+
+[kalman.reset.hard]
+# HARD RESET - After gaps of 30+ days
+# Aggressive but not as much as initial
+enabled = true
+gap_threshold_days = 30
+
+# Adaptation parameters
+initial_variance_multiplier = 5      # Some uncertainty after long gap
+weight_noise_multiplier = 20         # Allow moderate changes
+trend_noise_multiplier = 200         # Allow trend changes
+observation_noise_multiplier = 0.5   # Trust measurements somewhat
+
+# Adaptation duration
+adaptation_measurements = 10          # Shorter adaptation period
+adaptation_days = 7                   # One week
+adaptation_decay_rate = 2.5           # Moderate transition speed
+
+# Quality scoring during adaptation
+quality_acceptance_threshold = 0.35  # Moderately lenient
+quality_safety_weight = 0.45
+quality_plausibility_weight = 0.10
+quality_consistency_weight = 0.10
+quality_reliability_weight = 0.35
 
 [kalman.reset.soft]
-# Soft reset for manual data entry (gentle adaptation)
+# SOFT RESET - Manual data entry with significant change
+# Gentle adaptation for user-reported weights
 enabled = true
-min_change_kg = 5  # Minimum weight change to trigger soft reset
-cooldown_days = 3  # Days to wait before allowing another reset
-weight_boost_factor = 3  # Gentler boost (vs 10 for hard)
-trend_boost_factor = 10  # Gentler boost (vs 100 for hard)
-decay_rate = 5  # Slower decay (vs 3 for hard)
-warmup_measurements = 15  # Longer adaptation (vs 10 for hard)
-adaptive_days = 10  # Longer period (vs 7 for hard)
-quality_threshold = 0.5  # Less lenient (vs 0.4 for hard)
-# Manual data sources that trigger soft reset
+min_weight_change_kg = 5             # Minimum change to trigger
+cooldown_days = 3                     # Wait between soft resets
 trigger_sources = ["questionnaire", "patient-upload", "care-team-upload"]
 
+# Adaptation parameters
+initial_variance_multiplier = 2      # Small uncertainty boost
+weight_noise_multiplier = 5          # Allow small changes
+trend_noise_multiplier = 20          # Allow minor trend adjustment
+observation_noise_multiplier = 0.7   # Slightly more trust
 
-[kalman.post_reset_adaptation]
-# Adaptive parameters for quick adaptation after reset
-enabled = true  # Enable adaptive covariances after reset
-warmup_measurements = 8 # Number of measurements to adapt over
-weight_boost_factor = 20  # Initial multiplier for weight covariance
-trend_boost_factor = 100 # Initial multiplier for trend covariance
-decay_rate = 2  # Exponential decay rate (smaller = faster decay)
+# Adaptation duration
+adaptation_measurements = 15          # Gradual adaptation
+adaptation_days = 10
+adaptation_decay_rate = 4             # Slow transition
+
+# Quality scoring during adaptation
+quality_acceptance_threshold = 0.45  # Slightly lenient
+quality_safety_weight = 0.40
+quality_plausibility_weight = 0.15
+quality_consistency_weight = 0.15
+quality_reliability_weight = 0.30
+
+# ============================================================================
+# VISUALIZATION
+# ============================================================================
 
 [visualization]
-# Display settings
-enabled = true  # Enable visualization output
-use_enhanced = true  # Use enhanced dashboard with quality insights
-verbosity = "normal"  # Verbosity level: "silent" | "minimal" | "normal" | "verbose"
+enabled = true
+use_enhanced = true
+verbosity = "normal"
 
 [visualization.markers]
-# Marker display configuration
-show_source_icons = true  # Different marker shapes per source type
-show_source_legend = true  # Display legend for source types
-show_reset_markers = true  # Display reset event annotations
-reset_marker_color = "#FF6600"  # Color for reset markers (orange)
-reset_marker_opacity = 0.2  # Transparency of reset lines (0-1)
-reset_marker_width = 1  # Width of reset lines in pixels
-reset_marker_style = "dot"  # Line style: "solid" | "dash" | "dot"
+show_source_icons = true
+show_source_legend = true
+show_reset_markers = true
+reset_marker_color = "#FF6600"
+reset_marker_opacity = 0.2
+reset_marker_width = 1
+reset_marker_style = "dot"
 
 [visualization.rejection]
-# Rejection display configuration
-show_severity_colors = true  # Color intensity shows rejection severity
-group_by_severity = true  # Separate legend entries per severity level
+show_severity_colors = true
+group_by_severity = true
 
 [visualization.reset]
-# Reset event display configuration
-show_reset_lines = true  # Show vertical lines at reset points
-show_gap_regions = true  # Shade the gap periods
-show_gap_labels = true  # Display gap duration text
-reset_line_color = "#FF6600"  # Orange for visibility
-reset_line_style = "dash"  # Line style: "solid" | "dash" | "dot"
-reset_line_width = 2  # Thickness in pixels
-gap_region_color = "#F0F0F0"  # Light gray for gap regions
-gap_region_opacity = 0.5  # Transparency (0-1)
-gap_region_pattern = "diagonal"  # Pattern: "solid" | "diagonal" | "dots"
-show_transition_markers = true  # Mark pre-gap and post-reset points
-transition_marker_size = 10  # Size of special markers
+show_reset_lines = true
+show_gap_regions = true
+show_gap_labels = true
+reset_line_color = "#FF6600"
+reset_line_style = "dash"
+reset_line_width = 2
+gap_region_color = "#F0F0F0"
+gap_region_opacity = 0.5
+gap_region_pattern = "diagonal"
+show_transition_markers = true
+transition_marker_size = 10
+
+# ============================================================================
+# ADAPTIVE NOISE
+# ============================================================================
 
 [adaptive_noise]
-# Adaptive noise configuration for source-specific processing
-enabled = true  # Enable adaptive noise based on source type
-default_multiplier = 1.5  # Default noise multiplier for unknown sources
+enabled = true
+default_multiplier = 1.5
+
+# ============================================================================
+# LOGGING
+# ============================================================================
 
 [logging]
-# Logging configuration
-progress_interval = 10000  # Show progress every N rows
-timestamp_format = "test_no_date"  # Format for output timestamps
+progress_interval = 10000
+timestamp_format = "test_no_date"
+
+# ============================================================================
+# QUALITY SCORING
+# ============================================================================
 
 [quality_scoring]
-# Quality scoring system configuration
-enabled = true  # Enable quality scoring system
-threshold = 0.6  # Minimum score for acceptance (0-1)
-use_harmonic_mean = true  # Use harmonic mean (penalizes low scores)
+enabled = true
+threshold = 0.6  # Normal acceptance threshold (60%)
+use_harmonic_mean = true
 
 [quality_scoring.component_weights]
-# Component weights (must sum to 1.0)
-safety = 0.35        # Weight for physiological limits check
-plausibility = 0.25  # Weight for statistical deviation check
-consistency = 0.25   # Weight for rate of change check
-reliability = 0.15   # Weight for source reliability check
+# Normal weights (must sum to 1.0)
+safety = 0.35
+plausibility = 0.25
+consistency = 0.25
+reliability = 0.15
