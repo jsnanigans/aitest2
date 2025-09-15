@@ -83,11 +83,13 @@ def create_weight_timeline(results: List[Dict[str, Any]],
         marker_symbol = SOURCE_MARKER_SYMBOLS.get(source, SOURCE_MARKER_SYMBOLS['default']) if show_source_icons else 'circle'
         
         # Check for reset events (if enabled)
-        if show_reset_markers and r.get('was_reset', False):
+        if show_reset_markers and r.get('reset_event'):
+            reset_event = r['reset_event']
             reset_events.append({
                 'timestamp': timestamp,
-                'reason': r.get('reset_reason', 'Unknown'),
-                'gap_days': r.get('gap_days', 0)
+                'reason': reset_event.get('reason', 'gap_exceeded'),
+                'gap_days': reset_event.get('gap_days', 0),
+                'last_timestamp': reset_event.get('last_timestamp')
             })
         
         if r.get('accepted', False):
@@ -126,7 +128,7 @@ def create_weight_timeline(results: List[Dict[str, Any]],
     
     fig = go.Figure()
     
-    # Add reset event vertical lines FIRST (so they appear behind data)
+    # Add reset event vertical lines and gap regions FIRST (so they appear behind data)
     if reset_events and (accepted_data or rejected_data):
         # Get y-axis range from data
         all_weights = []
@@ -139,8 +141,48 @@ def create_weight_timeline(results: List[Dict[str, Any]],
             y_min = min(all_weights) * 0.98
             y_max = max(all_weights) * 1.02
             
+            # Get reset visualization config
+            reset_config = config.get('visualization', {}).get('reset', {})
+            show_gap_regions = reset_config.get('show_gap_regions', True)
+            gap_region_color = reset_config.get('gap_region_color', '#F0F0F0')
+            gap_region_opacity = reset_config.get('gap_region_opacity', 0.5)
+            show_gap_labels = reset_config.get('show_gap_labels', True)
+            
             for reset in reset_events:
-                # Add vertical line as a trace (behind other data)
+                # Add gap region if we have the last timestamp
+                if show_gap_regions and reset.get('last_timestamp'):
+                    last_ts = reset['last_timestamp']
+                    if isinstance(last_ts, str):
+                        last_ts = datetime.fromisoformat(last_ts)
+                    
+                    # Add shaded rectangle for gap period
+                    fig.add_shape(
+                        type="rect",
+                        x0=last_ts,
+                        x1=reset['timestamp'],
+                        y0=y_min,
+                        y1=y_max,
+                        fillcolor=gap_region_color,
+                        opacity=gap_region_opacity,
+                        layer="below",
+                        line_width=0,
+                    )
+                    
+                    # Add text label in the middle of the gap
+                    if show_gap_labels:
+                        gap_middle = last_ts + (reset['timestamp'] - last_ts) / 2
+                        fig.add_annotation(
+                            x=gap_middle,
+                            y=(y_min + y_max) / 2,
+                            text=f"No Data<br>{reset['gap_days']:.0f} days",
+                            showarrow=False,
+                            font=dict(size=10, color='rgba(128, 128, 128, 0.7)'),
+                            bgcolor='rgba(255, 255, 255, 0.8)',
+                            bordercolor='rgba(128, 128, 128, 0.3)',
+                            borderwidth=1
+                        )
+                
+                # Add vertical line at reset point
                 fig.add_trace(go.Scatter(
                     x=[reset['timestamp'], reset['timestamp']],
                     y=[y_min, y_max],
@@ -152,14 +194,14 @@ def create_weight_timeline(results: List[Dict[str, Any]],
                         dash=reset_marker_style
                     ),
                     showlegend=False,  # Don't show in legend
-                    hovertemplate=f"<b>Kalman Reset</b><br>Gap: {reset['gap_days']:.0f} days<br>%{{x}}<extra></extra>"
+                    hovertemplate=f"<b>System Reset</b><br>Gap: {reset['gap_days']:.0f} days<br>Reason: {reset['reason']}<br>%{{x}}<extra></extra>"
                 ))
                 
                 # Add subtle annotation at the top
                 fig.add_annotation(
                     x=reset['timestamp'],
                     y=y_max,
-                    text=f"{reset['gap_days']:.0f}d",
+                    text=f"Reset",
                     showarrow=False,
                     yshift=5,
                     font=dict(size=8, color='rgba(255, 102, 0, 0.6)'),

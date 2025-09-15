@@ -14,32 +14,28 @@ export_database = true  # Export results to database file
 
 [processing]
 # Core processing parameters
-extreme_threshold = 0.20  # Maximum deviation from Kalman prediction (0.20 = 20%)
+extreme_threshold = 0.15   # Maximum deviation from Kalman prediction (0.20 = 20%)
 
 [kalman]
 # Kalman filter parameters (optimized 2025-09-13)
 initial_variance = 0.361  # Initial state uncertainty
-transition_covariance_weight = 0.0160  # Process noise for weight
+transition_covariance_weight = 0.016  # Process noise for weight
 transition_covariance_trend = 0.0001  # Process noise for trend
-observation_covariance = 3.490  # Measurement noise
+observation_covariance = 3.4  # Measurement noise
 
-[kalman.gap_handling]
-# Gap handling configuration for improved Kalman performance after data gaps
-# When enabled, ALL gaps > threshold use adaptive initialization with buffer
-# No hard resets - the system adapts to any gap size using buffer + trend estimation
-# Example: An 18-day gap (common in real data) will trigger buffer collection
-enabled = true  # Enable adaptive gap handling system
-gap_threshold_days = 10  # Minimum gap to trigger adaptive handling (days)
+[kalman.reset]
+# Simple reset after long gaps (replaces complex gap handling)
+enabled = true  # Enable automatic reset after long gaps
+gap_threshold_days = 30  # Days without data before full reset
 
-# Buffer configuration - collects measurements after gap for better initialization
-warmup_size = 3  # Number of measurements to collect before initialization
-max_warmup_days = 7  # Maximum days to wait for warmup measurements
 
-# Adaptive parameters - increases uncertainty based on gap duration
-# Larger gaps (30+ days) get higher multipliers automatically (capped at 3x)
-gap_variance_multiplier = 2.0  # Multiplier for weight variance during gaps
-trend_variance_multiplier = 20.0  # Multiplier for trend variance during gaps
-adaptation_decay_rate = 5.0  # Measurements for 63% decay of adaptation
+[kalman.post_reset_adaptation]
+# Adaptive parameters for quick adaptation after reset
+enabled = true  # Enable adaptive covariances after reset
+warmup_measurements = 8 # Number of measurements to adapt over
+weight_boost_factor = 5  # Initial multiplier for weight covariance
+trend_boost_factor = 50 # Initial multiplier for trend covariance
+decay_rate = 1.5  # Exponential decay rate (smaller = faster decay)
 
 [visualization]
 # Display settings
@@ -61,6 +57,20 @@ reset_marker_style = "dot"  # Line style: "solid" | "dash" | "dot"
 # Rejection display configuration
 show_severity_colors = true  # Color intensity shows rejection severity
 group_by_severity = true  # Separate legend entries per severity level
+
+[visualization.reset]
+# Reset event display configuration
+show_reset_lines = true  # Show vertical lines at reset points
+show_gap_regions = true  # Shade the gap periods
+show_gap_labels = true  # Display gap duration text
+reset_line_color = "#FF6600"  # Orange for visibility
+reset_line_style = "dash"  # Line style: "solid" | "dash" | "dot"
+reset_line_width = 2  # Thickness in pixels
+gap_region_color = "#F0F0F0"  # Light gray for gap regions
+gap_region_opacity = 0.5  # Transparency (0-1)
+gap_region_pattern = "diagonal"  # Pattern: "solid" | "diagonal" | "dots"
+show_transition_markers = true  # Mark pre-gap and post-reset points
+transition_marker_size = 10  # Size of special markers
 
 [adaptive_noise]
 # Adaptive noise configuration for source-specific processing
