@@ -13,6 +13,10 @@ output/
 output_*/
 logs/
 *.log
+test_output/
+test_output_real/
+test_pipeline_output/
+test_timeline_output/
 
 # IDE
 .vscode/
@@ -37,4 +41,17 @@ htmlcov/
 # Environment
 .env
 
+# Data
 data/2025-*
+data/*.csv
+!data/test_*.csv
+
+# Backups
+backups/
+
+# Config
+config/*.toml
+!config/config.toml.example
+
+# Clean DB exports
+clean_db_export/*.csv
