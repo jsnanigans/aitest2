@@ -5,7 +5,7 @@
 # csv_file = "./data/2025-09-05_optimized.csv"  # Input CSV file path (preprocessed with scripts/preprocess_csv.py)
 csv_file = "./data/2025-09-05_nocon.csv" # no connective health data
 output_dir = "output"  # Output directory for results
-max_users = 100  # Maximum number of users to process (0 = all)
+max_users = 200  # Maximum number of users to process (0 = all)
 user_offset = 0  # Skip this many users at start
 min_readings = 20  # Minimum readings required per user
 min_date = "2015-01-01"  # Earliest date to process (YYYY-MM-DD)
@@ -23,19 +23,50 @@ transition_covariance_weight = 0.016  # Process noise for weight
 transition_covariance_trend = 0.0001  # Process noise for trend
 observation_covariance = 3.4  # Measurement noise
 
-[kalman.reset]
-# Simple reset after long gaps (replaces complex gap handling)
-enabled = true  # Enable automatic reset after long gaps
-gap_threshold_days = 30  # Days without data before full reset
+# Reset configuration with different types
+[kalman.reset.hard]
+# Hard reset for 30+ day gaps (aggressive adaptation)
+enabled = true
+gap_threshold_days = 30
+weight_boost_factor = 10
+trend_boost_factor = 100
+decay_rate = 3
+warmup_measurements = 10
+adaptive_days = 7
+quality_threshold = 0.4
+
+[kalman.reset.initial]
+# Initial reset for first measurement (aggressive adaptation)
+enabled = true
+weight_boost_factor = 20
+trend_boost_factor = 100
+decay_rate = 3
+warmup_measurements = 10
+adaptive_days = 10
+quality_threshold = 0.4
+
+[kalman.reset.soft]
+# Soft reset for manual data entry (gentle adaptation)
+enabled = true
+min_change_kg = 5  # Minimum weight change to trigger soft reset
+cooldown_days = 3  # Days to wait before allowing another reset
+weight_boost_factor = 3  # Gentler boost (vs 10 for hard)
+trend_boost_factor = 10  # Gentler boost (vs 100 for hard)
+decay_rate = 5  # Slower decay (vs 3 for hard)
+warmup_measurements = 15  # Longer adaptation (vs 10 for hard)
+adaptive_days = 10  # Longer period (vs 7 for hard)
+quality_threshold = 0.5  # Less lenient (vs 0.4 for hard)
+# Manual data sources that trigger soft reset
+trigger_sources = ["questionnaire", "patient-upload", "care-team-upload"]
 
 
 [kalman.post_reset_adaptation]
 # Adaptive parameters for quick adaptation after reset
 enabled = true  # Enable adaptive covariances after reset
 warmup_measurements = 8 # Number of measurements to adapt over
-weight_boost_factor = 5  # Initial multiplier for weight covariance
-trend_boost_factor = 50 # Initial multiplier for trend covariance
-decay_rate = 1.5  # Exponential decay rate (smaller = faster decay)
+weight_boost_factor = 20  # Initial multiplier for weight covariance
+trend_boost_factor = 100 # Initial multiplier for trend covariance
+decay_rate = 2  # Exponential decay rate (smaller = faster decay)
 
 [visualization]
 # Display settings

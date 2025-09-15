@@ -19,6 +19,15 @@ try:
 except ImportError:
     from constants import SOURCE_MARKER_SYMBOLS, REJECTION_SEVERITY_COLORS, get_rejection_severity
 
+try:
+    from .viz_reset_insights import extract_reset_insights, RESET_COLORS
+except ImportError:
+    try:
+        from viz_reset_insights import extract_reset_insights, RESET_COLORS
+    except ImportError:
+        extract_reset_insights = None
+        RESET_COLORS = None
+
 
 def create_weight_timeline(results: List[Dict[str, Any]], 
                           user_id: str,
@@ -128,8 +137,72 @@ def create_weight_timeline(results: List[Dict[str, Any]],
     
     fig = go.Figure()
     
-    # Add reset event vertical lines and gap regions FIRST (so they appear behind data)
-    if reset_events and (accepted_data or rejected_data):
+    # Use new reset insights module if available
+    if extract_reset_insights and RESET_COLORS:
+        reset_events_new, adaptation_periods, gap_regions = extract_reset_insights(results)
+        
+        # Calculate y-axis range
+        all_weights = []
+        if accepted_data:
+            all_weights.extend([d['weight'] for d in accepted_data])
+        if rejected_data:
+            all_weights.extend([d['weight'] for d in rejected_data])
+        
+        if all_weights and (reset_events_new or adaptation_periods or gap_regions):
+            y_min = min(all_weights) * 0.98
+            y_max = max(all_weights) * 1.02
+            y_range = (y_min, y_max)
+            
+            reset_config = config.get('visualization', {}).get('reset_insights', {}) if config else {}
+            
+            # Add gap regions (background)
+            if gap_regions and reset_config.get('show_gap_regions', True):
+                for gap in gap_regions:
+                    fig.add_shape(
+                        type="rect",
+                        x0=gap['start'],
+                        x1=gap['end'],
+                        y0=y_min,
+                        y1=y_max,
+                        fillcolor='rgba(128, 128, 128, 0.1)',
+                        layer="below",
+                        line=dict(
+                            color='rgba(128, 128, 128, 0.3)',
+                            width=1,
+                            dash="dash"
+                        )
+                    )
+                    
+                    gap_middle = gap['start'] + (gap['end'] - gap['start']) / 2
+                    fig.add_annotation(
+                        x=gap_middle,
+                        y=(y_min + y_max) / 2,
+                        text=f"No Data<br>{gap['days']:.0f} days",
+                        showarrow=False,
+                        font=dict(size=10, color='rgba(128, 128, 128, 0.7)'),
+                        bgcolor='rgba(255, 255, 255, 0.9)',
+                        bordercolor='rgba(128, 128, 128, 0.3)',
+                        borderwidth=1
+                    )
+            
+            # Add adaptation regions (middle layer)
+            if adaptation_periods and reset_config.get('show_adaptation_regions', True):
+                for period in adaptation_periods:
+                    style = RESET_COLORS.get(period['type'], RESET_COLORS['unknown'])
+                    if period.get('end'):
+                        fig.add_shape(
+                            type="rect",
+                            x0=period['start'],
+                            x1=period['end'],
+                            y0=y_min,
+                            y1=y_max,
+                            fillcolor=style['adaptation'],
+                            layer="below",
+                            line_width=0,
+                        )
+    
+    # Fallback to old reset visualization if new module not available
+    elif reset_events and (accepted_data or rejected_data):
         # Get y-axis range from data
         all_weights = []
         if accepted_data:
@@ -307,6 +380,63 @@ def create_weight_timeline(results: List[Dict[str, Any]],
                 legendgroup='sources',
                 legendgrouptitle_text="Source Types"
             ))
+    
+    # Add reset markers (foreground layer) if using new module
+    if extract_reset_insights and RESET_COLORS and 'reset_events_new' in locals():
+        reset_config = config.get('visualization', {}).get('reset_insights', {}) if config else {}
+        
+        if reset_events_new and reset_config.get('show_reset_lines', True):
+            for reset in reset_events_new:
+                style = RESET_COLORS.get(reset['type'], RESET_COLORS['unknown'])
+                
+                # Vertical line
+                fig.add_trace(go.Scatter(
+                    x=[reset['timestamp'], reset['timestamp']],
+                    y=[y_range[0], y_range[1]],
+                    mode='lines',
+                    name=style['name'],
+                    line=dict(
+                        color=style['line'],
+                        width=style['width'],
+                        dash=style['dash']
+                    ),
+                    showlegend=False,
+                    hovertemplate=f"<b>{style['name']}</b><br>Time: %{{x|%Y-%m-%d %H:%M}}<br><extra></extra>"
+                ))
+                
+                # Symbol annotation
+                fig.add_annotation(
+                    x=reset['timestamp'],
+                    y=y_range[1],
+                    text=style['symbol'],
+                    showarrow=False,
+                    yshift=10,
+                    font=dict(size=14, color=style['line']),
+                    bgcolor='rgba(255, 255, 255, 0.8)',
+                    bordercolor=style['line'],
+                    borderwidth=1
+                )
+        
+        # Add legend entries for reset types
+        if reset_config.get('show_in_legend', True) and reset_events_new:
+            seen_types = set(r['type'] for r in reset_events_new)
+            for reset_type in seen_types:
+                if reset_type in RESET_COLORS:
+                    style = RESET_COLORS[reset_type]
+                    fig.add_trace(go.Scatter(
+                        x=[None],
+                        y=[None],
+                        mode='lines',
+                        name=f"{style['symbol']} {style['name']}",
+                        line=dict(
+                            color=style['line'],
+                            width=style['width'],
+                            dash=style['dash']
+                        ),
+                        showlegend=True,
+                        legendgroup='resets',
+                        legendgrouptitle_text="Reset Events"
+                    ))
     
     stats = _calculate_stats(results, accepted_data, rejected_data)
     

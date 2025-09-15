@@ -12,6 +12,7 @@ from .kalman import KalmanFilterManager
 from .kalman_adaptive import get_adaptive_kalman_params, get_reset_timestamp
 from .validation import PhysiologicalValidator, BMIValidator, ThresholdCalculator, DataQualityPreprocessor
 from .constants import QUESTIONNAIRE_SOURCES
+from .reset_manager import ResetManager, ResetType
 try:
     from .quality_scorer import QualityScorer, MeasurementHistory
 except ImportError:
@@ -141,12 +142,23 @@ def process_measurement(
     # Add user height to config for validation
     user_height = DataQualityPreprocessor.get_user_height(user_id)
     
-    # Step 3: Check for 30+ day gap and reset if needed
+    # Step 3: Check for any type of reset using ResetManager
     kalman_config = config.get('kalman', {})
-    state, reset_event = check_and_reset_for_gap(state, timestamp, config)
     
-    # Track reset event in result if it occurred
-    reset_occurred = reset_event is not None
+    # Check if reset is needed
+    reset_type = ResetManager.should_trigger_reset(
+        state, cleaned_weight, timestamp, source, config
+    )
+    
+    reset_event = None
+    reset_occurred = False
+    
+    if reset_type:
+        # Perform the reset
+        state, reset_event = ResetManager.perform_reset(
+            state, reset_type, timestamp, cleaned_weight, source, config
+        )
+        reset_occurred = True
     
     # Step 4: Initialize Kalman if needed
     if not state.get('kalman_params'):
@@ -156,7 +168,7 @@ def process_measurement(
         
         # Get adaptive Kalman config if within post-reset period
         adaptive_kalman_config = get_adaptive_kalman_params(
-            reset_timestamp, timestamp, kalman_config, adaptive_days=7
+            reset_timestamp, timestamp, kalman_config, adaptive_days=7, state=state
         )
         
         # Get adaptive noise for this source
@@ -188,15 +200,16 @@ def process_measurement(
         # Add reset event info if it occurred
         if reset_occurred:
             result['reset_event'] = {
-                'gap_days': reset_event['gap_days'],
-                'last_timestamp': reset_event['last_timestamp'].isoformat() if isinstance(reset_event['last_timestamp'], datetime) else reset_event['last_timestamp'],
-                'reason': reset_event['reason']
+                'type': reset_event.get('type', 'unknown'),
+                'gap_days': reset_event.get('gap_days'),
+                'reason': reset_event.get('reason', 'unknown')
             }
         
         # Save state
         state['last_source'] = source
         state['last_timestamp'] = timestamp  # Keep for backward compatibility
         state['last_accepted_timestamp'] = timestamp
+        state['last_raw_weight'] = cleaned_weight  # Track for soft reset detection
         state["measurements_since_reset"] = state.get("measurements_since_reset", 0) + 1
         db.save_state(user_id, state)
         
@@ -353,7 +366,7 @@ def process_measurement(
     # Check if we should use adaptive parameters (within 7 days of reset)
     reset_timestamp = get_reset_timestamp(state)
     adaptive_kalman_config = get_adaptive_kalman_params(
-        reset_timestamp, timestamp, kalman_config, adaptive_days=7
+        reset_timestamp, timestamp, kalman_config, adaptive_days=7, state=state
     )
     
     # Update state's kalman_params with adaptive values
@@ -394,9 +407,9 @@ def process_measurement(
     # Add reset event info if it occurred
     if reset_occurred:
         result['reset_event'] = {
-            'gap_days': reset_event['gap_days'],
-            'last_timestamp': reset_event['last_timestamp'].isoformat() if isinstance(reset_event['last_timestamp'], datetime) else reset_event['last_timestamp'],
-            'reason': reset_event['reason']
+            'type': reset_event.get('type', 'unknown'),
+            'gap_days': reset_event.get('gap_days'),
+            'reason': reset_event.get('reason', 'unknown')
         }
     
     # Calculate BMI details
@@ -428,6 +441,7 @@ def process_measurement(
     state['last_source'] = source
     state['last_timestamp'] = timestamp  # Keep for backward compatibility
     state['last_accepted_timestamp'] = timestamp
+    state['last_raw_weight'] = cleaned_weight  # Track for soft reset detection
     db.save_state(user_id, state)
     
     return result
