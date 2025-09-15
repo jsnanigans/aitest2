@@ -202,6 +202,79 @@ def merge_dicts(dict1: Dict, dict2: Dict) -> Dict:
     return result
 
 
+def validate_config(config: dict) -> tuple[bool, list[str]]:
+    """
+    Validate configuration structure and values.
+    
+    Returns:
+        tuple: (is_valid, list_of_errors)
+    """
+    errors = []
+    
+    # Check required sections
+    required_sections = ['data', 'processing', 'kalman', 'visualization', 'logging', 'quality_scoring']
+    for section in required_sections:
+        if section not in config:
+            errors.append(f"Missing required section: [{section}]")
+    
+    # Validate data section
+    if 'data' in config:
+        data = config['data']
+        if 'csv_file' not in data:
+            errors.append("Missing required field: data.csv_file")
+        if 'output_dir' not in data:
+            errors.append("Missing required field: data.output_dir")
+    
+    # Validate processing section
+    if 'processing' in config:
+        processing = config['processing']
+        if 'extreme_threshold' in processing:
+            threshold = processing['extreme_threshold']
+            if not (0 < threshold < 1):
+                errors.append(f"Invalid extreme_threshold: {threshold} (must be between 0 and 1)")
+    
+    # Validate kalman section
+    if 'kalman' in config:
+        kalman = config['kalman']
+        required_kalman = ['initial_variance', 'transition_covariance_weight', 
+                          'transition_covariance_trend', 'observation_covariance']
+        for field in required_kalman:
+            if field not in kalman:
+                errors.append(f"Missing required Kalman field: {field}")
+            elif kalman[field] <= 0:
+                errors.append(f"Invalid Kalman {field}: must be positive")
+    
+    # Validate quality scoring weights
+    if 'quality_scoring' in config:
+        qs = config['quality_scoring']
+        if 'component_weights' in qs:
+            weights = qs['component_weights']
+            total = sum(weights.values())
+            if abs(total - 1.0) > 0.001:
+                errors.append(f"Quality scoring weights must sum to 1.0, got {total:.3f}")
+            for name, weight in weights.items():
+                if not (0 <= weight <= 1):
+                    errors.append(f"Invalid weight for {name}: {weight} (must be 0-1)")
+    
+    # Validate visualization verbosity
+    if 'visualization' in config:
+        viz = config['visualization']
+        if 'verbosity' in viz:
+            valid_verbosity = ['silent', 'minimal', 'normal', 'verbose']
+            if viz['verbosity'] not in valid_verbosity:
+                errors.append(f"Invalid verbosity: {viz['verbosity']} (must be one of {valid_verbosity})")
+    
+    # Validate adaptive noise
+    if 'adaptive_noise' in config:
+        noise = config['adaptive_noise']
+        if 'default_multiplier' in noise:
+            multiplier = noise['default_multiplier']
+            if not (0.5 <= multiplier <= 5.0):
+                errors.append(f"Invalid default_multiplier: {multiplier} (should be between 0.5 and 5.0)")
+    
+    return len(errors) == 0, errors
+
+
 # ============================================================================
 # Export all utilities
 # ============================================================================
@@ -219,6 +292,9 @@ __all__ = [
     'VizLogger',
     'get_logger',
     'set_verbosity',
+    
+    # Configuration validation
+    'validate_config',
     
     # General utilities
     'format_timestamp',

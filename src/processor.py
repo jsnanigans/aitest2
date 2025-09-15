@@ -142,7 +142,12 @@ def process_measurement(
     # Step 4: Initialize Kalman if needed
     if not state.get('kalman_params'):
         # Get adaptive noise for this source
-        noise_multiplier = SOURCE_NOISE_MULTIPLIERS.get(source, 1.5)
+        adaptive_config = config.get('adaptive_noise', {})
+        if adaptive_config.get('enabled', True):
+            default_multiplier = adaptive_config.get('default_multiplier', 1.5)
+            noise_multiplier = SOURCE_NOISE_MULTIPLIERS.get(source, default_multiplier)
+        else:
+            noise_multiplier = 1.0
         observation_covariance = kalman_config.get('observation_covariance', 3.49) * noise_multiplier
         
         state = KalmanFilterManager.initialize_immediate(
@@ -287,7 +292,12 @@ def process_measurement(
             }
     
     # Step 7: Update Kalman filter
-    noise_multiplier = SOURCE_NOISE_MULTIPLIERS.get(source, 1.5)
+    adaptive_config = config.get('adaptive_noise', {})
+    if adaptive_config.get('enabled', True):
+        default_multiplier = adaptive_config.get('default_multiplier', 1.5)
+        noise_multiplier = SOURCE_NOISE_MULTIPLIERS.get(source, default_multiplier)
+    else:
+        noise_multiplier = 1.0
     observation_covariance = kalman_config.get('observation_covariance', 3.49) * noise_multiplier
     
     state = KalmanFilterManager.update_state(

@@ -47,6 +47,19 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     """
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
+    
+    # Set verbosity from config
+    from src.utils import set_verbosity
+    viz_config = config.get('visualization', {})
+    verbosity_str = viz_config.get('verbosity', 'normal')
+    verbosity_map = {
+        'silent': 0,
+        'minimal': 1,
+        'normal': 2,
+        'verbose': 3
+    }
+    verbosity_level = verbosity_map.get(verbosity_str, 2)
+    set_verbosity(verbosity_level)
 
     # Load height data once
     DataQualityPreprocessor.load_height_data()
@@ -390,6 +403,15 @@ if __name__ == "__main__":
 
     # Load config
     config = load_config(args.config)
+    
+    # Validate configuration
+    from src.utils import validate_config
+    is_valid, errors = validate_config(config)
+    if not is_valid:
+        print("Configuration validation failed:")
+        for error in errors:
+            print(f"  - {error}")
+        sys.exit(1)
 
     # Override with command line arguments
     if args.csv_file:

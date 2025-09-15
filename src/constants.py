@@ -202,8 +202,7 @@ PROCESSING_DEFAULTS = {
     'extreme_threshold': 0.15,
     'max_daily_change': 0.05,
     'min_weight': 30,
-    'max_weight': 400,
-    'kalman_cleanup_threshold': 2.0
+    'max_weight': 400
 }
 
 # Quality scoring defaults

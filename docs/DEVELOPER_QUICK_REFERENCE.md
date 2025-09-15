@@ -156,4 +156,24 @@ def test_processing():
 4. Check numpy arrays: Database handles serialization
 5. Check the tests: `tests/test_stateless_processor.py`
 
+## Configuration Changes (v2.0.0)
+
+### Migration Required
+If you have custom config.toml files, see `CONFIG_MIGRATION_GUIDE.md` for details.
+
+**Key changes:**
+- Removed ~50% of unused settings
+- Connected verbosity system to config
+- Connected adaptive noise to config
+- Added config validation on startup
+
+**Quick migration:**
+```bash
+# Backup old config
+cp config.toml config.toml.old
+
+# Use new cleaned config
+# The system will validate and report any issues
+```
+
 ## Remember: STATELESS = SCALABLE! 🚀
