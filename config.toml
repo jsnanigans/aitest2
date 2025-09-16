@@ -1,121 +1,51 @@
-# Weight Stream Processor Configuration - IMPROVED VERSION
-
 [data]
-# Input/output settings
-csv_file = "./data/2025-09-05_nocon.csv" # no connective health data
+csv_file = "./data/2025-09-05_nocon.csv"
 output_dir = "output"
-max_users = 200
+max_users = 20
 user_offset = 0
 min_readings = 20
-# test_users_file = "single_user_test.txt"
 min_date = "2015-01-01"
 max_date = "2026-01-01"
 export_database = true
 
 [processing]
-extreme_threshold = 0.15   # Maximum deviation from Kalman prediction (15%)
+extreme_threshold = 0.15
 
 [kalman]
-# Base Kalman filter parameters (for stable state)
 initial_variance = 0.361
 transition_covariance_weight = 0.016
 transition_covariance_trend = 0.0001
 observation_covariance = 3.4
-
-# ============================================================================
-# RESET SYSTEM CONFIGURATION
-# ============================================================================
-# Three types of resets with different adaptation strategies:
-# 1. INITIAL - First measurement ever (most aggressive)
-# 2. HARD - After long gaps (30+ days)
-# 3. SOFT - Manual data entry with significant change
-
-[kalman.reset.initial]
-# INITIAL RESET - For the very first measurement(s) of a user
-# This needs to be VERY adaptive since we have no prior knowledge
-enabled = true
-
-# Adaptation parameters
-initial_variance_multiplier = 10     # Multiply base variance by this (high uncertainty)
-weight_noise_multiplier = 50         # Process noise multiplier for weight (allows big changes)
-trend_noise_multiplier = 50         # Process noise multiplier for trend (allows any trend)
-observation_noise_multiplier = 20   # Measurement noise multiplier (trust measurements more)
-
-# Adaptation duration
-adaptation_measurements = 10          # Stay adaptive for first 20 measurements
-adaptation_days = 10                  # Stay adaptive for first 3 weeks
-adaptation_decay_rate = 1           # How fast to transition to normal (lower = faster)
-
-# Quality scoring during adaptation
-quality_acceptance_threshold = 0.45  # Tighter threshold to reject outliers
-quality_safety_weight = 0.45
-quality_plausibility_weight = 0.10
-quality_consistency_weight = 0.10
-quality_reliability_weight = 0.35
-
-[kalman.reset.hard]
-# HARD RESET - After gaps of 30+ days
-# Aggressive but not as much as initial
-enabled = true
-gap_threshold_days = 30
-
-# Adaptation parameters
-initial_variance_multiplier = 3      # Moderate uncertainty after long gap
-weight_noise_multiplier = 5          # Reduced from 20 - prevent extreme changes
-trend_noise_multiplier = 50           # Reduced from 200 - limit trend volatility
-observation_noise_multiplier = 0.7   # Slightly less trusting of measurements
-
-# Adaptation duration
-adaptation_measurements = 10          # Shorter adaptation period
-adaptation_days = 7                   # One week
-adaptation_decay_rate = 2.5           # Moderate transition speed
-
-# Quality scoring during adaptation
-quality_acceptance_threshold = 0.45  # Tighter threshold to reject outliers
-quality_safety_weight = 0.45
-quality_plausibility_weight = 0.10
-quality_consistency_weight = 0.10
-quality_reliability_weight = 0.35
-
-[kalman.reset.soft]
-# SOFT RESET - Manual data entry with significant change
-# Gentle adaptation for user-reported weights
-enabled = true
-min_weight_change_kg = 5             # Minimum change to trigger
-cooldown_days = 3                     # Wait between soft resets
-trigger_sources = ["questionnaire", "patient-upload", "care-team-upload"]
-
-# Adaptation parameters
-initial_variance_multiplier = 2      # Small uncertainty boost
-weight_noise_multiplier = 5          # Allow small changes
-trend_noise_multiplier = 20          # Allow minor trend adjustment
-observation_noise_multiplier = 0.7   # Slightly more trust
-
-# Adaptation duration
-adaptation_measurements = 15          # Gradual adaptation
-adaptation_days = 10
-adaptation_decay_rate = 4             # Slow transition
-
-# Quality scoring during adaptation
-quality_acceptance_threshold = 0.4  # Slightly lenient
-quality_safety_weight = 0.40
-quality_plausibility_weight = 0.15
-quality_consistency_weight = 0.15
-quality_reliability_weight = 0.30
-
-# ============================================================================
-# VISUALIZATION
-# ============================================================================
 
 [visualization]
 enabled = true
 use_enhanced = true
 verbosity = "normal"
 
+[adaptive_noise]
+enabled = true
+default_multiplier = 1.5
+
+[retrospective]
+enabled = true
+buffer_hours = 1
+trigger_mode = "time_based"
+max_buffer_measurements = 100
+state_history_limit = 100
+
+[logging]
+progress_interval = 10000
+timestamp_format = "test_no_date"
+
+[quality_scoring]
+enabled = true
+use_harmonic_mean = true
+threshold = 0.6
+
 [visualization.markers]
 show_source_icons = true
 show_source_legend = true
-show_reset_markers = true
+show_reset_markers = false
 reset_marker_color = "#FF6600"
 reset_marker_opacity = 0.2
 reset_marker_width = 1
@@ -123,71 +53,83 @@ reset_marker_style = "dot"
 
 [visualization.rejection]
 show_severity_colors = true
-group_by_severity = true
+group_by_severity = false
 
 [visualization.reset]
-show_reset_lines = true
-show_gap_regions = true
-show_gap_labels = true
+show_reset_lines = false
+show_gap_regions = false
+show_gap_labels = false
 reset_line_color = "#FF6600"
 reset_line_style = "dash"
 reset_line_width = 2
 gap_region_color = "#F0F0F0"
 gap_region_opacity = 0.5
 gap_region_pattern = "diagonal"
-show_transition_markers = true
+show_transition_markers = false
 transition_marker_size = 10
-
-# ============================================================================
-# ADAPTIVE NOISE
-# ============================================================================
-
-[adaptive_noise]
-enabled = true
-default_multiplier = 1.5
-
-# ============================================================================
-# RETROSPECTIVE DATA QUALITY PROCESSING
-# ============================================================================
-
-[retrospective]
-enabled = true
-buffer_hours = 24
-trigger_mode = "time_based"  # "time_based" or "measurement_count"
-max_buffer_measurements = 100
-state_history_limit = 100
 
 [retrospective.outlier_detection]
 iqr_multiplier = 1.5
 z_score_threshold = 3.0
-temporal_max_change_percent = 0.50
-min_measurements_for_analysis = 5
+temporal_max_change_percent = 0.5
+min_measurements_for_analysis = 2
 
 [retrospective.safety]
 max_processing_time_seconds = 60
 require_rollback_confirmation = false
 preserve_immediate_results = true
 
-# ============================================================================
-# LOGGING
-# ============================================================================
-
-[logging]
-progress_interval = 10000
-timestamp_format = "test_no_date"
-
-# ============================================================================
-# QUALITY SCORING
-# ============================================================================
-
-[quality_scoring]
-enabled = true
-threshold = 0.6  # Normal acceptance threshold (60%)
-use_harmonic_mean = true
-
 [quality_scoring.component_weights]
-# Normal weights (must sum to 1.0)
 safety = 0.35
 plausibility = 0.25
 consistency = 0.25
 reliability = 0.15
+
+[kalman.reset.initial]
+enabled = true
+initial_variance_multiplier = 10
+weight_noise_multiplier = 50
+trend_noise_multiplier = 50
+observation_noise_multiplier = 20
+adaptation_measurements = 10
+adaptation_days = 10
+adaptation_decay_rate = 2.5
+quality_acceptance_threshold = 0.45
+quality_safety_weight = 0.45
+quality_plausibility_weight = 0.1
+quality_consistency_weight = 0.1
+quality_reliability_weight = 0.35
+
+[kalman.reset.hard]
+enabled = true
+gap_threshold_days = 30
+initial_variance_multiplier = 3
+weight_noise_multiplier = 5
+trend_noise_multiplier = 50
+observation_noise_multiplier = 0.7
+adaptation_measurements = 10
+adaptation_days = 7
+adaptation_decay_rate = 2.5
+quality_acceptance_threshold = 0.45
+quality_safety_weight = 0.45
+quality_plausibility_weight = 0.1
+quality_consistency_weight = 0.1
+quality_reliability_weight = 0.35
+
+[kalman.reset.soft]
+enabled = true
+min_weight_change_kg = 5
+cooldown_days = 3
+trigger_sources = [ "questionnaire", "patient-upload", "care-team-upload",]
+initial_variance_multiplier = 2
+weight_noise_multiplier = 5
+trend_noise_multiplier = 20
+observation_noise_multiplier = 0.7
+adaptation_measurements = 15
+adaptation_days = 10
+adaptation_decay_rate = 2.5
+quality_acceptance_threshold = 0.4
+quality_safety_weight = 0.4
+quality_plausibility_weight = 0.15
+quality_consistency_weight = 0.15
+quality_reliability_weight = 0.3

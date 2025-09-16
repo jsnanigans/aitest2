@@ -21,9 +21,49 @@ from src.visualization import create_weight_timeline
 
 
 def load_config(config_path: str = "config.toml") -> dict:
-    """Load configuration from TOML file."""
-    with open(config_path, "rb") as f:
-        return tomllib.load(f)
+    """Load configuration from TOML file or generate from profiles."""
+    # Check if explicit config path was provided
+    if config_path != "config.toml" and Path(config_path).exists():
+        with open(config_path, "rb") as f:
+            return tomllib.load(f)
+
+    # Check for profile-based config
+    if Path("config_profiles.toml").exists() and config_path == "config.toml":
+        # Try to generate config from profiles
+        try:
+            from src.config_generator import ConfigGenerator
+            generator = ConfigGenerator("config_profiles.toml")
+            print("Generating config from profiles...")
+            config = generator.generate_config()
+            # Optionally save for inspection
+            generator.generate_config("config.toml")
+            print(f"Using profile: {generator.profiles_config.get('active_profile', 'balanced')}")
+            return config
+        except Exception as e:
+            print(f"Warning: Could not generate from profiles: {e}")
+
+    # Fall back to existing config.toml
+    if Path(config_path).exists():
+        with open(config_path, "rb") as f:
+            return tomllib.load(f)
+
+    # Return minimal default if nothing exists
+    print("Warning: No config found, using defaults")
+    return {
+        "data": {
+            "csv_file": "./data/weights.csv",
+            "output_dir": "output",
+            "max_users": 200,
+            "min_readings": 20
+        },
+        "processing": {
+            "extreme_threshold": 0.15
+        },
+        "kalman": {},
+        "visualization": {
+            "enabled": True
+        }
+    }
 
 
 def load_test_users(filepath: str = "test_users.txt") -> list:
@@ -488,8 +528,6 @@ def _process_retrospective_buffer(user_id: str, retro_buffer, outlier_detector, 
         buffer_info = retro_buffer.get_buffer_info(user_id)
         buffer_start_time = buffer_info['first_timestamp'] if buffer_info else None
 
-        print(f"Processing retrospective buffer for user {user_id[:8]}... ({len(buffered_measurements)} measurements)")
-
         # Detect outliers (now with quality score awareness and Kalman prediction)
         clean_measurements, outlier_indices = outlier_detector.get_clean_measurements(buffered_measurements, user_id=user_id)
 
@@ -502,8 +540,6 @@ def _process_retrospective_buffer(user_id: str, retro_buffer, outlier_detector, 
         stats["retro_measurements_analyzed"] = stats.get("retro_measurements_analyzed", 0) + len(buffered_measurements)
 
         if len(outlier_indices) > 0:
-            print(f"  Found {len(outlier_indices)} outliers ({analysis['outlier_percentage']:.1f}%)")
-
             # Replay clean measurements if we have any and found outliers
             if clean_measurements and buffer_start_time:
                 replay_result = replay_manager.replay_clean_measurements(
