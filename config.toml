@@ -116,19 +116,20 @@ patient-device = 1.0
 connectivehealth-io = 1.5
 iglucose-com = 3.0
 
-[retrospective]
+[replay]
+enabled = true  # Enable replay buffer and processing
 buffer_hours = 1
 trigger_mode = "time_based"
 max_buffer_measurements = 100
 state_history_limit = 100
 
-[retrospective.outlier_detection]
+[replay.outlier_detection]
 iqr_multiplier = 1.5
 z_score_threshold = 3.0
 temporal_max_change_percent = 0.5
 min_measurements_for_analysis = 2
 
-[retrospective.safety]
+[replay.safety]
 max_processing_time_seconds = 60
 require_rollback_confirmation = false
 preserve_immediate_results = true
@@ -149,10 +150,10 @@ quality_override = true           # Allow high-quality scores to override outlie
 # Validation features
 [features.validation]
 physiological = true              # Hard limits (30-400kg)
-bmi_checking = true               # BMI plausibility checks
-rate_limiting = true              # Daily/weekly change limits
-temporal_consistency = true       # Temporal consistency checks
-session_variance = true           # Session-based variance detection
+# bmi_checking = true               # BMI plausibility checks - NOT IMPLEMENTED
+# rate_limiting = true              # Daily/weekly change limits - NOT IMPLEMENTED
+# temporal_consistency = true       # Temporal consistency checks - NOT IMPLEMENTED
+# session_variance = true           # Session-based variance detection - NOT IMPLEMENTED
 
 # Outlier detection methods
 [features.outlier_methods]
@@ -171,8 +172,8 @@ reliability = true                # Source-based reliability
 # State management
 [features.state]
 persistence = true                # Save user states to database
-history_buffer = true             # Maintain measurement history
-reset_tracking = true             # Track reset events
+# history_buffer = true             # Maintain measurement history - NOT IMPLEMENTED
+# reset_tracking = true             # Track reset events - NOT IMPLEMENTED
 
 # Reset management
 [features.resets]
@@ -184,17 +185,18 @@ soft = true                       # Enable soft reset for manual entries
 [features.adaptive]
 noise_model = true                # Source-specific noise multipliers
 parameters = true                 # Adaptive Kalman parameters
-parameter_decay = true            # Parameter decay over time
+# parameter_decay = true            # Parameter decay over time - NOT IMPLEMENTED
 
-# Retrospective processing
-[features.retrospective]
-outlier_detection = true          # Retrospective outlier detection
+# Replay processing (controlled by [replay].enabled above)
+[features.replay]
+enabled = true                   # Enable replay buffer and processing (use [replay].enabled instead)
+outlier_detection = true          # Replay-based outlier detection
 rollback = true                   # Allow state rollback
 
 # Visualization
 [features.visualization]
 enabled = true                    # Enable visualization generation
-threading = true                  # Enable multi-threading for visualizations
+# threading = true                  # Enable multi-threading for visualizations - USES DIFFERENT CONFIG
 
 # ============================================================================
 # EXPERT SETTINGS

@@ -1,8 +1,8 @@
 """
-Replay Manager for Replay Data Quality Processing
+Replay Manager for Retrospective Data Quality Processing
 
 Handles state restoration and chronological reprocessing of clean measurements.
-Provides atomic operations with rollback capability for safe replay processing.
+Provides atomic operations with rollback capability for safe retrospective processing.
 
 Key responsibilities:
 - Restore Kalman state from historical snapshots
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 class ReplayManager:
     """
-    Manages state restoration and measurement replay for replay processing.
+    Manages state restoration and measurement replay for retrospective processing.
     All operations are designed to be atomic with rollback capability.
     """
 
@@ -105,9 +105,9 @@ class ReplayManager:
 
                     if backup_weight and restored_weight:
                         weight_jump = abs(backup_weight - restored_weight)
-                        # If restoration would cause >15kg jump, skip replay processing
+                        # If restoration would cause >15kg jump, skip retrospective processing
                         if weight_jump > 15.0:
-                            logger.warning(f"Skipping replay processing for {user_id}: would cause {weight_jump:.1f}kg trajectory jump")
+                            logger.warning(f"Skipping retrospective processing for {user_id}: would cause {weight_jump:.1f}kg trajectory jump")
                             self._restore_state_from_backup(user_id)
                             return {
                                 'success': False,
@@ -292,7 +292,7 @@ class ReplayManager:
                     # Extract measurement data
                     weight = measurement['weight']
                     timestamp = measurement['timestamp']
-                    source = measurement.get('source', 'replay-replay')
+                    source = measurement.get('source', 'retrospective-replay')
                     unit = measurement.get('unit', 'kg')
 
                     # Create replay-friendly config with more lenient quality thresholds
