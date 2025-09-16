@@ -1,30 +1,117 @@
+# ============================================================================
+# SIMPLE CONFIGURATION
+# Most users only need to modify this section
+# ============================================================================
+
+# Choose a processing profile
+# Options: "conservative", "balanced", "aggressive", "clinical", "custom"
+profile = "custom"
+
+# Data source settings
 [data]
 csv_file = "./data/2025-09-05_nocon.csv"
 output_dir = "output"
-max_users = 20
+max_users = 500
 user_offset = 0
 min_readings = 20
 min_date = "2015-01-01"
 max_date = "2026-01-01"
 export_database = true
 
-[processing]
-extreme_threshold = 0.15
-
-[kalman]
-initial_variance = 0.361
-transition_covariance_weight = 0.016
-transition_covariance_trend = 0.0001
-observation_covariance = 3.4
-
+# Visualization settings
 [visualization]
 enabled = true
-use_enhanced = true
-verbosity = "normal"
+detail_level = "normal"  # Options: "minimal", "normal", "detailed"
+
+# ============================================================================
+# PROFILE DEFINITIONS
+# These define the behavior for each profile option above
+# ============================================================================
+
+[profiles.custom]
+description = "Custom profile - modify settings as needed"
+filtering_strength = "strict"           # How aggressively to filter outliers
+adaptation_speed = "moderate"               # How quickly to accept new weight ranges
+trust_manual_entries = "high"           # Trust level for user-reported weights
+gap_sensitivity = "high"               # How sensitive to data gaps
+quality_threshold = 0.59                # Minimum quality score to accept (70%)
+# Reset behavior
+reset_on_gaps = "aggressive"          # Reset after shorter gaps (21 days)
+reset_on_manual = "moderate"          # Don't reset on manual entries
+initial_trust = "low"                 # Slow initial adaptation for new users
+
+[profiles.conservative]
+description = "Strict filtering, rejects questionable data, slow to adapt"
+filtering_strength = "strict"           # How aggressively to filter outliers
+adaptation_speed = "slow"               # How quickly to accept new weight ranges
+trust_manual_entries = "low"           # Trust level for user-reported weights
+gap_sensitivity = "high"               # How sensitive to data gaps
+quality_threshold = 0.7                # Minimum quality score to accept (70%)
+# Reset behavior
+reset_on_gaps = "aggressive"          # Reset after shorter gaps (21 days)
+reset_on_manual = "disabled"          # Don't reset on manual entries
+initial_trust = "low"                 # Slow initial adaptation for new users
+
+[profiles.balanced]
+description = "Default settings, moderate filtering, reasonable adaptation"
+filtering_strength = "moderate"
+adaptation_speed = "moderate"
+trust_manual_entries = "moderate"
+gap_sensitivity = "moderate"
+quality_threshold = 0.6
+# Reset behavior
+reset_on_gaps = "moderate"            # Reset after 30 days
+reset_on_manual = "moderate"          # Reset on 5kg+ changes from trusted sources
+initial_trust = "moderate"            # Normal initial adaptation
+
+[profiles.aggressive]
+description = "Accepts most data, quick to adapt, minimal filtering"
+filtering_strength = "lenient"
+adaptation_speed = "fast"
+trust_manual_entries = "high"
+gap_sensitivity = "low"
+quality_threshold = 0.45
+# Reset behavior
+reset_on_gaps = "lenient"             # Only reset after long gaps (45 days)
+reset_on_manual = "sensitive"         # Reset on smaller changes (3kg+)
+initial_trust = "high"                # Quick initial adaptation
+
+[profiles.clinical]
+description = "Healthcare setting: trusts clinical sources, strict on devices"
+filtering_strength = "source_based"    # Different rules per source
+adaptation_speed = "moderate"
+trust_manual_entries = "clinical_only" # Only trust care-team entries
+gap_sensitivity = "moderate"
+quality_threshold = 0.55
+# Reset behavior
+reset_on_gaps = "moderate"            # Standard gap handling
+reset_on_manual = "clinical"          # Only reset on care-team entries
+initial_trust = "clinical"            # Trust varies by source
+
+# ============================================================================
+# ADVANCED SETTINGS
+# Only modify if you need specific behavior not covered by profiles
+# These values can override profile defaults
+# ============================================================================
+
+[processing]
+# Leave empty to use profile defaults
+# extreme_threshold = 0.15  # Max % deviation from expected (0.0-1.0)
+
+[logging]
+progress_interval = 10000
+timestamp_format = "test_no_date"
 
 [adaptive_noise]
 enabled = true
-default_multiplier = 1.5
+# Source reliability multipliers (lower = more trusted)
+[adaptive_noise.source_multipliers]
+care-team-upload = 0.5
+patient-upload = 0.7
+questionnaire = 0.8
+patient-device = 1.0
+connectivehealth-io = 1.5
+iglucose-com = 3.0
 
 [retrospective]
 enabled = true
@@ -32,41 +119,6 @@ buffer_hours = 1
 trigger_mode = "time_based"
 max_buffer_measurements = 100
 state_history_limit = 100
-
-[logging]
-progress_interval = 10000
-timestamp_format = "test_no_date"
-
-[quality_scoring]
-enabled = true
-use_harmonic_mean = true
-threshold = 0.6
-
-[visualization.markers]
-show_source_icons = true
-show_source_legend = true
-show_reset_markers = false
-reset_marker_color = "#FF6600"
-reset_marker_opacity = 0.2
-reset_marker_width = 1
-reset_marker_style = "dot"
-
-[visualization.rejection]
-show_severity_colors = true
-group_by_severity = false
-
-[visualization.reset]
-show_reset_lines = false
-show_gap_regions = false
-show_gap_labels = false
-reset_line_color = "#FF6600"
-reset_line_style = "dash"
-reset_line_width = 2
-gap_region_color = "#F0F0F0"
-gap_region_opacity = 0.5
-gap_region_pattern = "diagonal"
-show_transition_markers = false
-transition_marker_size = 10
 
 [retrospective.outlier_detection]
 iqr_multiplier = 1.5
@@ -79,57 +131,68 @@ max_processing_time_seconds = 60
 require_rollback_confirmation = false
 preserve_immediate_results = true
 
-[quality_scoring.component_weights]
-safety = 0.35
-plausibility = 0.25
-consistency = 0.25
-reliability = 0.15
+# ============================================================================
+# EXPERT SETTINGS
+# These are automatically configured based on profile selection
+# Only modify if you have deep understanding of the system
+# ============================================================================
 
-[kalman.reset.initial]
-enabled = true
-initial_variance_multiplier = 10
-weight_noise_multiplier = 50
-trend_noise_multiplier = 50
-observation_noise_multiplier = 20
-adaptation_measurements = 10
-adaptation_days = 10
-adaptation_decay_rate = 2.5
-quality_acceptance_threshold = 0.45
-quality_safety_weight = 0.45
-quality_plausibility_weight = 0.1
-quality_consistency_weight = 0.1
-quality_reliability_weight = 0.35
+[kalman]
+# Core Kalman filter parameters - rarely need modification
+initial_variance = 0.361
+transition_covariance_weight = 0.016
+transition_covariance_trend = 0.0001
+observation_covariance = 3.4
 
-[kalman.reset.hard]
+[quality_scoring]
 enabled = true
-gap_threshold_days = 30
-initial_variance_multiplier = 3
-weight_noise_multiplier = 5
-trend_noise_multiplier = 50
-observation_noise_multiplier = 0.7
-adaptation_measurements = 10
-adaptation_days = 7
-adaptation_decay_rate = 2.5
-quality_acceptance_threshold = 0.45
-quality_safety_weight = 0.45
-quality_plausibility_weight = 0.1
-quality_consistency_weight = 0.1
-quality_reliability_weight = 0.35
+use_harmonic_mean = true
+# threshold is set by profile, but can be overridden here
+# threshold = 0.6
 
-[kalman.reset.soft]
-enabled = true
-min_weight_change_kg = 5
-cooldown_days = 3
-trigger_sources = [ "questionnaire", "patient-upload", "care-team-upload",]
-initial_variance_multiplier = 2
-weight_noise_multiplier = 5
-trend_noise_multiplier = 20
-observation_noise_multiplier = 0.7
-adaptation_measurements = 15
-adaptation_days = 10
-adaptation_decay_rate = 2.5
-quality_acceptance_threshold = 0.4
-quality_safety_weight = 0.4
-quality_plausibility_weight = 0.15
-quality_consistency_weight = 0.15
-quality_reliability_weight = 0.3
+# Component weights are set by profile, but can be overridden here
+# [quality_scoring.component_weights]
+# safety = 0.35
+# plausibility = 0.25
+# consistency = 0.25
+# reliability = 0.15
+
+# ============================================================================
+# RESET CONFIGURATION OVERRIDES
+# These are automatically configured based on profile selection
+# Only uncomment and modify if you need direct control
+# ============================================================================
+
+# [kalman.reset.initial]
+# enabled = true
+# initial_variance_multiplier = 10
+# weight_noise_multiplier = 50
+# trend_noise_multiplier = 50
+# observation_noise_multiplier = 20
+# adaptation_measurements = 10
+# adaptation_days = 10
+# adaptation_decay_rate = 2.5
+
+# [kalman.reset.hard]
+# enabled = true
+# gap_threshold_days = 30
+# initial_variance_multiplier = 3
+# weight_noise_multiplier = 5
+# trend_noise_multiplier = 50
+# observation_noise_multiplier = 0.7
+# adaptation_measurements = 10
+# adaptation_days = 7
+# adaptation_decay_rate = 2.5
+
+# [kalman.reset.soft]
+# enabled = true
+# min_weight_change_kg = 5
+# cooldown_days = 3
+# trigger_sources = ["questionnaire", "patient-upload", "care-team-upload"]
+# initial_variance_multiplier = 2
+# weight_noise_multiplier = 5
+# trend_noise_multiplier = 20
+# observation_noise_multiplier = 0.7
+# adaptation_measurements = 15
+# adaptation_days = 10
+# adaptation_decay_rate = 2.5

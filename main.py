@@ -21,49 +21,36 @@ from src.viz.visualization import create_weight_timeline
 
 
 def load_config(config_path: str = "config.toml") -> dict:
-    """Load configuration from TOML file or generate from profiles."""
-    # Check if explicit config path was provided
-    if config_path != "config.toml" and Path(config_path).exists():
-        with open(config_path, "rb") as f:
-            return tomllib.load(f)
-
-    # Check for profile-based config
-    if Path("config_profiles.toml").exists() and config_path == "config.toml":
-        # Try to generate config from profiles
-        try:
-            from src.config_generator import ConfigGenerator
-            generator = ConfigGenerator("config_profiles.toml")
-            print("Generating config from profiles...")
-            config = generator.generate_config()
-            # Optionally save for inspection
-            generator.generate_config("config.toml")
-            print(f"Using profile: {generator.profiles_config.get('active_profile', 'balanced')}")
-            return config
-        except Exception as e:
-            print(f"Warning: Could not generate from profiles: {e}")
-
-    # Fall back to existing config.toml
-    if Path(config_path).exists():
-        with open(config_path, "rb") as f:
-            return tomllib.load(f)
-
-    # Return minimal default if nothing exists
-    print("Warning: No config found, using defaults")
-    return {
-        "data": {
-            "csv_file": "./data/weights.csv",
-            "output_dir": "output",
-            "max_users": 200,
-            "min_readings": 20
-        },
-        "processing": {
-            "extreme_threshold": 0.15
-        },
-        "kalman": {},
-        "visualization": {
-            "enabled": True
+    """Load configuration with profile interpretation."""
+    if not Path(config_path).exists():
+        print(f"Warning: Config file {config_path} not found, using defaults")
+        return {
+            "data": {
+                "csv_file": "./data/weights.csv",
+                "output_dir": "output",
+                "max_users": 200,
+                "min_readings": 20
+            },
+            "processing": {
+                "extreme_threshold": 0.15
+            },
+            "kalman": {},
+            "visualization": {
+                "enabled": True
+            }
         }
-    }
+
+    # Use the new config loader that interprets profiles
+    from src.config_loader import load_config as load_config_with_profiles
+    config = load_config_with_profiles(config_path)
+
+    # Print which profile is being used
+    with open(config_path, "rb") as f:
+        raw_config = tomllib.load(f)
+        profile = raw_config.get("profile", "balanced")
+        print(f"Using profile: {profile}")
+
+    return config
 
 
 def load_test_users(filepath: str = "test_users.txt") -> list:
