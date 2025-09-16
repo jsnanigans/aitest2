@@ -94,6 +94,7 @@ class ProcessorStateDB:
             'measurement_history': [],
             'last_accepted_timestamp': None,
             'reset_events': [],
+            'state_history': [],  # New: State snapshots for retrospective processing
         }
 
     def _make_serializable(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -212,6 +213,118 @@ class ProcessorStateDB:
         if state:
             return state.get('last_timestamp')
         return None
+
+    def save_state_snapshot(self, user_id: str, timestamp: datetime) -> bool:
+        """
+        Save a state snapshot for retrospective processing.
+        Maintains up to 100 historical snapshots per user.
+
+        Args:
+            user_id: User identifier
+            timestamp: Timestamp of the snapshot
+
+        Returns:
+            True if snapshot saved successfully
+        """
+        state = self.get_state(user_id)
+        if not state or not state.get('kalman_params'):
+            return False
+
+        snapshot = {
+            'timestamp': timestamp,
+            'kalman_state': state['last_state'].copy() if state.get('last_state') is not None else None,
+            'kalman_covariance': state['last_covariance'].copy() if state.get('last_covariance') is not None else None,
+            'kalman_params': state['kalman_params'].copy() if state.get('kalman_params') else None,
+            'measurements_count': len(state.get('measurement_history', []))
+        }
+
+        # Add to state history
+        history = state.get('state_history', [])
+        history.append(snapshot)
+
+        # Keep only last 100 snapshots
+        if len(history) > 100:
+            history = history[-100:]
+
+        # Update state and save
+        state['state_history'] = history
+        self.save_state(user_id, state)
+        return True
+
+    def get_state_snapshot_before(self, user_id: str, before_timestamp: datetime) -> Optional[Dict[str, Any]]:
+        """
+        Get the most recent state snapshot before the given timestamp.
+
+        Args:
+            user_id: User identifier
+            before_timestamp: Find snapshot before this time
+
+        Returns:
+            State snapshot dictionary or None if not found
+        """
+        state = self.get_state(user_id)
+        if not state or not state.get('state_history'):
+            return None
+
+        history = state['state_history']
+        # Find the most recent snapshot before the timestamp
+        matching_snapshots = [
+            snapshot for snapshot in history
+            if snapshot['timestamp'] < before_timestamp
+        ]
+
+        if not matching_snapshots:
+            return None
+
+        # Return the most recent one
+        return max(matching_snapshots, key=lambda x: x['timestamp'])
+
+    def restore_state_from_snapshot(self, user_id: str, snapshot: Dict[str, Any]) -> bool:
+        """
+        Restore user state from a historical snapshot.
+        WARNING: This modifies the current state - use with caution.
+
+        Args:
+            user_id: User identifier
+            snapshot: Snapshot dictionary from get_state_snapshot_before
+
+        Returns:
+            True if restoration successful
+        """
+        if not snapshot:
+            return False
+
+        state = self.get_state(user_id)
+        if not state:
+            state = self.create_initial_state()
+
+        # Restore key state components from snapshot
+        state['last_state'] = snapshot.get('kalman_state')
+        state['last_covariance'] = snapshot.get('kalman_covariance')
+        state['kalman_params'] = snapshot.get('kalman_params')
+        state['last_timestamp'] = snapshot.get('timestamp')
+
+        # Clear measurement history to start fresh from restore point
+        # Keep state_history intact for potential rollbacks
+        state['measurement_history'] = []
+
+        self.save_state(user_id, state)
+        return True
+
+    def get_state_history_count(self, user_id: str) -> int:
+        """
+        Get the number of state snapshots stored for a user.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Number of snapshots (0 if user not found)
+        """
+        state = self.get_state(user_id)
+        if not state:
+            return 0
+        return len(state.get('state_history', []))
 
     def export_to_csv(self, filepath: str) -> int:
         """

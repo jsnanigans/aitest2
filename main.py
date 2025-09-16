@@ -67,6 +67,30 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     # Database for Kalman state
     db = get_state_db()
 
+    # Initialize retrospective processing components
+    retro_config = config.get("retrospective", {})
+    retro_enabled = retro_config.get("enabled", False)
+    retro_buffer = None
+    outlier_detector = None
+    replay_manager = None
+
+    if retro_enabled:
+        try:
+            from src.retro_buffer import get_retro_buffer
+            from src.outlier_detection import OutlierDetector
+            from src.replay_manager import ReplayManager
+
+            retro_buffer = get_retro_buffer(retro_config)
+            outlier_detector = OutlierDetector(retro_config.get("outlier_detection", {}))
+            replay_manager = ReplayManager(db, retro_config.get("safety", {}))
+
+            print("Retrospective processing enabled")
+            print(f"  Buffer window: {retro_config.get('buffer_hours', 72)} hours")
+            print(f"  Trigger mode: {retro_config.get('trigger_mode', 'time_based')}")
+        except ImportError as e:
+            print(f"Warning: Could not initialize retrospective processing: {e}")
+            retro_enabled = False
+
     # Parse configuration
     max_users = config["data"].get("max_users", 0)
     user_offset = config["data"].get("user_offset", 0)
@@ -267,6 +291,61 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                 else:
                     stats["rejected"] += 1
 
+                # Add to retrospective buffer if enabled
+                if retro_enabled and retro_buffer:
+                    measurement_data = {
+                        'weight': weight,
+                        'timestamp': timestamp,
+                        'source': source,
+                        'unit': unit,
+                        'metadata': {
+                            'accepted': result.get('accepted', False),
+                            'rejection_reason': result.get('rejection_reason', None)
+                        }
+                    }
+
+                    buffer_result = retro_buffer.add_measurement(user_id, measurement_data)
+
+                    # Check if buffer is ready for processing
+                    if buffer_result.get('buffer_ready', False):
+                        # Save state snapshot before buffer analysis
+                        db.save_state_snapshot(user_id, timestamp)
+
+                        # Process retrospectively in the background
+                        # Note: In production, this might be async/queued
+                        try:
+                            _process_retrospective_buffer(
+                                user_id=user_id,
+                                retro_buffer=retro_buffer,
+                                outlier_detector=outlier_detector,
+                                replay_manager=replay_manager,
+                                stats=stats
+                            )
+                        except Exception as e:
+                            stats["retro_errors"] = stats.get("retro_errors", 0) + 1
+                            if config.get("logging", {}).get("verbose", False):
+                                print(f"Retrospective processing error for {user_id}: {e}")
+
+    # Process any remaining retrospective buffers at the end
+    if retro_enabled and retro_buffer:
+        ready_buffers = retro_buffer.get_ready_buffers()
+        if ready_buffers:
+            print(f"\nProcessing {len(ready_buffers)} remaining retrospective buffers...")
+            for user_id in ready_buffers:
+                try:
+                    # Save final snapshot
+                    db.save_state_snapshot(user_id, datetime.now())
+                    _process_retrospective_buffer(
+                        user_id=user_id,
+                        retro_buffer=retro_buffer,
+                        outlier_detector=outlier_detector,
+                        replay_manager=replay_manager,
+                        stats=stats
+                    )
+                except Exception as e:
+                    stats["retro_errors"] = stats.get("retro_errors", 0) + 1
+                    print(f"Error processing final buffer for {user_id}: {e}")
+
     # Final statistics
     elapsed = (datetime.now() - stats["start_time"]).total_seconds()
 
@@ -282,6 +361,18 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     if stats["accepted"] + stats["rejected"] > 0:
         acceptance_rate = stats['accepted'] / (stats['accepted'] + stats['rejected'])
         print(f"  Acceptance rate: {acceptance_rate:.1%}")
+
+    # Retrospective processing statistics
+    if retro_enabled and stats.get("retro_processed", 0) > 0:
+        print(f"\nRetrospective Processing:")
+        print(f"  Buffers processed: {stats.get('retro_processed', 0):,}")
+        print(f"  Measurements analyzed: {stats.get('retro_measurements_analyzed', 0):,}")
+        print(f"  Outliers found: {stats.get('retro_outliers_found', 0):,}")
+        print(f"  Successful replays: {stats.get('retro_replays_successful', 0):,}")
+        if stats.get("retro_replays_failed", 0) > 0:
+            print(f"  Failed replays: {stats.get('retro_replays_failed', 0):,}")
+        if stats.get("retro_errors", 0) > 0:
+            print(f"  Processing errors: {stats.get('retro_errors', 0):,}")
 
     # Save results
     timestamp_str = datetime.now().strftime(config["logging"]["timestamp_format"])
@@ -373,6 +464,69 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             print(f"Output: {viz_dir}")
 
     return user_results, stats
+
+
+def _process_retrospective_buffer(user_id: str, retro_buffer, outlier_detector, replay_manager, stats: dict) -> None:
+    """
+    Process a retrospective buffer for outlier detection and replay.
+
+    Args:
+        user_id: User identifier
+        retro_buffer: RetroBuffer instance
+        outlier_detector: OutlierDetector instance
+        replay_manager: ReplayManager instance
+        stats: Statistics dictionary to update
+    """
+    try:
+        # Get buffered measurements
+        buffered_measurements = retro_buffer.get_buffer_measurements(user_id)
+        if not buffered_measurements:
+            return
+
+        buffer_info = retro_buffer.get_buffer_info(user_id)
+        buffer_start_time = buffer_info['first_timestamp'] if buffer_info else None
+
+        print(f"Processing retrospective buffer for user {user_id[:8]}... ({len(buffered_measurements)} measurements)")
+
+        # Detect outliers
+        clean_measurements, outlier_indices = outlier_detector.get_clean_measurements(buffered_measurements)
+
+        # Get analysis details
+        analysis = outlier_detector.analyze_outliers(buffered_measurements, outlier_indices)
+
+        # Update statistics
+        stats["retro_processed"] = stats.get("retro_processed", 0) + 1
+        stats["retro_outliers_found"] = stats.get("retro_outliers_found", 0) + len(outlier_indices)
+        stats["retro_measurements_analyzed"] = stats.get("retro_measurements_analyzed", 0) + len(buffered_measurements)
+
+        if len(outlier_indices) > 0:
+            print(f"  Found {len(outlier_indices)} outliers ({analysis['outlier_percentage']:.1f}%)")
+
+            # Replay clean measurements if we have any and found outliers
+            if clean_measurements and buffer_start_time:
+                replay_result = replay_manager.replay_clean_measurements(
+                    user_id=user_id,
+                    clean_measurements=clean_measurements,
+                    buffer_start_time=buffer_start_time
+                )
+
+                if replay_result['success']:
+                    stats["retro_replays_successful"] = stats.get("retro_replays_successful", 0) + 1
+                    print(f"  Successfully replayed {replay_result['measurements_replayed']} clean measurements")
+                else:
+                    stats["retro_replays_failed"] = stats.get("retro_replays_failed", 0) + 1
+                    print(f"  Replay failed: {replay_result.get('error', 'unknown error')}")
+            else:
+                print("  No clean measurements to replay")
+        else:
+            print("  No outliers detected")
+
+        # Clear buffer after processing
+        retro_buffer.clear_buffer(user_id)
+
+    except Exception as e:
+        stats["retro_processing_errors"] = stats.get("retro_processing_errors", 0) + 1
+        print(f"Error in retrospective processing for {user_id}: {e}")
 
 
 def parse_timestamp(date_str: str) -> datetime:

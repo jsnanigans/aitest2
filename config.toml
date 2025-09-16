@@ -4,9 +4,10 @@
 # Input/output settings
 csv_file = "./data/2025-09-05_nocon.csv" # no connective health data
 output_dir = "output"
-max_users = 200
+max_users = 1
 user_offset = 0
 min_readings = 20
+test_users_file = "single_user_test.txt"
 min_date = "2015-01-01"
 max_date = "2026-01-01"
 export_database = true
@@ -144,6 +145,28 @@ transition_marker_size = 10
 [adaptive_noise]
 enabled = true
 default_multiplier = 1.5
+
+# ============================================================================
+# RETROSPECTIVE DATA QUALITY PROCESSING
+# ============================================================================
+
+[retrospective]
+enabled = true
+buffer_hours = 72
+trigger_mode = "time_based"  # "time_based" or "measurement_count"
+max_buffer_measurements = 100
+state_history_limit = 100
+
+[retrospective.outlier_detection]
+iqr_multiplier = 1.5
+z_score_threshold = 3.0
+temporal_max_change_percent = 0.50
+min_measurements_for_analysis = 5
+
+[retrospective.safety]
+max_processing_time_seconds = 60
+require_rollback_confirmation = false
+preserve_immediate_results = true
 
 # ============================================================================
 # LOGGING
