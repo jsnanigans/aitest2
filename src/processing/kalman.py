@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Dict, Tuple, Optional, Any
 import numpy as np
 from pykalman import KalmanFilter
+from ..feature_manager import FeatureManager
 
 try:
     from ..constants import KALMAN_DEFAULTS
@@ -303,11 +304,15 @@ def get_adaptive_kalman_params(
         return base_config
     
     days_since_reset = (current_timestamp - reset_timestamp).total_seconds() / 86400.0
-    
+
+    # Initialize adaptation_days (may be overridden by reset_parameters)
+    adaptation_days_value = adaptive_days
+    reset_params = {}  # Default empty reset params
+
     # Check if we have custom reset parameters in state
     if state and state.get('reset_parameters'):
         reset_params = state['reset_parameters']
-        adaptation_days = reset_params.get('adaptation_days', adaptive_days)
+        adaptation_days_value = reset_params.get('adaptation_days', adaptive_days)
         
         # Get multipliers from reset parameters
         initial_var_mult = reset_params.get('initial_variance_multiplier', 5)
@@ -337,7 +342,7 @@ def get_adaptive_kalman_params(
         }
     
     # Check if we're still in adaptation period
-    if days_since_reset >= adaptation_days:
+    if days_since_reset >= adaptation_days_value:
         return base_config
     
     # Calculate decay factor based on days since reset
@@ -348,7 +353,7 @@ def get_adaptive_kalman_params(
     if measurements_since > 0:
         decay_factor = 1.0 - np.exp(-measurements_since / decay_rate)
     else:
-        decay_factor = min(1.0, days_since_reset / adaptation_days)
+        decay_factor = min(1.0, days_since_reset / adaptation_days_value)
     
     # Interpolate between adaptive and base parameters
     result = {}
@@ -447,20 +452,30 @@ class ResetManager:
     ) -> Optional[ResetType]:
         """
         Determine if and what type of reset to trigger.
-        
+
         Priority order:
         1. Initial (no Kalman params)
         2. Hard (30+ day gap)
         3. Soft (manual data with significant change)
         """
-        
+
+        # Get feature manager if available
+        feature_manager = config.get('feature_manager')
+
         # 1. Check for initial reset (no Kalman params yet)
         if not state or not state.get('kalman_params'):
+            # Check if initial reset is enabled via feature toggle
+            if feature_manager and not feature_manager.is_enabled('reset_initial'):
+                return None
             return ResetType.INITIAL
-        
+
         # 2. Check for hard reset (30+ day gap)
         hard_config = config.get('kalman', {}).get('reset', {}).get('hard', {})
-        if hard_config.get('enabled', True):
+        hard_enabled = hard_config.get('enabled', True)
+        if feature_manager:
+            hard_enabled = hard_enabled and feature_manager.is_enabled('reset_hard')
+
+        if hard_enabled:
             last_timestamp = state.get('last_accepted_timestamp') or state.get('last_timestamp')
             if last_timestamp:
                 if isinstance(last_timestamp, str):
@@ -472,7 +487,11 @@ class ResetManager:
         
         # 3. Check for soft reset (manual data with significant change)
         soft_config = config.get('kalman', {}).get('reset', {}).get('soft', {})
-        if soft_config.get('enabled', True):
+        soft_enabled = soft_config.get('enabled', True)
+        if feature_manager:
+            soft_enabled = soft_enabled and feature_manager.is_enabled('reset_soft')
+
+        if soft_enabled:
             if source in MANUAL_DATA_SOURCES or source in soft_config.get('trigger_sources', []):
                 last_weight = state.get('last_raw_weight') or state.get('last_accepted_weight')
                 if last_weight:

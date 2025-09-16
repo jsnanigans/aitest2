@@ -8,6 +8,7 @@ from typing import Dict, Optional, Any, Tuple
 import numpy as np
 
 from ..database.database import get_state_db
+from ..feature_manager import FeatureManager
 from .kalman import (
     KalmanFilterManager,
     ResetManager,
@@ -135,20 +136,34 @@ def process_measurement(
         }
     
     # Step 2: Load or create user state
-    state = db.get_state(user_id)
-    if state is None:
+    # Get feature manager
+    feature_manager = config.get('feature_manager')
+    if not feature_manager:
+        feature_manager = FeatureManager(config)
+
+    # Only load state if persistence is enabled
+    if feature_manager.is_enabled('state_persistence'):
+        state = db.get_state(user_id)
+        if state is None:
+            state = db.create_initial_state()
+    else:
+        # Use minimal state without persistence
         state = db.create_initial_state()
-    
+
     # Add user height to config for validation
     user_height = DataQualityPreprocessor.get_user_height(user_id)
     
     # Step 3: Check for any type of reset using ResetManager
     kalman_config = config.get('kalman', {})
     
-    # Check if reset is needed
-    reset_type = ResetManager.should_trigger_reset(
-        state, cleaned_weight, timestamp, source, config
-    )
+    # Check if reset is needed (only if reset features are enabled)
+    reset_type = None
+    if (feature_manager.is_enabled('reset_initial') or
+        feature_manager.is_enabled('reset_hard') or
+        feature_manager.is_enabled('reset_soft')):
+        reset_type = ResetManager.should_trigger_reset(
+            state, cleaned_weight, timestamp, source, config
+        )
     
     reset_event = None
     reset_occurred = False
@@ -213,14 +228,15 @@ def process_measurement(
         state['last_accepted_timestamp'] = timestamp
         state['last_raw_weight'] = cleaned_weight  # Track for soft reset detection
         state["measurements_since_reset"] = state.get("measurements_since_reset", 0) + 1
-        db.save_state(user_id, state)
+        if feature_manager.is_enabled('state_persistence'):
+            db.save_state(user_id, state)
         
         return result
     
     # Step 5: Quality scoring (replaces physiological validation)
     processing_config = config.get('processing', {})
     quality_config = config.get('quality_scoring', {})
-    use_quality_scoring = quality_config.get('enabled', False)
+    use_quality_scoring = quality_config.get('enabled', False) and feature_manager.is_enabled('quality_scoring')
     
     # Get previous weight and time diff
     previous_weight = None
@@ -322,7 +338,8 @@ def process_measurement(
             cleaned_weight,
             previous_weight=previous_weight,
             time_diff_hours=time_diff_hours,
-            source=source
+            source=source,
+            feature_manager=feature_manager
         )
         
         is_valid = validation_result['valid']
@@ -344,8 +361,11 @@ def process_measurement(
     
     # Step 6: Check deviation from Kalman prediction
     current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
-    
-    if current_weight is not None:
+
+    # Only check Kalman deviation if feature is enabled
+    kalman_deviation_enabled = feature_manager.is_enabled('kalman_deviation_check') and feature_manager.is_enabled('kalman_filtering')
+
+    if current_weight is not None and kalman_deviation_enabled:
         time_delta_days = KalmanFilterManager.calculate_time_delta_days(
             timestamp, state.get('last_timestamp')
         )
@@ -387,6 +407,31 @@ def process_measurement(
             }
     
     # Step 7: Update Kalman filter
+    # Only update Kalman if feature is enabled
+    if not feature_manager.is_enabled('kalman_filtering'):
+        # Skip Kalman filtering - just pass through the weight
+        result = {
+            'accepted': True,
+            'timestamp': timestamp,
+            'raw_weight': weight,
+            'cleaned_weight': cleaned_weight,
+            'filtered_weight': cleaned_weight,  # No filtering
+            'trend': 0.0,
+            'confidence': 1.0,
+            'source': source,
+            'stage': 'no_filtering'
+        }
+
+        # Save minimal state if persistence enabled
+        if feature_manager.is_enabled('state_persistence'):
+            state['last_source'] = source
+            state['last_timestamp'] = timestamp
+            state['last_accepted_timestamp'] = timestamp
+            state['last_raw_weight'] = cleaned_weight
+            db.save_state(user_id, state)
+
+        return result
+
     # Check if we should use adaptive parameters (within 7 days of reset)
     reset_timestamp = get_reset_timestamp(state)
     adaptive_kalman_config = get_adaptive_kalman_params(
@@ -495,7 +540,8 @@ def process_measurement(
     state['last_timestamp'] = timestamp  # Keep for backward compatibility
     state['last_accepted_timestamp'] = timestamp
     state['last_raw_weight'] = cleaned_weight  # Track for soft reset detection
-    db.save_state(user_id, state)
+    if feature_manager.is_enabled('state_persistence'):
+        db.save_state(user_id, state)
     
     return result
 

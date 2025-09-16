@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple, Optional, Any
 from collections import defaultdict, deque
 import numpy as np
 import pandas as pd
+from ..feature_manager import FeatureManager
 
 try:
     from ..constants import (
@@ -186,7 +187,8 @@ class PhysiologicalValidator:
         previous_weight: Optional[float] = None,
         time_diff_hours: Optional[float] = None,
         source: Optional[str] = None,
-        recent_measurements: Optional[List[Tuple[datetime, float]]] = None
+        recent_measurements: Optional[List[Tuple[datetime, float]]] = None,
+        feature_manager: Optional[FeatureManager] = None
     ) -> Dict[str, Any]:
         """
         Comprehensive validation combining all checks.
@@ -201,29 +203,34 @@ class PhysiologicalValidator:
             'warnings': [],
             'rejection_reason': None
         }
-        
-        is_valid, reason = PhysiologicalValidator.validate_absolute_limits(weight)
-        if not is_valid:
-            result['valid'] = False
-            result['rejection_reason'] = reason
-            return result
-        result['checks'].append('absolute_limits')
+
+        # Always perform physiological validation (safety critical)
+        # But can be disabled through feature_manager
+        if not feature_manager or feature_manager.is_enabled('validation_physiological'):
+            is_valid, reason = PhysiologicalValidator.validate_absolute_limits(weight)
+            if not is_valid:
+                result['valid'] = False
+                result['rejection_reason'] = reason
+                return result
+            result['checks'].append('absolute_limits')
         
         warning = PhysiologicalValidator.check_suspicious_range(weight)
         if warning:
             result['warnings'].append(warning)
         
+        # Check rate limiting if enabled
         if previous_weight is not None and time_diff_hours is not None:
-            is_valid, reason, rate = PhysiologicalValidator.validate_rate_of_change(
-                weight, previous_weight, time_diff_hours, source
-            )
-            if not is_valid:
-                result['valid'] = False
-                result['rejection_reason'] = reason
+            if not feature_manager or feature_manager.is_enabled('validation_rate_limiting'):
+                is_valid, reason, rate = PhysiologicalValidator.validate_rate_of_change(
+                    weight, previous_weight, time_diff_hours, source
+                )
+                if not is_valid:
+                    result['valid'] = False
+                    result['rejection_reason'] = reason
+                    result['daily_change_rate'] = rate
+                    return result
+                result['checks'].append('rate_of_change')
                 result['daily_change_rate'] = rate
-                return result
-            result['checks'].append('rate_of_change')
-            result['daily_change_rate'] = rate
         
         if recent_measurements:
             pattern_analysis = PhysiologicalValidator.check_measurement_pattern(recent_measurements)

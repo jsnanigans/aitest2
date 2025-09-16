@@ -4,6 +4,7 @@ Configuration loader that interprets high-level profiles into full config.
 from typing import Dict, Any
 import tomllib
 from pathlib import Path
+from src.feature_manager import FeatureManager
 
 
 class ConfigLoader:
@@ -86,6 +87,9 @@ class ConfigLoader:
 
         # Apply visualization settings
         cls._apply_visualization(config, raw_config)
+
+        # Add feature manager instance
+        config["feature_manager"] = FeatureManager(raw_config)
 
         return config
 

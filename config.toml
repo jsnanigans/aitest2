@@ -138,6 +138,66 @@ require_rollback_confirmation = false
 preserve_immediate_results = true
 
 # ============================================================================
+# FEATURE TOGGLES
+# Control individual features of the processing pipeline
+# All features default to true for backward compatibility
+# ============================================================================
+
+[features]
+# Core processing features
+kalman_filtering = true          # Core Kalman filter (required for many features)
+quality_scoring = true            # Multi-factor quality assessment
+outlier_detection = true          # Statistical outlier detection
+quality_override = true           # Allow high-quality scores to override outlier detection
+
+# Validation features
+[features.validation]
+enabled = true                    # Master validation switch
+physiological = true              # Hard limits (30-400kg)
+bmi_checking = true               # BMI plausibility checks
+rate_limiting = true              # Daily/weekly change limits
+temporal_consistency = true       # Temporal consistency checks
+session_variance = true           # Session-based variance detection
+
+# Outlier detection methods
+[features.outlier_methods]
+iqr = true                        # Interquartile range detection
+mad = true                        # Median absolute deviation
+temporal = true                   # Temporal change detection
+kalman_deviation = true           # Deviation from Kalman prediction
+
+# Quality scoring components
+[features.quality_components]
+safety = true                     # Safety score (physiological limits)
+plausibility = true               # Plausibility score (BMI, trends)
+consistency = true                # Consistency score (change rates)
+reliability = true                # Source-based reliability
+
+# State management
+[features.state]
+persistence = true                # Save user states to database
+history_buffer = true             # Maintain measurement history
+reset_tracking = true             # Track reset events
+
+# Reset management
+[features.resets]
+initial = true                    # Enable initial reset for new users
+hard = true                       # Enable hard reset after long gaps
+soft = true                       # Enable soft reset for manual entries
+
+# Adaptive features
+[features.adaptive]
+noise_model = true                # Source-specific noise multipliers
+parameters = true                 # Adaptive Kalman parameters
+parameter_decay = true            # Parameter decay over time
+
+# Retrospective processing
+[features.retrospective]
+enabled = true                    # Enable retrospective analysis
+outlier_detection = true          # Retrospective outlier detection
+rollback = true                   # Allow state rollback
+
+# ============================================================================
 # EXPERT SETTINGS
 # These are automatically configured based on profile selection
 # Only modify if you have deep understanding of the system

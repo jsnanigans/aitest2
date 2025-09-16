@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from collections import deque
 import numpy as np
+from ..feature_manager import FeatureManager
 
 try:
     from ..constants import (
@@ -84,6 +85,11 @@ class QualityScorer:
         self.weights = self.config.get('component_weights', self.COMPONENT_WEIGHTS)
         self.threshold = self.config.get('threshold', 0.6)
         self.use_harmonic_mean = self.config.get('use_harmonic_mean', True)
+
+        # Get feature manager
+        self.feature_manager = config.get('feature_manager') if config else None
+        if not self.feature_manager:
+            self.feature_manager = FeatureManager(config)
     
     def calculate_quality_score(
         self,
@@ -109,26 +115,40 @@ class QualityScorer:
             QualityScore with overall and component scores
         """
         components = {}
-        
-        # Safety check (physiological limits)
-        components['safety'] = self._calculate_safety(weight, user_height_m)
-        
-        if components['safety'] < self.SAFETY_CRITICAL_THRESHOLD:
-            return QualityScore(
-                overall=0.0,
-                components=components,
-                threshold=self.threshold,
-                rejection_reason=f"Safety score {components['safety']:.2f} below critical threshold"
+
+        # Safety check (physiological limits) - always calculate if enabled
+        if self.feature_manager.is_enabled('quality_safety'):
+            components['safety'] = self._calculate_safety(weight, user_height_m)
+
+            if components['safety'] < self.SAFETY_CRITICAL_THRESHOLD:
+                return QualityScore(
+                    overall=0.0,
+                    components=components,
+                    threshold=self.threshold,
+                    rejection_reason=f"Safety score {components['safety']:.2f} below critical threshold"
+                )
+        else:
+            components['safety'] = 1.0  # Perfect score if disabled
+
+        # Other components - only calculate if enabled
+        if self.feature_manager.is_enabled('quality_plausibility'):
+            components['plausibility'] = self._calculate_plausibility(
+                weight, recent_weights, previous_weight
             )
-        
-        # Other components
-        components['plausibility'] = self._calculate_plausibility(
-            weight, recent_weights, previous_weight
-        )
-        components['consistency'] = self._calculate_consistency(
-            weight, previous_weight, time_diff_hours
-        )
-        components['reliability'] = self._calculate_reliability(source)
+        else:
+            components['plausibility'] = 1.0  # Perfect score if disabled
+
+        if self.feature_manager.is_enabled('quality_consistency'):
+            components['consistency'] = self._calculate_consistency(
+                weight, previous_weight, time_diff_hours
+            )
+        else:
+            components['consistency'] = 1.0  # Perfect score if disabled
+
+        if self.feature_manager.is_enabled('quality_reliability'):
+            components['reliability'] = self._calculate_reliability(source)
+        else:
+            components['reliability'] = 1.0  # Perfect score if disabled
         
         # Combine scores
         if self.use_harmonic_mean:

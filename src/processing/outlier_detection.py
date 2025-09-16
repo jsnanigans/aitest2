@@ -14,6 +14,7 @@ import numpy as np
 from typing import List, Dict, Any, Set, Optional, Tuple
 from datetime import datetime, timedelta
 import statistics
+from ..feature_manager import FeatureManager
 
 
 class OutlierDetector:
@@ -32,6 +33,11 @@ class OutlierDetector:
         """
         self.config = config or {}
         self.db = db
+
+        # Get feature manager
+        self.feature_manager = config.get('feature_manager') if config else None
+        if not self.feature_manager:
+            self.feature_manager = FeatureManager(config)
 
         # Default thresholds (can be overridden by config)
         self.iqr_multiplier = self.config.get('iqr_multiplier', 1.5)
@@ -57,6 +63,10 @@ class OutlierDetector:
         Returns:
             Set of indices that are considered outliers
         """
+        # If outlier detection is completely disabled, return empty set
+        if not self.feature_manager.is_enabled('outlier_detection'):
+            return set()
+
         if len(measurements) < self.min_measurements_for_analysis:
             return set()
 
@@ -66,36 +76,42 @@ class OutlierDetector:
 
         # First, identify high-quality measurements that should never be marked as outliers
         protected_indices = set()
-        for i, measurement in enumerate(sorted_measurements):
-            metadata = measurement.get('metadata', {})
 
-            # Check if measurement has quality score
-            quality_score = metadata.get('quality_score')
-            if quality_score is not None and quality_score > self.quality_score_threshold:
-                protected_indices.add(i)
+        # Only apply quality override if feature is enabled
+        if self.feature_manager.is_enabled('quality_override'):
+            for i, measurement in enumerate(sorted_measurements):
+                metadata = measurement.get('metadata', {})
 
-            # Also protect measurements that were explicitly accepted
-            if metadata.get('accepted', False):
-                protected_indices.add(i)
+                # Check if measurement has quality score
+                quality_score = metadata.get('quality_score')
+                if quality_score is not None and quality_score > self.quality_score_threshold:
+                    protected_indices.add(i)
+
+                # Also protect measurements that were explicitly accepted
+                if metadata.get('accepted', False):
+                    protected_indices.add(i)
 
         # Collect potential outliers from statistical methods
         statistical_outliers = set()
 
         # Method 1: IQR-based detection
-        iqr_outliers = self._detect_iqr_outliers(weights)
-        statistical_outliers.update(iqr_outliers)
+        if self.feature_manager.is_enabled('outlier_iqr'):
+            iqr_outliers = self._detect_iqr_outliers(weights)
+            statistical_outliers.update(iqr_outliers)
 
         # Method 2: Modified Z-score detection
-        zscore_outliers = self._detect_zscore_outliers(weights)
-        statistical_outliers.update(zscore_outliers)
+        if self.feature_manager.is_enabled('outlier_mad'):
+            zscore_outliers = self._detect_zscore_outliers(weights)
+            statistical_outliers.update(zscore_outliers)
 
         # Method 3: Temporal consistency check
-        temporal_outliers = self._detect_temporal_outliers(sorted_measurements)
-        statistical_outliers.update(temporal_outliers)
+        if self.feature_manager.is_enabled('outlier_temporal'):
+            temporal_outliers = self._detect_temporal_outliers(sorted_measurements)
+            statistical_outliers.update(temporal_outliers)
 
         # Method 4: Kalman prediction deviation (if database and user_id available)
         kalman_outliers = set()
-        if self.db and user_id:
+        if self.db and user_id and self.feature_manager.is_enabled('kalman_deviation_check'):
             kalman_outliers = self._detect_kalman_outliers(sorted_measurements, user_id)
 
         # AND logic: A measurement is only an outlier if:
