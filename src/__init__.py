@@ -3,21 +3,21 @@ Weight Stream Processor Package
 """
 
 # Core processing
-from .processor import (
+from .processing.processor import (
     WeightProcessor,
     process_weight_enhanced,
     process_measurement
 )
 
 # Database
-from .database import (
+from .database.database import (
     ProcessorStateDB,
     ProcessorDatabase,
     get_state_db
 )
 
 # Visualization - unified module
-from .visualization import create_weight_timeline
+from .viz.visualization import create_weight_timeline
 
 # Constants
 from .constants import (
@@ -37,7 +37,7 @@ from .constants import (
 )
 
 # Validation
-from .validation import (
+from .processing.validation import (
     BMIValidator,
     ThresholdCalculator,
     PhysiologicalValidator,
@@ -45,10 +45,10 @@ from .validation import (
 )
 
 # Kalman filter
-from .kalman import KalmanFilterManager
+from .processing.kalman import KalmanFilterManager
 
 # Quality scoring
-from .quality_scorer import (
+from .processing.quality_scorer import (
     QualityScorer,
     QualityScore,
     MeasurementHistory

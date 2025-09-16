@@ -162,46 +162,6 @@ def safe_divide(numerator: float, denominator: float, default: float = 0.0) -> f
         return default
 
 
-def calculate_percentage(part: float, whole: float, decimals: int = 1) -> str:
-    """Calculate percentage with formatting."""
-    if whole == 0:
-        return "0.0%"
-    percentage = (part / whole) * 100
-    return f"{percentage:.{decimals}f}%"
-
-
-def truncate_string(s: str, max_length: int = 80, suffix: str = "...") -> str:
-    """Truncate string to maximum length."""
-    if len(s) <= max_length:
-        return s
-    return s[:max_length - len(suffix)] + suffix
-
-
-def format_file_size(size_bytes: int) -> str:
-    """Format file size in human-readable format."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_bytes < 1024.0:
-            return f"{size_bytes:.1f} {unit}"
-        size_bytes /= 1024.0
-    return f"{size_bytes:.1f} TB"
-
-
-def ensure_list(value: Any) -> list:
-    """Ensure value is a list."""
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    return [value]
-
-
-def merge_dicts(dict1: Dict, dict2: Dict) -> Dict:
-    """Merge two dictionaries, with dict2 values taking precedence."""
-    result = dict1.copy()
-    result.update(dict2)
-    return result
-
-
 def validate_config(config: dict) -> tuple[bool, list[str]]:
     """
     Validate configuration structure and values.
@@ -299,9 +259,4 @@ __all__ = [
     # General utilities
     'format_timestamp',
     'safe_divide',
-    'calculate_percentage',
-    'truncate_string',
-    'format_file_size',
-    'ensure_list',
-    'merge_dicts',
 ]

@@ -13,11 +13,11 @@ from datetime import datetime
 from pathlib import Path
 import math
 
-from src.database import get_state_db
-from src.processor import process_measurement
-from src.validation import DataQualityPreprocessor
+from src.database.database import get_state_db
+from src.processing.processor import process_measurement
+from src.processing.validation import DataQualityPreprocessor
 
-from src.visualization import create_weight_timeline
+from src.viz.visualization import create_weight_timeline
 
 
 def load_config(config_path: str = "config.toml") -> dict:
@@ -117,8 +117,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     if retro_enabled:
         try:
             from src.retro_buffer import get_retro_buffer
-            from src.outlier_detection import OutlierDetector
-            from src.replay_manager import ReplayManager
+            from src.processing.outlier_detection import OutlierDetector
+            from src.debug.replay_manager import ReplayManager
 
             retro_buffer = get_retro_buffer(retro_config)
             outlier_detector = OutlierDetector(retro_config.get("outlier_detection", {}), db=db)
@@ -466,11 +466,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                     print(f"  [{idx}/{total_users}] User {user_id[:8]}...", end=" ")
 
                 try:
-                    from src.visualization import create_weight_timeline
-                    # Use enhanced visualization if configured
-                    use_enhanced = config.get("visualization", {}).get("use_enhanced", True)
+                    from src.viz.visualization import create_weight_timeline
                     dashboard_path = create_weight_timeline(
-                        results, user_id, str(viz_dir), use_enhanced=use_enhanced
+                        results, user_id, str(viz_dir), config=config
                     )
                     if dashboard_path:
                         successful += 1
@@ -494,7 +492,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             # Generate index.html for dashboard navigation
             if successful > 0:
                 try:
-                    from src.visualization import create_index_from_results
+                    from src.viz.viz_index import create_index_from_results
                     index_path = create_index_from_results(
                         all_results=user_results,
                         output_dir=str(viz_dir)
