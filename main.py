@@ -12,6 +12,8 @@ import tomllib
 from datetime import datetime
 from pathlib import Path
 import math
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
 
 from src.database.database import get_state_db
 from src.processing.processor import process_measurement
@@ -65,6 +67,64 @@ def load_test_users(filepath: str = "test_users.txt") -> list:
             if line and not line.startswith('#'):
                 users.append(line)
     return users
+
+
+def generate_single_visualization(args):
+    """Process-safe function to generate visualization for a single user.
+
+    This function runs in a separate process for true parallelism.
+
+    Args:
+        args: Tuple of (idx, total_users, user_id, results, viz_dir, config)
+
+    Returns:
+        Tuple of (user_id, success, error_msg, dashboard_path)
+    """
+    idx, total_users, user_id, results, viz_dir, config = args
+
+    try:
+        # Import here since this runs in a subprocess
+        from src.viz.visualization import create_weight_timeline
+
+        dashboard_path = create_weight_timeline(
+            results, user_id, str(viz_dir), config=config
+        )
+
+        return (user_id, True, None, dashboard_path)
+    except Exception as e:
+        error_msg = str(e)[:100]  # Truncate long error messages
+        return (user_id, False, error_msg, None)
+
+
+def get_optimal_thread_count(num_users: int, config: dict) -> int:
+    """Calculate optimal number of threads based on system resources and user count.
+
+    Args:
+        num_users: Number of users to process
+        config: Configuration dictionary
+
+    Returns:
+        Optimal number of worker threads
+    """
+    # Get from config or use defaults
+    viz_threading = config.get('visualization', {}).get('threading', {})
+    if not viz_threading.get('enabled', True):
+        return 1  # Threading disabled
+
+    max_workers_config = viz_threading.get('max_workers', None)
+
+    # Calculate based on CPU cores
+    cpu_count = os.cpu_count() or 4
+    default_workers = min(cpu_count, 8)  # Cap at 8 by default
+
+    # Use config value if specified, otherwise use calculated default
+    max_workers = max_workers_config if max_workers_config else default_workers
+
+    # Don't use more threads than users
+    optimal = min(max_workers, num_users)
+
+    # Minimum 1 thread
+    return max(1, optimal)
 
 
 def stream_process(csv_path: str, output_dir: str, config: dict):
@@ -442,35 +502,83 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             except ImportError:
                 pass
 
+            # Determine number of threads to use
+            num_threads = get_optimal_thread_count(total_users, config)
+
+            if num_threads > 1:
+                print(f"  Using {num_threads} processes for parallel visualization generation")
+
             successful = 0
             failed = 0
+            completed = 0
 
-            for idx, (user_id, results) in enumerate(user_results.items(), 1):
-                # Progress indicator for large batches
-                if total_users > 10 and idx % 10 == 0:
-                    print(f"  Progress: {idx}/{total_users} ({idx*100//total_users}%)")
-                elif total_users <= 10:
-                    print(f"  [{idx}/{total_users}] User {user_id[:8]}...", end=" ")
+            # Prepare arguments for all visualizations
+            viz_args = [
+                (idx, total_users, user_id, results, viz_dir, config)
+                for idx, (user_id, results) in enumerate(user_results.items(), 1)
+            ]
 
-                try:
-                    from src.viz.visualization import create_weight_timeline
-                    dashboard_path = create_weight_timeline(
-                        results, user_id, str(viz_dir), config=config
-                    )
-                    if dashboard_path:
+            if num_threads == 1:
+                # Single-threaded fallback (for compatibility or when disabled)
+                for args in viz_args:
+                    idx = args[0]
+                    user_id = args[2]
+
+                    # Progress indicator for large batches
+                    if total_users > 10 and idx % 10 == 0:
+                        print(f"  Progress: {idx}/{total_users} ({idx*100//total_users}%)")
+                    elif total_users <= 10:
+                        print(f"  [{idx}/{total_users}] User {user_id[:8]}...", end=" ")
+
+                    user_id, success, error_msg, dashboard_path = generate_single_visualization(args)
+
+                    if success:
                         successful += 1
                         if total_users <= 10:
                             print("✓")
                     else:
                         failed += 1
                         if total_users <= 10:
-                            print("✗")
-                except Exception as e:
-                    failed += 1
-                    if total_users <= 10:
-                        print(f"✗ ({str(e)[:30]})")
-                    elif config.get("logging", {}).get("verbose", False):
-                        print(f"    Error for {user_id}: {e}")
+                            print(f"✗ ({error_msg[:30] if error_msg else 'unknown error'})")
+                        elif config.get("logging", {}).get("verbose", False):
+                            print(f"    Error for {user_id}: {error_msg}")
+            else:
+                # Multi-process execution for true parallelism
+                with ProcessPoolExecutor(max_workers=num_threads) as executor:
+                    # Submit all tasks
+                    future_to_user = {
+                        executor.submit(generate_single_visualization, args): args[2]
+                        for args in viz_args
+                    }
+
+                    # Process completed futures
+                    for future in as_completed(future_to_user):
+                        user_id_from_future = future_to_user[future]
+
+                        try:
+                            user_id, success, error_msg, dashboard_path = future.result(timeout=30)
+
+                            # Note: Lock not needed for print in main process
+                            completed += 1
+                            if success:
+                                successful += 1
+                            else:
+                                failed += 1
+
+                            # Update progress
+                            if total_users > 10:
+                                if completed % 10 == 0 or completed == total_users:
+                                    print(f"  Progress: {completed}/{total_users} ({completed*100//total_users}%) - "
+                                          f"✓ {successful} / ✗ {failed}")
+                            elif total_users <= 10:
+                                status = "✓" if success else f"✗ ({error_msg[:30] if error_msg else 'unknown'})"
+                                print(f"  [{completed}/{total_users}] User {user_id[:8]}... {status}")
+
+                        except Exception as e:
+                            completed += 1
+                            failed += 1
+                            if config.get("logging", {}).get("verbose", False):
+                                print(f"    Process error for {user_id_from_future}: {e}")
 
             # Summary
             if total_users > 1:

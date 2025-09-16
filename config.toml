@@ -11,7 +11,7 @@ profile = "custom"
 [data]
 csv_file = "./data/2025-09-05_nocon.csv"
 output_dir = "output"
-max_users = 500
+max_users = 100
 user_offset = 0
 min_readings = 20
 min_date = "2015-01-01"
@@ -23,6 +23,12 @@ export_database = true
 enabled = true
 detail_level = "normal"  # Options: "minimal", "normal", "detailed"
 
+# Threading settings for visualization generation
+[visualization.threading]
+enabled = true         # Enable/disable multi-threading for visualizations
+max_workers = 8        # Maximum number of threads (0 = auto-detect based on CPU cores)
+timeout_seconds = 30   # Maximum time per visualization before timeout
+
 # ============================================================================
 # PROFILE DEFINITIONS
 # These define the behavior for each profile option above
@@ -33,10 +39,10 @@ description = "Custom profile - modify settings as needed"
 filtering_strength = "strict"           # How aggressively to filter outliers
 adaptation_speed = "moderate"               # How quickly to accept new weight ranges
 trust_manual_entries = "high"           # Trust level for user-reported weights
-gap_sensitivity = "high"               # How sensitive to data gaps
+gap_sensitivity = "moderate"               # How sensitive to data gaps
 quality_threshold = 0.59                # Minimum quality score to accept (70%)
 # Reset behavior
-reset_on_gaps = "aggressive"          # Reset after shorter gaps (21 days)
+reset_on_gaps = "moderate"          # Reset after shorter gaps (21 days)
 reset_on_manual = "moderate"          # Don't reset on manual entries
 initial_trust = "low"                 # Slow initial adaptation for new users
 
