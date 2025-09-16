@@ -47,7 +47,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     """
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
-    
+
     # Set verbosity from config
     from src.utils import set_verbosity
     viz_config = config.get('visualization', {})
@@ -81,7 +81,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
             from src.replay_manager import ReplayManager
 
             retro_buffer = get_retro_buffer(retro_config)
-            outlier_detector = OutlierDetector(retro_config.get("outlier_detection", {}))
+            outlier_detector = OutlierDetector(retro_config.get("outlier_detection", {}), db=db)
             replay_manager = ReplayManager(db, retro_config.get("safety", {}))
 
             print("Retrospective processing enabled")
@@ -300,7 +300,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                         'unit': unit,
                         'metadata': {
                             'accepted': result.get('accepted', False),
-                            'rejection_reason': result.get('rejection_reason', None)
+                            'rejection_reason': result.get('rejection_reason', None),
+                            'quality_score': result.get('quality_score', None),
+                            'quality_components': result.get('quality_components', None)
                         }
                     }
 
@@ -488,8 +490,8 @@ def _process_retrospective_buffer(user_id: str, retro_buffer, outlier_detector, 
 
         print(f"Processing retrospective buffer for user {user_id[:8]}... ({len(buffered_measurements)} measurements)")
 
-        # Detect outliers
-        clean_measurements, outlier_indices = outlier_detector.get_clean_measurements(buffered_measurements)
+        # Detect outliers (now with quality score awareness and Kalman prediction)
+        clean_measurements, outlier_indices = outlier_detector.get_clean_measurements(buffered_measurements, user_id=user_id)
 
         # Get analysis details
         analysis = outlier_detector.analyze_outliers(buffered_measurements, outlier_indices)
@@ -512,21 +514,18 @@ def _process_retrospective_buffer(user_id: str, retro_buffer, outlier_detector, 
 
                 if replay_result['success']:
                     stats["retro_replays_successful"] = stats.get("retro_replays_successful", 0) + 1
-                    print(f"  Successfully replayed {replay_result['measurements_replayed']} clean measurements")
                 else:
                     stats["retro_replays_failed"] = stats.get("retro_replays_failed", 0) + 1
                     print(f"  Replay failed: {replay_result.get('error', 'unknown error')}")
-            else:
-                print("  No clean measurements to replay")
-        else:
-            print("  No outliers detected")
 
         # Clear buffer after processing
         retro_buffer.clear_buffer(user_id)
 
     except Exception as e:
+        import traceback
         stats["retro_processing_errors"] = stats.get("retro_processing_errors", 0) + 1
         print(f"Error in retrospective processing for {user_id}: {e}")
+        traceback.print_exc()
 
 
 def parse_timestamp(date_str: str) -> datetime:
@@ -557,7 +556,7 @@ if __name__ == "__main__":
 
     # Load config
     config = load_config(args.config)
-    
+
     # Validate configuration
     from src.utils import validate_config
     is_valid, errors = validate_config(config)

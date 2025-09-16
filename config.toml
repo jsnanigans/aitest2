@@ -4,10 +4,10 @@
 # Input/output settings
 csv_file = "./data/2025-09-05_nocon.csv" # no connective health data
 output_dir = "output"
-max_users = 1
+max_users = 200
 user_offset = 0
 min_readings = 20
-test_users_file = "single_user_test.txt"
+# test_users_file = "single_user_test.txt"
 min_date = "2015-01-01"
 max_date = "2026-01-01"
 export_database = true
@@ -38,20 +38,20 @@ enabled = true
 # Adaptation parameters
 initial_variance_multiplier = 10     # Multiply base variance by this (high uncertainty)
 weight_noise_multiplier = 50         # Process noise multiplier for weight (allows big changes)
-trend_noise_multiplier = 500         # Process noise multiplier for trend (allows any trend)
+trend_noise_multiplier = 50         # Process noise multiplier for trend (allows any trend)
 observation_noise_multiplier = 20   # Measurement noise multiplier (trust measurements more)
 
 # Adaptation duration
-adaptation_measurements = 30          # Stay adaptive for first 20 measurements
-adaptation_days = 90                  # Stay adaptive for first 3 weeks
-adaptation_decay_rate = 3           # How fast to transition to normal (lower = faster)
+adaptation_measurements = 10          # Stay adaptive for first 20 measurements
+adaptation_days = 10                  # Stay adaptive for first 3 weeks
+adaptation_decay_rate = 1           # How fast to transition to normal (lower = faster)
 
 # Quality scoring during adaptation
-quality_acceptance_threshold = 0  # Very lenient (25% vs normal 60%)
-quality_safety_weight = 0         # Keep safety checks high
-quality_plausibility_weight = 0
-quality_consistency_weight = 0
-quality_reliability_weight = 0    # Trust the source
+quality_acceptance_threshold = 0.45  # Tighter threshold to reject outliers
+quality_safety_weight = 0.45
+quality_plausibility_weight = 0.10
+quality_consistency_weight = 0.10
+quality_reliability_weight = 0.35
 
 [kalman.reset.hard]
 # HARD RESET - After gaps of 30+ days
@@ -60,10 +60,10 @@ enabled = true
 gap_threshold_days = 30
 
 # Adaptation parameters
-initial_variance_multiplier = 5      # Some uncertainty after long gap
-weight_noise_multiplier = 20         # Allow moderate changes
-trend_noise_multiplier = 200         # Allow trend changes
-observation_noise_multiplier = 0.5   # Trust measurements somewhat
+initial_variance_multiplier = 3      # Moderate uncertainty after long gap
+weight_noise_multiplier = 5          # Reduced from 20 - prevent extreme changes
+trend_noise_multiplier = 50           # Reduced from 200 - limit trend volatility
+observation_noise_multiplier = 0.7   # Slightly less trusting of measurements
 
 # Adaptation duration
 adaptation_measurements = 10          # Shorter adaptation period
@@ -71,7 +71,7 @@ adaptation_days = 7                   # One week
 adaptation_decay_rate = 2.5           # Moderate transition speed
 
 # Quality scoring during adaptation
-quality_acceptance_threshold = 0.35  # Moderately lenient
+quality_acceptance_threshold = 0.45  # Tighter threshold to reject outliers
 quality_safety_weight = 0.45
 quality_plausibility_weight = 0.10
 quality_consistency_weight = 0.10
@@ -97,7 +97,7 @@ adaptation_days = 10
 adaptation_decay_rate = 4             # Slow transition
 
 # Quality scoring during adaptation
-quality_acceptance_threshold = 0.45  # Slightly lenient
+quality_acceptance_threshold = 0.4  # Slightly lenient
 quality_safety_weight = 0.40
 quality_plausibility_weight = 0.15
 quality_consistency_weight = 0.15
@@ -152,7 +152,7 @@ default_multiplier = 1.5
 
 [retrospective]
 enabled = true
-buffer_hours = 72
+buffer_hours = 24
 trigger_mode = "time_based"  # "time_based" or "measurement_count"
 max_buffer_measurements = 100
 state_history_limit = 100

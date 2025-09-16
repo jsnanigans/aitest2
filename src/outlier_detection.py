@@ -22,14 +22,16 @@ class OutlierDetector:
     Designed to identify problematic measurements before Kalman processing.
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, db=None):
         """
         Initialize outlier detector with configuration.
 
         Args:
             config: Configuration dict with thresholds and method settings
+            db: Database instance for accessing Kalman states
         """
         self.config = config or {}
+        self.db = db
 
         # Default thresholds (can be overridden by config)
         self.iqr_multiplier = self.config.get('iqr_multiplier', 1.5)
@@ -37,12 +39,20 @@ class OutlierDetector:
         self.temporal_max_change_percent = self.config.get('temporal_max_change_percent', 0.30)
         self.min_measurements_for_analysis = self.config.get('min_measurements_for_analysis', 5)
 
-    def detect_outliers(self, measurements: List[Dict[str, Any]]) -> Set[int]:
+        # Quality score threshold - measurements with quality > this are never outliers
+        self.quality_score_threshold = self.config.get('quality_score_threshold', 0.7)
+
+        # Kalman prediction deviation threshold (as percentage)
+        self.kalman_deviation_threshold = self.config.get('kalman_deviation_threshold', 0.15)
+
+    def detect_outliers(self, measurements: List[Dict[str, Any]], user_id: Optional[str] = None) -> Set[int]:
         """
         Detect outliers in a batch of measurements using multiple methods.
+        Respects quality scores and uses Kalman prediction deviation.
 
         Args:
-            measurements: List of measurement dictionaries with 'weight', 'timestamp'
+            measurements: List of measurement dictionaries with 'weight', 'timestamp', 'metadata'
+            user_id: Optional user identifier for accessing Kalman state
 
         Returns:
             Set of indices that are considered outliers
@@ -54,21 +64,63 @@ class OutlierDetector:
         sorted_measurements = sorted(measurements, key=lambda x: x['timestamp'])
         weights = [m['weight'] for m in sorted_measurements]
 
-        outliers = set()
+        # First, identify high-quality measurements that should never be marked as outliers
+        protected_indices = set()
+        for i, measurement in enumerate(sorted_measurements):
+            metadata = measurement.get('metadata', {})
+
+            # Check if measurement has quality score
+            quality_score = metadata.get('quality_score')
+            if quality_score is not None and quality_score > self.quality_score_threshold:
+                protected_indices.add(i)
+
+            # Also protect measurements that were explicitly accepted
+            if metadata.get('accepted', False):
+                protected_indices.add(i)
+
+        # Collect potential outliers from statistical methods
+        statistical_outliers = set()
 
         # Method 1: IQR-based detection
         iqr_outliers = self._detect_iqr_outliers(weights)
-        outliers.update(iqr_outliers)
+        statistical_outliers.update(iqr_outliers)
 
         # Method 2: Modified Z-score detection
         zscore_outliers = self._detect_zscore_outliers(weights)
-        outliers.update(zscore_outliers)
+        statistical_outliers.update(zscore_outliers)
 
         # Method 3: Temporal consistency check
         temporal_outliers = self._detect_temporal_outliers(sorted_measurements)
-        outliers.update(temporal_outliers)
+        statistical_outliers.update(temporal_outliers)
 
-        return outliers
+        # Method 4: Kalman prediction deviation (if database and user_id available)
+        kalman_outliers = set()
+        if self.db and user_id:
+            kalman_outliers = self._detect_kalman_outliers(sorted_measurements, user_id)
+
+        # AND logic: A measurement is only an outlier if:
+        # 1. It's NOT protected by high quality score, AND
+        # 2. It fails BOTH statistical tests AND Kalman prediction (if available)
+        final_outliers = set()
+
+        for idx in range(len(sorted_measurements)):
+            # Skip if protected by quality score
+            if idx in protected_indices:
+                continue
+
+            # Check if it fails statistical tests
+            if idx not in statistical_outliers:
+                continue
+
+            # If we have Kalman predictions, also require it to fail that test
+            if kalman_outliers:
+                if idx not in kalman_outliers:
+                    continue
+
+            # This measurement is an outlier
+            final_outliers.add(idx)
+
+        return final_outliers
 
     def _detect_iqr_outliers(self, weights: List[float]) -> Set[int]:
         """
@@ -168,6 +220,88 @@ class OutlierDetector:
 
         return outliers
 
+    def _detect_kalman_outliers(self, sorted_measurements: List[Dict[str, Any]], user_id: str) -> Set[int]:
+        """
+        Detect outliers based on deviation from Kalman filter predictions.
+
+        Args:
+            sorted_measurements: Measurements sorted by timestamp
+            user_id: User identifier for accessing Kalman state
+
+        Returns:
+            Set of indices that deviate significantly from Kalman predictions
+        """
+        if not self.db:
+            return set()
+
+        outliers = set()
+
+        # Get user's Kalman state
+        user_state = self.db.get_state(user_id)
+        if not user_state:
+            # No user state available
+            return set()
+
+        last_state = user_state.get('last_state')
+        if last_state is None:
+            # No Kalman state available, can't do prediction-based detection
+            return set()
+
+        # Get state history if available for more accurate predictions
+        state_history = user_state.get('state_history', [])
+
+        for i, measurement in enumerate(sorted_measurements):
+            weight = measurement['weight']
+            timestamp = measurement['timestamp']
+
+            # Find the closest state snapshot before this measurement
+            predicted_weight = None
+
+            if state_history:
+                # Look for state snapshot just before this measurement
+                for snapshot in reversed(state_history):
+                    snapshot_ts = snapshot.get('timestamp')
+                    if snapshot_ts is not None:
+                        # Handle numpy arrays and datetime comparison properly
+                        try:
+                            if hasattr(snapshot_ts, 'item'):
+                                snapshot_ts = snapshot_ts.item()
+                            if hasattr(timestamp, 'item'):
+                                timestamp_val = timestamp.item()
+                            else:
+                                timestamp_val = timestamp
+
+                            if snapshot_ts < timestamp_val:
+                                if snapshot.get('state'):
+                                    # Use the weight component of the state (first element)
+                                    predicted_weight = snapshot['state'][0] if isinstance(snapshot['state'], (list, np.ndarray)) else None
+                                    break
+                        except (AttributeError, TypeError):
+                            # If comparison fails, skip this snapshot
+                            continue
+
+            # Fall back to last state if no snapshot found
+            if predicted_weight is None:
+                if isinstance(last_state, np.ndarray) and len(last_state) > 0:
+                    predicted_weight = last_state[0]
+                elif isinstance(last_state, list) and len(last_state) > 0:
+                    predicted_weight = last_state[0]
+
+            # Check deviation from prediction
+            if predicted_weight is not None:
+                # Handle numpy arrays
+                try:
+                    weight_val = float(predicted_weight)
+                    if weight_val > 0:
+                        deviation = abs(weight - weight_val) / weight_val
+                        if deviation > self.kalman_deviation_threshold:
+                            outliers.add(i)
+                except (TypeError, ValueError):
+                    # If can't convert to float, skip this measurement
+                    continue
+
+        return outliers
+
     def analyze_outliers(self, measurements: List[Dict[str, Any]], outlier_indices: Set[int]) -> Dict[str, Any]:
         """
         Analyze detected outliers and provide detailed information.
@@ -222,17 +356,18 @@ class OutlierDetector:
             'weight_range': (min(weights), max(weights))
         }
 
-    def get_clean_measurements(self, measurements: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Set[int]]:
+    def get_clean_measurements(self, measurements: List[Dict[str, Any]], user_id: Optional[str] = None) -> Tuple[List[Dict[str, Any]], Set[int]]:
         """
         Get measurements with outliers removed.
 
         Args:
             measurements: Original measurements list
+            user_id: Optional user identifier for Kalman-based outlier detection
 
         Returns:
             Tuple of (clean_measurements, outlier_indices)
         """
-        outlier_indices = self.detect_outliers(measurements)
+        outlier_indices = self.detect_outliers(measurements, user_id)
 
         if not outlier_indices:
             return measurements.copy(), set()

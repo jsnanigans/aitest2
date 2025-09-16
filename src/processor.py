@@ -370,8 +370,8 @@ def process_measurement(
                     # Skip extreme deviation check during initial adaptation
                     extreme_threshold = float('inf')  # Effectively disable the check
                 else:
-                    # Use a more lenient threshold
-                    extreme_threshold = 0.5  # 50% deviation allowed during adaptation
+                    # Use a moderately lenient threshold during adaptation
+                    extreme_threshold = 0.25  # 25% deviation allowed during adaptation (reduced from 50%)
         
         if deviation > extreme_threshold:
             pseudo_normalized_innovation = (deviation / extreme_threshold) * 3.0
@@ -412,9 +412,36 @@ def process_measurement(
         noise_multiplier = 1.0
     observation_covariance = adaptive_kalman_config.get('observation_covariance', 3.49) * noise_multiplier
     
+    # Apply trend limiting before update
+    current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
+    if current_trend is not None:
+        # Limit trend to ±5kg/week (±0.714kg/day)
+        max_daily_trend = 0.714  # 5kg/week
+        if abs(current_trend) > max_daily_trend:
+            # Clamp the trend in the state before update
+            limited_trend = max_daily_trend if current_trend > 0 else -max_daily_trend
+            if state.get('last_state') is not None:
+                last_state = state['last_state']
+                if len(last_state.shape) > 1:
+                    last_state[-1][1] = limited_trend
+                else:
+                    last_state[1] = limited_trend
+
     state = KalmanFilterManager.update_state(
         state, cleaned_weight, timestamp, source, {}, observation_covariance
     )
+
+    # Apply trend limiting after update
+    current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
+    if current_trend is not None and abs(current_trend) > 0.714:
+        # Clamp the trend after update
+        limited_trend = 0.714 if current_trend > 0 else -0.714
+        if state.get('last_state') is not None:
+            last_state = state['last_state']
+            if len(last_state.shape) > 1:
+                last_state[-1][1] = limited_trend
+            else:
+                last_state[1] = limited_trend
     
     result = KalmanFilterManager.create_result(
         state, cleaned_weight, timestamp, source, True, observation_covariance

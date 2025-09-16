@@ -92,6 +92,32 @@ class ReplayManager:
                 self._restore_state_from_backup(user_id)
                 return restore_result
 
+            # Step 2.5: Check trajectory continuity to prevent impossible jumps
+            current_backup_state = self._backup_states.get(user_id, {})
+            restored_state = self.db.get_state(user_id)
+
+            if (current_backup_state.get('last_state') is not None and
+                restored_state.get('last_state') is not None):
+                try:
+                    from .kalman import KalmanFilterManager
+                    backup_weight, _ = KalmanFilterManager.get_current_state_values(current_backup_state)
+                    restored_weight, _ = KalmanFilterManager.get_current_state_values(restored_state)
+
+                    if backup_weight and restored_weight:
+                        weight_jump = abs(backup_weight - restored_weight)
+                        # If restoration would cause >15kg jump, skip retrospective processing
+                        if weight_jump > 15.0:
+                            logger.warning(f"Skipping retrospective processing for {user_id}: would cause {weight_jump:.1f}kg trajectory jump")
+                            self._restore_state_from_backup(user_id)
+                            return {
+                                'success': False,
+                                'error': f'Trajectory continuity check failed: {weight_jump:.1f}kg jump exceeds 15kg limit',
+                                'user_id': user_id
+                            }
+                except Exception as e:
+                    logger.debug(f"Trajectory continuity check failed: {e}")
+                    # Continue with replay if check fails
+
             # Step 3: Replay measurements chronologically
             replay_result = self._replay_measurements_chronologically(user_id, clean_measurements, start_time)
             if not replay_result['success']:
