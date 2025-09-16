@@ -249,12 +249,14 @@ class KalmanFilterManager:
         base_trend_cov = config.get('transition_covariance_trend', KALMAN_DEFAULTS['transition_covariance_trend'])
         
         # Get adaptive settings from config
-        adaptive_config = config.get('post_reset_adaptation', {})
-        if not adaptive_config.get('enabled', True):
+        feature_manager = config.get('feature_manager')
+        if feature_manager and not feature_manager.is_enabled('adaptive_parameters'):
             return {
                 'weight': base_weight_cov,
                 'trend': base_trend_cov
             }
+
+        adaptive_config = config.get('post_reset_adaptation', {})
         
         warmup_measurements = adaptive_config.get('warmup_measurements', 10)
         weight_boost_factor = adaptive_config.get('weight_boost_factor', 10)

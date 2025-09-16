@@ -105,17 +105,16 @@ class ConfigLoader:
                 "transition_covariance_trend": 0.0001,
                 "observation_covariance": 3.4,
                 "reset": {
-                    "initial": {"enabled": True},
-                    "hard": {"enabled": True},
-                    "soft": {"enabled": True}
+                    "initial": {},
+                    "hard": {},
+                    "soft": {}
                 }
             },
-            "visualization": raw_config.get("visualization", {"enabled": True}),
-            "adaptive_noise": raw_config.get("adaptive_noise", {"enabled": True}),
+            "visualization": raw_config.get("visualization", {}),
+            "adaptive_noise": raw_config.get("adaptive_noise", {}),
             "retrospective": raw_config.get("retrospective", {}),
             "logging": raw_config.get("logging", {}),
             "quality_scoring": {
-                "enabled": True,
                 "use_harmonic_mean": True
             }
         }

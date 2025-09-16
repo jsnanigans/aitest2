@@ -40,8 +40,11 @@ MAX_VALID_BMI = 90.0  # Well above morbidly obese
 
 def check_and_reset_for_gap(state: Dict[str, Any], current_timestamp: datetime, config: Dict[str, Any]) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
     """Check for 30+ day gap and reset if needed."""
+    # This function is now deprecated - reset logic is handled by ResetManager
+    # Kept for backward compatibility but should not be called
     reset_config = config.get('kalman', {}).get('reset', {})
-    if not reset_config.get('enabled', True):
+    feature_manager = config.get('feature_manager')
+    if feature_manager and not feature_manager.is_enabled('reset_hard'):
         return state, None
     
     gap_threshold_days = reset_config.get('gap_threshold_days', 30)
@@ -188,7 +191,7 @@ def process_measurement(
         
         # Get adaptive noise for this source
         adaptive_config = config.get('adaptive_noise', {})
-        if adaptive_config.get('enabled', True):
+        if feature_manager.is_enabled('adaptive_noise'):
             default_multiplier = adaptive_config.get('default_multiplier', 1.5)
             noise_multiplier = get_noise_multiplier(source)
         else:
@@ -236,7 +239,7 @@ def process_measurement(
     # Step 5: Quality scoring (replaces physiological validation)
     processing_config = config.get('processing', {})
     quality_config = config.get('quality_scoring', {})
-    use_quality_scoring = quality_config.get('enabled', False) and feature_manager.is_enabled('quality_scoring')
+    use_quality_scoring = feature_manager.is_enabled('quality_scoring')
     
     # Get previous weight and time diff
     previous_weight = None
@@ -446,7 +449,7 @@ def process_measurement(
         ]
     
     adaptive_config = config.get('adaptive_noise', {})
-    if adaptive_config.get('enabled', True):
+    if feature_manager.is_enabled('adaptive_noise'):
         default_multiplier = adaptive_config.get('default_multiplier', 1.5)
         noise_multiplier = get_noise_multiplier(source)
     else:

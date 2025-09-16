@@ -72,6 +72,10 @@ class FeatureManager:
         'retrospective_analysis': True,
         'retrospective_outlier': True,
         'retrospective_rollback': True,
+
+        # Visualization
+        'visualization_enabled': True,
+        'visualization_threading': True,
     }
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -92,7 +96,12 @@ class FeatureManager:
             if isinstance(value, dict):
                 # Handle nested sections like features.validation
                 for subkey, subvalue in value.items():
-                    feature_key = f"{key}_{subkey}" if key != 'outlier_methods' else f"outlier_{subkey}"
+                    if key == 'outlier_methods':
+                        feature_key = f"outlier_{subkey}"
+                    elif key == 'visualization':
+                        feature_key = f"visualization_{subkey}"
+                    else:
+                        feature_key = f"{key}_{subkey}"
                     if feature_key in self.DEFAULT_FEATURES:
                         self.features[feature_key] = bool(subvalue)
             elif isinstance(value, bool):

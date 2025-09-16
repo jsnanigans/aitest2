@@ -20,12 +20,10 @@ export_database = true
 
 # Visualization settings
 [visualization]
-enabled = true
 detail_level = "normal"  # Options: "minimal", "normal", "detailed"
 
 # Threading settings for visualization generation
 [visualization.threading]
-enabled = true         # Enable/disable multi-threading for visualizations
 max_workers = 8        # Maximum number of threads (0 = auto-detect based on CPU cores)
 timeout_seconds = 30   # Maximum time per visualization before timeout
 
@@ -109,7 +107,6 @@ progress_interval = 10000
 timestamp_format = "test_no_date"
 
 [adaptive_noise]
-enabled = true
 # Source reliability multipliers (lower = more trusted)
 [adaptive_noise.source_multipliers]
 care-team-upload = 0.5
@@ -120,7 +117,6 @@ connectivehealth-io = 1.5
 iglucose-com = 3.0
 
 [retrospective]
-enabled = true
 buffer_hours = 1
 trigger_mode = "time_based"
 max_buffer_measurements = 100
@@ -152,7 +148,6 @@ quality_override = true           # Allow high-quality scores to override outlie
 
 # Validation features
 [features.validation]
-enabled = true                    # Master validation switch
 physiological = true              # Hard limits (30-400kg)
 bmi_checking = true               # BMI plausibility checks
 rate_limiting = true              # Daily/weekly change limits
@@ -193,9 +188,13 @@ parameter_decay = true            # Parameter decay over time
 
 # Retrospective processing
 [features.retrospective]
-enabled = true                    # Enable retrospective analysis
 outlier_detection = true          # Retrospective outlier detection
 rollback = true                   # Allow state rollback
+
+# Visualization
+[features.visualization]
+enabled = true                    # Enable visualization generation
+threading = true                  # Enable multi-threading for visualizations
 
 # ============================================================================
 # EXPERT SETTINGS
@@ -211,7 +210,6 @@ transition_covariance_trend = 0.0001
 observation_covariance = 3.4
 
 [quality_scoring]
-enabled = true
 use_harmonic_mean = true
 # threshold is set by profile, but can be overridden here
 # threshold = 0.6
