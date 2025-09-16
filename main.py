@@ -118,7 +118,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         try:
             from src.retro_buffer import get_retro_buffer
             from src.processing.outlier_detection import OutlierDetector
-            from src.debug.replay_manager import ReplayManager
+            from src.replay.replay_manager import ReplayManager
 
             retro_buffer = get_retro_buffer(retro_config)
             outlier_detector = OutlierDetector(retro_config.get("outlier_detection", {}), db=db)
