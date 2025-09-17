@@ -146,6 +146,8 @@ kalman_filtering = true          # Core Kalman filter (required for many feature
 quality_scoring = true            # Multi-factor quality assessment
 outlier_detection = true          # Statistical outlier detection
 quality_override = true           # Allow high-quality scores to override outlier detection
+kalman_state_validation = false  # Validate Kalman state on deserialization (feature flag for gradual rollout)
+strict_validation = false         # Fail loudly on validation errors (requires kalman_state_validation=true)
 
 # Validation features
 [features.validation]

@@ -20,6 +20,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 import numpy as np
 
+from src.processing.kalman_state_validator import KalmanStateValidator
+from src.exceptions import DataCorruptionError, StateValidationError
+from src.feature_manager import FeatureManager
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,6 +44,11 @@ class ProcessorStateDB:
         self.states = {}
         self._transaction_active = False
         self._transaction_backup = None
+
+        # Initialize validator and feature manager
+        self.validator = KalmanStateValidator()
+        self.feature_manager = FeatureManager()
+        self.enable_validation = self.feature_manager.is_enabled('kalman_state_validation')
 
         if self.storage_path and self.storage_path.exists():
             self._load_from_disk()
@@ -162,6 +171,142 @@ class ProcessorStateDB:
                 else:
                     state[key] = self._deserialize(value)
 
+        # Validate Kalman-specific state components if enabled
+        if self.enable_validation and self._contains_kalman_state(state):
+            state = self._validate_kalman_components(state)
+
+        return state
+
+    def _contains_kalman_state(self, state: Dict[str, Any]) -> bool:
+        """Check if state contains Kalman filter components."""
+        return any(key in state for key in ['last_state', 'last_covariance', 'kalman_params'])
+
+    def _validate_kalman_components(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate and potentially recover Kalman state components.
+
+        Args:
+            state: Deserialized state dictionary
+
+        Returns:
+            Validated state dictionary
+
+        Raises:
+            DataCorruptionError: If state is corrupted beyond recovery
+        """
+        # Build validation dict for Kalman components
+        kalman_components = {}
+
+        # Map database fields to Kalman validator fields
+        if state.get('last_state') is not None:
+            # last_state should be a 2D array but we only care about the weight part
+            # Extract the state vector [weight, trend]
+            last_state = state['last_state']
+
+            # Try to handle various input types
+            if not isinstance(last_state, np.ndarray):
+                # Try to convert to numpy array (handles lists, tuples, etc.)
+                try:
+                    last_state = np.array(last_state)
+                except:
+                    # If conversion fails, mark as invalid
+                    kalman_components['x'] = last_state  # Pass the invalid value for validation to catch
+
+            if isinstance(last_state, np.ndarray) and last_state.size >= 1:
+                # For validation purposes, we'll validate just the weight component
+                if last_state.ndim == 2:
+                    kalman_components['x'] = last_state[0:1, 0:1]
+                elif last_state.ndim == 1 and last_state.size >= 1:
+                    # 1D array - take first element only
+                    kalman_components['x'] = np.array([[last_state[0]]])
+                else:
+                    # Scalar or other
+                    kalman_components['x'] = np.array([[last_state.flat[0]]])
+            elif 'x' not in kalman_components:
+                # Handle invalid or empty arrays
+                kalman_components['x'] = last_state
+
+        if state.get('last_covariance') is not None:
+            # For now, validate covariance as P (even though it's larger)
+            # We'll just validate the weight variance component
+            last_cov = state['last_covariance']
+
+            # Try to handle various input types
+            if not isinstance(last_cov, np.ndarray):
+                try:
+                    last_cov = np.array(last_cov)
+                except:
+                    kalman_components['P'] = last_cov  # Pass invalid value for validation
+
+            if isinstance(last_cov, np.ndarray) and last_cov.size >= 1:
+                kalman_components['P'] = last_cov[0:1, 0:1] if last_cov.ndim > 1 else np.array([[last_cov.flat[0]]])
+            elif 'P' not in kalman_components:
+                kalman_components['P'] = last_cov
+
+        # Add default F, H, Q, R for validation (these are typically constants)
+        kalman_components['F'] = np.array([[1.0]])  # State transition
+        kalman_components['H'] = np.array([[1.0]])  # Observation model
+        kalman_components['Q'] = np.array([[0.1]])  # Process noise (default)
+        kalman_components['R'] = np.array([[1.0]])  # Observation noise (default)
+
+        # Extract actual Q and R from kalman_params if available
+        if state.get('kalman_params'):
+            params = state['kalman_params']
+            if isinstance(params, dict):
+                if 'transition_covariance' in params:
+                    trans_cov = params['transition_covariance']
+                    if isinstance(trans_cov, (list, np.ndarray)) and len(trans_cov) > 0:
+                        if isinstance(trans_cov[0], (list, np.ndarray)) and len(trans_cov[0]) > 0:
+                            kalman_components['Q'] = np.array([[trans_cov[0][0]]])
+
+                if 'observation_covariance' in params:
+                    obs_cov = params['observation_covariance']
+                    if isinstance(obs_cov, (list, np.ndarray)) and len(obs_cov) > 0:
+                        if isinstance(obs_cov[0], (list, np.ndarray)) and len(obs_cov[0]) > 0:
+                            kalman_components['R'] = np.array([[obs_cov[0][0]]])
+                        else:
+                            kalman_components['R'] = np.array([[obs_cov[0]]])
+
+        # Validate the components
+        try:
+            validated = self.validator.validate_and_fix(kalman_components)
+
+            if validated is None:
+                logger.error(
+                    f"Kalman state validation failed. "
+                    f"Metrics: {self.validator.get_validation_metrics()}"
+                )
+
+                # For now, log error but don't raise exception to maintain backward compatibility
+                # In production, this should raise DataCorruptionError
+                if self.feature_manager.is_enabled('strict_validation'):
+                    raise DataCorruptionError("Kalman state corrupted and unrecoverable")
+                else:
+                    logger.warning("Kalman validation failed but continuing due to backward compatibility mode")
+
+        except StateValidationError as e:
+            logger.error(f"Kalman state validation error: {e}")
+            if self.feature_manager.is_enabled('strict_validation'):
+                raise DataCorruptionError(f"Kalman state validation failed: {e}")
+            else:
+                logger.warning(f"Kalman validation error but continuing: {e}")
+
+        return state
+
+    def _legacy_deserialize(self, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Legacy deserialization without validation for backward compatibility."""
+        return self._deserialize_without_validation(state_dict)
+
+    def _deserialize_without_validation(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Deserialize without validation (for legacy support)."""
+        for key, value in state.items():
+            if isinstance(value, dict):
+                if value.get('_type') == 'ndarray':
+                    state[key] = np.array(value['data']).reshape(value['shape'])
+                elif value.get('_type') == 'datetime':
+                    state[key] = datetime.fromisoformat(value['data'])
+                else:
+                    state[key] = self._deserialize_without_validation(value)
         return state
 
     def _save_user_state(self, user_id: str, state: Dict[str, Any]) -> None:

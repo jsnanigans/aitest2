@@ -6,6 +6,8 @@ Single processing function with clear flow.
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any, Tuple
 import numpy as np
+import copy
+import logging
 
 from ..database.database import get_state_db
 from ..feature_manager import FeatureManager
@@ -17,6 +19,12 @@ from .kalman import (
     get_reset_timestamp
 )
 from .validation import PhysiologicalValidator, BMIValidator, ThresholdCalculator, DataQualityPreprocessor
+from .persistence_validator import PersistenceValidator
+from .reset_transaction import ResetTransaction, ResetOperation
+from .state_validator import StateValidator
+from .circuit_breaker import CircuitBreaker, CircuitOpenError
+
+logger = logging.getLogger(__name__)
 from ..constants import (
     QUESTIONNAIRE_SOURCES,
     KALMAN_DEFAULTS,
@@ -170,13 +178,12 @@ def process_measurement(
     
     reset_event = None
     reset_occurred = False
-    
+
     if reset_type:
-        # Perform the reset
-        state, reset_event = ResetManager.perform_reset(
-            state, reset_type, timestamp, cleaned_weight, source, config
+        # Perform the reset with transaction safety
+        state, reset_event, reset_occurred = _handle_reset_with_transaction(
+            user_id, state, reset_type, timestamp, cleaned_weight, source, config
         )
-        reset_occurred = True
     
     # Step 4: Initialize Kalman if needed
     if not state.get('kalman_params'):
@@ -225,14 +232,43 @@ def process_measurement(
                 'reason': reset_event.get('reason', 'unknown')
             }
         
-        # Save state
+        # Save state - This is after outlier rejection (early rejection path)
         state['last_source'] = source
         state['last_timestamp'] = timestamp  # Keep for backward compatibility
         state['last_accepted_timestamp'] = timestamp
         state['last_raw_weight'] = cleaned_weight  # Track for soft reset detection
         state["measurements_since_reset"] = state.get("measurements_since_reset", 0) + 1
+
+        # Validate state before persistence
         if feature_manager.is_enabled('state_persistence'):
-            db.save_state(user_id, state)
+            is_valid, error_msg = PersistenceValidator.validate_state(
+                state, user_id, reason="outlier_rejection_accept"
+            )
+            if is_valid:
+                # Get previous state for change detection
+                previous_state = db.get_state(user_id)
+                should_persist, audit_msg = PersistenceValidator.should_persist(
+                    state, previous_state, user_id, reason="outlier_rejection_accept"
+                )
+
+                if should_persist:
+                    db.save_state(user_id, state)
+                    PersistenceValidator.create_audit_log(
+                        user_id, "persist", state, True,
+                        reason="outlier_rejection_accept", error=None
+                    )
+                else:
+                    # Log why we're not persisting
+                    PersistenceValidator.create_audit_log(
+                        user_id, "skip", state, True,
+                        reason=audit_msg, error=None
+                    )
+            else:
+                # Log validation failure
+                PersistenceValidator.create_audit_log(
+                    user_id, "validate_failed", state, False,
+                    reason="outlier_rejection_accept", error=error_msg
+                )
         
         return result
     
@@ -425,13 +461,42 @@ def process_measurement(
             'stage': 'no_filtering'
         }
 
-        # Save minimal state if persistence enabled
+        # Save minimal state if persistence enabled (early return path - no Kalman filtering)
         if feature_manager.is_enabled('state_persistence'):
             state['last_source'] = source
             state['last_timestamp'] = timestamp
             state['last_accepted_timestamp'] = timestamp
             state['last_raw_weight'] = cleaned_weight
-            db.save_state(user_id, state)
+
+            # Validate state before persistence
+            is_valid, error_msg = PersistenceValidator.validate_state(
+                state, user_id, reason="no_kalman_filtering"
+            )
+            if is_valid:
+                # Get previous state for change detection
+                previous_state = db.get_state(user_id)
+                should_persist, audit_msg = PersistenceValidator.should_persist(
+                    state, previous_state, user_id, reason="no_kalman_filtering"
+                )
+
+                if should_persist:
+                    db.save_state(user_id, state)
+                    PersistenceValidator.create_audit_log(
+                        user_id, "persist", state, True,
+                        reason="no_kalman_filtering", error=None
+                    )
+                else:
+                    # Log why we're not persisting
+                    PersistenceValidator.create_audit_log(
+                        user_id, "skip", state, True,
+                        reason=audit_msg, error=None
+                    )
+            else:
+                # Log validation failure
+                PersistenceValidator.create_audit_log(
+                    user_id, "validate_failed", state, False,
+                    reason="no_kalman_filtering", error=error_msg
+                )
 
         return result
 
@@ -536,15 +601,44 @@ def process_measurement(
         # Keep only last 30 measurements
         state['measurement_history'] = state['measurement_history'][-30:]
     
-    # Save updated state
+    # Save updated state - Main successful processing path
     # Increment measurements counter for adaptation tracking
     state['measurements_since_reset'] = state.get('measurements_since_reset', 0) + 1
     state['last_source'] = source
     state['last_timestamp'] = timestamp  # Keep for backward compatibility
     state['last_accepted_timestamp'] = timestamp
     state['last_raw_weight'] = cleaned_weight  # Track for soft reset detection
+
+    # Validate state before persistence
     if feature_manager.is_enabled('state_persistence'):
-        db.save_state(user_id, state)
+        is_valid, error_msg = PersistenceValidator.validate_state(
+            state, user_id, reason="successful_processing"
+        )
+        if is_valid:
+            # Get previous state for change detection
+            previous_state = db.get_state(user_id)
+            should_persist, audit_msg = PersistenceValidator.should_persist(
+                state, previous_state, user_id, reason="successful_processing"
+            )
+
+            if should_persist:
+                db.save_state(user_id, state)
+                PersistenceValidator.create_audit_log(
+                    user_id, "persist", state, True,
+                    reason="successful_processing", error=None
+                )
+            else:
+                # Log why we're not persisting
+                PersistenceValidator.create_audit_log(
+                    user_id, "skip", state, True,
+                    reason=audit_msg, error=None
+                )
+        else:
+            # Log validation failure
+            PersistenceValidator.create_audit_log(
+                user_id, "validate_failed", state, False,
+                reason="successful_processing", error=error_msg
+            )
     
     return result
 
@@ -608,3 +702,118 @@ class WeightProcessor:
         """Reset a user's state."""
         db = get_state_db()
         return db.delete_state(user_id)
+
+
+# Circuit breaker for reset operations (module level)
+_reset_circuit_breaker = CircuitBreaker(
+    failure_threshold=3,
+    timeout=60,
+    success_threshold=2,
+    name="reset_operations"
+)
+
+
+def _handle_reset_with_transaction(
+    user_id: str,
+    state: Dict[str, Any],
+    reset_type: ResetType,
+    timestamp: datetime,
+    weight: float,
+    source: str,
+    config: Dict[str, Any]
+) -> Tuple[Dict[str, Any], Optional[Dict], bool]:
+    """
+    Handle reset operations with transaction safety and circuit breaker.
+
+    Args:
+        user_id: User identifier
+        state: Current state
+        reset_type: Type of reset to perform
+        timestamp: Measurement timestamp
+        weight: Weight value
+        source: Data source
+        config: Configuration
+
+    Returns:
+        Tuple of (new_state, reset_event, reset_occurred)
+    """
+    try:
+        # Try through circuit breaker first
+        return _reset_circuit_breaker.call(
+            _perform_transactional_reset,
+            user_id, state, reset_type, timestamp, weight, source, config
+        )
+    except CircuitOpenError as e:
+        logger.error(f"Reset circuit open for user {user_id}: {e}")
+        # Return original state without reset
+        return state, None, False
+    except Exception as e:
+        logger.error(f"Reset failed for user {user_id}: {e}")
+        # Return original state without reset
+        return state, None, False
+
+
+def _perform_transactional_reset(
+    user_id: str,
+    state: Dict[str, Any],
+    reset_type: ResetType,
+    timestamp: datetime,
+    weight: float,
+    source: str,
+    config: Dict[str, Any]
+) -> Tuple[Dict[str, Any], Optional[Dict], bool]:
+    """
+    Perform reset with transaction management.
+
+    Returns:
+        Tuple of (new_state, reset_event, reset_occurred)
+    """
+    with ResetTransaction(user_id) as txn:
+        # Save original state for potential rollback
+        txn.save_original_state(ResetOperation.STATE_UPDATE, state)
+
+        try:
+            # Step 1: Perform the actual reset
+            # Handle both ResetType enum and string
+            reset_type_value = reset_type.value if hasattr(reset_type, 'value') else reset_type
+            logger.info(f"Applying {reset_type_value} reset for user {user_id}")
+            new_state, reset_event = ResetManager.perform_reset(
+                state, reset_type, timestamp, weight, source, config
+            )
+
+            # Save checkpoint and validate
+            txn.save_checkpoint(ResetOperation.STATE_UPDATE, new_state)
+            if not txn.validate_checkpoint(ResetOperation.STATE_UPDATE):
+                raise ValueError(f"State validation failed after {reset_type_value} reset")
+
+            txn.mark_completed(ResetOperation.STATE_UPDATE)
+
+            # Step 2: Validate Kalman reset (kalman_params should be None)
+            kalman_state = {
+                'kalman_params': new_state.get('kalman_params'),
+                'reset_parameters': new_state.get('reset_parameters'),
+                'measurements_since_reset': new_state.get('measurements_since_reset', 0),
+                'reset_type': new_state.get('reset_type'),
+                'reset_timestamp': new_state.get('reset_timestamp')
+            }
+
+            txn.save_checkpoint(ResetOperation.KALMAN_RESET, kalman_state)
+            if not txn.validate_checkpoint(ResetOperation.KALMAN_RESET):
+                raise ValueError("Kalman state validation failed after reset")
+
+            txn.mark_completed(ResetOperation.KALMAN_RESET)
+
+            # All operations succeeded
+            logger.info(f"Reset transaction completed successfully for user {user_id}")
+            return new_state, reset_event, True
+
+        except Exception as e:
+            import traceback
+            logger.error(f"Reset transaction failed for user {user_id}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Transaction will automatically rollback
+            # Return original state
+            original_state = txn.get_original_state(ResetOperation.STATE_UPDATE)
+            if original_state:
+                return original_state, None, False
+            return state, None, False
