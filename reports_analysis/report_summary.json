@@ -1,6 +1,6 @@
 {
-  "generation_timestamp": "2025-09-17T18:36:37.035471",
-  "total_users_analyzed": 5644,
+  "generation_timestamp": "2025-09-18T11:05:41.385272",
+  "total_users_analyzed": 784,
   "intervals_analyzed": [
     0,
     5,
@@ -83,17 +83,6 @@
   "outlier_impact": {
     "avg_measurements_rejected": 0,
     "max_single_user_impact": 0
-  },
-  "daily_analysis": {
-    "total_users_analyzed": 15701,
-    "users_with_dramatic_impact": 794,
-    "avg_daily_difference_across_users": 0.9260755984499971,
-    "median_daily_difference_across_users": 0.293785084202085,
-    "max_daily_difference_observed": 99.34444444444445,
-    "avg_rejection_rate": 0.6485846031318546,
-    "total_measurements_raw": 531486,
-    "total_measurements_filtered": 477882,
-    "overall_rejection_rate": 0.10085684288955876
   },
   "files_generated": {
     "csv_files": [

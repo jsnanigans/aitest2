@@ -15,16 +15,18 @@ import time
 class FastIntervalAnalyzer:
     """Analyzes weight measurements at regular intervals from signup (optimized version)"""
 
-    def __init__(self, interval_days: int = 5, window_days: float = 2.5):
+    def __init__(self, interval_days: int = 5, window_days: float = 2.5, user_start_dates: Optional[Dict[str, datetime]] = None):
         """
         Initialize interval analyzer
 
         Args:
             interval_days: Days between each interval (default: 5)
             window_days: ±days tolerance for finding measurements (default: 2.5)
+            user_start_dates: Dictionary mapping user_id to their start date from employer data
         """
         self.interval_days = interval_days
         self.window_days = window_days
+        self.user_start_dates = user_start_dates or {}
         self.logger = logging.getLogger(__name__)
 
     def calculate_all_users(self,
@@ -117,24 +119,29 @@ class FastIntervalAnalyzer:
                     user_raw = raw_grouped.get_group(user_id) if user_id in raw_grouped.groups else pd.DataFrame()
                     user_filtered = filtered_grouped.get_group(user_id) if filtered_grouped and user_id in filtered_grouped.groups else pd.DataFrame()
 
-                    # Find signup date
-                    signup_date = self._find_signup_date(user_raw)
-                    if signup_date is None:
-                        users_without_signup += 1
-                        self.logger.debug(f"User {user_id}: No signup date found, skipping")
-                        continue
+                    # Find start date - prefer employer CSV start_date, fallback to signup date
+                    start_date = self.user_start_dates.get(user_id)
+                    if start_date is None:
+                        # Fallback to finding signup date from questionnaire
+                        start_date = self._find_signup_date(user_raw)
+                        if start_date is None:
+                            users_without_signup += 1
+                            self.logger.debug(f"User {user_id}: No start date found, skipping")
+                            continue
+                    else:
+                        self.logger.debug(f"User {user_id}: Using employer start date: {start_date}")
 
                     users_with_signup += 1
 
                     # Calculate intervals
                     intervals = self._calculate_user_intervals_optimized(
-                        user_id, signup_date, user_raw, user_filtered
+                        user_id, start_date, user_raw, user_filtered
                     )
 
                     if intervals:
                         results[user_id] = {
                             'user_id': user_id,
-                            'signup_date': signup_date,
+                            'signup_date': start_date,  # Now this is the start_date from employer CSV or signup
                             'intervals': intervals,
                             'num_raw_measurements': len(user_raw),
                             'num_filtered_measurements': len(user_filtered) if not user_filtered.empty else 0
@@ -213,10 +220,17 @@ class FastIntervalAnalyzer:
 
     def _calculate_user_intervals_optimized(self,
                                            user_id: str,
-                                           signup_date: datetime,
+                                           start_date: datetime,
                                            raw_data: pd.DataFrame,
                                            filtered_data: pd.DataFrame) -> List[Dict]:
-        """Calculate interval measurements for a single user (optimized)"""
+        """Calculate interval measurements for a single user (optimized)
+
+        Args:
+            user_id: User ID
+            start_date: User's start date (from employer CSV or signup)
+            raw_data: User's raw measurements
+            filtered_data: User's filtered measurements
+        """
         intervals = []
 
         # Pre-sort data once for efficiency
@@ -226,29 +240,29 @@ class FastIntervalAnalyzer:
             filtered_data = filtered_data.sort_values('timestamp')
 
         # Determine maximum interval
-        max_date_raw = raw_data['timestamp'].max() if not raw_data.empty else signup_date
-        max_date_filtered = filtered_data['timestamp'].max() if not filtered_data.empty else signup_date
+        max_date_raw = raw_data['timestamp'].max() if not raw_data.empty else start_date
+        max_date_filtered = filtered_data['timestamp'].max() if not filtered_data.empty else start_date
         max_date = max(max_date_raw, max_date_filtered)
 
-        # Calculate number of intervals (with 5-day intervals, cap at 72 = ~1 year)
-        days_elapsed = (max_date - signup_date).days
+        # Calculate number of intervals from the user's start date
+        days_elapsed = (max_date - start_date).days
         num_intervals = min((days_elapsed // self.interval_days) + 1, 72)  # Cap at 72 intervals (~360 days)
 
         self.logger.debug(f"User {user_id}: {days_elapsed} days elapsed, calculating {num_intervals} intervals")
 
-        # Get baseline weight (optimized)
+        # Get baseline weight - find the closest measurement to start_date
         baseline_raw = self._select_weight_optimized(
-            raw_data, signup_date, window_days=3
+            raw_data, start_date, window_days=7  # Allow wider window for baseline
         )
         baseline_filtered = self._select_weight_optimized(
-            filtered_data, signup_date, window_days=3
+            filtered_data, start_date, window_days=7  # Allow wider window for baseline
         ) if not filtered_data.empty else None
 
         # Add baseline
         intervals.append({
             'interval_num': 0,
             'interval_days': 0,
-            'target_date': signup_date,
+            'target_date': start_date,
             'raw_weight': baseline_raw['weight'] if baseline_raw else None,
             'filtered_weight': baseline_filtered['weight'] if baseline_filtered else None,
             'raw_source': baseline_raw['source'] if baseline_raw else None,
@@ -257,9 +271,9 @@ class FastIntervalAnalyzer:
             'filtered_distance_days': baseline_filtered['distance_days'] if baseline_filtered else None
         })
 
-        # Calculate subsequent intervals
+        # Calculate subsequent intervals from the start date
         for i in range(1, num_intervals + 1):
-            interval_date = signup_date + timedelta(days=i * self.interval_days)
+            interval_date = start_date + timedelta(days=i * self.interval_days)
 
             if interval_date > datetime.now():
                 break

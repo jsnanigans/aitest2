@@ -14,7 +14,7 @@ import csv
 from pathlib import Path
 from datetime import datetime
 import pandas as pd
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Set
 import time
 
 from src.config_loader import load_config as load_config_with_profiles
@@ -26,7 +26,6 @@ from src.analysis.statistics import StatisticsCalculator
 from src.analysis.csv_generator import CSVGenerator
 from src.analysis.analysis_visualizer import AnalysisVisualizer
 from src.analysis.markdown_reporter import MarkdownReporter
-from src.analysis.daily_weight_analyzer import DailyWeightAnalyzer
 
 
 
@@ -81,7 +80,8 @@ class WeightLossReport:
                        top_n: int = 200,
                        interval_days: int = 30,
                        window_days: int = 7,
-                       use_parallel: bool = False) -> Dict:
+                       use_parallel: bool = False,
+                       employer_filter: Optional[str] = None) -> Dict:
         """
         Generate comprehensive weight loss analysis report
 
@@ -92,6 +92,7 @@ class WeightLossReport:
             interval_days: Interval between measurements (default: 30)
             window_days: ±window for selecting measurements (default: 7)
             use_parallel: Use parallel processing for interval calculation (default: False)
+            employer_filter: Optional employer name to filter users by (e.g., 'AMAZON_EMPLOYER')
 
         Returns:
             Dictionary with report metadata and file paths
@@ -100,15 +101,44 @@ class WeightLossReport:
         self.logger.info(f"Raw data: {raw_csv}")
         self.logger.info(f"Filtered data: {filtered_csv}")
         self.logger.info(f"Parameters: top_n={top_n}, interval={interval_days}d, window=±{window_days}d")
+        if employer_filter:
+            self.logger.info(f"Employer filter: {employer_filter}")
 
         # Track phase timings for performance report
         phase_timings = {}
 
         try:
+            # Phase 0: Load user start dates and employer filter if specified
+            employer_user_ids = None
+            phase0_start = time.time()
+            self.logger.info(f"Phase 0: Loading user start dates...")
+
+            # Load start dates for all users from employer CSV
+            user_start_dates = self._load_user_start_dates()
+            self.logger.info(f"Loaded start dates for {len(user_start_dates)} users")
+
+            if employer_filter:
+                self.logger.info(f"Loading employer filter for '{employer_filter}'...")
+                employer_user_ids = self._load_employer_filter(employer_filter)
+                self.logger.info(f"Found {len(employer_user_ids)} users for employer '{employer_filter}'")
+                if not employer_user_ids:
+                    raise ValueError(f"No users found for employer '{employer_filter}'")
+
+            phase0_time = time.time() - phase0_start
+            phase_timings['phase0'] = phase0_time
+            self.logger.info(f"Phase 0 complete in {phase0_time:.2f}s")
+
             # Phase 1: Load raw data
             phase1_start = time.time()
             self.logger.info("Phase 1: Loading raw data...")
             raw_data = self._load_raw_data(raw_csv)
+
+            # Apply employer filter if specified
+            if employer_user_ids:
+                original_count = len(raw_data)
+                raw_data = raw_data[raw_data['user_id'].isin(employer_user_ids)]
+                self.logger.info(f"Filtered raw data from {original_count} to {len(raw_data)} measurements for employer users")
+
             phase1_time = time.time() - phase1_start
             phase_timings['phase1'] = phase1_time
             self.logger.info(f"Loaded {len(raw_data)} raw measurements in {phase1_time:.2f}s")
@@ -117,6 +147,13 @@ class WeightLossReport:
             phase2_start = time.time()
             self.logger.info("Phase 2: Loading filtered data...")
             filtered_data = self._load_raw_data(filtered_csv)  # Same format as raw
+
+            # Apply employer filter if specified
+            if employer_user_ids:
+                original_count = len(filtered_data)
+                filtered_data = filtered_data[filtered_data['user_id'].isin(employer_user_ids)]
+                self.logger.info(f"Filtered filtered data from {original_count} to {len(filtered_data)} measurements for employer users")
+
             phase2_time = time.time() - phase2_start
             phase_timings['phase2'] = phase2_time
             self.logger.info(f"Loaded {len(filtered_data)} filtered measurements in {phase2_time:.2f}s")
@@ -126,12 +163,12 @@ class WeightLossReport:
             if use_parallel:
                 self.logger.info("Phase 3: Calculating intervals (parallel)...")
                 interval_analyzer = ParallelIntervalAnalyzer(
-                    interval_days, window_days
+                    interval_days, window_days, user_start_dates=user_start_dates
                 )
             else:
                 self.logger.info("Phase 3: Calculating intervals (optimized)...")
                 interval_analyzer = FastIntervalAnalyzer(
-                    interval_days, window_days
+                    interval_days, window_days, user_start_dates=user_start_dates
                 )
             user_intervals = interval_analyzer.calculate_all_users(
                 raw_data, filtered_data
@@ -171,38 +208,15 @@ class WeightLossReport:
             phase_timings['phase6'] = phase6_time
             self.logger.info(f"Generated {len(csv_files)} CSV files in {phase6_time:.2f}s")
 
-            # Phase 7: Daily weight analysis
-            phase7_start = time.time()
-            self.logger.info("Phase 7: Performing daily weight analysis...")
-            daily_analyzer = DailyWeightAnalyzer()
-            daily_results = daily_analyzer.calculate_daily_weights(raw_data, filtered_data)
-            dramatic_users = daily_analyzer.get_most_dramatic_users(daily_results, top_n=20)
-            daily_stats = daily_analyzer.generate_daily_statistics(daily_results)
-            phase7_time = time.time() - phase7_start
+            # Phase 7: Skipped (daily analysis removed)
+            phase7_time = 0
             phase_timings['phase7'] = phase7_time
-            self.logger.info(f"Daily analysis completed in {phase7_time:.2f}s")
-            self.logger.info(f"Found {len(dramatic_users)} users with dramatic daily differences")
-            if dramatic_users:
-                top_dramatic = dramatic_users[0]
-                self.logger.info(f"Most dramatic: Score={top_dramatic['dramatic_score']:.1f}, "
-                               f"Max diff={top_dramatic['max_daily_difference']:.2f} lbs")
+            daily_stats = None
 
             # Phase 8: Generate visualizations (DISABLED)
             phase8_start = time.time()
             self.logger.info("Phase 8: Skipping visualizations (disabled)...")
             viz_files = {}  # Empty dictionary since visualizations are disabled
-
-            # Commented out visualization generation
-            # viz = AnalysisVisualizer(self.viz_dir)
-            # viz_files = viz.generate_all_visualizations(
-            #     user_intervals, statistics, top_users
-            # )
-            # if daily_results and dramatic_users:
-            #     daily_viz_files = viz.generate_daily_comparison_visualizations(
-            #         daily_results, dramatic_users
-            #     )
-            #     viz_files.update(daily_viz_files)
-
             phase8_time = time.time() - phase8_start
             phase_timings['phase8'] = phase8_time
             self.logger.info(f"Visualization generation disabled")
@@ -211,7 +225,7 @@ class WeightLossReport:
             phase9_start = time.time()
             self.logger.info("Phase 9: Generating summary report...")
             summary = self._generate_summary_report(
-                statistics, csv_files, viz_files, daily_stats
+                statistics, csv_files, viz_files
             )
             phase9_time = time.time() - phase9_start
             phase_timings['phase9'] = phase9_time
@@ -220,10 +234,6 @@ class WeightLossReport:
             phase10_start = time.time()
             self.logger.info("Phase 10: Generating comprehensive Markdown report...")
             md_reporter = MarkdownReporter(self.output_dir)
-            # Add daily analysis to statistics for report
-            statistics['daily_analysis'] = daily_stats
-            statistics['dramatic_users'] = dramatic_users
-
             md_report_path = md_reporter.generate_comprehensive_report(
                 raw_data, filtered_data, user_intervals,
                 statistics, top_users, csv_files, phase_timings
@@ -307,6 +317,52 @@ class WeightLossReport:
 
         return df
 
+    def _load_user_start_dates(self) -> Dict[str, datetime]:
+        """Load start dates for all users from employer CSV"""
+        user_employers_path = Path("data/2025-09-17-user-employers.csv")
+        if not user_employers_path.exists():
+            self.logger.warning(f"User employers file not found: {user_employers_path}. Will use signup dates from data.")
+            return {}
+
+        user_employers_df = pd.read_csv(user_employers_path)
+
+        # Convert start_date to datetime
+        user_employers_df['start_date'] = pd.to_datetime(user_employers_df['start_date'], errors='coerce')
+
+        # Create dictionary of user_id -> start_date
+        start_dates = {}
+        for _, row in user_employers_df.iterrows():
+            if pd.notna(row['start_date']):
+                start_dates[row['user_id']] = row['start_date']
+
+        return start_dates
+
+    def _load_employer_filter(self, employer_name: str) -> Set[str]:
+        """Load user IDs for a specific employer"""
+        # Load partners CSV to get employer_id from name
+        partners_path = Path("data/partners.csv")
+        if not partners_path.exists():
+            raise FileNotFoundError(f"Partners file not found: {partners_path}")
+
+        partners_df = pd.read_csv(partners_path)
+        employer_rows = partners_df[partners_df['name'] == employer_name]
+
+        if employer_rows.empty:
+            available_employers = partners_df[partners_df['name'].str.contains('_EMPLOYER', na=False)]['name'].unique()
+            raise ValueError(f"Employer '{employer_name}' not found. Available employers: {', '.join(sorted(available_employers))}")
+
+        employer_id = employer_rows.iloc[0]['id']
+        self.logger.info(f"Found employer_id: {employer_id} for '{employer_name}'")
+
+        # Load user-employer mappings
+        user_employers_path = Path("data/2025-09-17-user-employers.csv")
+        if not user_employers_path.exists():
+            raise FileNotFoundError(f"User employers file not found: {user_employers_path}")
+
+        user_employers_df = pd.read_csv(user_employers_path)
+        employer_users = user_employers_df[user_employers_df['employer_id'] == employer_id]['user_id']
+
+        return set(employer_users.values)
 
     def _identify_top_divergent_users(self,
                                      user_intervals: Dict,
@@ -379,8 +435,7 @@ class WeightLossReport:
     def _generate_summary_report(self,
                                 statistics: Dict,
                                 csv_files: Dict,
-                                viz_files: Dict,
-                                daily_stats: Dict = None) -> Dict:
+                                viz_files: Dict) -> Dict:
         """Generate summary report with key findings"""
         summary = {
             'generation_timestamp': datetime.now().isoformat(),
@@ -394,7 +449,6 @@ class WeightLossReport:
                 'avg_measurements_rejected': statistics.get('avg_outliers_per_user', 0),
                 'max_single_user_impact': statistics.get('max_impact', 0)
             },
-            'daily_analysis': daily_stats if daily_stats else {},
             'files_generated': {
                 'csv_files': list(csv_files.keys()),
                 'visualization_files': list(viz_files.keys())
@@ -458,6 +512,11 @@ def main():
         action='store_true',
         help='Use parallel processing for interval calculation (uses multiple CPU cores)'
     )
+    parser.add_argument(
+        '--employer',
+        type=str,
+        help='Filter users by employer name (e.g., AMAZON_EMPLOYER, APPLE_EMPLOYER)'
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -480,7 +539,8 @@ def main():
         top_n=args.top_n,
         interval_days=args.interval_days,
         window_days=args.window_days,
-        use_parallel=args.parallel
+        use_parallel=args.parallel,
+        employer_filter=args.employer
     )
 
     if result['status'] == 'success':

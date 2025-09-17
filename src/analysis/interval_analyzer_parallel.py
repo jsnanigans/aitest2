@@ -15,17 +15,17 @@ import traceback
 from functools import partial
 
 
-def process_user_batch(batch_data: Tuple[List[str], Dict, Dict, int, float]) -> Dict:
+def process_user_batch(batch_data: Tuple[List[str], Dict, Dict, int, float, Dict]) -> Dict:
     """
     Process a batch of users in a worker process
 
     Args:
-        batch_data: Tuple of (user_ids, raw_dict, filtered_dict, interval_days, window_days)
+        batch_data: Tuple of (user_ids, raw_dict, filtered_dict, interval_days, window_days, user_start_dates)
 
     Returns:
         Dictionary of results for this batch
     """
-    user_ids, raw_dict, filtered_dict, interval_days, window_days = batch_data
+    user_ids, raw_dict, filtered_dict, interval_days, window_days, user_start_dates = batch_data
     results = {}
 
     for user_id in user_ids:
@@ -33,28 +33,30 @@ def process_user_batch(batch_data: Tuple[List[str], Dict, Dict, int, float]) -> 
             user_raw = raw_dict.get(user_id, pd.DataFrame())
             user_filtered = filtered_dict.get(user_id, pd.DataFrame())
 
-            # Find signup date
-            signup_date = None
-            if not user_raw.empty:
-                signup_rows = user_raw[user_raw['source'] == 'initial-questionnaire']
-                if not signup_rows.empty:
-                    signup_date = signup_rows.iloc[0]['timestamp']
-                else:
-                    signup_date = user_raw.iloc[0]['timestamp']
+            # Find start date - prefer employer CSV start_date, fallback to signup date
+            start_date = user_start_dates.get(user_id)
+            if start_date is None:
+                # Fallback to finding signup date from questionnaire
+                if not user_raw.empty:
+                    signup_rows = user_raw[user_raw['source'] == 'initial-questionnaire']
+                    if not signup_rows.empty:
+                        start_date = signup_rows.iloc[0]['timestamp']
+                    else:
+                        start_date = user_raw.iloc[0]['timestamp']
 
-            if signup_date is None:
+            if start_date is None:
                 continue
 
             # Calculate intervals for this user
             intervals = calculate_user_intervals_worker(
-                user_id, signup_date, user_raw, user_filtered,
+                user_id, start_date, user_raw, user_filtered,
                 interval_days, window_days
             )
 
             if intervals:
                 results[user_id] = {
                     'user_id': user_id,
-                    'signup_date': signup_date,
+                    'signup_date': start_date,  # Now this is the start_date from employer CSV or signup
                     'intervals': intervals,
                     'num_raw_measurements': len(user_raw),
                     'num_filtered_measurements': len(user_filtered) if not user_filtered.empty else 0
@@ -69,12 +71,21 @@ def process_user_batch(batch_data: Tuple[List[str], Dict, Dict, int, float]) -> 
 
 
 def calculate_user_intervals_worker(user_id: str,
-                                   signup_date: datetime,
+                                   start_date: datetime,
                                    raw_data: pd.DataFrame,
                                    filtered_data: pd.DataFrame,
                                    interval_days: int,
                                    window_days: float) -> List[Dict]:
-    """Calculate intervals for a single user (worker function)"""
+    """Calculate intervals for a single user (worker function)
+
+    Args:
+        user_id: User ID
+        start_date: User's start date (from employer CSV or signup)
+        raw_data: User's raw measurements
+        filtered_data: User's filtered measurements
+        interval_days: Days between intervals
+        window_days: Window tolerance for measurements
+    """
     intervals = []
 
     # Pre-sort data once
@@ -84,12 +95,12 @@ def calculate_user_intervals_worker(user_id: str,
         filtered_data = filtered_data.sort_values('timestamp')
 
     # Determine maximum interval
-    max_date_raw = raw_data['timestamp'].max() if not raw_data.empty else signup_date
-    max_date_filtered = filtered_data['timestamp'].max() if not filtered_data.empty else signup_date
+    max_date_raw = raw_data['timestamp'].max() if not raw_data.empty else start_date
+    max_date_filtered = filtered_data['timestamp'].max() if not filtered_data.empty else start_date
     max_date = max(max_date_raw, max_date_filtered)
 
-    # Calculate number of intervals (cap at 72)
-    days_elapsed = (max_date - signup_date).days
+    # Calculate number of intervals from the user's start date
+    days_elapsed = (max_date - start_date).days
     num_intervals = min((days_elapsed // interval_days) + 1, 72)
 
     # Helper function for weight selection
@@ -120,15 +131,15 @@ def calculate_user_intervals_worker(user_id: str,
             'quality_score': best.get('quality_score', None)
         }
 
-    # Get baseline weight
-    baseline_raw = select_weight(raw_data, signup_date, 3)
-    baseline_filtered = select_weight(filtered_data, signup_date, 3) if not filtered_data.empty else None
+    # Get baseline weight - find the closest measurement to start_date
+    baseline_raw = select_weight(raw_data, start_date, 7)  # Allow wider window for baseline
+    baseline_filtered = select_weight(filtered_data, start_date, 7) if not filtered_data.empty else None
 
     # Add baseline
     intervals.append({
         'interval_num': 0,
         'interval_days': 0,
-        'target_date': signup_date,
+        'target_date': start_date,
         'raw_weight': baseline_raw['weight'] if baseline_raw else None,
         'filtered_weight': baseline_filtered['weight'] if baseline_filtered else None,
         'raw_source': baseline_raw['source'] if baseline_raw else None,
@@ -137,9 +148,9 @@ def calculate_user_intervals_worker(user_id: str,
         'filtered_distance_days': baseline_filtered['distance_days'] if baseline_filtered else None
     })
 
-    # Calculate subsequent intervals
+    # Calculate subsequent intervals from the start date
     for i in range(1, num_intervals + 1):
-        interval_date = signup_date + timedelta(days=i * interval_days)
+        interval_date = start_date + timedelta(days=i * interval_days)
 
         if interval_date > datetime.now():
             break
@@ -165,17 +176,19 @@ def calculate_user_intervals_worker(user_id: str,
 class ParallelIntervalAnalyzer:
     """Parallel version of interval analyzer using multiprocessing"""
 
-    def __init__(self, interval_days: int = 5, window_days: float = 2.5, n_workers: Optional[int] = None):
+    def __init__(self, interval_days: int = 5, window_days: float = 2.5, user_start_dates: Optional[Dict[str, datetime]] = None, n_workers: Optional[int] = None):
         """
         Initialize parallel interval analyzer
 
         Args:
             interval_days: Days between each interval
             window_days: ±days tolerance for finding measurements
+            user_start_dates: Dictionary mapping user_id to their start date from employer data
             n_workers: Number of worker processes (None = cpu_count)
         """
         self.interval_days = interval_days
         self.window_days = window_days
+        self.user_start_dates = user_start_dates or {}
         self.n_workers = n_workers or cpu_count()
         self.logger = logging.getLogger(__name__)
 
@@ -242,7 +255,8 @@ class ParallelIntervalAnalyzer:
                 {uid: raw_dict[uid] for uid in batch_users if uid in raw_dict},
                 {uid: filtered_dict[uid] for uid in batch_users if uid in filtered_dict},
                 self.interval_days,
-                self.window_days
+                self.window_days,
+                {uid: self.user_start_dates[uid] for uid in batch_users if uid in self.user_start_dates}
             ))
 
         print(f"🚀 Processing {len(user_list):,} users in {len(batches)} batches")
