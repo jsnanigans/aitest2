@@ -1,0 +1,39 @@
+{
+  "generation_timestamp": "2025-09-17T15:59:19.447825",
+  "total_users_analyzed": 99,
+  "intervals_analyzed": [
+    0,
+    30,
+    60,
+    90
+  ],
+  "average_weight_loss": {
+    "raw": {},
+    "filtered": {}
+  },
+  "outlier_impact": {
+    "avg_measurements_rejected": 0,
+    "max_single_user_impact": 0
+  },
+  "files_generated": {
+    "csv_files": [
+      "filtered_data",
+      "user_progress_raw",
+      "user_progress_filtered",
+      "interval_statistics",
+      "user_comparison"
+    ],
+    "visualization_files": [
+      "weight_loss_distribution",
+      "outlier_impact_heatmap",
+      "quality_correlation",
+      "population_summary",
+      "user_00E969657BC043E4BAFAFB7A0B573CF3",
+      "user_015F1BF9A3A544BA9E6CCFA859D8CCC0",
+      "user_011C285FBDC242A7873AE8E90A9FA7AF",
+      "user_009CFEEADD0349A5813FD6295000732F",
+      "user_0167CA93634B46C7B84AB80D0479B24D",
+      "top_200_summary"
+    ]
+  }
+}

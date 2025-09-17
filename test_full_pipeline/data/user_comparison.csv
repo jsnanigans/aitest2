@@ -1,0 +1,6 @@
+user_id,divergence_rank,total_diff_lbs,avg_diff_per_interval,max_single_diff,consistency_score,num_intervals,data_completeness,weight_loss_raw,weight_loss_filtered,outcome_changed
+00E969657BC043E4BAFAFB7A0B573CF3,1,0.0,0.0,0.0,1.0,2,66.66666666666666,0.31,0.31,False
+015F1BF9A3A544BA9E6CCFA859D8CCC0,2,0.0,0.0,0.0,1.0,2,66.66666666666666,-2.56,-2.56,False
+011C285FBDC242A7873AE8E90A9FA7AF,3,0.0,0.0,0.0,1.0,2,66.66666666666666,-1.09,-1.09,False
+009CFEEADD0349A5813FD6295000732F,4,0.0,0.0,0.0,1.0,2,100.0,-3.1,-3.1,False
+0167CA93634B46C7B84AB80D0479B24D,5,0.0,0.0,0.0,1.0,3,75.0,0.29,0.29,False

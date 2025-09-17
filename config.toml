@@ -201,6 +201,35 @@ enabled = true                    # Enable visualization generation
 # threading = true                  # Enable multi-threading for visualizations - USES DIFFERENT CONFIG
 
 # ============================================================================
+# ANALYSIS SETTINGS
+# Configuration for weight loss interval analysis and reporting
+# ============================================================================
+
+[database]
+path = "data/weight_tracking.db"    # Path to the database file
+
+[analysis]
+# Interval configuration
+interval_days = 30               # Days between analysis intervals
+window_tolerance_days = 7        # ±days for finding measurements at intervals
+max_intervals = 12                # Maximum number of intervals to analyze (1 year)
+
+# Report configuration
+top_users_count = 200            # Number of top divergent users to visualize
+min_measurements_required = 2    # Minimum measurements needed to include user
+batch_size = 100                 # Users to process in parallel
+
+# Visualization settings
+generate_individual_charts = true    # Generate charts for each top user
+chart_dpi = 150                      # DPI for individual user charts
+summary_chart_dpi = 300              # DPI for summary charts
+parallel_visualization = true        # Enable parallel chart generation
+
+# Data quality thresholds
+min_data_completeness = 0.2     # Minimum data completeness (0-1) to include user
+outlier_threshold_multiplier = 2 # Multiplier for outlier detection in analysis
+
+# ============================================================================
 # EXPERT SETTINGS
 # These are automatically configured based on profile selection
 # Only modify if you have deep understanding of the system

@@ -127,10 +127,16 @@ def get_optimal_thread_count(num_users: int, config: dict) -> int:
     return max(1, optimal)
 
 
-def stream_process(csv_path: str, output_dir: str, config: dict):
+def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output: str = None):
     """
     Simplified stream processing - no complex state accumulation.
     Process each measurement and stream results.
+
+    Args:
+        csv_path: Path to input CSV
+        output_dir: Directory for outputs
+        config: Configuration dict
+        filtered_output: Optional path to write filtered CSV (accepted rows only)
     """
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
@@ -220,6 +226,13 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
         "start_time": datetime.now(),
     }
 
+    # Setup filtered CSV writer if requested
+    filtered_csv_file = None
+    filtered_csv_writer = None
+    if filtered_output:
+        print(f"Will write filtered data to: {filtered_output}")
+        # We'll open this after reading the header from input
+
     print(f"Processing {csv_path}...")
     if max_users > 0:
         print(f"  Processing up to {max_users} users")
@@ -282,6 +295,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
     # Main processing loop
     with open(csv_path) as f:
         reader = csv.DictReader(f)
+
+        # Setup filtered CSV writer after getting headers
+        if filtered_output and not filtered_csv_file:
+            filtered_csv_file = open(filtered_output, 'w', newline='')
+            filtered_csv_writer = csv.DictWriter(filtered_csv_file, fieldnames=reader.fieldnames)
+            filtered_csv_writer.writeheader()
 
         for row in reader:
             stats["total_rows"] += 1
@@ -381,6 +400,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
                 if result.get('accepted'):
                     stats["accepted"] += 1
+                    # Write accepted row to filtered CSV
+                    if filtered_csv_writer:
+                        filtered_csv_writer.writerow(row)
                 else:
                     stats["rejected"] += 1
 
@@ -604,6 +626,11 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
             print(f"Output: {viz_dir}")
 
+    # Close filtered CSV file if it was opened
+    if filtered_csv_file:
+        filtered_csv_file.close()
+        print(f"Filtered CSV saved to: {filtered_output} ({stats['accepted']} rows)")
+
     # Clean up replay buffer if it was created
     if replay_enabled and 'buffer_factory' in locals():
         try:
@@ -696,6 +723,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-users", type=int, help="Maximum users to process")
     parser.add_argument("--no-viz", action="store_true", help="Skip visualizations")
     parser.add_argument("--no-db-export", action="store_true", help="Skip database export")
+    parser.add_argument("--filtered-output", help="Path to write filtered CSV (accepted rows only)")
 
     args = parser.parse_args()
 
@@ -728,4 +756,4 @@ if __name__ == "__main__":
         print(f"Error: File {csv_file} not found")
         sys.exit(1)
 
-    stream_process(csv_file, config["data"]["output_dir"], config)
+    stream_process(csv_file, config["data"]["output_dir"], config, filtered_output=args.filtered_output if hasattr(args, 'filtered_output') else None)
