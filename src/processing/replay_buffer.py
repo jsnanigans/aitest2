@@ -390,7 +390,7 @@ class ReplayBuffer:
         Clears all buffers and resets internal state.
         Called by BufferFactory when removing instances.
         """
-        with self.lock:
+        with self._lock:
             # Log summary before cleanup
             total_measurements = sum(
                 len(buffer['measurements'])
