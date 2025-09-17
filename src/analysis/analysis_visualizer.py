@@ -640,3 +640,745 @@ Avg Outlier Impact: {np.mean(outlier_rates):.2f} lbs
         plt.close()
 
         return output_path
+
+    def _generate_filter_impact_overview(self, statistics: Dict, user_intervals: Dict) -> Path:
+        """Generate comprehensive overview of filter impact"""
+        output_path = self.output_dir / 'filter_impact_overview.png'
+
+        fig = plt.figure(figsize=(20, 12))
+        gs = gridspec.GridSpec(3, 4, figure=fig, hspace=0.3, wspace=0.3)
+
+        # 1. Outlier rejection rate by source
+        ax1 = fig.add_subplot(gs[0, 0:2])
+        source_stats = statistics.get('source_statistics', {})
+        if source_stats:
+            sources = []
+            rejection_rates = []
+            colors = []
+            for source, stats in source_stats.items():
+                sources.append(source.split('/')[-1] if '/' in source else source)
+                raw_count = stats.get('raw_count', 0)
+                filtered_count = stats.get('filtered_count', 0)
+                if raw_count > 0:
+                    rejection_rate = ((raw_count - filtered_count) / raw_count) * 100
+                    rejection_rates.append(rejection_rate)
+                    colors.append('red' if rejection_rate > 40 else 'orange' if rejection_rate > 20 else 'green')
+
+            bars = ax1.bar(sources, rejection_rates, color=colors, edgecolor='black', alpha=0.7)
+            ax1.set_xlabel('Data Source', fontsize=10)
+            ax1.set_ylabel('Rejection Rate (%)')
+            ax1.set_title('Outlier Rejection Rate by Source', fontweight='bold')
+            ax1.set_xticklabels(sources, rotation=45, ha='right', fontsize=8)
+            ax1.axhline(y=10, color='gray', linestyle='--', alpha=0.5, label='10% threshold')
+            ax1.legend()
+
+            # Add value labels on bars
+            for bar, rate in zip(bars, rejection_rates):
+                height = bar.get_height()
+                ax1.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{rate:.1f}%', ha='center', va='bottom', fontsize=8)
+
+        # 2. Total measurements impact
+        ax2 = fig.add_subplot(gs[0, 2:4])
+        total_raw = sum(s.get('raw_count', 0) for s in source_stats.values()) if source_stats else 0
+        total_filtered = sum(s.get('filtered_count', 0) for s in source_stats.values()) if source_stats else 0
+        total_rejected = total_raw - total_filtered
+
+        sizes = [total_filtered, total_rejected]
+        labels = [f'Retained\n{total_filtered:,}\n({(total_filtered/total_raw*100):.1f}%)',
+                  f'Rejected\n{total_rejected:,}\n({(total_rejected/total_raw*100):.1f}%)']
+        colors_pie = ['#2ecc71', '#e74c3c']
+        explode = (0.05, 0.05)
+
+        ax2.pie(sizes, labels=labels, colors=colors_pie, autopct='',
+                explode=explode, shadow=True, startangle=90)
+        ax2.set_title('Total Measurement Filtering Impact', fontweight='bold')
+
+        # 3. Standard deviation reduction
+        ax3 = fig.add_subplot(gs[1, 0])
+        interval_stats = statistics.get('interval_statistics', [])
+        intervals = []
+        raw_stds = []
+        filtered_stds = []
+
+        for stat in interval_stats[:12]:  # First year
+            if stat.get('raw') and stat.get('filtered'):
+                intervals.append(stat['interval_days'])
+                raw_stds.append(stat['raw'].get('weight', {}).get('std', 0))
+                filtered_stds.append(stat['filtered'].get('weight', {}).get('std', 0))
+
+        if intervals:
+            x = np.arange(len(intervals))
+            width = 0.35
+            ax3.bar(x - width/2, raw_stds, width, label='Raw', alpha=0.7, color='coral')
+            ax3.bar(x + width/2, filtered_stds, width, label='Filtered', alpha=0.7, color='lightblue')
+            ax3.set_xlabel('Days from Baseline')
+            ax3.set_ylabel('Std Deviation (lbs)')
+            ax3.set_title('Noise Reduction: Std Dev Comparison', fontweight='bold')
+            ax3.set_xticks(x)
+            ax3.set_xticklabels(intervals, rotation=45)
+            ax3.legend()
+            ax3.grid(True, alpha=0.3)
+
+        # 4. Signal preservation (trend accuracy)
+        ax4 = fig.add_subplot(gs[1, 1])
+        # Calculate average weight change trajectory
+        raw_trajectory = []
+        filtered_trajectory = []
+        for stat in interval_stats[:12]:
+            if stat.get('raw') and stat.get('filtered'):
+                raw_trajectory.append(stat['raw'].get('change', {}).get('mean', 0))
+                filtered_trajectory.append(stat['filtered'].get('change', {}).get('mean', 0))
+
+        if raw_trajectory and filtered_trajectory:
+            days = [i*30 for i in range(len(raw_trajectory))]
+            ax4.plot(days, raw_trajectory, 'o-', label='Raw', alpha=0.7, linewidth=2, markersize=8)
+            ax4.plot(days, filtered_trajectory, 's-', label='Filtered', alpha=0.7, linewidth=2, markersize=6)
+            ax4.set_xlabel('Days from Baseline')
+            ax4.set_ylabel('Average Weight Change (lbs)')
+            ax4.set_title('Signal Preservation: Weight Loss Trend', fontweight='bold')
+            ax4.legend()
+            ax4.grid(True, alpha=0.3)
+            ax4.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+
+        # 5. Filter effectiveness metrics
+        ax5 = fig.add_subplot(gs[1, 2:4])
+        # Calculate key metrics
+        metrics = {
+            'Noise Reduction': 0,
+            'Outlier Removal': 0,
+            'Trend Preservation': 0,
+            'Data Retention': 0
+        }
+
+        # Noise reduction (std dev reduction)
+        if raw_stds and filtered_stds:
+            avg_raw_std = np.mean(raw_stds)
+            avg_filtered_std = np.mean(filtered_stds)
+            if avg_raw_std > 0:
+                metrics['Noise Reduction'] = ((avg_raw_std - avg_filtered_std) / avg_raw_std) * 100
+
+        # Outlier removal
+        if total_raw > 0:
+            metrics['Outlier Removal'] = (total_rejected / total_raw) * 100
+
+        # Trend preservation (correlation between raw and filtered trajectories)
+        if len(raw_trajectory) > 1 and len(filtered_trajectory) > 1:
+            correlation = np.corrcoef(raw_trajectory, filtered_trajectory)[0, 1]
+            metrics['Trend Preservation'] = correlation * 100
+
+        # Data retention
+        if total_raw > 0:
+            metrics['Data Retention'] = (total_filtered / total_raw) * 100
+
+        metric_names = list(metrics.keys())
+        metric_values = list(metrics.values())
+        colors_metrics = ['green' if v > 70 else 'orange' if v > 40 else 'red' for v in metric_values]
+
+        bars = ax5.barh(metric_names, metric_values, color=colors_metrics, edgecolor='black', alpha=0.7)
+        ax5.set_xlabel('Effectiveness (%)')
+        ax5.set_title('Kalman Filter Effectiveness Metrics', fontweight='bold')
+        ax5.set_xlim([0, 105])
+
+        # Add value labels
+        for bar, value in zip(bars, metric_values):
+            width = bar.get_width()
+            ax5.text(width, bar.get_y() + bar.get_height()/2.,
+                    f'{value:.1f}%', ha='left', va='center', fontweight='bold')
+
+        # 6. Impact distribution histogram
+        ax6 = fig.add_subplot(gs[2, 0:2])
+        all_diffs = []
+        for user_id, intervals in user_intervals.items():
+            for interval in intervals.get('intervals', []):
+                if interval.get('raw_weight') and interval.get('filtered_weight'):
+                    diff = abs(interval['raw_weight'] - interval['filtered_weight'])
+                    if diff > 0:
+                        all_diffs.append(diff)
+
+        if all_diffs:
+            ax6.hist(all_diffs, bins=50, edgecolor='black', alpha=0.7, color='skyblue')
+            ax6.axvline(np.mean(all_diffs), color='red', linestyle='--',
+                       label=f'Mean: {np.mean(all_diffs):.2f} lbs')
+            ax6.axvline(np.median(all_diffs), color='green', linestyle='--',
+                       label=f'Median: {np.median(all_diffs):.2f} lbs')
+            ax6.set_xlabel('Absolute Difference (lbs)')
+            ax6.set_ylabel('Frequency')
+            ax6.set_title('Distribution of Filter Adjustments', fontweight='bold')
+            ax6.legend()
+            ax6.set_xlim([0, min(20, max(all_diffs))])  # Cap at 20 lbs for visibility
+
+        # 7. Summary text panel
+        ax7 = fig.add_subplot(gs[2, 2:4])
+        ax7.axis('off')
+
+        summary_text = f"""KALMAN FILTER IMPACT SUMMARY
+
+Total Measurements Processed: {total_raw:,}
+Measurements Retained: {total_filtered:,}
+Outliers Rejected: {total_rejected:,}
+
+Key Achievements:
+✓ Noise Reduction: {metrics['Noise Reduction']:.1f}%
+✓ Outlier Removal: {metrics['Outlier Removal']:.1f}%
+✓ Signal Preservation: {metrics['Trend Preservation']:.1f}%
+✓ Data Retention: {metrics['Data Retention']:.1f}%
+
+Average Adjustment: {np.mean(all_diffs) if all_diffs else 0:.2f} lbs
+Median Adjustment: {np.median(all_diffs) if all_diffs else 0:.2f} lbs
+Max Adjustment: {max(all_diffs) if all_diffs else 0:.2f} lbs
+
+Conclusion:
+The Kalman filter successfully reduces noise
+while preserving the underlying weight loss
+trend, improving data quality for analysis."""
+
+        ax7.text(0.05, 0.95, summary_text, transform=ax7.transAxes,
+                fontsize=11, verticalalignment='top', fontfamily='monospace',
+                bbox=dict(boxstyle="round,pad=0.5", facecolor='lightgray', alpha=0.5))
+
+        plt.suptitle('Kalman Filter Impact Analysis', fontsize=18, fontweight='bold', y=0.98)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        return output_path
+
+    def _generate_noise_reduction_demo(self, user_intervals: Dict, top_users: List[Dict]) -> Path:
+        """Generate demonstration of noise reduction on most noisy users"""
+        output_path = self.output_dir / 'noise_reduction_demo.png'
+
+        fig, axes = plt.subplots(3, 2, figsize=(16, 18))
+        axes = axes.flatten()
+
+        demo_count = 0
+        for i, user_info in enumerate(top_users[:6]):
+            user_id = user_info['user_id']
+            if user_id not in user_intervals:
+                continue
+
+            ax = axes[demo_count]
+            intervals = user_intervals[user_id]['intervals']
+
+            # Extract data points
+            days = []
+            raw_weights = []
+            filtered_weights = []
+
+            for interval in intervals:
+                if interval.get('raw_weight'):
+                    days.append(interval['interval_days'])
+                    raw_weights.append(interval['raw_weight'])
+                    if interval.get('filtered_weight'):
+                        filtered_weights.append(interval['filtered_weight'])
+                    else:
+                        filtered_weights.append(None)
+
+            if len(days) < 3:
+                continue
+
+            # Plot raw data with noise
+            ax.scatter(days, raw_weights, c='red', alpha=0.5, s=30, label='Raw (Noisy)', zorder=2)
+            ax.plot(days, raw_weights, 'r-', alpha=0.2, linewidth=1, zorder=1)
+
+            # Plot filtered smooth line
+            valid_filtered = [(d, w) for d, w in zip(days, filtered_weights) if w is not None]
+            if valid_filtered:
+                f_days, f_weights = zip(*valid_filtered)
+                ax.plot(f_days, f_weights, 'b-', linewidth=2.5, label='Filtered (Smooth)', zorder=3)
+                ax.scatter(f_days, f_weights, c='blue', s=40, zorder=4, edgecolors='darkblue')
+
+            # Calculate noise metrics
+            if len(raw_weights) > 1:
+                raw_std = np.std(raw_weights)
+                if valid_filtered and len(valid_filtered) > 1:
+                    _, f_weights_calc = zip(*valid_filtered)
+                    filtered_std = np.std(f_weights_calc)
+                    noise_reduction = ((raw_std - filtered_std) / raw_std * 100) if raw_std > 0 else 0
+                else:
+                    filtered_std = 0
+                    noise_reduction = 0
+            else:
+                raw_std = filtered_std = noise_reduction = 0
+
+            # Add shaded area showing filter correction
+            for j in range(len(days)):
+                if j < len(filtered_weights) and filtered_weights[j] is not None:
+                    ax.fill_between([days[j]], raw_weights[j], filtered_weights[j],
+                                   alpha=0.2, color='gray')
+
+            ax.set_xlabel('Days from Baseline')
+            ax.set_ylabel('Weight (lbs)')
+            ax.set_title(f'User {demo_count + 1}: Noise σ={raw_std:.2f}→{filtered_std:.2f} '
+                        f'(-{noise_reduction:.0f}%)', fontweight='bold')
+            ax.legend(loc='best')
+            ax.grid(True, alpha=0.3)
+
+            # Add divergence score annotation
+            divergence = user_info.get('divergence_score', 0)
+            ax.text(0.95, 0.05, f'Divergence: {divergence:.2f} lbs',
+                   transform=ax.transAxes, ha='right', va='bottom',
+                   bbox=dict(boxstyle="round,pad=0.3", facecolor='yellow', alpha=0.5))
+
+            demo_count += 1
+            if demo_count >= 6:
+                break
+
+        # Hide unused subplots
+        for i in range(demo_count, 6):
+            axes[i].axis('off')
+
+        plt.suptitle('Noise Reduction Demonstration: Raw vs Filtered Data',
+                    fontsize=16, fontweight='bold')
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        return output_path
+
+    def _generate_outlier_detection_impact(self, statistics: Dict, user_intervals: Dict) -> Path:
+        """Generate visualization showing outlier detection effectiveness"""
+        output_path = self.output_dir / 'outlier_detection_impact.png'
+
+        fig = plt.figure(figsize=(18, 10))
+        gs = gridspec.GridSpec(2, 3, figure=fig, hspace=0.3, wspace=0.3)
+
+        # 1. Outlier detection by magnitude
+        ax1 = fig.add_subplot(gs[0, 0])
+        outlier_magnitudes = []
+        retained_magnitudes = []
+
+        for user_id, intervals in user_intervals.items():
+            for interval in intervals.get('intervals', []):
+                if interval.get('raw_weight') and interval.get('filtered_weight'):
+                    diff = abs(interval['raw_weight'] - interval['filtered_weight'])
+                    if diff > 5:  # Significant outlier
+                        outlier_magnitudes.append(interval['raw_weight'])
+                    else:
+                        retained_magnitudes.append(interval['raw_weight'])
+
+        if outlier_magnitudes and retained_magnitudes:
+            ax1.hist([retained_magnitudes, outlier_magnitudes], bins=30,
+                    label=['Retained', 'Outliers'], color=['green', 'red'],
+                    alpha=0.6, edgecolor='black')
+            ax1.set_xlabel('Weight (lbs)')
+            ax1.set_ylabel('Frequency')
+            ax1.set_title('Weight Distribution: Retained vs Outliers', fontweight='bold')
+            ax1.legend()
+
+        # 2. Outlier percentage by interval
+        ax2 = fig.add_subplot(gs[0, 1])
+        interval_outlier_rates = []
+        interval_days = []
+
+        for stat in statistics.get('interval_statistics', [])[:24]:  # First 2 years
+            if stat.get('raw') and stat.get('filtered'):
+                raw_count = stat['raw'].get('count', 0)
+                filtered_count = stat['filtered'].get('count', 0)
+                if raw_count > 0:
+                    outlier_rate = ((raw_count - filtered_count) / raw_count) * 100
+                    interval_outlier_rates.append(outlier_rate)
+                    interval_days.append(stat['interval_days'])
+
+        if interval_outlier_rates:
+            ax2.plot(interval_days, interval_outlier_rates, 'o-', color='orange', linewidth=2)
+            ax2.fill_between(interval_days, 0, interval_outlier_rates, alpha=0.3, color='orange')
+            ax2.set_xlabel('Days from Baseline')
+            ax2.set_ylabel('Outlier Rate (%)')
+            ax2.set_title('Outlier Detection Rate Over Time', fontweight='bold')
+            ax2.grid(True, alpha=0.3)
+            ax2.axhline(y=np.mean(interval_outlier_rates), color='red', linestyle='--',
+                       label=f'Average: {np.mean(interval_outlier_rates):.1f}%')
+            ax2.legend()
+
+        # 3. Extreme outlier examples
+        ax3 = fig.add_subplot(gs[0, 2])
+        extreme_outliers = []
+
+        for user_id, intervals in user_intervals.items():
+            for interval in intervals.get('intervals', []):
+                if interval.get('raw_weight') and interval.get('filtered_weight'):
+                    diff = interval['raw_weight'] - interval['filtered_weight']
+                    if abs(diff) > 10:  # Extreme outlier
+                        extreme_outliers.append(diff)
+
+        if extreme_outliers:
+            ax3.hist(extreme_outliers, bins=30, edgecolor='black', color='darkred', alpha=0.7)
+            ax3.set_xlabel('Weight Adjustment (lbs)')
+            ax3.set_ylabel('Frequency')
+            ax3.set_title(f'Extreme Outliers Removed (n={len(extreme_outliers)})', fontweight='bold')
+            ax3.axvline(x=0, color='black', linestyle='-', linewidth=0.5)
+
+            # Add statistics
+            mean_adj = np.mean(np.abs(extreme_outliers))
+            max_adj = max(np.abs(extreme_outliers))
+            ax3.text(0.95, 0.95, f'Mean: {mean_adj:.1f} lbs\nMax: {max_adj:.1f} lbs',
+                    transform=ax3.transAxes, ha='right', va='top',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+
+        # 4. Source-specific outlier rates
+        ax4 = fig.add_subplot(gs[1, :])
+        source_stats = statistics.get('source_statistics', {})
+
+        if source_stats:
+            sources = []
+            outlier_counts = []
+            retained_counts = []
+
+            for source, stats in source_stats.items():
+                source_name = source.split('/')[-1] if '/' in source else source
+                sources.append(source_name)
+                raw = stats.get('raw_count', 0)
+                filtered = stats.get('filtered_count', 0)
+                outlier_counts.append(raw - filtered)
+                retained_counts.append(filtered)
+
+            x = np.arange(len(sources))
+            width = 0.35
+
+            ax4.bar(x - width/2, retained_counts, width, label='Retained', color='green', alpha=0.7)
+            ax4.bar(x + width/2, outlier_counts, width, label='Outliers', color='red', alpha=0.7)
+
+            ax4.set_xlabel('Data Source')
+            ax4.set_ylabel('Number of Measurements')
+            ax4.set_title('Outlier Detection by Data Source', fontweight='bold')
+            ax4.set_xticks(x)
+            ax4.set_xticklabels(sources, rotation=45, ha='right')
+            ax4.legend()
+            ax4.grid(True, alpha=0.3, axis='y')
+
+            # Add percentage labels
+            for i, (outlier, retained) in enumerate(zip(outlier_counts, retained_counts)):
+                total = outlier + retained
+                if total > 0:
+                    pct = (outlier / total) * 100
+                    ax4.text(i, outlier + retained + max(retained_counts)*0.01, f'{pct:.0f}%',
+                            ha='center', va='bottom', fontsize=8, fontweight='bold')
+
+        plt.suptitle('Outlier Detection Impact Analysis', fontsize=16, fontweight='bold')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        return output_path
+
+    def _generate_before_after_comparison(self, user_intervals: Dict, top_users: List[Dict]) -> Path:
+        """Generate before/after comparison for representative users"""
+        output_path = self.output_dir / 'before_after_comparison.png'
+
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+        axes = axes.flatten()
+
+        comparison_count = 0
+        for user_info in top_users:
+            if comparison_count >= 6:
+                break
+
+            user_id = user_info['user_id']
+            if user_id not in user_intervals:
+                continue
+
+            intervals = user_intervals[user_id]['intervals']
+            if len(intervals) < 5:
+                continue
+
+            ax = axes[comparison_count]
+
+            # Extract timeline data
+            days = []
+            raw_weights = []
+            filtered_weights = []
+            sources = []
+
+            for interval in intervals:
+                if interval.get('raw_weight'):
+                    days.append(interval['interval_days'])
+                    raw_weights.append(interval['raw_weight'])
+                    filtered_weights.append(interval.get('filtered_weight'))
+                    sources.append(interval.get('raw_source', 'unknown'))
+
+            if len(days) < 3:
+                continue
+
+            # Create twin axis for difference
+            ax2 = ax.twinx()
+
+            # Plot raw data
+            ax.scatter(days, raw_weights, c='red', alpha=0.4, s=50, label='Raw Data', marker='o')
+            ax.plot(days, raw_weights, 'r--', alpha=0.3, linewidth=1)
+
+            # Plot filtered data
+            valid_filtered = [(d, w) for d, w in zip(days, filtered_weights) if w is not None]
+            if valid_filtered:
+                f_days, f_weights = zip(*valid_filtered)
+                ax.plot(f_days, f_weights, 'b-', linewidth=2.5, label='Kalman Filtered', alpha=0.8)
+                ax.scatter(f_days, f_weights, c='blue', s=60, marker='s', edgecolors='darkblue', zorder=5)
+
+            # Plot difference on secondary axis
+            differences = [r - f if f is not None else 0
+                          for r, f in zip(raw_weights, filtered_weights)]
+            ax2.bar(days, differences, alpha=0.3, color='gray', width=15, label='Adjustment')
+            ax2.set_ylabel('Adjustment (lbs)', color='gray')
+            ax2.tick_params(axis='y', labelcolor='gray')
+            ax2.axhline(y=0, color='gray', linestyle='-', linewidth=0.5)
+
+            # Calculate improvement metrics
+            if len(raw_weights) > 1:
+                # Calculate smoothness (variation in consecutive differences)
+                raw_diffs = np.diff(raw_weights)
+                raw_smoothness = np.std(raw_diffs)
+
+                if valid_filtered and len(valid_filtered) > 1:
+                    _, f_weights_only = zip(*valid_filtered)
+                    filt_diffs = np.diff(f_weights_only)
+                    filt_smoothness = np.std(filt_diffs)
+                    improvement = ((raw_smoothness - filt_smoothness) / raw_smoothness * 100) if raw_smoothness > 0 else 0
+                else:
+                    filt_smoothness = 0
+                    improvement = 0
+
+                title = f'User {comparison_count + 1}: Smoothness improved {improvement:.0f}%'
+            else:
+                title = f'User {comparison_count + 1}'
+
+            ax.set_xlabel('Days from Baseline')
+            ax.set_ylabel('Weight (lbs)', color='black')
+            ax.set_title(title, fontweight='bold')
+            ax.legend(loc='upper left')
+            ax.grid(True, alpha=0.3)
+
+            # Add source indicator for outliers
+            for i, (day, diff) in enumerate(zip(days, differences)):
+                if abs(diff) > 5:  # Significant outlier
+                    source = sources[i] if i < len(sources) else 'unknown'
+                    source_short = source.split('/')[-1][:10] if '/' in source else source[:10]
+                    ax.annotate(source_short, xy=(day, raw_weights[i]),
+                               xytext=(5, 5), textcoords='offset points',
+                               fontsize=6, alpha=0.7)
+
+            comparison_count += 1
+
+        # Hide unused subplots
+        for i in range(comparison_count, 6):
+            axes[i].axis('off')
+
+        plt.suptitle('Before vs After: Raw Data vs Kalman Filtered',
+                    fontsize=16, fontweight='bold')
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        return output_path
+
+    def generate_daily_comparison_visualizations(self, daily_results: Dict, dramatic_users: List[Dict]) -> Dict[str, Path]:
+        """Generate visualizations for daily weight analysis"""
+        viz_files = {}
+
+        # 1. Most dramatic daily differences
+        viz_files['daily_dramatic_impact'] = self._generate_daily_dramatic_impact(
+            daily_results, dramatic_users[:6]
+        )
+
+        # 2. Daily noise patterns
+        viz_files['daily_noise_patterns'] = self._generate_daily_noise_patterns(
+            daily_results, dramatic_users[:10]
+        )
+
+        return viz_files
+
+    def _generate_daily_dramatic_impact(self, daily_results: Dict, dramatic_users: List[Dict]) -> Path:
+        """Show users with most dramatic daily filtering differences"""
+        output_path = self.output_dir / 'daily_dramatic_impact.png'
+
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+        axes = axes.flatten()
+
+        for idx, user_info in enumerate(dramatic_users[:6]):
+            user_id = user_info['user_id']
+            if user_id not in daily_results:
+                continue
+
+            ax = axes[idx]
+            user_data = daily_results[user_id]
+            daily_comp = user_data['daily_comparison']
+
+            # Extract data
+            days = [c['days_from_start'] for c in daily_comp]
+            raw_means = [c['raw_mean'] for c in daily_comp if c['raw_mean'] is not None]
+            filtered_means = [c['filtered_mean'] for c in daily_comp if c['filtered_mean'] is not None]
+
+            # Plot with emphasis on days with multiple measurements
+            for comp in daily_comp:
+                day = comp['days_from_start']
+                if comp['raw_count'] > 1:  # Multiple measurements on this day
+                    if comp['raw_mean'] is not None:
+                        # Show the range of measurements for that day
+                        ax.errorbar(day, comp['raw_mean'], yerr=comp['raw_std'],
+                                   fmt='o', color='red', alpha=0.5, capsize=3, label='_nolegend_')
+
+            # Plot means
+            raw_days = [c['days_from_start'] for c in daily_comp if c['raw_mean'] is not None]
+            raw_vals = [c['raw_mean'] for c in daily_comp if c['raw_mean'] is not None]
+
+            filt_days = [c['days_from_start'] for c in daily_comp if c['filtered_mean'] is not None]
+            filt_vals = [c['filtered_mean'] for c in daily_comp if c['filtered_mean'] is not None]
+
+            if raw_vals:
+                ax.plot(raw_days, raw_vals, 'r-', alpha=0.3, label='Raw Daily Avg')
+                ax.scatter(raw_days, raw_vals, c='red', s=20, alpha=0.6)
+
+            if filt_vals:
+                ax.plot(filt_days, filt_vals, 'b-', linewidth=2, label='Filtered Daily Avg')
+                ax.scatter(filt_days, filt_vals, c='blue', s=30, edgecolors='darkblue')
+
+            # Highlight days with dramatic differences
+            for comp in daily_comp:
+                if comp['difference'] and comp['difference'] > 5:
+                    ax.axvspan(comp['days_from_start']-0.5, comp['days_from_start']+0.5,
+                              alpha=0.2, color='yellow')
+
+            ax.set_xlabel('Days from Start')
+            ax.set_ylabel('Weight (lbs)')
+            ax.set_title(f'User {idx+1}: Score={user_info["dramatic_score"]:.1f}, '
+                        f'Max Diff={user_info["max_daily_difference"]:.1f} lbs',
+                        fontweight='bold')
+            ax.legend(loc='best')
+            ax.grid(True, alpha=0.3)
+
+            # Add annotation for days with multiple measurements
+            multi_days = sum(1 for c in daily_comp if c['raw_count'] > 1)
+            ax.text(0.02, 0.98, f'{multi_days} days with multiple readings',
+                   transform=ax.transAxes, va='top',
+                   bbox=dict(boxstyle="round,pad=0.3", facecolor='lightblue', alpha=0.5))
+
+        plt.suptitle('Daily Analysis: Most Dramatic Filter Impact\nYellow bands = days with >5 lbs difference',
+                    fontsize=16, fontweight='bold')
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        return output_path
+
+    def _generate_daily_noise_patterns(self, daily_results: Dict, dramatic_users: List[Dict]) -> Path:
+        """Visualize daily noise patterns and filtering effectiveness"""
+        output_path = self.output_dir / 'daily_noise_patterns.png'
+
+        fig = plt.figure(figsize=(20, 12))
+        gs = gridspec.GridSpec(3, 3, figure=fig, hspace=0.3, wspace=0.3)
+
+        # 1. Daily range comparison
+        ax1 = fig.add_subplot(gs[0, :])
+
+        all_raw_ranges = []
+        all_filtered_ranges = []
+
+        for user_info in dramatic_users:
+            user_id = user_info['user_id']
+            if user_id in daily_results:
+                for comp in daily_results[user_id]['daily_comparison']:
+                    if comp['raw_count'] > 1:  # Days with multiple measurements
+                        all_raw_ranges.append(comp['raw_range'])
+                        if comp['filtered_count'] > 1:
+                            all_filtered_ranges.append(comp['filtered_range'])
+
+        if all_raw_ranges:
+            ax1.hist([all_raw_ranges, all_filtered_ranges if all_filtered_ranges else []],
+                    bins=30, label=['Raw Daily Range', 'Filtered Daily Range'],
+                    color=['red', 'blue'], alpha=0.6, edgecolor='black')
+            ax1.set_xlabel('Daily Weight Range (lbs)')
+            ax1.set_ylabel('Frequency')
+            ax1.set_title('Daily Weight Range: Raw vs Filtered (Days with Multiple Measurements)', fontweight='bold')
+            ax1.legend()
+            ax1.axvline(np.mean(all_raw_ranges), color='darkred', linestyle='--',
+                       label=f'Raw Mean: {np.mean(all_raw_ranges):.1f}')
+            if all_filtered_ranges:
+                ax1.axvline(np.mean(all_filtered_ranges), color='darkblue', linestyle='--',
+                           label=f'Filtered Mean: {np.mean(all_filtered_ranges):.1f}')
+
+        # 2. Rejection rate vs daily variance
+        ax2 = fig.add_subplot(gs[1, 0])
+
+        rejection_rates = []
+        daily_variances = []
+
+        for user_info in dramatic_users:
+            user_id = user_info['user_id']
+            if user_id in daily_results:
+                user_data = daily_results[user_id]
+                rejection_rates.append(user_data['rejection_rate'] * 100)
+                daily_variances.append(user_data['noise_reduction']['raw_avg_std'])
+
+        if rejection_rates and daily_variances:
+            scatter = ax2.scatter(daily_variances, rejection_rates, c=range(len(rejection_rates)),
+                                 cmap='viridis', s=100, alpha=0.7, edgecolors='black')
+            ax2.set_xlabel('Average Daily Std Dev (lbs)')
+            ax2.set_ylabel('Rejection Rate (%)')
+            ax2.set_title('Rejection Rate vs Daily Noise Level', fontweight='bold')
+            ax2.grid(True, alpha=0.3)
+
+            # Add trend line
+            z = np.polyfit(daily_variances, rejection_rates, 1)
+            p = np.poly1d(z)
+            ax2.plot(sorted(daily_variances), p(sorted(daily_variances)), "r--", alpha=0.8)
+
+        # 3. Dramatic score distribution
+        ax3 = fig.add_subplot(gs[1, 1])
+
+        all_scores = [u['dramatic_score'] for u in dramatic_users]
+        ax3.hist(all_scores, bins=20, edgecolor='black', color='orange', alpha=0.7)
+        ax3.set_xlabel('Dramatic Impact Score')
+        ax3.set_ylabel('Count')
+        ax3.set_title('Distribution of Filter Impact Scores', fontweight='bold')
+        ax3.axvline(50, color='red', linestyle='--', label='High Impact Threshold')
+        ax3.legend()
+
+        # 4. Days with multiple measurements
+        ax4 = fig.add_subplot(gs[1, 2])
+
+        multi_measurement_days = []
+        for user_info in dramatic_users:
+            user_id = user_info['user_id']
+            if user_id in daily_results:
+                multi_measurement_days.append(daily_results[user_id]['days_with_multiple_measurements'])
+
+        if multi_measurement_days:
+            ax4.bar(range(len(multi_measurement_days)), multi_measurement_days,
+                   color='teal', edgecolor='black', alpha=0.7)
+            ax4.set_xlabel('User Index')
+            ax4.set_ylabel('Days with Multiple Measurements')
+            ax4.set_title('Multiple Daily Measurements by User', fontweight='bold')
+            ax4.grid(True, alpha=0.3, axis='y')
+
+        # 5. Summary statistics
+        ax5 = fig.add_subplot(gs[2, :])
+        ax5.axis('off')
+
+        # Calculate overall statistics
+        total_dramatic = sum(1 for u in dramatic_users if u['dramatic_score'] > 50)
+        avg_max_diff = np.mean([u['max_daily_difference'] for u in dramatic_users])
+        avg_rejection = np.mean([u['rejection_rate'] for u in dramatic_users]) * 100
+
+        summary_text = f"""DAILY ANALYSIS INSIGHTS
+
+Top {len(dramatic_users)} Most Affected Users:
+• Average dramatic score: {np.mean(all_scores):.1f}
+• Users with high impact (score >50): {total_dramatic}
+• Average maximum daily difference: {avg_max_diff:.2f} lbs
+• Average rejection rate: {avg_rejection:.1f}%
+
+Key Findings:
+• Days with multiple measurements show significantly more noise in raw data
+• Average raw daily range: {np.mean(all_raw_ranges) if all_raw_ranges else 0:.2f} lbs
+• Average filtered daily range: {np.mean(all_filtered_ranges) if all_filtered_ranges else 0:.2f} lbs
+• Noise reduction: {((np.mean(all_raw_ranges) - np.mean(all_filtered_ranges)) / np.mean(all_raw_ranges) * 100) if all_raw_ranges and all_filtered_ranges else 0:.1f}%
+
+The Kalman filter effectively smooths intra-day weight fluctuations while preserving genuine weight trends."""
+
+        ax5.text(0.5, 0.5, summary_text, transform=ax5.transAxes,
+                ha='center', va='center', fontsize=12,
+                bbox=dict(boxstyle="round,pad=0.5", facecolor='lightyellow', alpha=0.8))
+
+        plt.suptitle('Daily Noise Analysis: Impact of Multiple Same-Day Measurements',
+                    fontsize=16, fontweight='bold')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        return output_path

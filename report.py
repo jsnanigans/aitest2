@@ -20,11 +20,13 @@ import time
 from src.config_loader import load_config as load_config_with_profiles
 from src.database.db_wrapper import Database
 from src.analysis.interval_analyzer_fast import FastIntervalAnalyzer
+from src.analysis.interval_analyzer_parallel import ParallelIntervalAnalyzer
 from src.analysis.weight_selector import WeightSelector
 from src.analysis.statistics import StatisticsCalculator
 from src.analysis.csv_generator import CSVGenerator
 from src.analysis.analysis_visualizer import AnalysisVisualizer
 from src.analysis.markdown_reporter import MarkdownReporter
+from src.analysis.daily_weight_analyzer import DailyWeightAnalyzer
 
 
 
@@ -78,7 +80,8 @@ class WeightLossReport:
                        filtered_csv: str,
                        top_n: int = 200,
                        interval_days: int = 30,
-                       window_days: int = 7) -> Dict:
+                       window_days: int = 7,
+                       use_parallel: bool = False) -> Dict:
         """
         Generate comprehensive weight loss analysis report
 
@@ -88,6 +91,7 @@ class WeightLossReport:
             top_n: Number of top divergent users to visualize
             interval_days: Interval between measurements (default: 30)
             window_days: ±window for selecting measurements (default: 7)
+            use_parallel: Use parallel processing for interval calculation (default: False)
 
         Returns:
             Dictionary with report metadata and file paths
@@ -117,12 +121,18 @@ class WeightLossReport:
             phase_timings['phase2'] = phase2_time
             self.logger.info(f"Loaded {len(filtered_data)} filtered measurements in {phase2_time:.2f}s")
 
-            # Phase 3: Calculate intervals for each user (using optimized version)
+            # Phase 3: Calculate intervals for each user (using optimized or parallel version)
             phase3_start = time.time()
-            self.logger.info("Phase 3: Calculating intervals (optimized)...")
-            interval_analyzer = FastIntervalAnalyzer(
-                interval_days, window_days
-            )
+            if use_parallel:
+                self.logger.info("Phase 3: Calculating intervals (parallel)...")
+                interval_analyzer = ParallelIntervalAnalyzer(
+                    interval_days, window_days
+                )
+            else:
+                self.logger.info("Phase 3: Calculating intervals (optimized)...")
+                interval_analyzer = FastIntervalAnalyzer(
+                    interval_days, window_days
+                )
             user_intervals = interval_analyzer.calculate_all_users(
                 raw_data, filtered_data
             )
@@ -161,38 +171,66 @@ class WeightLossReport:
             phase_timings['phase6'] = phase6_time
             self.logger.info(f"Generated {len(csv_files)} CSV files in {phase6_time:.2f}s")
 
-            # Phase 7: Generate visualizations (DISABLED TEMPORARILY)
+            # Phase 7: Daily weight analysis
             phase7_start = time.time()
-            self.logger.info("Phase 7: Skipping visualizations (temporarily disabled)")
-            viz_files = {}  # Empty dict since visualizations are disabled
+            self.logger.info("Phase 7: Performing daily weight analysis...")
+            daily_analyzer = DailyWeightAnalyzer()
+            daily_results = daily_analyzer.calculate_daily_weights(raw_data, filtered_data)
+            dramatic_users = daily_analyzer.get_most_dramatic_users(daily_results, top_n=20)
+            daily_stats = daily_analyzer.generate_daily_statistics(daily_results)
             phase7_time = time.time() - phase7_start
             phase_timings['phase7'] = phase7_time
+            self.logger.info(f"Daily analysis completed in {phase7_time:.2f}s")
+            self.logger.info(f"Found {len(dramatic_users)} users with dramatic daily differences")
+            if dramatic_users:
+                top_dramatic = dramatic_users[0]
+                self.logger.info(f"Most dramatic: Score={top_dramatic['dramatic_score']:.1f}, "
+                               f"Max diff={top_dramatic['max_daily_difference']:.2f} lbs")
+
+            # Phase 8: Generate visualizations (DISABLED)
+            phase8_start = time.time()
+            self.logger.info("Phase 8: Skipping visualizations (disabled)...")
+            viz_files = {}  # Empty dictionary since visualizations are disabled
+
+            # Commented out visualization generation
             # viz = AnalysisVisualizer(self.viz_dir)
             # viz_files = viz.generate_all_visualizations(
             #     user_intervals, statistics, top_users
             # )
-            # self.logger.info(f"Generated {len(viz_files)} visualization files in {phase7_time:.2f}s")
+            # if daily_results and dramatic_users:
+            #     daily_viz_files = viz.generate_daily_comparison_visualizations(
+            #         daily_results, dramatic_users
+            #     )
+            #     viz_files.update(daily_viz_files)
 
-            # Phase 8: Generate summary report
-            phase8_start = time.time()
-            self.logger.info("Phase 8: Generating summary report...")
-            summary = self._generate_summary_report(
-                statistics, csv_files, viz_files
-            )
             phase8_time = time.time() - phase8_start
             phase_timings['phase8'] = phase8_time
+            self.logger.info(f"Visualization generation disabled")
 
-            # Phase 9: Generate comprehensive Markdown report
+            # Phase 9: Generate summary report
             phase9_start = time.time()
-            self.logger.info("Phase 9: Generating comprehensive Markdown report...")
+            self.logger.info("Phase 9: Generating summary report...")
+            summary = self._generate_summary_report(
+                statistics, csv_files, viz_files, daily_stats
+            )
+            phase9_time = time.time() - phase9_start
+            phase_timings['phase9'] = phase9_time
+
+            # Phase 10: Generate comprehensive Markdown report
+            phase10_start = time.time()
+            self.logger.info("Phase 10: Generating comprehensive Markdown report...")
             md_reporter = MarkdownReporter(self.output_dir)
+            # Add daily analysis to statistics for report
+            statistics['daily_analysis'] = daily_stats
+            statistics['dramatic_users'] = dramatic_users
+
             md_report_path = md_reporter.generate_comprehensive_report(
                 raw_data, filtered_data, user_intervals,
                 statistics, top_users, csv_files, phase_timings
             )
-            phase9_time = time.time() - phase9_start
-            phase_timings['phase9'] = phase9_time
-            self.logger.info(f"Generated Markdown report: {md_report_path} in {phase9_time:.2f}s")
+            phase10_time = time.time() - phase10_start
+            phase_timings['phase10'] = phase10_time
+            self.logger.info(f"Generated Markdown report: {md_report_path} in {phase10_time:.2f}s")
 
             total_time = time.time() - phase1_start
             self.logger.info(f"Report generation complete! Total time: {total_time:.2f}s")
@@ -201,7 +239,7 @@ class WeightLossReport:
                            f"P3={phase3_time:.2f}s, P4={phase4_time:.2f}s, "
                            f"P5={phase5_time:.2f}s, P6={phase6_time:.2f}s, "
                            f"P7={phase7_time:.2f}s, P8={phase8_time:.2f}s, "
-                           f"P9={phase9_time:.2f}s")
+                           f"P9={phase9_time:.2f}s, P10={phase10_time:.2f}s")
 
             return {
                 'status': 'success',
@@ -245,8 +283,24 @@ class WeightLossReport:
             self.logger.error(f"Available columns: {list(df.columns)}")
             raise ValueError(f"Missing required columns: {missing_cols}")
 
-        # Convert timestamp to datetime
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        # Convert timestamp to datetime with error handling for mixed formats
+        # First fix common date errors (year 0025 should be 2025)
+        df['timestamp'] = df['timestamp'].str.replace(r'^0025-', '2025-', regex=True)
+
+        try:
+            df['timestamp'] = pd.to_datetime(df['timestamp'], format='ISO8601')
+        except:
+            try:
+                # Fall back to mixed format parsing
+                df['timestamp'] = pd.to_datetime(df['timestamp'], format='mixed', dayfirst=False)
+            except:
+                # If still failing, parse with errors='coerce' to handle bad dates
+                df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+                # Drop rows with unparseable dates
+                bad_dates = df['timestamp'].isna().sum()
+                if bad_dates > 0:
+                    self.logger.warning(f"Dropped {bad_dates} rows with unparseable dates")
+                    df = df.dropna(subset=['timestamp'])
 
         # Sort by user and timestamp
         df = df.sort_values(['user_id', 'timestamp'])
@@ -325,7 +379,8 @@ class WeightLossReport:
     def _generate_summary_report(self,
                                 statistics: Dict,
                                 csv_files: Dict,
-                                viz_files: Dict) -> Dict:
+                                viz_files: Dict,
+                                daily_stats: Dict = None) -> Dict:
         """Generate summary report with key findings"""
         summary = {
             'generation_timestamp': datetime.now().isoformat(),
@@ -339,6 +394,7 @@ class WeightLossReport:
                 'avg_measurements_rejected': statistics.get('avg_outliers_per_user', 0),
                 'max_single_user_impact': statistics.get('max_impact', 0)
             },
+            'daily_analysis': daily_stats if daily_stats else {},
             'files_generated': {
                 'csv_files': list(csv_files.keys()),
                 'visualization_files': list(viz_files.keys())
@@ -397,6 +453,11 @@ def main():
         default=2.5,
         help='Window tolerance for measurements in days (default: ±2.5)'
     )
+    parser.add_argument(
+        '--parallel',
+        action='store_true',
+        help='Use parallel processing for interval calculation (uses multiple CPU cores)'
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -418,7 +479,8 @@ def main():
         filtered_csv=args.filtered_csv,
         top_n=args.top_n,
         interval_days=args.interval_days,
-        window_days=args.window_days
+        window_days=args.window_days,
+        use_parallel=args.parallel
     )
 
     if result['status'] == 'success':

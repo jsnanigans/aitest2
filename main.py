@@ -299,7 +299,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
         # Setup filtered CSV writer after getting headers
         if filtered_output and not filtered_csv_file:
             filtered_csv_file = open(filtered_output, 'w', newline='')
-            filtered_csv_writer = csv.DictWriter(filtered_csv_file, fieldnames=reader.fieldnames)
+            # Add quality_score column to the fieldnames
+            extended_fieldnames = list(reader.fieldnames) + ['quality_score']
+            filtered_csv_writer = csv.DictWriter(filtered_csv_file, fieldnames=extended_fieldnames)
             filtered_csv_writer.writeheader()
 
         for row in reader:
@@ -400,9 +402,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 
                 if result.get('accepted'):
                     stats["accepted"] += 1
-                    # Write accepted row to filtered CSV
+                    # Write accepted row to filtered CSV with quality_score
                     if filtered_csv_writer:
-                        filtered_csv_writer.writerow(row)
+                        # Create a copy of the row and add quality_score
+                        filtered_row = row.copy()
+                        filtered_row['quality_score'] = result.get('quality_score', 0.0)
+                        filtered_csv_writer.writerow(filtered_row)
                 else:
                     stats["rejected"] += 1
 

@@ -264,9 +264,9 @@ class CSVGenerator:
             df['total_change'] = df['final_weight'] - df['baseline_weight']
             df['percent_change'] = (df['total_change'] / df['baseline_weight']) * 100
 
-            # Round values
-            df['total_change'] = df['total_change'].round(2)
-            df['percent_change'] = df['percent_change'].round(2)
+            # Round values (convert to numeric first to handle None/NaN)
+            df['total_change'] = pd.to_numeric(df['total_change'], errors='coerce').round(2)
+            df['percent_change'] = pd.to_numeric(df['percent_change'], errors='coerce').round(2)
 
         # Count valid measurements
         df['num_measurements'] = df[day_cols].notna().sum(axis=1)
