@@ -508,10 +508,12 @@ def process_measurement(
     
     # Update state's kalman_params with adaptive values
     if reset_timestamp and (timestamp - reset_timestamp).total_seconds() / 86400.0 < 7:
-        state['kalman_params']['transition_covariance'] = [
-            [adaptive_kalman_config['transition_covariance_weight'], 0],
-            [0, adaptive_kalman_config['transition_covariance_trend']]
-        ]
+        # Only update if we have the adaptive values
+        if 'transition_covariance_weight' in adaptive_kalman_config and 'transition_covariance_trend' in adaptive_kalman_config:
+            state['kalman_params']['transition_covariance'] = [
+                [adaptive_kalman_config['transition_covariance_weight'], 0],
+                [0, adaptive_kalman_config['transition_covariance_trend']]
+            ]
     
     adaptive_config = config.get('adaptive_noise', {})
     if feature_manager.is_enabled('adaptive_noise'):

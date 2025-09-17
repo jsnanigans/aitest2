@@ -17,7 +17,7 @@ class PersistenceValidator:
 
     # Required fields that must be present in every state
     REQUIRED_FIELDS = {
-        'kalman_state',
+        'last_state',
         'kalman_params',
         'last_timestamp'
     }
@@ -55,7 +55,7 @@ class PersistenceValidator:
             return False, f"Missing required fields: {missing_fields}"
 
         # Validate Kalman state structure
-        kalman_state = state.get('kalman_state')
+        kalman_state = state.get('last_state')
         if not cls._validate_kalman_state(kalman_state):
             return False, "Invalid Kalman state structure"
 
@@ -97,23 +97,53 @@ class PersistenceValidator:
     @classmethod
     def _validate_kalman_state(cls, kalman_state: Any) -> bool:
         """Validate Kalman state structure."""
-        if not isinstance(kalman_state, list):
-            return False
+        # Handle numpy arrays or lists
+        import numpy as np
 
-        # Should be a 2x1 vector [weight, trend]
-        if len(kalman_state) != 2:
-            return False
+        # Allow None for initial states
+        if kalman_state is None:
+            return True
 
-        # Each element should be a list with one numeric value
-        for element in kalman_state:
-            if not isinstance(element, list) or len(element) != 1:
+        try:
+            if isinstance(kalman_state, np.ndarray):
+                # For numpy arrays, check shape
+                if kalman_state.size == 0:
+                    return True  # Empty array is OK for initial state
+
+                if kalman_state.ndim == 1:
+                    # 1D array [weight, trend]
+                    if kalman_state.size < 1:
+                        return False
+                    weight = float(kalman_state[0])
+                elif kalman_state.ndim == 2:
+                    # 2D array [[weight], [trend]] or multiple states
+                    if kalman_state.shape[0] == 0:
+                        return True  # Empty is OK
+                    # Get the last state
+                    weight = float(kalman_state[-1][0] if kalman_state.shape[1] >= 1 else kalman_state[-1])
+                else:
+                    return False
+            elif isinstance(kalman_state, list):
+                if len(kalman_state) == 0:
+                    return True  # Empty list is OK
+
+                # Could be [weight, trend] or [[weight], [trend]]
+                if len(kalman_state) >= 2 and isinstance(kalman_state[0], list):
+                    # Legacy format: list of lists [[weight], [trend]]
+                    weight = float(kalman_state[0][0])
+                elif len(kalman_state) >= 1:
+                    # Simple list [weight, trend]
+                    weight = float(kalman_state[0])
+                else:
+                    return False
+            else:
                 return False
-            if not isinstance(element[0], (int, float)):
+
+            # Weight should be reasonable
+            if not cls.MIN_WEIGHT_KG <= weight <= cls.MAX_WEIGHT_KG:
                 return False
 
-        # Weight should be reasonable
-        weight = kalman_state[0][0]
-        if not cls.MIN_WEIGHT_KG <= weight <= cls.MAX_WEIGHT_KG:
+        except (IndexError, TypeError, ValueError):
             return False
 
         return True
@@ -221,7 +251,7 @@ class PersistenceValidator:
         """
         # Fields that indicate meaningful changes
         significant_fields = {
-            'kalman_state',
+            'last_state',
             'last_accepted_timestamp',
             'last_raw_weight',
             'measurements_since_reset',
@@ -241,10 +271,24 @@ class PersistenceValidator:
             prev_val = previous_state.get(field)
 
             # Special handling for Kalman state (check for significant weight change)
-            if field == 'kalman_state' and current_val and prev_val:
+            if field == 'last_state' and current_val and prev_val:
                 try:
-                    current_weight = current_val[0][0]
-                    prev_weight = prev_val[0][0]
+                    # Handle numpy arrays and lists
+                    import numpy as np
+                    if isinstance(current_val, np.ndarray):
+                        if len(current_val.shape) == 1:
+                            current_weight = current_val[0]
+                        else:
+                            current_weight = current_val[-1][0]
+                    else:
+                        current_weight = current_val[0][0]
+                    if isinstance(prev_val, np.ndarray):
+                        if len(prev_val.shape) == 1:
+                            prev_weight = prev_val[0]
+                        else:
+                            prev_weight = prev_val[-1][0]
+                    else:
+                        prev_weight = prev_val[0][0]
                     # Consider > 0.01 kg change as significant
                     if abs(current_weight - prev_weight) > 0.01:
                         return True
@@ -288,15 +332,24 @@ class PersistenceValidator:
         # Add state summary (avoid logging full state for privacy)
         if state:
             audit_entry['state_summary'] = {
-                'has_kalman_state': 'kalman_state' in state,
+                'has_kalman_state': 'last_state' in state,
                 'has_timestamp': 'last_timestamp' in state,
                 'measurements_count': state.get('measurements_since_reset', 0)
             }
 
             # Add weight if present (useful for debugging)
-            if 'kalman_state' in state:
+            if 'last_state' in state:
                 try:
-                    audit_entry['state_summary']['current_weight'] = round(state['kalman_state'][0][0], 2)
+                    import numpy as np
+                    last_state = state['last_state']
+                    if isinstance(last_state, np.ndarray):
+                        if len(last_state.shape) == 1:
+                            weight = last_state[0]
+                        else:
+                            weight = last_state[-1][0]
+                    else:
+                        weight = last_state[0][0]
+                    audit_entry['state_summary']['current_weight'] = round(weight, 2)
                 except (IndexError, TypeError):
                     pass
 

@@ -12,7 +12,6 @@ from .processing.processor import (
 # Database
 from .database.database import (
     ProcessorStateDB,
-    ProcessorDatabase,
     get_state_db
 )
 
