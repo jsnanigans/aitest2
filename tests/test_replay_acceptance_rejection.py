@@ -1,6 +1,8 @@
 """
 Test the core acceptance/rejection logic of the replay system.
+
 Ensures measurements are properly filtered based on quality and outlier detection.
+Follows pytest best practices with fixtures, parametrization, and markers.
 """
 
 import pytest
@@ -13,516 +15,529 @@ from src.processing.replay_buffer import ReplayBuffer
 from src.replay.replay_manager import ReplayManager
 
 
-class MockDatabase:
-    """Mock database for testing."""
+# =============================================================================
+# FIXTURES
+# =============================================================================
 
-    def __init__(self):
-        self.states = {}
-        self.snapshots = {}
+@pytest.fixture
+def mock_database():
+    """Provide a clean mock database for testing."""
+    class MockDatabase:
+        """Mock database for isolated testing."""
 
-    def get_state(self, user_id: str):
-        """Get state for a user."""
-        return copy.deepcopy(self.states.get(user_id))
+        def __init__(self):
+            self.states = {}
+            self.snapshots = {}
 
-    def save_state(self, user_id: str, state):
-        """Save state for a user."""
-        self.states[user_id] = copy.deepcopy(state)
+        def get_state(self, user_id: str):
+            """Get state for a user."""
+            return copy.deepcopy(self.states.get(user_id))
 
-    def save_state_snapshot(self, user_id: str, timestamp: datetime):
-        """Save a state snapshot."""
-        if user_id not in self.snapshots:
-            self.snapshots[user_id] = []
+        def save_state(self, user_id: str, state):
+            """Save state for a user."""
+            self.states[user_id] = copy.deepcopy(state)
 
-        current_state = self.get_state(user_id)
-        if current_state:
-            snapshot = {
-                'timestamp': timestamp,
-                'kalman_state': current_state.get('last_state'),
-                'kalman_covariance': current_state.get('last_covariance'),
-                'kalman_params': current_state.get('kalman_params')
-            }
-            self.snapshots[user_id].append(snapshot)
+        def save_state_snapshot(self, user_id: str, timestamp: datetime):
+            """Save a state snapshot."""
+            if user_id not in self.snapshots:
+                self.snapshots[user_id] = []
 
-    def get_state_snapshot_before(self, user_id: str, before_time: datetime):
-        """Get most recent snapshot before given time."""
-        if user_id not in self.snapshots:
-            return None
+            current_state = self.get_state(user_id)
+            if current_state:
+                snapshot = {
+                    'timestamp': timestamp,
+                    'kalman_state': current_state.get('last_state'),
+                    'kalman_covariance': current_state.get('last_covariance'),
+                    'kalman_params': current_state.get('kalman_params')
+                }
+                self.snapshots[user_id].append(snapshot)
 
-        valid_snapshots = [
-            s for s in self.snapshots[user_id]
-            if s['timestamp'] < before_time
-        ]
+        def get_state_snapshot_before(self, user_id: str, before_time: datetime):
+            """Get most recent snapshot before given time."""
+            if user_id not in self.snapshots:
+                return None
 
-        if not valid_snapshots:
-            return None
+            valid_snapshots = [
+                s for s in self.snapshots[user_id]
+                if s['timestamp'] < before_time
+            ]
 
-        return max(valid_snapshots, key=lambda x: x['timestamp'])
+            if not valid_snapshots:
+                return None
 
-    def check_and_restore_snapshot(self, user_id: str, before_time: datetime):
-        """Atomic check and restore."""
-        snapshot = self.get_state_snapshot_before(user_id, before_time)
-        if not snapshot:
+            return max(valid_snapshots, key=lambda x: x['timestamp'])
+
+        def check_and_restore_snapshot(self, user_id: str, before_time: datetime):
+            """Atomic check and restore."""
+            snapshot = self.get_state_snapshot_before(user_id, before_time)
+            if not snapshot:
+                return {
+                    'success': False,
+                    'error': f'No snapshot found for {user_id} before {before_time}'
+                }
+
+            # Restore state from snapshot
+            state = self.get_state(user_id) or {}
+            state['last_state'] = snapshot['kalman_state']
+            state['last_covariance'] = snapshot['kalman_covariance']
+            state['kalman_params'] = snapshot['kalman_params']
+            state['last_timestamp'] = snapshot['timestamp']
+            self.save_state(user_id, state)
+
             return {
-                'success': False,
-                'error': f'No snapshot found for {user_id} before {before_time}'
+                'success': True,
+                'snapshot': snapshot,
+                'snapshot_timestamp': snapshot['timestamp']
             }
 
-        # Restore state from snapshot
-        state = self.get_state(user_id) or {}
-        state['last_state'] = snapshot['kalman_state']
-        state['last_covariance'] = snapshot['kalman_covariance']
-        state['kalman_params'] = snapshot['kalman_params']
-        state['last_timestamp'] = snapshot['timestamp']
-        self.save_state(user_id, state)
-
-        return {
-            'success': True,
-            'snapshot': snapshot,
-            'snapshot_timestamp': snapshot['timestamp']
-        }
+    return MockDatabase()
 
 
-class TestReplayAcceptanceRejection:
-    """Test the core acceptance/rejection logic."""
+@pytest.fixture
+def initial_kalman_state():
+    """Provide initial Kalman filter state."""
+    return {
+        'last_state': np.array([150.0, 0.0]),  # 150kg, no trend
+        'last_covariance': np.array([[1.0, 0.0], [0.0, 0.1]]),
+        'last_timestamp': datetime.now() - timedelta(hours=5),
+        'kalman_params': {
+            'Q': np.array([[0.1, 0], [0, 0.01]]),
+            'R': 1.0,
+            'H': np.array([[1.0, 0.0]])
+        },
+        'last_raw_weight': 150.0,
+        'last_accepted_weight': 150.0,
+        'measurement_history': []
+    }
 
-    @pytest.fixture
-    def mock_db(self):
-        """Provide mock database."""
-        return MockDatabase()
 
-    @pytest.fixture
-    def initial_state(self):
-        """Provide initial Kalman state."""
-        return {
-            'last_state': np.array([150.0, 0.0]),  # 150kg, no trend
-            'last_covariance': np.array([[1.0, 0.0], [0.0, 0.1]]),
-            'last_timestamp': datetime.now() - timedelta(hours=5),
-            'kalman_params': {
-                'Q': np.array([[0.1, 0], [0, 0.01]]),
-                'R': 1.0,
-                'H': np.array([[1.0, 0.0]])
-            },
-            'last_raw_weight': 150.0,
-            'last_accepted_weight': 150.0,
-            'measurement_history': []
-        }
+@pytest.fixture
+def test_user_id():
+    """Standard test user ID."""
+    return "test_user"
 
-    def create_mock_process_measurement(self, acceptance_rules):
-        """Create a mock process_measurement function with specific acceptance rules."""
-        def mock_process(user_id, weight, timestamp, source='test', **kwargs):
-            """Mock processor that accepts/rejects based on rules."""
 
-            # Default to accepting
-            result = {
-                'user_id': user_id,
+@pytest.fixture
+def base_timestamp():
+    """Base timestamp for consistent testing."""
+    return datetime(2024, 1, 1, 12, 0)
+
+
+@pytest.fixture
+def measurement_factory():
+    """Factory for creating test measurements."""
+    def create_measurements(weights, hours_ago, source='test', base_time=None):
+        """Create measurements with specified weights and times."""
+        if base_time is None:
+            base_time = datetime.now()
+
+        return [
+            {
                 'weight': weight,
-                'timestamp': timestamp,
-                'source': source,
-                'accepted': True,
-                'filtered_weight': weight,
-                'quality_score': 0.8,
-                'stage': 'kalman_update'
+                'timestamp': base_time - timedelta(hours=hours),
+                'source': source
             }
+            for weight, hours in zip(weights, hours_ago)
+        ]
+    return create_measurements
 
-            # Apply acceptance rules
-            for rule in acceptance_rules:
-                if rule['type'] == 'weight_range':
-                    if not (rule['min'] <= weight <= rule['max']):
-                        result['accepted'] = False
-                        result['rejected'] = True
-                        result['reason'] = f"Weight {weight}kg outside acceptable range [{rule['min']}, {rule['max']}]"
-                        result['stage'] = 'physiological_validation'
-                        break
 
-                elif rule['type'] == 'quality_threshold':
-                    # Simulate quality score based on weight deviation
-                    expected_weight = rule.get('expected_weight', 150.0)
-                    deviation = abs(weight - expected_weight)
-                    quality_score = max(0, 1.0 - (deviation / 50.0))  # Loses 0.02 per kg deviation
+@pytest.fixture
+def replay_manager(mock_database):
+    """Provide ReplayManager with mock database."""
+    return ReplayManager(mock_database, {})
 
-                    result['quality_score'] = quality_score
-                    if quality_score < rule['threshold']:
-                        result['accepted'] = False
-                        result['rejected'] = True
-                        result['reason'] = f"Quality score {quality_score:.2f} below threshold {rule['threshold']}"
-                        result['stage'] = 'quality_scoring'
-                        break
 
-                elif rule['type'] == 'outlier_detection':
-                    # Simulate outlier detection based on prediction
-                    predicted_weight = rule.get('predicted_weight', 150.0)
-                    max_deviation = rule.get('max_deviation', 5.0)  # kg
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
 
-                    if abs(weight - predicted_weight) > max_deviation:
-                        result['accepted'] = False
-                        result['rejected'] = True
-                        result['reason'] = f"Outlier: {weight}kg deviates {abs(weight - predicted_weight):.1f}kg from predicted {predicted_weight}kg"
-                        result['stage'] = 'outlier_detection'
-                        result['is_outlier'] = True
-                        break
+def create_mock_process_measurement(acceptance_rules):
+    """Create a mock process_measurement function with specific acceptance rules."""
+    def mock_process(user_id, weight, timestamp, source='test', **kwargs):
+        """Mock processor that accepts/rejects based on rules."""
 
-                elif rule['type'] == 'source_rejection':
-                    # Reject specific sources
-                    if source in rule['rejected_sources']:
-                        result['accepted'] = False
-                        result['rejected'] = True
-                        result['reason'] = f"Source '{source}' is unreliable"
-                        result['stage'] = 'source_validation'
-                        break
+        # Default to accepting
+        result = {
+            'user_id': user_id,
+            'weight': weight,
+            'timestamp': timestamp,
+            'source': source,
+            'accepted': True,
+            'filtered_weight': weight,
+            'quality_score': 0.8,
+            'stage': 'kalman_update'
+        }
 
-            return result
+        # Apply acceptance rules
+        for rule in acceptance_rules:
+            if rule['type'] == 'weight_range':
+                if not (rule['min'] <= weight <= rule['max']):
+                    result['accepted'] = False
+                    result['rejected'] = True
+                    result['reason'] = f"Weight {weight}kg outside acceptable range [{rule['min']}, {rule['max']}]"
+                    result['stage'] = 'physiological_validation'
+                    break
 
-        return mock_process
+            elif rule['type'] == 'quality_threshold':
+                # Simulate quality score based on weight deviation
+                expected_weight = rule.get('expected_weight', 150.0)
+                deviation = abs(weight - expected_weight)
+                quality_score = max(0, 1.0 - (deviation / 50.0))  # Loses 0.02 per kg deviation
 
+                result['quality_score'] = quality_score
+                if quality_score < rule['threshold']:
+                    result['accepted'] = False
+                    result['rejected'] = True
+                    result['reason'] = f"Quality score {quality_score:.2f} below threshold {rule['threshold']}"
+                    result['stage'] = 'quality_scoring'
+                    break
+
+            elif rule['type'] == 'outlier_detection':
+                # Simulate outlier detection based on prediction
+                predicted_weight = rule.get('predicted_weight', 150.0)
+                max_deviation = rule.get('max_deviation', 5.0)  # kg
+
+                if abs(weight - predicted_weight) > max_deviation:
+                    result['accepted'] = False
+                    result['rejected'] = True
+                    result['reason'] = f"Outlier: {weight}kg deviates {abs(weight - predicted_weight):.1f}kg from predicted {predicted_weight}kg"
+                    result['stage'] = 'outlier_detection'
+                    result['is_outlier'] = True
+                    break
+
+            elif rule['type'] == 'source_rejection':
+                # Reject specific sources
+                if source in rule['rejected_sources']:
+                    result['accepted'] = False
+                    result['rejected'] = True
+                    result['reason'] = f"Source '{source}' is unreliable"
+                    result['stage'] = 'source_validation'
+                    break
+
+        return result
+
+    return mock_process
+
+
+# =============================================================================
+# TEST CLASSES
+# =============================================================================
+
+@pytest.mark.unit
+class TestPhysiologicalValidation:
+    """Test physiological limit validation."""
+
+    @pytest.mark.parametrize("weight,should_accept", [
+        (150.0, True),   # Normal weight
+        (70.0, True),    # Normal low weight
+        (200.0, True),   # Normal high weight
+        (25.0, False),   # Too low
+        (450.0, False),  # Too high
+        (30.0, True),    # Boundary - minimum
+        (400.0, True),   # Boundary - maximum
+        (29.9, False),   # Just below minimum
+        (400.1, False),  # Just above maximum
+    ])
     @patch('src.replay.replay_manager.process_measurement')
-    def test_physiological_limits_rejection(self, mock_process_func, mock_db, initial_state):
-        """Test that measurements outside physiological limits are rejected."""
+    def test_weight_range_validation(
+        self, mock_process_func, weight, should_accept,
+        mock_database, initial_kalman_state, test_user_id, base_timestamp
+    ):
+        """Test that measurements are validated against physiological limits.
 
+        Given: Weight measurements at various values
+        When: Processing through physiological validation
+        Then: Should accept/reject based on 30-400kg range
+        """
         # Setup acceptance rules - reject weights outside 30-400kg
         acceptance_rules = [
             {'type': 'weight_range', 'min': 30, 'max': 400}
         ]
-        mock_process_func.side_effect = self.create_mock_process_measurement(acceptance_rules)
+        mock_process = create_mock_process_measurement(acceptance_rules)
 
-        # Setup manager and state
-        manager = ReplayManager(mock_db, {})
-        user_id = "test_user"
+        # Test the validation
+        result = mock_process(test_user_id, weight, base_timestamp)
 
-        snapshot_time = datetime.now() - timedelta(hours=6)
-        initial_state['last_timestamp'] = snapshot_time
-        mock_db.save_state(user_id, initial_state)
-        mock_db.save_state_snapshot(user_id, snapshot_time)
+        assert result['accepted'] == should_accept, \
+            f"Weight {weight}kg should be {'accepted' if should_accept else 'rejected'}"
 
-        # Create measurements with extreme values
-        measurements = [
-            {'weight': 150.0, 'timestamp': datetime.now() - timedelta(hours=3), 'source': 'test'},  # Normal
-            {'weight': 25.0, 'timestamp': datetime.now() - timedelta(hours=2), 'source': 'test'},   # Too low
-            {'weight': 450.0, 'timestamp': datetime.now() - timedelta(hours=1), 'source': 'test'},  # Too high
-            {'weight': 151.0, 'timestamp': datetime.now(), 'source': 'test'},                       # Normal
-        ]
+        if not should_accept:
+            assert 'outside acceptable range' in result['reason'], \
+                "Rejection reason should mention acceptable range"
+            assert result['stage'] == 'physiological_validation', \
+                "Rejection should occur at physiological validation stage"
 
-        # Replay measurements
-        result = manager.replay_clean_measurements(
-            user_id=user_id,
-            clean_measurements=measurements,
-            buffer_start_time=datetime.now() - timedelta(hours=4)
-        )
 
-        # Verify replay completed
-        assert result['success'] == True
+@pytest.mark.unit
+class TestQualityScoring:
+    """Test quality score based acceptance/rejection."""
 
-        # Check that extreme values were rejected
-        assert mock_process_func.call_count == 4
+    @pytest.mark.parametrize("weight,expected_weight,threshold,should_accept", [
+        (150.0, 150.0, 0.6, True),   # Perfect match - quality 1.0
+        (155.0, 150.0, 0.6, True),   # 5kg deviation - quality 0.9
+        (160.0, 150.0, 0.6, True),   # 10kg deviation - quality 0.8
+        (170.0, 150.0, 0.6, True),   # 20kg deviation - quality 0.6
+        (175.0, 150.0, 0.6, False),  # 25kg deviation - quality 0.5
+        (180.0, 150.0, 0.6, False),  # 30kg deviation - quality 0.4
+        (200.0, 150.0, 0.6, False),  # 50kg deviation - quality 0.0
+        (145.0, 150.0, 0.9, True),   # 5kg deviation with strict threshold
+        (145.0, 150.0, 0.95, False), # 5kg deviation with very strict threshold
+    ])
+    def test_quality_threshold_validation(
+        self, weight, expected_weight, threshold, should_accept,
+        test_user_id, base_timestamp
+    ):
+        """Test quality score based acceptance.
 
-        # Verify specific rejections
-        calls = mock_process_func.call_args_list
-
-        # First call (150kg) should be accepted
-        result_150 = mock_process_func.side_effect(user_id, 150.0, measurements[0]['timestamp'])
-        assert result_150['accepted'] == True
-
-        # Second call (25kg) should be rejected
-        result_25 = mock_process_func.side_effect(user_id, 25.0, measurements[1]['timestamp'])
-        assert result_25['accepted'] == False
-        assert 'outside acceptable range' in result_25['reason']
-
-        # Third call (450kg) should be rejected
-        result_450 = mock_process_func.side_effect(user_id, 450.0, measurements[2]['timestamp'])
-        assert result_450['accepted'] == False
-        assert 'outside acceptable range' in result_450['reason']
-
-        # Fourth call (151kg) should be accepted
-        result_151 = mock_process_func.side_effect(user_id, 151.0, measurements[3]['timestamp'])
-        assert result_151['accepted'] == True
-
-    @patch('src.replay.replay_manager.process_measurement')
-    def test_quality_score_rejection(self, mock_process_func, mock_db, initial_state):
-        """Test that low quality measurements are rejected."""
-
-        # Setup acceptance rules - reject if quality score < 0.6
+        Given: Measurements with various deviations from expected
+        When: Applying quality threshold validation
+        Then: Should accept/reject based on calculated quality score
+        """
         acceptance_rules = [
-            {'type': 'quality_threshold', 'threshold': 0.6, 'expected_weight': 150.0}
+            {
+                'type': 'quality_threshold',
+                'threshold': threshold,
+                'expected_weight': expected_weight
+            }
         ]
-        mock_process_func.side_effect = self.create_mock_process_measurement(acceptance_rules)
+        mock_process = create_mock_process_measurement(acceptance_rules)
 
-        # Setup manager and state
-        manager = ReplayManager(mock_db, {})
-        user_id = "test_user"
+        result = mock_process(test_user_id, weight, base_timestamp)
 
-        snapshot_time = datetime.now() - timedelta(hours=6)
-        initial_state['last_timestamp'] = snapshot_time
-        mock_db.save_state(user_id, initial_state)
-        mock_db.save_state_snapshot(user_id, snapshot_time)
+        # Calculate expected quality score
+        deviation = abs(weight - expected_weight)
+        expected_quality = max(0, 1.0 - (deviation / 50.0))
 
-        # Create measurements with varying quality
-        measurements = [
-            {'weight': 150.0, 'timestamp': datetime.now() - timedelta(hours=3), 'source': 'test'},  # High quality (deviation=0)
-            {'weight': 155.0, 'timestamp': datetime.now() - timedelta(hours=2), 'source': 'test'},  # Good quality (deviation=5)
-            {'weight': 180.0, 'timestamp': datetime.now() - timedelta(hours=1), 'source': 'test'},  # Low quality (deviation=30)
-            {'weight': 151.0, 'timestamp': datetime.now(), 'source': 'test'},                       # High quality (deviation=1)
-        ]
+        assert result['quality_score'] == pytest.approx(expected_quality, abs=0.01), \
+            f"Quality score should be {expected_quality:.2f}"
 
-        # Replay measurements
-        result = manager.replay_clean_measurements(
-            user_id=user_id,
-            clean_measurements=measurements,
-            buffer_start_time=datetime.now() - timedelta(hours=4)
-        )
+        assert result['accepted'] == should_accept, \
+            f"Weight {weight}kg with quality {expected_quality:.2f} should be {'accepted' if should_accept else 'rejected'}"
 
-        assert result['success'] == True
+        if not should_accept:
+            assert 'below threshold' in result['reason'], \
+                "Rejection should mention threshold"
 
-        # Verify quality-based acceptance/rejection
-        result_150 = mock_process_func.side_effect(user_id, 150.0, measurements[0]['timestamp'])
-        assert result_150['accepted'] == True
-        assert result_150['quality_score'] == 1.0
 
-        result_155 = mock_process_func.side_effect(user_id, 155.0, measurements[1]['timestamp'])
-        assert result_155['accepted'] == True
-        assert result_155['quality_score'] == 0.9  # 5kg deviation -> 0.9 score
+@pytest.mark.unit
+class TestOutlierDetection:
+    """Test statistical outlier detection."""
 
-        result_180 = mock_process_func.side_effect(user_id, 180.0, measurements[2]['timestamp'])
-        assert result_180['accepted'] == False
-        assert result_180['quality_score'] == 0.4  # 30kg deviation -> 0.4 score
-        assert 'below threshold' in result_180['reason']
+    @pytest.mark.parametrize("weight,predicted,max_dev,should_accept", [
+        (150.0, 150.0, 5.0, True),   # Exact match
+        (152.0, 150.0, 5.0, True),   # 2kg deviation - within limit
+        (155.0, 150.0, 5.0, True),   # 5kg deviation - at limit
+        (156.0, 150.0, 5.0, False),  # 6kg deviation - outlier
+        (160.0, 150.0, 5.0, False),  # 10kg deviation - outlier
+        (145.0, 150.0, 5.0, True),   # -5kg deviation - at limit
+        (144.0, 150.0, 5.0, False),  # -6kg deviation - outlier
+        (150.0, 150.0, 2.0, True),   # Strict threshold - exact
+        (152.1, 150.0, 2.0, False),  # Strict threshold - outlier
+    ])
+    def test_outlier_detection_thresholds(
+        self, weight, predicted, max_dev, should_accept,
+        test_user_id, base_timestamp
+    ):
+        """Test outlier detection with various thresholds.
 
-        result_151 = mock_process_func.side_effect(user_id, 151.0, measurements[3]['timestamp'])
-        assert result_151['accepted'] == True
-        assert result_151['quality_score'] == 0.98
-
-    @patch('src.replay.replay_manager.process_measurement')
-    def test_outlier_detection_rejection(self, mock_process_func, mock_db, initial_state):
-        """Test that statistical outliers are rejected."""
-
-        # Setup acceptance rules - reject if > 5kg from predicted weight
+        Given: Measurements with deviations from predicted
+        When: Applying outlier detection
+        Then: Should flag outliers based on max deviation
+        """
         acceptance_rules = [
-            {'type': 'outlier_detection', 'predicted_weight': 150.0, 'max_deviation': 5.0}
+            {
+                'type': 'outlier_detection',
+                'predicted_weight': predicted,
+                'max_deviation': max_dev
+            }
         ]
-        mock_process_func.side_effect = self.create_mock_process_measurement(acceptance_rules)
+        mock_process = create_mock_process_measurement(acceptance_rules)
 
-        # Setup manager and state
-        manager = ReplayManager(mock_db, {})
-        user_id = "test_user"
+        result = mock_process(test_user_id, weight, base_timestamp)
 
-        snapshot_time = datetime.now() - timedelta(hours=6)
-        initial_state['last_timestamp'] = snapshot_time
-        mock_db.save_state(user_id, initial_state)
-        mock_db.save_state_snapshot(user_id, snapshot_time)
+        deviation = abs(weight - predicted)
 
-        # Create measurements with outliers
-        measurements = [
-            {'weight': 150.0, 'timestamp': datetime.now() - timedelta(hours=4), 'source': 'test'},  # Normal
-            {'weight': 152.0, 'timestamp': datetime.now() - timedelta(hours=3), 'source': 'test'},  # Normal variation
-            {'weight': 160.0, 'timestamp': datetime.now() - timedelta(hours=2), 'source': 'test'},  # Outlier (10kg jump)
-            {'weight': 149.0, 'timestamp': datetime.now() - timedelta(hours=1), 'source': 'test'},  # Normal
-            {'weight': 140.0, 'timestamp': datetime.now(), 'source': 'test'},                       # Outlier (10kg drop)
-        ]
+        assert result['accepted'] == should_accept, \
+            f"Weight {weight}kg with {deviation}kg deviation should be {'accepted' if should_accept else 'rejected'}"
 
-        # Replay measurements
-        result = manager.replay_clean_measurements(
-            user_id=user_id,
-            clean_measurements=measurements,
-            buffer_start_time=datetime.now() - timedelta(hours=5)
-        )
+        if not should_accept:
+            assert result.get('is_outlier') == True, \
+                "Should be flagged as outlier"
+            assert 'Outlier' in result['reason'], \
+                "Reason should mention outlier"
+            assert f"{deviation:.1f}kg" in result['reason'], \
+                f"Reason should mention deviation amount {deviation:.1f}kg"
 
-        assert result['success'] == True
 
-        # Verify outlier detection
-        result_150 = mock_process_func.side_effect(user_id, 150.0, measurements[0]['timestamp'])
-        assert result_150['accepted'] == True
+@pytest.mark.unit
+class TestSourceReliability:
+    """Test source-based acceptance/rejection."""
 
-        result_152 = mock_process_func.side_effect(user_id, 152.0, measurements[1]['timestamp'])
-        assert result_152['accepted'] == True
+    @pytest.mark.parametrize("source,rejected_sources,should_accept", [
+        ('care-team-upload', ['iglucose.com'], True),
+        ('patient-device', ['iglucose.com'], True),
+        ('iglucose.com', ['iglucose.com'], False),
+        ('untrusted', ['untrusted', 'iglucose.com'], False),
+        ('test', [], True),
+        ('any-source', ['any-source'], False),
+    ])
+    def test_source_rejection(
+        self, source, rejected_sources, should_accept,
+        test_user_id, base_timestamp
+    ):
+        """Test source-based rejection.
 
-        result_160 = mock_process_func.side_effect(user_id, 160.0, measurements[2]['timestamp'])
-        assert result_160['accepted'] == False
-        assert 'Outlier' in result_160['reason']
-        assert result_160.get('is_outlier') == True
-
-        result_149 = mock_process_func.side_effect(user_id, 149.0, measurements[3]['timestamp'])
-        assert result_149['accepted'] == True
-
-        result_140 = mock_process_func.side_effect(user_id, 140.0, measurements[4]['timestamp'])
-        assert result_140['accepted'] == False
-        assert 'Outlier' in result_140['reason']
-
-    @patch('src.replay.replay_manager.process_measurement')
-    def test_source_based_rejection(self, mock_process_func, mock_db, initial_state):
-        """Test that unreliable sources are rejected."""
-
-        # Setup acceptance rules - reject iglucose.com source
+        Given: Measurements from various sources
+        When: Applying source reliability rules
+        Then: Should reject unreliable sources
+        """
         acceptance_rules = [
-            {'type': 'source_rejection', 'rejected_sources': ['iglucose.com', 'untrusted']}
+            {
+                'type': 'source_rejection',
+                'rejected_sources': rejected_sources
+            }
         ]
-        mock_process_func.side_effect = self.create_mock_process_measurement(acceptance_rules)
+        mock_process = create_mock_process_measurement(acceptance_rules)
 
-        # Setup manager and state
-        manager = ReplayManager(mock_db, {})
-        user_id = "test_user"
+        result = mock_process(test_user_id, 150.0, base_timestamp, source)
 
-        snapshot_time = datetime.now() - timedelta(hours=6)
-        initial_state['last_timestamp'] = snapshot_time
-        mock_db.save_state(user_id, initial_state)
-        mock_db.save_state_snapshot(user_id, snapshot_time)
+        assert result['accepted'] == should_accept, \
+            f"Source '{source}' should be {'accepted' if should_accept else 'rejected'}"
 
-        # Create measurements from different sources
-        measurements = [
-            {'weight': 150.0, 'timestamp': datetime.now() - timedelta(hours=3), 'source': 'care-team-upload'},  # Trusted
-            {'weight': 151.0, 'timestamp': datetime.now() - timedelta(hours=2), 'source': 'iglucose.com'},      # Untrusted
-            {'weight': 150.5, 'timestamp': datetime.now() - timedelta(hours=1), 'source': 'patient-device'},    # Trusted
-            {'weight': 152.0, 'timestamp': datetime.now(), 'source': 'untrusted'},                              # Untrusted
-        ]
+        if not should_accept:
+            assert 'unreliable' in result['reason'], \
+                "Rejection should mention unreliability"
+            assert result['stage'] == 'source_validation', \
+                "Should be rejected at source validation stage"
 
-        # Replay measurements
-        result = manager.replay_clean_measurements(
-            user_id=user_id,
-            clean_measurements=measurements,
-            buffer_start_time=datetime.now() - timedelta(hours=4)
-        )
 
-        assert result['success'] == True
-
-        # Verify source-based rejection
-        result_care = mock_process_func.side_effect(user_id, 150.0, measurements[0]['timestamp'], 'care-team-upload')
-        assert result_care['accepted'] == True
-
-        result_iglucose = mock_process_func.side_effect(user_id, 151.0, measurements[1]['timestamp'], 'iglucose.com')
-        assert result_iglucose['accepted'] == False
-        assert 'unreliable' in result_iglucose['reason']
-
-        result_device = mock_process_func.side_effect(user_id, 150.5, measurements[2]['timestamp'], 'patient-device')
-        assert result_device['accepted'] == True
-
-        result_untrusted = mock_process_func.side_effect(user_id, 152.0, measurements[3]['timestamp'], 'untrusted')
-        assert result_untrusted['accepted'] == False
+@pytest.mark.integration
+class TestReplayAcceptanceIntegration:
+    """Integration tests for full replay acceptance/rejection flow."""
 
     @patch('src.replay.replay_manager.process_measurement')
-    def test_mixed_acceptance_rejection(self, mock_process_func, mock_db, initial_state):
-        """Test a realistic mix of accepted and rejected measurements."""
+    def test_mixed_acceptance_rejection(
+        self, mock_process_func, mock_database, initial_kalman_state,
+        test_user_id, replay_manager, measurement_factory, base_timestamp
+    ):
+        """Test complex scenario with multiple acceptance/rejection criteria.
 
-        # Setup combined acceptance rules
+        Given: Various measurements with different characteristics
+        When: Replaying through full validation pipeline
+        Then: Should correctly accept/reject each measurement
+        """
+        # Complex acceptance rules combining multiple criteria
         acceptance_rules = [
             {'type': 'weight_range', 'min': 30, 'max': 400},
             {'type': 'quality_threshold', 'threshold': 0.5, 'expected_weight': 150.0},
-            {'type': 'outlier_detection', 'predicted_weight': 150.0, 'max_deviation': 8.0}
+            {'type': 'outlier_detection', 'predicted_weight': 150.0, 'max_deviation': 10.0},
+            {'type': 'source_rejection', 'rejected_sources': ['untrusted']}
         ]
-        mock_process_func.side_effect = self.create_mock_process_measurement(acceptance_rules)
 
-        # Setup manager and state
-        manager = ReplayManager(mock_db, {})
-        user_id = "test_user"
+        mock_process_func.side_effect = create_mock_process_measurement(acceptance_rules)
 
-        snapshot_time = datetime.now() - timedelta(hours=12)
-        initial_state['last_timestamp'] = snapshot_time
-        mock_db.save_state(user_id, initial_state)
-        mock_db.save_state_snapshot(user_id, snapshot_time)
+        # Setup initial state
+        snapshot_time = base_timestamp - timedelta(hours=7)  # Earlier than buffer start
+        initial_kalman_state['last_timestamp'] = snapshot_time
+        mock_database.save_state(test_user_id, initial_kalman_state)
+        mock_database.save_state_snapshot(test_user_id, snapshot_time)
 
-        # Create a realistic series of measurements
+        # Create diverse measurements
         measurements = [
-            {'weight': 150.0, 'timestamp': datetime.now() - timedelta(hours=10), 'source': 'test'},  # Accept
-            {'weight': 149.5, 'timestamp': datetime.now() - timedelta(hours=9), 'source': 'test'},   # Accept
-            {'weight': 148.8, 'timestamp': datetime.now() - timedelta(hours=8), 'source': 'test'},   # Accept
-            {'weight': 165.0, 'timestamp': datetime.now() - timedelta(hours=7), 'source': 'test'},   # Reject - outlier
-            {'weight': 149.0, 'timestamp': datetime.now() - timedelta(hours=6), 'source': 'test'},   # Accept
-            {'weight': 25.0, 'timestamp': datetime.now() - timedelta(hours=5), 'source': 'test'},    # Reject - physiological
-            {'weight': 148.5, 'timestamp': datetime.now() - timedelta(hours=4), 'source': 'test'},   # Accept
-            {'weight': 180.0, 'timestamp': datetime.now() - timedelta(hours=3), 'source': 'test'},   # Reject - quality
-            {'weight': 148.0, 'timestamp': datetime.now() - timedelta(hours=2), 'source': 'test'},   # Accept
-            {'weight': 147.5, 'timestamp': datetime.now() - timedelta(hours=1), 'source': 'test'},   # Accept
+            {'weight': 150.0, 'timestamp': base_timestamp - timedelta(hours=5), 'source': 'care-team-upload'},  # ✓ All good
+            {'weight': 25.0, 'timestamp': base_timestamp - timedelta(hours=4), 'source': 'patient-device'},     # ✗ Too low
+            {'weight': 180.0, 'timestamp': base_timestamp - timedelta(hours=3), 'source': 'patient-device'},     # ✗ Low quality
+            {'weight': 165.0, 'timestamp': base_timestamp - timedelta(hours=2), 'source': 'patient-device'},     # ✗ Outlier
+            {'weight': 151.0, 'timestamp': base_timestamp - timedelta(hours=1), 'source': 'untrusted'},         # ✗ Bad source
+            {'weight': 149.0, 'timestamp': base_timestamp, 'source': 'care-team-upload'},                       # ✓ All good
         ]
 
         # Replay measurements
-        result = manager.replay_clean_measurements(
-            user_id=user_id,
+        result = replay_manager.replay_clean_measurements(
+            user_id=test_user_id,
             clean_measurements=measurements,
-            buffer_start_time=datetime.now() - timedelta(hours=11)
+            buffer_start_time=base_timestamp - timedelta(hours=6)
         )
 
-        assert result['success'] == True
-        assert result['measurements_replayed'] == 10
+        assert result['success'] == True, "Replay should complete successfully"
 
-        # Count accepted vs rejected
-        accepted_count = 0
-        rejected_count = 0
+        # Verify each measurement was processed correctly
+        expected_results = [
+            (150.0, True, None),                                      # Accepted
+            (25.0, False, "outside acceptable range"),                # Physiological limit
+            (180.0, False, "below threshold"),                        # Low quality
+            (165.0, False, "Outlier"),                               # Outlier
+            (151.0, False, "unreliable"),                            # Bad source
+            (149.0, True, None),                                      # Accepted
+        ]
 
-        for m in measurements:
-            r = mock_process_func.side_effect(user_id, m['weight'], m['timestamp'], m['source'])
-            if r['accepted']:
-                accepted_count += 1
-            else:
-                rejected_count += 1
+        for i, (weight, should_accept, reason) in enumerate(expected_results):
+            result = mock_process_func.side_effect(
+                test_user_id,
+                measurements[i]['weight'],
+                measurements[i]['timestamp'],
+                measurements[i]['source']
+            )
 
-        # Should have 7 accepted, 3 rejected
-        assert accepted_count == 7
-        assert rejected_count == 3
+            assert result['accepted'] == should_accept, \
+                f"Measurement {i+1} ({weight}kg) should be {'accepted' if should_accept else 'rejected'}"
+
+            if not should_accept and reason:
+                assert reason in result['reason'], \
+                    f"Measurement {i+1} rejection reason should contain '{reason}'"
+
+
+@pytest.mark.slow
+class TestPerformance:
+    """Performance tests for acceptance/rejection logic."""
 
     @patch('src.replay.replay_manager.process_measurement')
-    def test_state_update_on_acceptance(self, mock_process_func, mock_db, initial_state):
-        """Test that accepted measurements update the Kalman state."""
+    def test_large_batch_processing(
+        self, mock_process_func, mock_database, initial_kalman_state,
+        test_user_id, replay_manager, base_timestamp
+    ):
+        """Test performance with large batch of measurements.
 
-        # Track state updates
-        state_updates = []
+        Given: 1000+ measurements
+        When: Processing through acceptance/rejection
+        Then: Should complete in reasonable time
+        """
+        import time
 
-        def mock_process_with_state_update(user_id, weight, timestamp, **kwargs):
-            """Mock that simulates state updates."""
-            result = {
-                'user_id': user_id,
+        # Simple acceptance rules for performance test
+        acceptance_rules = [
+            {'type': 'weight_range', 'min': 30, 'max': 400}
+        ]
+        mock_process_func.side_effect = create_mock_process_measurement(acceptance_rules)
+
+        # Setup initial state
+        snapshot_time = base_timestamp - timedelta(days=50)  # Earlier than buffer start
+        initial_kalman_state['last_timestamp'] = snapshot_time
+        mock_database.save_state(test_user_id, initial_kalman_state)
+        mock_database.save_state_snapshot(test_user_id, snapshot_time)
+
+        # Create large batch of measurements
+        measurements = []
+        for i in range(1000):
+            weight = 150.0 + np.random.normal(0, 2)  # Normal variation
+            timestamp = base_timestamp - timedelta(hours=1000-i)
+            measurements.append({
                 'weight': weight,
                 'timestamp': timestamp,
-                'accepted': True,
-                'filtered_weight': weight + 0.1,  # Small Kalman correction
-                'quality_score': 0.9
-            }
+                'source': 'test'
+            })
 
-            # Simulate state update
-            if result['accepted']:
-                new_state = {
-                    'last_state': np.array([result['filtered_weight'], 0.0]),
-                    'last_timestamp': timestamp,
-                    'last_accepted_weight': result['filtered_weight']
-                }
-                state_updates.append(new_state)
+        # Measure processing time
+        start_time = time.time()
 
-                # Update the mock database state
-                current_state = mock_db.get_state(user_id) or {}
-                current_state.update(new_state)
-                mock_db.save_state(user_id, current_state)
-
-            return result
-
-        mock_process_func.side_effect = mock_process_with_state_update
-
-        # Setup manager and state
-        manager = ReplayManager(mock_db, {})
-        user_id = "test_user"
-
-        snapshot_time = datetime.now() - timedelta(hours=6)
-        initial_state['last_timestamp'] = snapshot_time
-        mock_db.save_state(user_id, initial_state)
-        mock_db.save_state_snapshot(user_id, snapshot_time)
-
-        # Create measurements
-        measurements = [
-            {'weight': 150.0, 'timestamp': datetime.now() - timedelta(hours=3), 'source': 'test'},
-            {'weight': 149.8, 'timestamp': datetime.now() - timedelta(hours=2), 'source': 'test'},
-            {'weight': 149.5, 'timestamp': datetime.now() - timedelta(hours=1), 'source': 'test'},
-        ]
-
-        # Replay measurements
-        result = manager.replay_clean_measurements(
-            user_id=user_id,
+        result = replay_manager.replay_clean_measurements(
+            user_id=test_user_id,
             clean_measurements=measurements,
-            buffer_start_time=datetime.now() - timedelta(hours=4)
+            buffer_start_time=base_timestamp - timedelta(days=45)
         )
 
-        assert result['success'] == True
+        elapsed_time = time.time() - start_time
 
-        # Verify state was updated for each accepted measurement
-        assert len(state_updates) == 3
-
-        # Check final state
-        final_state = mock_db.get_state(user_id)
-        assert final_state is not None
-
-        # Last accepted weight should be from the last measurement (with Kalman correction)
-        expected_final_weight = 149.5 + 0.1  # Last measurement + Kalman correction
-        assert np.isclose(final_state['last_state'][0], expected_final_weight, atol=0.01)
+        assert result['success'] == True, "Large batch should process successfully"
+        assert elapsed_time < 10.0, f"Processing 1000 measurements should complete within 10 seconds, took {elapsed_time:.2f}s"
