@@ -4,10 +4,14 @@ ReplayBuffer - Thread-safe 72-hour measurement buffering
 Manages in-memory storage of measurements for replay analysis.
 Automatically manages buffer windows and provides thread-safe operations.
 
+Note: The previous get_replay_buffer() singleton has been removed.
+Use BufferFactory from buffer_factory.py for instance management.
+
 Key features:
 - Thread-safe buffer management
 - Automatic 72-hour window rotation
 - Memory-efficient storage with limits
+- Proper cleanup() method for resource management
 - Buffer state tracking and cleanup
 """
 
@@ -379,14 +383,31 @@ class ReplayBuffer:
                 return True
             return False
 
+    def cleanup(self):
+        """
+        Clean up buffer resources.
 
-# Global buffer instance
-_buffer_instance = None
+        Clears all buffers and resets internal state.
+        Called by BufferFactory when removing instances.
+        """
+        with self.lock:
+            # Log summary before cleanup
+            total_measurements = sum(
+                len(buffer['measurements'])
+                for buffer in self.buffers.values()
+            )
+            if total_measurements > 0:
+                logger.info(
+                    f"Cleaning up ReplayBuffer with {len(self.buffers)} users, "
+                    f"{total_measurements} total measurements"
+                )
 
+            # Clear all buffers
+            self.buffers.clear()
 
-def get_replay_buffer(config: Optional[Dict[str, Any]] = None) -> ReplayBuffer:
-    """Get or create the global replay buffer instance."""
-    global _buffer_instance
-    if _buffer_instance is None:
-        _buffer_instance = ReplayBuffer(config)
-    return _buffer_instance
+            # Reset stats
+            self.total_measurements = 0
+            self.buffers_processed = 0
+            self.buffers_triggered = 0
+
+            logger.debug("ReplayBuffer cleanup complete")

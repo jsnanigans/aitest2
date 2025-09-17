@@ -163,17 +163,23 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
 
     if replay_enabled:
         try:
-            from src.processing.replay_buffer import get_replay_buffer
+            # Use BufferFactory for better testability and instance management
+            from src.processing.buffer_factory import get_factory
             from src.processing.outlier_detection import OutlierDetector
             from src.replay.replay_manager import ReplayManager
 
-            replay_buffer = get_replay_buffer(replay_config)
+            # Create buffer using factory (dependency injection)
+            buffer_factory = get_factory()
+            buffer_factory.set_default_config(replay_config)
+            replay_buffer = buffer_factory.create_buffer('default', replay_config)
+
             outlier_detector = OutlierDetector(replay_config.get("outlier_detection", {}), db=db)
             replay_manager = ReplayManager(db, replay_config.get("safety", {}))
 
             print("Replay processing enabled")
             print(f"  Buffer window: {replay_config.get('buffer_hours', 72)} hours")
             print(f"  Trigger mode: {replay_config.get('trigger_mode', 'time_based')}")
+            print(f"  Using BufferFactory for instance management")
         except ImportError as e:
             print(f"Warning: Could not initialize replay processing: {e}")
             replay_enabled = False
@@ -597,6 +603,16 @@ def stream_process(csv_path: str, output_dir: str, config: dict):
                     print(f"Warning: Could not generate index.html: {e}")
 
             print(f"Output: {viz_dir}")
+
+    # Clean up replay buffer if it was created
+    if replay_enabled and 'buffer_factory' in locals():
+        try:
+            buffer_stats = buffer_factory.get_stats()
+            if buffer_stats['total_instances'] > 0:
+                logger.debug(f"Cleaning up {buffer_stats['total_instances']} buffer instances")
+                buffer_factory.clear_all(force=True)
+        except Exception as e:
+            logger.warning(f"Error during buffer cleanup: {e}")
 
     return user_results, stats
 

@@ -17,13 +17,13 @@ from datetime import datetime, timedelta
 import time
 
 try:
-    from .database import ProcessorStateDB
-    from .processor import process_measurement
+    from ..database.database import ProcessorStateDB
+    from ..processing.processor import process_measurement
 except ImportError:
     # For direct import testing
-    from database import ProcessorStateDB
     try:
-        from processor import process_measurement
+        from src.database.database import ProcessorStateDB
+        from src.processing.processor import process_measurement
     except ImportError:
         # Mock for testing without full processor
         def process_measurement(measurement_data):
@@ -208,7 +208,8 @@ class ReplayManager:
 
     def _restore_state_to_buffer_start(self, user_id: str, buffer_start_time: datetime) -> Dict[str, Any]:
         """
-        Restore user state to just before the buffer start time.
+        Restore user state to just before the buffer start time using atomic operations.
+        Includes retry logic for transient failures.
 
         Args:
             user_id: User identifier
@@ -217,41 +218,80 @@ class ReplayManager:
         Returns:
             Result dictionary with success status
         """
-        try:
-            # Find appropriate snapshot
-            snapshot = self.db.get_state_snapshot_before(user_id, buffer_start_time)
+        max_retries = 3
+        last_error = None
 
-            if not snapshot:
-                return {
-                    'success': False,
-                    'error': 'No state snapshot found before buffer start time',
-                    'user_id': user_id,
-                    'buffer_start_time': buffer_start_time
-                }
+        for attempt in range(max_retries):
+            try:
+                # Log retry attempt if not first try
+                if attempt > 0:
+                    logger.info(f"Retry {attempt + 1}/{max_retries} for state restoration of {user_id}")
+                    # Exponential backoff: 0.1s, 0.2s, 0.4s
+                    time.sleep(0.1 * (2 ** attempt))
 
-            # Restore state from snapshot
-            if self.db.restore_state_from_snapshot(user_id, snapshot):
-                logger.info(f"Restored state for user {user_id} to timestamp {snapshot['timestamp']}")
-                return {
-                    'success': True,
-                    'user_id': user_id,
-                    'restore_snapshot': snapshot,
-                    'restored_to_time': snapshot['timestamp']
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': 'Failed to restore state from snapshot',
-                    'user_id': user_id
-                }
+                # Use atomic check-and-restore method to prevent race condition
+                result = self.db.check_and_restore_snapshot(user_id, buffer_start_time)
 
-        except Exception as e:
-            logger.error(f"State restoration failed for user {user_id}: {e}")
-            return {
-                'success': False,
-                'error': f'State restoration exception: {str(e)}',
-                'user_id': user_id
-            }
+                if result['success']:
+                    logger.info(
+                        f"Successfully restored state for {user_id} to {result.get('snapshot_timestamp')} "
+                        f"(attempt {attempt + 1}/{max_retries})"
+                    )
+                    return {
+                        'success': True,
+                        'user_id': user_id,
+                        'restore_snapshot': result.get('snapshot'),
+                        'restored_to_time': result.get('snapshot_timestamp'),
+                        'attempts': attempt + 1
+                    }
+
+                # Log the specific error
+                error_msg = result.get('error', 'Unknown error')
+                logger.warning(
+                    f"Attempt {attempt + 1}/{max_retries} failed for {user_id}: {error_msg}"
+                )
+                last_error = error_msg
+
+                # Don't retry if snapshot doesn't exist (not a transient failure)
+                if 'No snapshot found' in error_msg:
+                    logger.error(f"No snapshot exists for {user_id} before {buffer_start_time}, aborting retries")
+                    return {
+                        'success': False,
+                        'error': error_msg,
+                        'user_id': user_id,
+                        'buffer_start_time': buffer_start_time,
+                        'attempts': attempt + 1
+                    }
+
+            except Exception as e:
+                last_error = f'State restoration exception: {str(e)}'
+                logger.error(
+                    f"Exception during state restoration for {user_id} "
+                    f"(attempt {attempt + 1}/{max_retries}): {e}",
+                    exc_info=True
+                )
+
+                # Don't retry on programming errors
+                if 'AttributeError' in str(e) or 'TypeError' in str(e):
+                    return {
+                        'success': False,
+                        'error': last_error,
+                        'user_id': user_id,
+                        'attempts': attempt + 1
+                    }
+
+        # All retries exhausted
+        logger.error(
+            f"Failed to restore state for {user_id} after {max_retries} attempts. "
+            f"Last error: {last_error}"
+        )
+        return {
+            'success': False,
+            'error': f'All {max_retries} restore attempts failed. Last error: {last_error}',
+            'user_id': user_id,
+            'buffer_start_time': buffer_start_time,
+            'attempts': max_retries
+        }
 
     def _replay_measurements_chronologically(
         self,

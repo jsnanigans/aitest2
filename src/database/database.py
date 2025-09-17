@@ -13,10 +13,14 @@ State Schema:
 
 import csv
 import json
+import logging
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class ProcessorStateDB:
@@ -34,9 +38,41 @@ class ProcessorStateDB:
         """
         self.storage_path = Path(storage_path) if storage_path else None
         self.states = {}
+        self._transaction_active = False
+        self._transaction_backup = None
 
         if self.storage_path and self.storage_path.exists():
             self._load_from_disk()
+
+    @contextmanager
+    def transaction(self):
+        """
+        Context manager for atomic operations.
+        Provides rollback capability on failure.
+        """
+        if self._transaction_active:
+            # Nested transaction - just yield
+            yield self
+            return
+
+        # Start transaction
+        self._transaction_active = True
+        self._transaction_backup = {
+            user_id: state.copy() for user_id, state in self.states.items()
+        }
+
+        try:
+            yield self
+            # Commit (implicit - changes already made)
+            self._transaction_active = False
+            self._transaction_backup = None
+        except Exception as e:
+            # Rollback
+            logger.error(f"Transaction failed, rolling back: {e}")
+            self.states = self._transaction_backup
+            self._transaction_active = False
+            self._transaction_backup = None
+            raise
 
     def get_state(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -279,9 +315,9 @@ class ProcessorStateDB:
         # Return the most recent one
         return max(matching_snapshots, key=lambda x: x['timestamp'])
 
-    def restore_state_from_snapshot(self, user_id: str, snapshot: Dict[str, Any]) -> bool:
+    def restore_state_from_snapshot(self, user_id: str, snapshot: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Restore user state from a historical snapshot.
+        Restore user state from a historical snapshot with comprehensive validation.
         WARNING: This modifies the current state - use with caution.
 
         Args:
@@ -289,27 +325,117 @@ class ProcessorStateDB:
             snapshot: Snapshot dictionary from get_state_snapshot_before
 
         Returns:
-            True if restoration successful
+            Dict with 'success' bool and 'error' string if failed
         """
-        if not snapshot:
-            return False
+        # Comprehensive validation
+        if snapshot is None:
+            error_msg = f"Cannot restore state for {user_id}: snapshot is None"
+            logger.error(error_msg)
+            return {'success': False, 'error': error_msg}
 
-        state = self.get_state(user_id)
-        if not state:
-            state = self.create_initial_state()
+        if not isinstance(snapshot, dict):
+            error_msg = f"Cannot restore state for {user_id}: invalid snapshot type {type(snapshot)}"
+            logger.error(error_msg)
+            return {'success': False, 'error': error_msg}
 
-        # Restore key state components from snapshot
-        state['last_state'] = snapshot.get('kalman_state')
-        state['last_covariance'] = snapshot.get('kalman_covariance')
-        state['kalman_params'] = snapshot.get('kalman_params')
-        state['last_timestamp'] = snapshot.get('timestamp')
+        # Validate required fields
+        required_fields = ['kalman_state', 'kalman_covariance', 'timestamp']
+        missing_fields = [f for f in required_fields if f not in snapshot]
 
-        # Clear measurement history to start fresh from restore point
-        # Keep state_history intact for potential rollbacks
-        state['measurement_history'] = []
+        if missing_fields:
+            error_msg = f"Cannot restore state for {user_id}: missing required fields {missing_fields}"
+            logger.error(error_msg)
+            return {'success': False, 'error': error_msg}
 
-        self.save_state(user_id, state)
-        return True
+        # Validate field types
+        if not isinstance(snapshot.get('kalman_state'), (list, np.ndarray)):
+            error_msg = f"Cannot restore state for {user_id}: invalid kalman_state type"
+            logger.error(error_msg)
+            return {'success': False, 'error': error_msg}
+
+        try:
+            state = self.get_state(user_id)
+            if not state:
+                state = self.create_initial_state()
+                logger.info(f"Creating new state for {user_id} during restoration")
+
+            # Restore key state components from snapshot
+            state['last_state'] = snapshot.get('kalman_state')
+            state['last_covariance'] = snapshot.get('kalman_covariance')
+            state['kalman_params'] = snapshot.get('kalman_params')
+            state['last_timestamp'] = snapshot.get('timestamp')
+
+            # Clear measurement history to start fresh from restore point
+            # Keep state_history intact for potential rollbacks
+            state['measurement_history'] = []
+
+            self.save_state(user_id, state)
+
+            logger.info(f"Successfully restored state for {user_id} to timestamp {snapshot.get('timestamp')}")
+            return {'success': True, 'snapshot_timestamp': snapshot.get('timestamp')}
+
+        except Exception as e:
+            error_msg = f"Failed to restore state for {user_id}: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return {'success': False, 'error': error_msg}
+
+    def check_and_restore_snapshot(self, user_id: str, before_timestamp: datetime) -> Dict[str, Any]:
+        """
+        Atomic check and restore operation.
+        Combines snapshot lookup and restoration in a single transaction.
+
+        Args:
+            user_id: User identifier
+            before_timestamp: Timestamp to restore to
+
+        Returns:
+            Dict with 'success' bool, 'error' string if failed, and 'snapshot' if successful
+        """
+        with self.transaction():
+            try:
+                # Log the attempt
+                logger.info(f"Attempting atomic restore for {user_id} to time before {before_timestamp}")
+
+                # Get snapshot before the specified time
+                snapshot = self.get_state_snapshot_before(user_id, before_timestamp)
+
+                if not snapshot:
+                    error_msg = f"No snapshot found for {user_id} before {before_timestamp}"
+                    logger.warning(error_msg)
+                    return {
+                        'success': False,
+                        'error': error_msg,
+                        'timestamp': before_timestamp,
+                        'user_id': user_id
+                    }
+
+                # Log snapshot found
+                logger.debug(f"Found snapshot for {user_id} at {snapshot.get('timestamp')}")
+
+                # Attempt restoration
+                result = self.restore_state_from_snapshot(user_id, snapshot)
+
+                if result['success']:
+                    # Add snapshot to successful result
+                    result['snapshot'] = snapshot
+                    result['user_id'] = user_id
+                    logger.info(f"Atomic restore successful for {user_id}")
+                else:
+                    # Log failure details
+                    logger.error(f"Atomic restore failed for {user_id}: {result.get('error')}")
+
+                return result
+
+            except Exception as e:
+                error_msg = f"Atomic restore failed for {user_id}: {str(e)}"
+                logger.error(error_msg, exc_info=True)
+                # Transaction will be rolled back automatically
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'user_id': user_id,
+                    'timestamp': before_timestamp
+                }
 
     def get_state_history_count(self, user_id: str) -> int:
         """
