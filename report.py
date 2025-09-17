@@ -15,14 +15,16 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 from typing import Dict, Optional, List
+import time
 
 from src.config_loader import load_config as load_config_with_profiles
 from src.database.db_wrapper import Database
-from src.analysis.interval_analyzer import IntervalAnalyzer
+from src.analysis.interval_analyzer_fast import FastIntervalAnalyzer
 from src.analysis.weight_selector import WeightSelector
 from src.analysis.statistics import StatisticsCalculator
 from src.analysis.csv_generator import CSVGenerator
 from src.analysis.analysis_visualizer import AnalysisVisualizer
+from src.analysis.markdown_reporter import MarkdownReporter
 
 
 
@@ -42,9 +44,9 @@ class WeightLossReport:
         self.data_dir.mkdir(exist_ok=True)
         self.viz_dir.mkdir(exist_ok=True)
 
-        # Initialize database connection
-        db_path = self.config.get("database", {}).get("path", "data/weight_tracking.db")
-        self.db = Database(db_path)
+        # Note: Database is optional now, only used if needed
+        # db_path = self.config.get("database", {}).get("path", "data/weight_tracking.db")
+        # self.db = Database(db_path)
 
         self.logger = self._setup_logging()
 
@@ -95,69 +97,118 @@ class WeightLossReport:
         self.logger.info(f"Filtered data: {filtered_csv}")
         self.logger.info(f"Parameters: top_n={top_n}, interval={interval_days}d, window=±{window_days}d")
 
+        # Track phase timings for performance report
+        phase_timings = {}
+
         try:
             # Phase 1: Load raw data
+            phase1_start = time.time()
             self.logger.info("Phase 1: Loading raw data...")
             raw_data = self._load_raw_data(raw_csv)
-            self.logger.info(f"Loaded {len(raw_data)} raw measurements")
+            phase1_time = time.time() - phase1_start
+            phase_timings['phase1'] = phase1_time
+            self.logger.info(f"Loaded {len(raw_data)} raw measurements in {phase1_time:.2f}s")
 
             # Phase 2: Load filtered data
+            phase2_start = time.time()
             self.logger.info("Phase 2: Loading filtered data...")
             filtered_data = self._load_raw_data(filtered_csv)  # Same format as raw
-            self.logger.info(f"Loaded {len(filtered_data)} filtered measurements")
+            phase2_time = time.time() - phase2_start
+            phase_timings['phase2'] = phase2_time
+            self.logger.info(f"Loaded {len(filtered_data)} filtered measurements in {phase2_time:.2f}s")
 
-            # Phase 3: Calculate intervals for each user
-            self.logger.info("Phase 3: Calculating intervals...")
-            interval_analyzer = IntervalAnalyzer(
-                self.db, interval_days, window_days
+            # Phase 3: Calculate intervals for each user (using optimized version)
+            phase3_start = time.time()
+            self.logger.info("Phase 3: Calculating intervals (optimized)...")
+            interval_analyzer = FastIntervalAnalyzer(
+                interval_days, window_days
             )
             user_intervals = interval_analyzer.calculate_all_users(
                 raw_data, filtered_data
             )
-            self.logger.info(f"Calculated intervals for {len(user_intervals)} users")
+            phase3_time = time.time() - phase3_start
+            phase_timings['phase3'] = phase3_time
+            self.logger.info(f"Calculated intervals for {len(user_intervals)} users in {phase3_time:.2f}s")
 
             # Phase 4: Generate statistics
+            phase4_start = time.time()
             self.logger.info("Phase 4: Generating statistics...")
             stats_calc = StatisticsCalculator()
             statistics = stats_calc.calculate_all_statistics(user_intervals)
+            phase4_time = time.time() - phase4_start
+            phase_timings['phase4'] = phase4_time
+            self.logger.info(f"Generated statistics in {phase4_time:.2f}s")
 
             # Phase 5: Identify top divergent users
+            phase5_start = time.time()
             self.logger.info("Phase 5: Identifying top divergent users...")
             top_users = self._identify_top_divergent_users(
                 user_intervals, statistics, top_n
             )
-            self.logger.info(f"Identified top {len(top_users)} divergent users")
+            phase5_time = time.time() - phase5_start
+            phase_timings['phase5'] = phase5_time
+            self.logger.info(f"Identified top {len(top_users)} divergent users in {phase5_time:.2f}s")
 
             # Phase 6: Generate CSV outputs
+            phase6_start = time.time()
             self.logger.info("Phase 6: Generating CSV files...")
             csv_gen = CSVGenerator(self.data_dir)
             csv_files = csv_gen.generate_all_csvs(
                 raw_data, filtered_data, user_intervals,
                 statistics, top_users
             )
-            self.logger.info(f"Generated {len(csv_files)} CSV files")
+            phase6_time = time.time() - phase6_start
+            phase_timings['phase6'] = phase6_time
+            self.logger.info(f"Generated {len(csv_files)} CSV files in {phase6_time:.2f}s")
 
-            # Phase 7: Generate visualizations
-            self.logger.info("Phase 7: Generating visualizations...")
-            viz = AnalysisVisualizer(self.viz_dir)
-            viz_files = viz.generate_all_visualizations(
-                user_intervals, statistics, top_users
-            )
-            self.logger.info(f"Generated {len(viz_files)} visualization files")
+            # Phase 7: Generate visualizations (DISABLED TEMPORARILY)
+            phase7_start = time.time()
+            self.logger.info("Phase 7: Skipping visualizations (temporarily disabled)")
+            viz_files = {}  # Empty dict since visualizations are disabled
+            phase7_time = time.time() - phase7_start
+            phase_timings['phase7'] = phase7_time
+            # viz = AnalysisVisualizer(self.viz_dir)
+            # viz_files = viz.generate_all_visualizations(
+            #     user_intervals, statistics, top_users
+            # )
+            # self.logger.info(f"Generated {len(viz_files)} visualization files in {phase7_time:.2f}s")
 
             # Phase 8: Generate summary report
+            phase8_start = time.time()
             self.logger.info("Phase 8: Generating summary report...")
             summary = self._generate_summary_report(
                 statistics, csv_files, viz_files
             )
+            phase8_time = time.time() - phase8_start
+            phase_timings['phase8'] = phase8_time
 
-            self.logger.info("Report generation complete!")
+            # Phase 9: Generate comprehensive Markdown report
+            phase9_start = time.time()
+            self.logger.info("Phase 9: Generating comprehensive Markdown report...")
+            md_reporter = MarkdownReporter(self.output_dir)
+            md_report_path = md_reporter.generate_comprehensive_report(
+                raw_data, filtered_data, user_intervals,
+                statistics, top_users, csv_files, phase_timings
+            )
+            phase9_time = time.time() - phase9_start
+            phase_timings['phase9'] = phase9_time
+            self.logger.info(f"Generated Markdown report: {md_report_path} in {phase9_time:.2f}s")
+
+            total_time = time.time() - phase1_start
+            self.logger.info(f"Report generation complete! Total time: {total_time:.2f}s")
+            self.logger.info(f"Phase breakdown: "
+                           f"P1={phase1_time:.2f}s, P2={phase2_time:.2f}s, "
+                           f"P3={phase3_time:.2f}s, P4={phase4_time:.2f}s, "
+                           f"P5={phase5_time:.2f}s, P6={phase6_time:.2f}s, "
+                           f"P7={phase7_time:.2f}s, P8={phase8_time:.2f}s, "
+                           f"P9={phase9_time:.2f}s")
 
             return {
                 'status': 'success',
                 'csv_files': csv_files,
                 'visualizations': viz_files,
                 'summary': summary,
+                'markdown_report': md_report_path,
                 'output_directory': str(self.output_dir)
             }
 
@@ -202,35 +253,6 @@ class WeightLossReport:
 
         return df
 
-    def _get_filtered_data_from_db(self, raw_data: pd.DataFrame) -> pd.DataFrame:
-        """Get filtered (Kalman-processed) data from database"""
-        # Get unique users
-        users = raw_data['user_id'].unique()
-
-        filtered_records = []
-        for user_id in users:
-            # Get user's processed measurements from database
-            measurements = self.db.get_user_measurements(user_id)
-
-            for m in measurements:
-                # Only include measurements that weren't rejected
-                if not m.get('is_outlier', False):
-                    filtered_records.append({
-                        'user_id': user_id,
-                        'weight': m.get('filtered_weight', m['weight']),
-                        'timestamp': pd.to_datetime(m['timestamp']),
-                        'source': m['source'],
-                        'quality_score': m.get('quality_score', 0.5),
-                        'is_outlier': False
-                    })
-
-        if not filtered_records:
-            # If no database records, use raw data without outliers
-            self.logger.warning("No filtered data in database, using raw data")
-            return raw_data.copy()
-
-        filtered_df = pd.DataFrame(filtered_records)
-        return filtered_df.sort_values(['user_id', 'timestamp'])
 
     def _identify_top_divergent_users(self,
                                      user_intervals: Dict,
@@ -240,32 +262,64 @@ class WeightLossReport:
         divergence_scores = []
 
         for user_id, intervals in user_intervals.items():
-            if user_id not in statistics.get('user_statistics', {}):
-                continue
-
-            user_stats = statistics['user_statistics'][user_id]
-
-            # Calculate divergence score
+            # Calculate divergence score with more detailed metrics
             total_diff = 0
+            squared_diff = 0  # For RMS calculation
+            max_diff = 0
             valid_intervals = 0
+            raw_weights = []
+            filtered_weights = []
 
             for interval_data in intervals['intervals']:
                 if interval_data['raw_weight'] and interval_data['filtered_weight']:
-                    diff = abs(interval_data['raw_weight'] - interval_data['filtered_weight'])
-                    total_diff += diff
-                    valid_intervals += 1
+                    raw_w = interval_data['raw_weight']
+                    filt_w = interval_data['filtered_weight']
+                    diff = abs(raw_w - filt_w)
 
-            if valid_intervals > 0:
+                    total_diff += diff
+                    squared_diff += diff ** 2
+                    max_diff = max(max_diff, diff)
+                    valid_intervals += 1
+                    raw_weights.append(raw_w)
+                    filtered_weights.append(filt_w)
+
+            if valid_intervals >= 3:  # Need at least 3 intervals for meaningful comparison
                 avg_diff = total_diff / valid_intervals
+                rms_diff = (squared_diff / valid_intervals) ** 0.5
+
+                # Calculate trajectory difference (slope difference)
+                if len(raw_weights) >= 2:
+                    raw_trend = (raw_weights[-1] - raw_weights[0]) / len(raw_weights)
+                    filt_trend = (filtered_weights[-1] - filtered_weights[0]) / len(filtered_weights)
+                    trend_diff = abs(raw_trend - filt_trend)
+                else:
+                    trend_diff = 0
+
+                # Composite score: weighted average of different metrics
+                composite_score = (avg_diff * 0.5) + (rms_diff * 0.3) + (max_diff * 0.2)
+
                 divergence_scores.append({
                     'user_id': user_id,
-                    'divergence_score': avg_diff,
+                    'divergence_score': composite_score,  # Main sorting criterion
+                    'avg_diff': avg_diff,
+                    'rms_diff': rms_diff,
+                    'max_diff': max_diff,
                     'total_diff': total_diff,
+                    'trend_diff': trend_diff,
                     'num_intervals': valid_intervals
                 })
 
-        # Sort by divergence score and return top N
+        # Sort by composite divergence score and return top N
         divergence_scores.sort(key=lambda x: x['divergence_score'], reverse=True)
+
+        self.logger.info(f"Top divergent users analysis: {len(divergence_scores)} users with 3+ intervals")
+        if divergence_scores:
+            top_user = divergence_scores[0]
+            self.logger.info(f"Highest divergence: User {top_user['user_id'][:8]}... "
+                           f"Score={top_user['divergence_score']:.2f}, "
+                           f"Avg={top_user['avg_diff']:.2f}, "
+                           f"Max={top_user['max_diff']:.2f}")
+
         return divergence_scores[:top_n]
 
     def _generate_summary_report(self,
@@ -322,7 +376,7 @@ def main():
     )
     parser.add_argument(
         '--output-dir',
-        default='reports',
+        default='reports_analysis',
         help='Output directory for reports (default: reports)'
     )
     parser.add_argument(
@@ -334,14 +388,14 @@ def main():
     parser.add_argument(
         '--interval-days',
         type=int,
-        default=30,
-        help='Interval between measurements in days (default: 30)'
+        default=5,
+        help='Interval between measurements in days (default: 5)'
     )
     parser.add_argument(
         '--window-days',
-        type=int,
-        default=7,
-        help='Window tolerance for measurements in days (default: ±7)'
+        type=float,
+        default=2.5,
+        help='Window tolerance for measurements in days (default: ±2.5)'
     )
 
     # Parse arguments
@@ -370,8 +424,10 @@ def main():
     if result['status'] == 'success':
         print(f"\n✓ Report generated successfully!")
         print(f"  Output directory: {result['output_directory']}")
+        print(f"  Main report: {Path(result['markdown_report']).name}")
         print(f"  CSV files: {len(result['csv_files'])}")
         print(f"  Visualizations: {len(result['visualizations'])}")
+        print(f"\n📊 Open the Markdown report for detailed insights and analysis!")
     else:
         print(f"\n✗ Report generation failed: {result['error']}")
         sys.exit(1)

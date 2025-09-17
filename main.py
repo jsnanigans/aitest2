@@ -744,7 +744,7 @@ if __name__ == "__main__":
         config["data"]["csv_file"] = args.csv_file
     if args.output:
         config["data"]["output_dir"] = args.output
-    if args.max_users:
+    if args.max_users is not None:
         config["data"]["max_users"] = args.max_users
     if args.no_viz:
         config["visualization"]["enabled"] = False

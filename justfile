@@ -12,7 +12,7 @@ create-filtered:
   uv run python main.py data/2025-09-05_nocon.csv --max-users 0 --no-viz --filtered-output filtered.csv
 
 generate-report:
-  uv run python report.py data/2025-09-05_nocon.csv filtered.csv --top-n 200
+  uv run python report.py data/2025-09-05_nocon.csv filtered.csv --top-n 10
 
 # Run with a specific data file
 run-file file:
