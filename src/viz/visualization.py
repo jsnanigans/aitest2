@@ -4,9 +4,10 @@ Weight timeline visualization with quality insights and Kalman filter details.
 
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import numpy as np
+import csv
 
 try:
     import plotly.graph_objects as go
@@ -19,6 +20,38 @@ try:
     from ..constants import SOURCE_MARKER_SYMBOLS, REJECTION_SEVERITY_COLORS, get_rejection_severity
 except ImportError:
     from src.constants import SOURCE_MARKER_SYMBOLS, REJECTION_SEVERITY_COLORS, get_rejection_severity
+
+
+def load_user_employer_start_date(user_id: str, employer_file: str = "data/2025-09-17-user-employers.csv") -> Optional[datetime]:
+    """
+    Load the start date for a specific user from the employer CSV file.
+    
+    Args:
+        user_id: User identifier to look up
+        employer_file: Path to the employer CSV file
+        
+    Returns:
+        Start date as datetime if found, None otherwise
+    """
+    employer_path = Path(employer_file)
+    if not employer_path.exists():
+        return None
+    
+    try:
+        with open(employer_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['user_id'] == user_id:
+                    # Parse the start_date
+                    start_date_str = row['start_date']
+                    # Remove quotes if present
+                    start_date_str = start_date_str.strip('"')
+                    # Parse the datetime (format: "2025-09-12 14:38:30.911")
+                    return datetime.strptime(start_date_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        print(f"Warning: Could not load employer start date for user {user_id}: {e}")
+    
+    return None
 
 
 def create_weight_timeline(
@@ -187,6 +220,75 @@ def create_weight_timeline(
                 borderwidth=0.5,
                 align="center"
             )
+    
+    # Add employer start date vertical line if available
+    employer_start_date = load_user_employer_start_date(user_id)
+    if employer_start_date:
+        # Add vertical line shape that spans all subplots
+        fig.add_shape(
+            type="line",
+            x0=employer_start_date,
+            x1=employer_start_date,
+            y0=0,
+            y1=1,
+            yref="paper",
+            line=dict(
+                color='rgba(0, 128, 255, 0.5)',  # Semi-transparent blue
+                width=2,  # Slightly thicker line
+                dash="dashdot"  # Dash-dot line style
+            ),
+            layer="below"  # Place behind the data
+        )
+        
+        # Add annotation for employer start date
+        fig.add_annotation(
+            x=employer_start_date,
+            y=1.02,
+            yref="paper",
+            text="Start Date",
+            showarrow=False,
+            font=dict(size=10, color='rgba(0, 128, 255, 0.7)'),
+            bgcolor='rgba(255, 255, 255, 0.9)',
+            bordercolor='rgba(0, 128, 255, 0.5)',
+            borderwidth=1,
+            borderpad=2,
+            align="center"
+        )
+        
+        # Add 90-day mark after start date
+        from datetime import timedelta
+        ninety_day_mark = employer_start_date + timedelta(days=90)
+        
+        # Add vertical line for 90-day mark
+        fig.add_shape(
+            type="line",
+            x0=ninety_day_mark,
+            x1=ninety_day_mark,
+            y0=0,
+            y1=1,
+            yref="paper",
+            line=dict(
+                color='rgba(0, 200, 0, 0.5)',  # Semi-transparent green
+                width=2,  # Slightly thicker line
+                dash="dash"  # Dashed line style
+            ),
+            layer="below"  # Place behind the data
+        )
+        
+        # Add annotation for 90-day mark
+        fig.add_annotation(
+            x=ninety_day_mark,
+            y=1.02,
+            yref="paper",
+            text="90 Days",
+            showarrow=False,
+            font=dict(size=10, color='rgba(0, 200, 0, 0.7)'),
+            bgcolor='rgba(255, 255, 255, 0.9)',
+            bordercolor='rgba(0, 200, 0, 0.5)',
+            borderwidth=1,
+            borderpad=2,
+            align="center"
+        )
     
     # Add invisible traces for source type legend
     source_types = {

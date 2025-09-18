@@ -271,7 +271,7 @@ class PersistenceValidator:
             prev_val = previous_state.get(field)
 
             # Special handling for Kalman state (check for significant weight change)
-            if field == 'last_state' and current_val and prev_val:
+            if field == 'last_state' and current_val is not None and prev_val is not None:
                 try:
                     # Handle numpy arrays and lists
                     import numpy as np

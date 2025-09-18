@@ -195,9 +195,20 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     user_offset = config["data"].get("user_offset", 0)
     min_readings = config["data"].get("min_readings", 0)
 
-    # Load test users if specified
+    # Load test users if specified in config
+    test_users_config = config["data"].get("test_users", [])
     test_users_file = config["data"].get("test_users_file", "")
-    test_users = load_test_users(test_users_file) if test_users_file else []
+    
+    # Priority: test_users from config > test_users_file
+    if test_users_config:
+        test_users = test_users_config if isinstance(test_users_config, list) else [test_users_config]
+        print(f"Using test_users from config: {len(test_users)} users")
+    elif test_users_file:
+        test_users = load_test_users(test_users_file)
+        print(f"Using test_users from file: {len(test_users)} users")
+    else:
+        test_users = []
+    
     test_mode = bool(test_users)
 
     if test_mode:
@@ -431,9 +442,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                     # Check if buffer is ready for processing
                     if buffer_result.get('buffer_ready', False):
                         # Save state snapshot before buffer analysis
+                        # This snapshot allows replay to restore state to before the buffer window
                         db.save_state_snapshot(user_id, timestamp)
 
-                        # Process replayly in the background
+                        # Process replay in the background
                         # Note: In production, this might be async/queued
                         try:
                             _process_replay_buffer(

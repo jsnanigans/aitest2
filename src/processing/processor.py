@@ -257,6 +257,15 @@ def process_measurement(
                         user_id, "persist", state, True,
                         reason="outlier_rejection_accept", error=None
                     )
+                    
+                    # Save snapshot after reset for replay functionality
+                    if reset_occurred:
+                        try:
+                            db.save_state_snapshot(user_id, timestamp)
+                            logger.debug(f"Saved post-reset snapshot for user {user_id} at {timestamp}")
+                        except Exception as e:
+                            logger.warning(f"Failed to save post-reset snapshot for {user_id}: {e}")
+                            # Continue processing even if snapshot fails
                 else:
                     # Log why we're not persisting
                     PersistenceValidator.create_audit_log(
@@ -629,6 +638,15 @@ def process_measurement(
                     user_id, "persist", state, True,
                     reason="successful_processing", error=None
                 )
+                
+                # Save snapshot after reset for replay functionality
+                if reset_occurred:
+                    try:
+                        db.save_state_snapshot(user_id, timestamp)
+                        logger.debug(f"Saved post-reset snapshot for user {user_id} at {timestamp}")
+                    except Exception as e:
+                        logger.warning(f"Failed to save post-reset snapshot for {user_id}: {e}")
+                        # Continue processing even if snapshot fails
             else:
                 # Log why we're not persisting
                 PersistenceValidator.create_audit_log(
