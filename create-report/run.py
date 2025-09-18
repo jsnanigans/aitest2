@@ -6,6 +6,7 @@ Loads filtered users, matches with employer data, and retrieves corresponding ra
 
 import sys
 import argparse
+import csv
 from pathlib import Path
 import pandas as pd
 from typing import Dict, List, Tuple, Optional
@@ -674,11 +675,30 @@ def analyze_data_quality_improvements(user_data: Dict) -> Dict:
     trajectories_divergent = 0
     trajectory_details = []
 
+    # Also calculate raw data trajectory alignment for comparison
+    raw_trajectories_aligned = 0
+    raw_trajectories_total = 0
+
     for user_id, data in user_data.items():
         start_raw = data.get('closest_raw_weight')
         start_filtered = data.get('closest_filtered_weight')
         end_raw = data.get('latest_raw_weight')
         end_filtered = data.get('latest_filtered_weight')
+
+        # Calculate raw trajectory alignment (using first and last raw measurements)
+        raw_data = data.get('raw_data')
+        if raw_data is not None and not raw_data.empty and len(raw_data) > 1:
+            first_raw = raw_data.iloc[0]['weight']
+            last_raw = raw_data.iloc[-1]['weight']
+            raw_change = last_raw - first_raw
+
+            # Check against the computed change from start to end
+            if start_raw is not None and end_raw is not None:
+                expected_change = end_raw - start_raw
+                # Consider aligned if same direction and within 2kg difference
+                if (raw_change * expected_change) > 0 and abs(raw_change - expected_change) < 2.0:
+                    raw_trajectories_aligned += 1
+                raw_trajectories_total += 1
 
         if all(x is not None for x in [start_raw, start_filtered, end_raw, end_filtered]):
             change_raw = end_raw - start_raw
@@ -700,15 +720,21 @@ def analyze_data_quality_improvements(user_data: Dict) -> Dict:
                 'aligned': (change_raw * change_filtered) > 0
             })
 
+    raw_alignment_rate = 100 * raw_trajectories_aligned / raw_trajectories_total if raw_trajectories_total > 0 else 0
+
     quality_metrics['trajectory_analysis'] = {
         'trajectories_analyzed': len(trajectory_details),
         'trajectories_aligned': trajectories_aligned,
         'trajectories_divergent': trajectories_divergent,
-        'alignment_rate_pct': 100 * trajectories_aligned / len(trajectory_details) if trajectory_details else 0
+        'alignment_rate_pct': 100 * trajectories_aligned / len(trajectory_details) if trajectory_details else 0,
+        'raw_alignment_rate_pct': raw_alignment_rate,
+        'raw_trajectories_aligned': raw_trajectories_aligned,
+        'raw_trajectories_total': raw_trajectories_total
     }
 
     print(f"  Trajectories analyzed: {len(trajectory_details):,}")
-    print(f"  Aligned trajectories: {trajectories_aligned:,} ({100*trajectories_aligned/len(trajectory_details):.1f}%)" if trajectory_details else "  Aligned trajectories: N/A")
+    print(f"  Raw trajectory alignment: {raw_trajectories_aligned:,}/{raw_trajectories_total:,} ({raw_alignment_rate:.1f}%)")
+    print(f"  Filtered trajectory alignment: {trajectories_aligned:,} ({100*trajectories_aligned/len(trajectory_details):.1f}%)" if trajectory_details else "  Filtered trajectories: N/A")
     print(f"  Divergent trajectories: {trajectories_divergent:,}")
 
     # 5. Statistical Distribution Improvements
@@ -801,6 +827,37 @@ def analyze_data_quality_improvements(user_data: Dict) -> Dict:
         print("Fair (D)")
     else:
         print("Needs Improvement (F)")
+
+    # 7. Calculate users with most measurements removed
+    print("\n🗑️ USERS WITH MOST MEASUREMENTS REMOVED")
+    print("-" * 40)
+
+    removal_stats = []
+    for user_id, data in user_data.items():
+        raw_count = len(data['raw_data']) if data['raw_data'] is not None and not data['raw_data'].empty else 0
+        filtered_count = len(data['filtered_data']) if data['filtered_data'] is not None and not data['filtered_data'].empty else 0
+
+        if raw_count > 0:
+            removed_count = raw_count - filtered_count
+            removal_rate = 100 * removed_count / raw_count
+
+            removal_stats.append({
+                'user_id': user_id,
+                'raw_count': raw_count,
+                'filtered_count': filtered_count,
+                'removed_count': removed_count,
+                'removal_rate': removal_rate
+            })
+
+    # Sort by removed count and get top 10
+    removal_stats.sort(key=lambda x: x['removed_count'], reverse=True)
+    top_removals = removal_stats[:10]
+
+    quality_metrics['top_removals'] = top_removals
+
+    print("  Top 10 users by measurements removed:")
+    for i, stat in enumerate(top_removals, 1):
+        print(f"    {i}. User {stat['user_id'][:8]}...: {stat['removed_count']} removed ({stat['removal_rate']:.1f}%, {stat['raw_count']} → {stat['filtered_count']})")
 
     print("\n" + "="*60)
 
@@ -902,6 +959,73 @@ def find_latest_weight_values(user_data: Dict, reference_date: str = '2025-09-05
         print(f"    Within last 30 days: {sum(d <= 30 for d in filtered_days_since):,}")
 
     return user_data
+
+
+def export_filtered_users_csv(user_data: Dict, employer_filter: str = None) -> str:
+    """
+    Export a simple CSV with users who had readings filtered out.
+
+    Args:
+        user_data: Dictionary containing user analysis data
+        employer_filter: Optional employer name filter that was applied
+
+    Returns:
+        Path to the created CSV file
+    """
+    print("\n" + "="*60)
+    print("EXPORTING FILTERED USERS CSV")
+    print("="*60)
+
+    # Get timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    # Create output directory
+    output_dir = Path('report_output')
+    output_dir.mkdir(exist_ok=True)
+
+    # Create filename
+    prefix = f"{employer_filter}_" if employer_filter else ""
+    filename = f"filtered_users_{prefix}{timestamp}.csv"
+    filepath = output_dir / filename
+
+    # Collect data for users with filtered readings
+    filtered_users_data = []
+
+    for user_id, data in user_data.items():
+        raw_count = data.get('raw_count', 0)
+        filtered_count = data.get('filtered_count', 0)
+        removed_count = raw_count - filtered_count
+
+        # Only include users who had readings filtered out
+        if removed_count > 0:
+            filtered_users_data.append({
+                'user_id': user_id,
+                'removed_count': removed_count
+            })
+
+    # Sort by removed_count descending
+    filtered_users_data.sort(key=lambda x: x['removed_count'], reverse=True)
+
+    # Write to CSV
+    with open(filepath, 'w', newline='') as csvfile:
+        fieldnames = ['user_id', 'removed_count']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for row in filtered_users_data:
+            writer.writerow(row)
+
+    print(f"  Created: {filepath}")
+    print(f"  Total users with filtered readings: {len(filtered_users_data):,}")
+    if filtered_users_data:
+        total_removed = sum(row['removed_count'] for row in filtered_users_data)
+        avg_removed = total_removed / len(filtered_users_data)
+        max_removed = filtered_users_data[0]['removed_count']
+        print(f"  Total readings removed: {total_removed:,}")
+        print(f"  Average removed per user: {avg_removed:.1f}")
+        print(f"  Maximum removed for single user: {max_removed}")
+
+    return str(filepath)
 
 
 def export_weights_to_csv(user_data: Dict, employer_filter: str = None, quality_metrics: Dict = None) -> str:
@@ -1255,45 +1379,122 @@ def export_analysis_to_markdown(user_data: Dict, employer_filter: str = None, qu
 
     # Write markdown report
     with open(output_path, 'w') as f:
-        f.write("# Weight Analysis Report: Raw vs Filtered Comparison\n\n")
+        f.write("# 📊 DATA QUALITY IMPACT REPORT: Raw vs Filtered Analysis\n\n")
         f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         if employer_filter:
             f.write(f"**Employer Filter:** {employer_filter}\n")
         f.write("\n---\n\n")
 
-        # Executive Summary
-        f.write("## Executive Summary\n\n")
+        # Calculate key metrics upfront for the executive summary
         total_raw_measurements = sum(d['raw_count'] for d in user_data.values())
         total_filtered_measurements = sum(d['filtered_count'] for d in user_data.values())
         measurements_removed = total_raw_measurements - total_filtered_measurements
         removal_rate = 100 * measurements_removed / total_raw_measurements if total_raw_measurements > 0 else 0
 
-        f.write(f"- **Total Users:** {total_users:,}\n")
-        f.write(f"- **Raw Measurements:** {total_raw_measurements:,}\n")
-        f.write(f"- **Filtered Measurements:** {total_filtered_measurements:,}\n")
-        f.write(f"- **Measurements Removed:** {measurements_removed:,} ({removal_rate:.1f}%)\n")
-        f.write(f"- **Average Removal Rate per User:** {removal_rate:.1f}%\n\n")
+        # Calculate standard deviation changes
+        all_raw_weights = []
+        all_filtered_weights = []
+        for user_id, data in user_data.items():
+            if not data['raw_data'].empty:
+                all_raw_weights.extend(data['raw_data']['weight'].values)
+            if not data['filtered_data'].empty:
+                all_filtered_weights.extend(data['filtered_data']['weight'].values)
 
-        # Key Differences Section
+        raw_std = np.std(all_raw_weights) if all_raw_weights else 0
+        filtered_std = np.std(all_filtered_weights) if all_filtered_weights else 0
+        std_reduction = 100 * (raw_std - filtered_std) / raw_std if raw_std > 0 else 0
+
+        # Executive Summary with Key Improvements
+        f.write("## 🎯 EXECUTIVE SUMMARY: Data Quality Improvements\n\n")
+
+        f.write("### ✅ Key Quality Gains from Filtering:\n\n")
+        f.write(f"- **Total Measurements:** {total_raw_measurements:,} → {total_filtered_measurements:,} (-{removal_rate:.1f}%)\n")
+        f.write(f"- **Standard Deviation:** {raw_std:.2f} kg → {filtered_std:.2f} kg ({std_reduction:+.1f}%)\n")
+
+        # Add trajectory alignment if quality_metrics available
+        if quality_metrics and 'trajectory_analysis' in quality_metrics:
+            ta = quality_metrics['trajectory_analysis']
+            raw_alignment = ta.get('raw_alignment_rate_pct', 0)
+            filtered_alignment = ta.get('alignment_rate_pct', 0)
+            f.write(f"- **Trajectory Alignment:** {raw_alignment:.1f}% → {filtered_alignment:.1f}% aligned\n")
+
+        f.write("\n")
+
+        # Quick wins section
+        f.write("### 🏆 Data Quality Wins:\n")
+        f.write(f"- **{std_reduction:.1f}% reduction** in measurement variance (noise)\n")
+        f.write(f"- **Only {removal_rate:.1f}%** of data removed (minimal loss)\n")
+
+        # Add consistency improvements if available
+        if quality_metrics and 'consistency_improvements' in quality_metrics:
+            ci = quality_metrics['consistency_improvements']
+            if ci.get('implausible_reduction_pct', 0) > 0:
+                f.write(f"- **{ci.get('implausible_reduction_pct', 0):.1f}% fewer** physiologically implausible changes\n")
+
+        f.write("\n")
+
+        # User impact summary
+        f.write(f"### 👥 User Impact:\n")
+        f.write(f"- **Total Users Analyzed:** {total_users:,}\n")
+        f.write(f"- **Avg measurements per user:** {total_raw_measurements/total_users:.0f} → {total_filtered_measurements/total_users:.0f}\n")
+        f.write(f"- **Data retention rate:** {100-removal_rate:.1f}% (excellent)\n\n")
+
+        # Key Differences Section with enhanced visual indicators
         f.write("## 🔍 Key Differences: Raw vs Filtered\n\n")
 
-        if weight_differences:
-            f.write("### Weight Value Differences at Start\n\n")
-            abs_diffs = [abs(d) for d in weight_differences]
-            f.write(f"- **Users with Both Measurements:** {len(weight_differences):,}\n")
-            f.write(f"- **Average Difference:** {np.mean(weight_differences):.2f} kg\n")
-            f.write(f"- **Median Difference:** {np.median(weight_differences):.2f} kg\n")
-            f.write(f"- **Average Absolute Difference:** {np.mean(abs_diffs):.2f} kg\n")
-            f.write(f"- **Max Absolute Difference:** {np.max(abs_diffs):.2f} kg\n")
+        # Add quality analysis visual box if available
+        if quality_metrics:
+            f.write("### 📊 Data Quality Transformation\n\n")
+            noise_reduction = quality_metrics.get('noise_reduction', {}).get('variance_reduction_pct', 0)
+            outlier_rate = quality_metrics.get('outlier_removal', {}).get('removal_rate_pct', 0)
+            consistency_imp = quality_metrics.get('consistency_improvements', {}).get('consistency_improvement_pct', 0)
+            trajectory_align = quality_metrics.get('trajectory_analysis', {}).get('alignment_rate_pct', 0)
+            raw_trajectory_align = quality_metrics.get('trajectory_analysis', {}).get('raw_alignment_rate_pct', 0)
 
-            # Count significant differences
+            # Noise Reduction with indicator
+            noise_indicator = "🟢" if noise_reduction > 30 else "🟡" if noise_reduction > 15 else "🔴"
+            f.write(f"- {noise_indicator} **Noise Reduction:** {noise_reduction:.1f}% less variance\n")
+
+            # Outlier Removal with indicator
+            outlier_indicator = "✅" if outlier_rate < 10 else "⚠️" if outlier_rate < 20 else "❌"
+            f.write(f"- {outlier_indicator} **Outliers Removed:** {outlier_rate:.1f}% of measurements\n")
+
+            # Consistency with indicator
+            consistency_indicator = "🟢" if consistency_imp > 40 else "🟡" if consistency_imp > 20 else "🔴"
+            f.write(f"- {consistency_indicator} **Daily Consistency:** {consistency_imp:.1f}% improvement\n")
+
+            # Trajectory Alignment with indicator showing before and after
+            trajectory_indicator = "✅" if trajectory_align > 80 else "⚠️" if trajectory_align > 60 else "❌"
+            f.write(f"- {trajectory_indicator} **Trajectory Alignment:** {raw_trajectory_align:.1f}% → {trajectory_align:.1f}% users aligned\n\n")
+
+        if weight_differences:
+            f.write("### 📐 Weight Value Differences at Start\n\n")
+            abs_diffs = [abs(d) for d in weight_differences]
+
+            avg_diff = np.mean(weight_differences)
+            median_diff = np.median(weight_differences)
+            avg_abs_diff = np.mean(abs_diffs)
+            max_abs_diff = np.max(abs_diffs)
+
+            f.write(f"**Start Weight Comparison ({len(weight_differences):,} users):**\n\n")
+            f.write(f"- **Average Difference:** {avg_diff:+.2f} kg\n")
+            f.write(f"- **Median Difference:** {median_diff:+.2f} kg\n")
+            f.write(f"- **Avg Absolute Diff:** {avg_abs_diff:.2f} kg\n")
+            f.write(f"- **Max Absolute Diff:** {max_abs_diff:.2f} kg\n\n")
+
+            # Count significant differences with visual indicators
             sig_diffs = sum(1 for d in abs_diffs if d > 0.5)  # ~1 lb in kg
             large_diffs = sum(1 for d in abs_diffs if d > 2.3)  # ~5 kg in kg
-            f.write(f"- **Differences > 0.5 kg:** {sig_diffs:,} ({100*sig_diffs/len(weight_differences):.1f}%)\n")
-            f.write(f"- **Differences > 2.3 kg:** {large_diffs:,} ({100*large_diffs/len(weight_differences):.1f}%)\n\n")
+
+            f.write("**Difference Distribution:**\n")
+            sig_pct = 100*sig_diffs/len(weight_differences)
+            large_pct = 100*large_diffs/len(weight_differences)
+
+            f.write(f"- **Differences > 0.5 kg:** {sig_diffs:,} ({sig_pct:.1f}%)\n")
+            f.write(f"- **Differences > 2.3 kg:** {large_diffs:,} ({large_pct:.1f}%)\n\n")
 
         # Weight Loss/Gain Analysis
-        f.write("### 🏋️ Weight Loss Analysis\n\n")
+        f.write("## 🏋️ Weight Loss Analysis\n\n")
 
         # Calculate average weights and weight changes
         avg_start_raw = []
@@ -1345,10 +1546,10 @@ def export_analysis_to_markdown(user_data: Dict, employer_filter: str = None, qu
                 loss_latest_filtered = data['closest_filtered_weight'] - data['latest_filtered_weight']
                 weight_loss_latest_filtered.append(loss_latest_filtered)
 
-        # Weight Averages Table
-        f.write("#### Average Weights at Key Points\n\n")
+        # Weight Averages Table with enhanced formatting
+        f.write("### 📈 Average Weights at Key Points\n\n")
         f.write("| Time Point | Raw Data (kg) | Filtered Data (kg) | Difference | N (Raw) | N (Filtered) |\n")
-        f.write("|------------|----------------|---------------------|------------|---------|--------------|\n")
+        f.write("|:-----------|:--------------:|:-------------------:|:----------:|:-------:|:------------:|\n")
 
         if avg_start_raw and avg_start_filtered:
             raw_start = np.mean(avg_start_raw)
@@ -1377,9 +1578,9 @@ def export_analysis_to_markdown(user_data: Dict, employer_filter: str = None, qu
         f.write("\n*Values shown as mean ± standard deviation*\n\n")
 
         # Weight Loss Comparison Table
-        f.write("#### Average Weight Loss Outcomes\n\n")
+        f.write("### 💪 Average Weight Loss Outcomes\n\n")
         f.write("| Period | Raw Data (kg) | Filtered Data (kg) | Difference | Better Outcome |\n")
-        f.write("|--------|----------------|---------------------|------------|----------------|\n")
+        f.write("|:-------|:--------------:|:-------------------:|:----------:|:--------------:|\n")
 
         if weight_loss_90d_raw and weight_loss_90d_filtered:
             raw_loss_90d = np.mean(weight_loss_90d_raw)
@@ -1539,6 +1740,18 @@ def export_analysis_to_markdown(user_data: Dict, employer_filter: str = None, qu
 
         # Top Differences
         if users_with_differences:
+            # Add section for users with most measurements removed
+            if quality_metrics and 'top_removals' in quality_metrics:
+                f.write("## 🗑️ Users with Most Measurements Removed\n\n")
+                f.write("These users had the highest number of outlier measurements filtered out:\n\n")
+                f.write("| Rank | User ID | Measurements Removed | Removal Rate | Raw Count | Filtered Count |\n")
+                f.write("|:----:|:--------|:-------------------:|:------------:|:---------:|:--------------:|\n")
+
+                for i, stat in enumerate(quality_metrics['top_removals'], 1):
+                    user_id_short = stat['user_id'][:8] + "..."
+                    f.write(f"| {i} | {user_id_short} | {stat['removed_count']} | {stat['removal_rate']:.1f}% | {stat['raw_count']} | {stat['filtered_count']} |\n")
+                f.write("\n")
+
             f.write("## 📈 Largest Weight Differences\n\n")
             # Sort by absolute difference
             sorted_diffs = sorted(users_with_differences, key=lambda x: abs(x['difference']), reverse=True)[:10]
@@ -1692,6 +1905,176 @@ def export_analysis_to_markdown(user_data: Dict, employer_filter: str = None, qu
     return str(output_path)
 
 
+def create_trust_reliability_analysis(user_data: Dict, viz_dir: Path, timestamp: str, employer_filter: str = None) -> Optional[str]:
+    """
+    Create visualization focused on trust and reliability of weight trends per user.
+    Analyzes how filtering affects individual user weight trajectories.
+    """
+    print("  📊 Creating trust/reliability analysis...")
+
+    # Prepare data for analysis
+    trust_data = []
+
+    for user_id, data in user_data.items():
+        if data['raw_count'] < 10 or data['filtered_count'] < 5:
+            continue  # Skip users with insufficient data
+
+        # Calculate trust metrics
+        removal_rate = (data['raw_count'] - data['filtered_count']) / data['raw_count']
+
+        # Calculate weight change consistency
+        raw_change = None
+        filtered_change = None
+
+        if data.get('closest_raw_weight') and data.get('latest_raw_weight'):
+            raw_change = data['latest_raw_weight'] - data['closest_raw_weight']
+
+        if data.get('closest_filtered_weight') and data.get('latest_filtered_weight'):
+            filtered_change = data['latest_filtered_weight'] - data['closest_filtered_weight']
+
+        # Check if trends align
+        trend_aligned = False
+        if raw_change is not None and filtered_change is not None:
+            trend_aligned = (raw_change * filtered_change > 0)  # Same direction
+
+        trust_data.append({
+            'user_id': user_id[:8],
+            'removal_rate': removal_rate,
+            'raw_measurements': data['raw_count'],
+            'filtered_measurements': data['filtered_count'],
+            'raw_change': raw_change,
+            'filtered_change': filtered_change,
+            'trend_aligned': trend_aligned,
+            'change_difference': abs(filtered_change - raw_change) if raw_change is not None and filtered_change is not None else None
+        })
+
+    if not trust_data:
+        print("    ⚠️ Insufficient data for trust analysis")
+        return None
+
+    # Create visualization
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    fig.suptitle(f'Weight Trend Trust & Reliability Analysis{" - " + employer_filter if employer_filter else ""}', fontsize=16, fontweight='bold')
+
+    # 1. Removal Rate Distribution
+    removal_rates = [d['removal_rate'] for d in trust_data]
+    axes[0, 0].hist(removal_rates, bins=30, color='coral', edgecolor='black', alpha=0.7)
+    axes[0, 0].axvline(np.mean(removal_rates), color='red', linestyle='--', label=f'Mean: {np.mean(removal_rates):.1%}')
+    axes[0, 0].set_xlabel('Measurement Removal Rate')
+    axes[0, 0].set_ylabel('Number of Users')
+    axes[0, 0].set_title('Data Filtering Impact per User')
+    axes[0, 0].legend()
+    axes[0, 0].grid(True, alpha=0.3)
+
+    # 2. Trend Alignment
+    aligned = sum(1 for d in trust_data if d['trend_aligned'])
+    not_aligned = len(trust_data) - aligned
+
+    axes[0, 1].pie([aligned, not_aligned],
+                   labels=['Trends Aligned', 'Trends Divergent'],
+                   colors=['green', 'red'],
+                   autopct='%1.1f%%',
+                   startangle=90)
+    axes[0, 1].set_title(f'Weight Trend Direction Agreement\\n(Raw vs Filtered)')
+
+    # 3. Change Magnitude Comparison
+    raw_changes = [d['raw_change'] for d in trust_data if d['raw_change'] is not None]
+    filtered_changes = [d['filtered_change'] for d in trust_data if d['filtered_change'] is not None]
+
+    if raw_changes and filtered_changes:
+        axes[0, 2].scatter(raw_changes, filtered_changes, alpha=0.5, s=20)
+
+        # Add diagonal line for perfect agreement
+        min_val = min(min(raw_changes), min(filtered_changes))
+        max_val = max(max(raw_changes), max(filtered_changes))
+        axes[0, 2].plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.5, label='Perfect Agreement')
+
+        # Add correlation
+        if len(raw_changes) > 1:
+            correlation = np.corrcoef(raw_changes[:len(filtered_changes)], filtered_changes[:len(raw_changes)])[0, 1]
+            axes[0, 2].text(0.05, 0.95, f'Correlation: {correlation:.3f}',
+                          transform=axes[0, 2].transAxes, verticalalignment='top')
+
+        axes[0, 2].set_xlabel('Raw Weight Change (kg)')
+        axes[0, 2].set_ylabel('Filtered Weight Change (kg)')
+        axes[0, 2].set_title('Weight Change Agreement')
+        axes[0, 2].grid(True, alpha=0.3)
+        axes[0, 2].legend()
+
+    # 4. Trust Score Distribution
+    # Calculate trust scores based on multiple factors
+    trust_scores = []
+    for d in trust_data:
+        score = 100
+        # Penalize high removal rates
+        score -= min(d['removal_rate'] * 50, 30)
+        # Penalize trend divergence
+        if not d['trend_aligned']:
+            score -= 20
+        # Penalize large change differences
+        if d['change_difference'] is not None:
+            score -= min(d['change_difference'] * 2, 20)
+        trust_scores.append(max(score, 0))
+
+    axes[1, 0].hist(trust_scores, bins=20, color='steelblue', edgecolor='black', alpha=0.7)
+    axes[1, 0].axvline(np.mean(trust_scores), color='blue', linestyle='--', label=f'Mean: {np.mean(trust_scores):.1f}')
+    axes[1, 0].set_xlabel('Trust Score (0-100)')
+    axes[1, 0].set_ylabel('Number of Users')
+    axes[1, 0].set_title('Data Reliability Score Distribution')
+    axes[1, 0].legend()
+    axes[1, 0].grid(True, alpha=0.3)
+
+    # 5. Measurement Count vs Trust
+    axes[1, 1].scatter([d['raw_measurements'] for d in trust_data],
+                      trust_scores,
+                      alpha=0.5, s=20, c=removal_rates, cmap='RdYlGn_r')
+    axes[1, 1].set_xlabel('Total Raw Measurements')
+    axes[1, 1].set_ylabel('Trust Score')
+    axes[1, 1].set_title('Data Volume vs Reliability')
+    axes[1, 1].grid(True, alpha=0.3)
+    cbar = plt.colorbar(axes[1, 1].collections[0], ax=axes[1, 1])
+    cbar.set_label('Removal Rate', rotation=270, labelpad=15)
+
+    # 6. Summary Statistics
+    axes[1, 2].axis('off')
+
+    correlation = np.corrcoef(raw_changes[:len(filtered_changes)], filtered_changes[:len(raw_changes)])[0, 1] if (raw_changes and filtered_changes and len(raw_changes) > 1) else 0
+
+    summary_text = f"""Trust & Reliability Summary
+
+Total Users Analyzed: {len(trust_data):,}
+
+Trend Agreement:
+  • Aligned: {aligned:,} ({100*aligned/len(trust_data):.1f}%)
+  • Divergent: {not_aligned:,} ({100*not_aligned/len(trust_data):.1f}%)
+
+Trust Scores:
+  • Mean: {np.mean(trust_scores):.1f}
+  • Median: {np.median(trust_scores):.1f}
+  • High (>80): {sum(1 for s in trust_scores if s > 80):,}
+  • Low (<50): {sum(1 for s in trust_scores if s < 50):,}
+
+Data Filtering:
+  • Avg Removal: {np.mean(removal_rates):.1%}
+  • Max Removal: {max(removal_rates):.1%}
+
+Weight Change Correlation: {correlation:.3f}
+"""
+    axes[1, 2].text(0.1, 0.9, summary_text, transform=axes[1, 2].transAxes,
+                   fontsize=11, verticalalignment='top', fontfamily='monospace')
+
+    plt.tight_layout()
+
+    # Save figure
+    filename = f"trust_reliability_{employer_filter if employer_filter else 'all'}_{timestamp}.png"
+    filepath = viz_dir / filename
+    plt.savefig(filepath, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    print(f"    ✓ Saved trust/reliability analysis to {filename}")
+    return str(filepath)
+
+
 def create_visualizations(user_data: Dict, quality_metrics: Dict, employer_filter: str = None) -> List[str]:
     """
     Create comprehensive visualizations comparing raw vs filtered weight data.
@@ -1746,21 +2129,27 @@ def create_visualizations(user_data: Dict, quality_metrics: Dict, employer_filte
     if trajectory_file:
         created_files.append(trajectory_file)
 
-    # 6. Quality Score Heatmap
+    # 6. Trust & Reliability Analysis (NEW)
+    print("🔒 Creating trust/reliability analysis...")
+    trust_file = create_trust_reliability_analysis(user_data, viz_dir, timestamp, employer_filter)
+    if trust_file:
+        created_files.append(trust_file)
+
+    # 7. Quality Score Heatmap
     print("🌡️ Creating quality score heatmap...")
     heatmap_file = create_quality_heatmap(user_data, viz_dir, timestamp, employer_filter)
     if heatmap_file:
         created_files.append(heatmap_file)
 
-    # 7. Statistical Distribution Overlay
+    # 8. Statistical Distribution Overlay
     print("📊 Creating statistical distribution overlay...")
     dist_file = create_distribution_overlay(user_data, viz_dir, timestamp, employer_filter)
     if dist_file:
         created_files.append(dist_file)
 
-    # 8. Create summary dashboard (HTML with all Plotly charts)
+    # 9. Create summary dashboard (HTML with all Plotly charts - limited data for performance)
     if PLOTLY_AVAILABLE:
-        print("🎯 Creating interactive dashboard...")
+        print("🎯 Creating interactive dashboard (optimized)...")
         dashboard_file = create_interactive_dashboard(user_data, quality_metrics, viz_dir, timestamp, employer_filter)
         if dashboard_file:
             created_files.append(dashboard_file)
@@ -2671,7 +3060,7 @@ def create_interactive_dashboard(user_data: Dict, quality_metrics: Dict, viz_dir
             row=1, col=2
         )
 
-    # 3. Outlier Detection Scatter
+    # 3. Outlier Detection Scatter (sample for performance)
     all_raw_weights = []
     all_filtered_weights = []
     for user_id, data in user_data.items():
@@ -2682,12 +3071,19 @@ def create_interactive_dashboard(user_data: Dict, quality_metrics: Dict, viz_dir
 
     removed_count = len(all_raw_weights) - len(all_filtered_weights)
 
+    # Sample data if too large (max 1000 points for visualization)
+    if len(all_raw_weights) > 1000:
+        sample_indices = np.random.choice(len(all_raw_weights), 1000, replace=False)
+        sampled_raw_weights = [all_raw_weights[i] for i in sample_indices]
+    else:
+        sampled_raw_weights = all_raw_weights
+
     fig.add_trace(
         go.Scatter(
-            x=np.random.randn(len(all_raw_weights)),
-            y=all_raw_weights,
+            x=np.random.randn(len(sampled_raw_weights)),
+            y=sampled_raw_weights,
             mode='markers',
-            name='Raw Data',
+            name=f'Raw Data (n={len(all_raw_weights):,})',
             marker=dict(size=3, color='lightcoral', opacity=0.5)
         ),
         row=2, col=1
@@ -2850,13 +3246,16 @@ def main():
         # Step 11: Analyze data quality improvements
         quality_metrics = analyze_data_quality_improvements(user_data)
 
-        # Step 12: Export weight data to CSV (now includes quality metrics)
+        # Step 12: Export filtered users CSV
+        filtered_users_csv = export_filtered_users_csv(user_data, args.employer)
+
+        # Step 13: Export weight data to CSV (now includes quality metrics)
         csv_path = export_weights_to_csv(user_data, args.employer, quality_metrics)
 
-        # Step 13: Export analysis to markdown (now includes quality metrics)
+        # Step 14: Export analysis to markdown (now includes quality metrics)
         report_path = export_analysis_to_markdown(user_data, args.employer, quality_metrics)
 
-        # Step 14: Generate visualizations if requested
+        # Step 15: Generate visualizations if requested
         if args.visualize:
             visualization_files = create_visualizations(user_data, quality_metrics, args.employer)
             print(f"\nVisualization files created:")
