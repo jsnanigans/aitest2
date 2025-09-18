@@ -341,12 +341,30 @@ class ProcessingPipeline:
         trigger_reason = None
 
         if trigger_mode == 'time_based':
-            if buffer.should_trigger(user_id):
-                should_trigger = True
-                trigger_reason = 'time_threshold'
+            # Check if buffer is ready (has enough measurements or time has passed)
+            buffer_info = buffer.get_buffer_info(user_id)
+            if buffer_info and buffer_info.get('measurement_count', 0) > 0:
+                # Trigger if we have measurements and time window has passed
+                # or if we have many measurements
+                measurements = buffer.get_buffer_measurements(user_id)
+                if measurements and len(measurements) > 0:
+                    try:
+                        # Ensure measurements are dictionaries with timestamp field
+                        if all(isinstance(m, dict) and 'timestamp' in m for m in measurements):
+                            first_time = min(m['timestamp'] for m in measurements)
+                            last_time = max(m['timestamp'] for m in measurements)
+                            time_diff = (last_time - first_time).total_seconds() / 3600
+                            
+                            buffer_hours = self.replay_components['config'].get('buffer_hours', 24)
+                            if time_diff >= buffer_hours or len(measurements) >= 10:
+                                should_trigger = True
+                                trigger_reason = f'time_threshold ({time_diff:.1f} hours)'
+                    except (TypeError, AttributeError) as e:
+                        self.logger.debug(f"Could not calculate time diff for replay trigger: {e}")
         elif trigger_mode == 'count_based':
             count_threshold = self.replay_components['config'].get('count_threshold', 10)
-            if len(buffer.get_measurements(user_id)) >= count_threshold:
+            measurements = buffer.get_buffer_measurements(user_id)
+            if measurements and len(measurements) >= count_threshold:
                 should_trigger = True
                 trigger_reason = f'count_threshold ({count_threshold})'
 
@@ -365,22 +383,34 @@ class ProcessingPipeline:
         replay_manager = self.replay_components['replay_manager']
 
         # Get buffered measurements
-        measurements = buffer.get_measurements(user_id)
+        measurements = buffer.get_buffer_measurements(user_id)
         if not measurements:
             return
 
-        # Run outlier detection
-        outliers = outlier_detector.detect_outliers(user_id, measurements)
+        # Run outlier detection (returns indices)
+        outlier_indices = outlier_detector.detect_outliers(measurements, user_id)
 
-        # Apply safety checks
-        safe_to_process = replay_manager.validate_replay(user_id, measurements, outliers)
-
-        if safe_to_process:
-            # Process replay
-            replay_manager.process_replay(user_id, measurements, outliers)
+        # Filter out outliers to get clean measurements
+        clean_measurements = [m for i, m in enumerate(measurements) if i not in outlier_indices]
+        
+        if clean_measurements:
+            # Get buffer start time from first measurement
+            buffer_start_time = min(m['timestamp'] for m in measurements)
+            
+            # Process replay with clean measurements
+            result = replay_manager.replay_clean_measurements(
+                user_id=user_id,
+                clean_measurements=clean_measurements,
+                buffer_start_time=buffer_start_time
+            )
+            
+            if result['success']:
+                self.logger.info(f"Replay successful for {user_id}: {result.get('measurements_replayed', 0)} measurements processed")
+            else:
+                self.logger.error(f"Replay failed for {user_id}: {result.get('error', 'Unknown error')}")
 
         # Clear buffer after processing
-        buffer.clear_user(user_id)
+        buffer.clear_buffer(user_id)
 
     def _create_output_row(self,
                          original_row: Dict,

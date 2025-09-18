@@ -9,7 +9,7 @@ profile = "custom"
 
 # Data source settings
 [data]
-csv_file = "./data/2025-09-05_all.csv"
+csv_file = "./data/2025-09-05_nocon.csv"
 output_dir = "output"
 max_users = 100
 user_offset = 0
@@ -57,7 +57,7 @@ description = "Custom profile - modify settings as needed"
 filtering_strength = "strict"           # How aggressively to filter outliers
 adaptation_speed = "moderate"               # How quickly to accept new weight ranges
 trust_manual_entries = "high"           # Trust level for user-reported weights
-gap_sensitivity = "moderate"               # How sensitive to data gaps
+gap_sensitivity = "low"               # How sensitive to data gaps
 quality_threshold = 0.59                # Minimum quality score to accept (70%)
 # Reset behavior
 reset_on_gaps = "moderate"          # Reset after shorter gaps (21 days)
@@ -138,7 +138,7 @@ iglucose-com = 3.0
 
 [replay]
 enabled = true  # Enable replay buffer and processing
-buffer_hours = 1
+buffer_hours = 48  # Increased from 1 to capture more measurements for better outlier detection
 trigger_mode = "time_based"
 max_buffer_measurements = 100
 state_history_limit = 100

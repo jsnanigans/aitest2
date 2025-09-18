@@ -234,6 +234,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
         "accepted": 0,
         "rejected": 0,
         "date_filtered": 0,
+        "unit_rejected": 0,
+        "rejected_units": {},  # Track which units were rejected and how often
         "start_time": datetime.now(),
     }
 
@@ -361,10 +363,23 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             # Parse metadata
             date_str = row.get("effectiveDateTime")
             source = row.get("source_type") or row.get("source", "unknown")
-            unit = (row.get("unit") or "kg").lower().strip()
+            unit = row.get("unit", "").strip()  # NO DEFAULT - must be explicit
 
             # Skip BSA measurements
             if 'BSA' in source.upper() or 'm2' in unit or 'm²' in unit:
+                continue
+            
+            # Early unit validation - check against whitelist
+            from src.constants import SUPPORTED_WEIGHT_UNITS
+            if not unit:
+                stats["unit_rejected"] += 1
+                stats["rejected_units"]["<missing>"] = stats["rejected_units"].get("<missing>", 0) + 1
+                continue
+            
+            unit_lower = unit.lower().strip()
+            if unit_lower not in SUPPORTED_WEIGHT_UNITS:
+                stats["unit_rejected"] += 1
+                stats["rejected_units"][unit] = stats["rejected_units"].get(unit, 0) + 1
                 continue
 
             # Parse timestamp
@@ -488,6 +503,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     print(f"  Users processed: {len(processed_users):,}")
     if stats["date_filtered"] > 0:
         print(f"  Measurements filtered by date: {stats['date_filtered']:,}")
+    if stats.get("unit_rejected", 0) > 0:
+        print(f"  Measurements rejected for unsupported units: {stats['unit_rejected']:,}")
     print(f"  Measurements accepted: {stats['accepted']:,}")
     print(f"  Measurements rejected: {stats['rejected']:,}")
     print(f"  Time: {elapsed:.1f}s ({stats['total_rows']/elapsed:.0f} rows/sec)")
@@ -495,6 +512,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     if stats["accepted"] + stats["rejected"] > 0:
         acceptance_rate = stats['accepted'] / (stats['accepted'] + stats['rejected'])
         print(f"  Acceptance rate: {acceptance_rate:.1%}")
+    
+    # Report rejected units
+    if stats.get("rejected_units"):
+        print(f"\nRejected Units Summary:")
+        for unit, count in sorted(stats["rejected_units"].items(), key=lambda x: x[1], reverse=True)[:10]:
+            print(f"  '{unit}': {count:,} measurements")
 
     # Replay processing statistics
     if replay_enabled and stats.get("replay_processed", 0) > 0:

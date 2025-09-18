@@ -20,7 +20,7 @@ class ConfigLoader:
 
     ADAPTATION_SPEED_MAP = {
         "slow": {"initial_adapt": 20, "hard_adapt": 15, "soft_adapt": 20, "decay_rate": 4.0},
-        "moderate": {"initial_adapt": 10, "hard_adapt": 10, "soft_adapt": 15, "decay_rate": 2.5},
+        "moderate": {"initial_adapt": 10, "hard_adapt": 15, "soft_adapt": 15, "decay_rate": 2.5},
         "fast": {"initial_adapt": 5, "hard_adapt": 5, "soft_adapt": 10, "decay_rate": 1.0}
     }
 

@@ -652,7 +652,8 @@ class DataQualityPreprocessor:
     @staticmethod
     def preprocess(weight: float, source: str, timestamp: datetime, user_id: Optional[str] = None, unit: str = 'kg') -> Tuple[Optional[float], Dict]:
         """
-        Clean and standardize weight data with BMI detection.
+        Clean and standardize weight data with STRICT unit validation.
+        NO BMI detection, NO unit assumptions.
         
         Args:
             weight: The weight value
@@ -664,6 +665,8 @@ class DataQualityPreprocessor:
         Returns:
             (cleaned_weight, metadata) or (None, metadata) if rejected
         """
+        from ..constants import SUPPORTED_WEIGHT_UNITS
+        
         metadata = {
             'original_weight': weight,
             'original_unit': unit,
@@ -674,9 +677,19 @@ class DataQualityPreprocessor:
             'checks_passed': []
         }
         
-        user_height = DataQualityPreprocessor.get_user_height(user_id) if user_id else DataQualityPreprocessor.DEFAULT_HEIGHT_M
+        # STRICT UNIT VALIDATION - reject if not in whitelist
+        if not unit:
+            metadata['rejected'] = 'Missing unit - cannot process without explicit unit'
+            return None, metadata
+            
+        unit_lower = unit.lower().strip()
         
-        unit_lower = unit.lower() if unit else 'kg'
+        # Check against whitelist
+        if unit_lower not in SUPPORTED_WEIGHT_UNITS:
+            metadata['rejected'] = f'Unsupported unit: {unit} - only {SUPPORTED_WEIGHT_UNITS} are supported'
+            return None, metadata
+        
+        # Perform conversions for supported units
         if unit_lower in ['lb', 'lbs', 'pound', 'pounds']:
             weight_kg = weight * 0.453592
             metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
@@ -685,49 +698,39 @@ class DataQualityPreprocessor:
             weight_kg = weight * 6.35029
             metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
             weight = weight_kg
-        elif unit_lower not in ['kg', 'kilogram', 'kilograms']:
-            metadata['warnings'].append(f'Unknown unit: {unit}')
+        elif unit_lower in ['g', 'gram', 'grams']:
+            weight_kg = weight / 1000.0
+            metadata['corrections'].append(f'Converted {weight:.1f} {unit} to {weight_kg:.1f} kg')
+            weight = weight_kg
+        # else: already in kg/kilogram/kilograms - no conversion needed
         
-        if unit_lower in ['kg', 'kilogram', 'kilograms'] and 15 <= weight <= 50:
-            implied_weight = weight * (user_height ** 2)
-            
-            if 40 <= implied_weight <= 200:
-                metadata['warnings'].append(
-                    f'Value {weight:.1f} likely BMI (implies {implied_weight:.1f}kg weight for height {user_height:.2f}m)'
-                )
-                metadata['corrections'].append(f'Converted BMI {weight:.1f} to weight {implied_weight:.1f}kg')
-                weight = implied_weight
-            elif 30 <= implied_weight <= 250:
-                if 'connectivehealth' in source.lower():
-                    metadata['warnings'].append(f'Value {weight:.1f} appears to be BMI from {source}')
-                    metadata['corrections'].append(f'Converted BMI {weight:.1f} to weight {implied_weight:.1f}kg')
-                    weight = implied_weight
-                else:
-                    metadata['warnings'].append(f'Value {weight:.1f} might be BMI')
-        
+        # BMI validation (for rejection only, NO conversion)
+        user_height = DataQualityPreprocessor.get_user_height(user_id) if user_id else DataQualityPreprocessor.DEFAULT_HEIGHT_M
         implied_bmi = weight / (user_height ** 2)
         
+        # Reject physiologically impossible BMI values
         if implied_bmi < BMI_LIMITS['IMPOSSIBLE_LOW']:
-            metadata['warnings'].append(
-                f'Implied BMI {implied_bmi:.1f} physiologically impossible (height: {user_height:.2f}m)'
-            )
-            metadata['rejected'] = f'BMI {implied_bmi:.1f} outside physiological limits'
+            metadata['rejected'] = f'Implied BMI {implied_bmi:.1f} physiologically impossible (weight: {weight:.1f}kg, height: {user_height:.2f}m)'
             return None, metadata
         
         if implied_bmi > BMI_LIMITS['IMPOSSIBLE_HIGH']:
-            metadata['rejected'] = f'Implied BMI {implied_bmi:.1f} physiologically impossible'
+            metadata['rejected'] = f'Implied BMI {implied_bmi:.1f} physiologically impossible (weight: {weight:.1f}kg, height: {user_height:.2f}m)'
             return None, metadata
         
+        # Add warnings for suspicious BMI (but don't reject)
         if implied_bmi < BMI_LIMITS['SUSPICIOUS_LOW']:
             metadata['warnings'].append(f'Implied BMI {implied_bmi:.1f} suspiciously low')
         
         if implied_bmi > BMI_LIMITS['SUSPICIOUS_HIGH']:
             metadata['warnings'].append(f'Implied BMI {implied_bmi:.1f} suspiciously high')
         
+        # Track BMI for metadata
+        metadata['checks_passed'].append('unit_validation')
         metadata['checks_passed'].append('physiological_limits')
         metadata['implied_bmi'] = round(implied_bmi, 1)
         metadata['user_height_m'] = round(user_height, 2)
         
+        # Categorize BMI (informational only)
         if implied_bmi < BMI_LIMITS['UNDERWEIGHT']:
             metadata['bmi_category'] = 'underweight'
         elif implied_bmi < BMI_LIMITS['OVERWEIGHT']:
@@ -737,6 +740,7 @@ class DataQualityPreprocessor:
         else:
             metadata['bmi_category'] = 'obese'
         
+        # Flag high-risk sources
         if 'iglucose' in source.lower():
             metadata['warnings'].append('High-outlier source - increased scrutiny')
             metadata['high_risk'] = True

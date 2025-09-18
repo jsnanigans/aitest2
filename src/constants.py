@@ -46,6 +46,16 @@ PHYSIOLOGICAL_LIMITS = {
     'SESSION_VARIANCE': 5.81  # Optimized from 5.0
 }
 
+# Supported weight units - STRICT WHITELIST (no assumptions)
+SUPPORTED_WEIGHT_UNITS = {
+    # Metric units
+    'kg', 'kilogram', 'kilograms',
+    'g', 'gram', 'grams',
+    # Imperial units  
+    'lb', 'lbs', 'pound', 'pounds',
+    'st', 'stone', 'stones',
+}
+
 # BMI limits
 BMI_LIMITS = {
     'CRITICAL_LOW': 15.0,
@@ -56,9 +66,9 @@ BMI_LIMITS = {
     'SEVERE_OBESE': 35.0,
     'MORBID_OBESE': 40.0,
     'CRITICAL_HIGH': 50.0,
-    'IMPOSSIBLE_LOW': 10.0,
+    'IMPOSSIBLE_LOW': 18.0,  # Weight loss program - reject below healthy BMI
     'IMPOSSIBLE_HIGH': 100.0,
-    'SUSPICIOUS_LOW': 13.0,
+    'SUSPICIOUS_LOW': 20.0,  # Flag weights below BMI 20 as suspicious
     'SUSPICIOUS_HIGH': 60.0
 }
 
