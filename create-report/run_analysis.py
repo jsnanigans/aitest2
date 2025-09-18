@@ -22,6 +22,11 @@ sys.path.append(str(Path(__file__).parent.parent))
 RAW_CSV_FILE = "../data/2025-09-05_nocon.csv"  # Raw unfiltered data
 FILTERED_CSV_FILE = "../data/2025-09-05_nocon_filtered.csv"  # Filtered data
 
+# Override with test data if needed (smaller dataset for testing)
+# Uncomment these lines to use test data:
+# RAW_CSV_FILE = "../data/test_raw.csv"
+# FILTERED_CSV_FILE = "../data/test_filtered.csv"
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
@@ -74,6 +79,7 @@ def main(employer_filter: str = None, limit: int = 0, output_dir: str = "report_
     import generate_visualizations
     import generate_statistical_report
     import generate_daily_analysis
+    import generate_dashboard
     from data_cache import data_cache
 
     # Update the file paths in the modules
@@ -196,6 +202,26 @@ def main(employer_filter: str = None, limit: int = 0, output_dir: str = "report_
 
     generate_final_report(stats, cases, output_path)
 
+    # Step 5: Generate dashboard from daily analysis data
+    logging.info("\n" + "="*50)
+    logging.info("STEP 5: GENERATING DAILY ANALYSIS DASHBOARD")
+    logging.info("="*50)
+
+    try:
+        # Configure dashboard generator to use our output directory
+        generate_dashboard.DATA_FILE = output_path / "daily_weight_analysis.csv"
+        generate_dashboard.OUTPUT_DIR = visualizations_path
+
+        # Check if daily analysis file exists
+        if (output_path / "daily_weight_analysis.csv").exists():
+            dashboard_file = generate_dashboard.main()
+            logging.info(f"Dashboard generated: {dashboard_file}")
+        else:
+            logging.warning("Skipping dashboard - daily_weight_analysis.csv not found")
+    except Exception as e:
+        logging.error(f"Dashboard generation failed: {e}")
+        logging.info("Continuing without dashboard...")
+
     # Complete
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
@@ -212,6 +238,7 @@ def main(employer_filter: str = None, limit: int = 0, output_dir: str = "report_
     logging.info(f"  - {output_path}/visualizations/chart2_journeys.png")
     logging.info(f"  - {output_path}/visualizations/chart3_timeline.png")
     logging.info(f"  - {output_path}/visualizations/chart4_quality_metrics.png")
+    logging.info(f"  - {output_path}/visualizations/dashboard_*.png (if generated)")
     logging.info(f"  - {output_path}/statistical_evidence_report.md")
     logging.info(f"  - {output_path}/FINAL_REPORT.md")
 

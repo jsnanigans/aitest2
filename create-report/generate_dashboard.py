@@ -14,6 +14,9 @@ from datetime import datetime, timedelta
 import logging
 from typing import Dict, List, Optional, Tuple
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+import os
 
 warnings.filterwarnings('ignore', category=FutureWarning)
 
@@ -99,8 +102,12 @@ def calculate_statistics(df: pd.DataFrame) -> Dict:
     
     return stats
 
-def create_dashboard(df: pd.DataFrame, stats: Dict, output_dir: Path) -> None:
-    """Create comprehensive dashboard with multiple visualizations"""
+def create_dashboard(df: pd.DataFrame, stats: Dict, output_dir: Path) -> Path:
+    """Create comprehensive dashboard with multiple visualizations
+
+    Returns:
+        Path to the generated dashboard file
+    """
     
     # Create output directory
     output_dir.mkdir(exist_ok=True)
@@ -164,8 +171,10 @@ def create_dashboard(df: pd.DataFrame, stats: Dict, output_dir: Path) -> None:
     output_path = output_dir / f"dashboard_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
     plt.savefig(output_path, dpi=100, bbox_inches='tight', facecolor='white')
     logger.info(f"Dashboard saved to {output_path}")
-    
+
     plt.close()
+
+    return output_path
 
 def plot_weight_loss_progression(df: pd.DataFrame, ax: plt.Axes) -> None:
     """Plot average weight loss progression over time"""
@@ -357,36 +366,73 @@ def plot_divergence_analysis(df: pd.DataFrame, ax: plt.Axes) -> None:
     ax.grid(True, alpha=0.3)
     ax.set_xlim(0, 90)
 
+def _process_user_journey(user_id: str, df: pd.DataFrame, index: int) -> Dict:
+    """Process a single user's journey data for plotting."""
+    user_data = df[df['user_id'] == user_id].sort_values('day_number')
+    if not user_data.empty:
+        final_loss = user_data['filtered_cumulative_loss_pct'].iloc[-1]
+        return {
+            'index': index,
+            'user_id': user_id,
+            'days': user_data['day_number'].values,
+            'loss': user_data['filtered_cumulative_loss_pct'].values,
+            'final_loss': final_loss
+        }
+    return None
+
+
 def plot_user_examples(df: pd.DataFrame, ax: plt.Axes) -> None:
-    """Plot examples of individual user journeys"""
-    
+    """Plot examples of individual user journeys with parallel data processing"""
+
+    start_time = time.time()
+
     # Select diverse users based on outcomes at day 90
     day_90 = df[df['day_number'] == 90]
-    
+
     # Get percentiles for selection
     percentiles = [10, 25, 50, 75, 90]
     selected_users = []
-    
+
     for p in percentiles:
         target_value = day_90['filtered_cumulative_loss_pct'].quantile(p/100)
         closest_user = day_90.iloc[(day_90['filtered_cumulative_loss_pct'] - target_value).abs().argsort()[:1]]
         if not closest_user.empty:
             selected_users.append(closest_user['user_id'].values[0])
-    
+
     # Limit to 5 users max
     selected_users = selected_users[:5]
-    
-    # Plot each user's journey
-    colors = plt.cm.viridis(np.linspace(0, 1, len(selected_users)))
-    
-    for i, user_id in enumerate(selected_users):
-        user_data = df[df['user_id'] == user_id].sort_values('day_number')
-        if not user_data.empty:
-            final_loss = user_data['filtered_cumulative_loss_pct'].iloc[-1]
-            label = f'User {i+1} (Final: {final_loss:.1f}%)'
-            ax.plot(user_data['day_number'], user_data['filtered_cumulative_loss_pct'], 
-                   linewidth=1.5, color=colors[i], alpha=0.7, label=label)
-    
+
+    # Process user data in parallel
+    user_journeys = []
+    n_workers = min(len(selected_users), 4)  # Limit workers for small datasets
+
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        # Submit all user processing tasks
+        futures = {
+            executor.submit(_process_user_journey, user_id, df, i): (user_id, i)
+            for i, user_id in enumerate(selected_users)
+        }
+
+        # Collect results as they complete
+        for future in as_completed(futures):
+            try:
+                journey = future.result()
+                if journey:
+                    user_journeys.append(journey)
+            except Exception as e:
+                logger.error(f"Failed to process user journey: {e}")
+
+    # Sort by original index to maintain consistent ordering
+    user_journeys.sort(key=lambda x: x['index'])
+
+    # Plot each user's journey (matplotlib plotting must be done in main thread)
+    colors = plt.cm.viridis(np.linspace(0, 1, len(user_journeys)))
+
+    for journey, color in zip(user_journeys, colors):
+        label = f"User {journey['index']+1} (Final: {journey['final_loss']:.1f}%)"
+        ax.plot(journey['days'], journey['loss'],
+                linewidth=1.5, color=color, alpha=0.7, label=label)
+
     ax.axhline(y=5, color='green', linestyle='--', alpha=0.5, label='5% Target')
     ax.set_xlabel('Day Number', fontsize=11)
     ax.set_ylabel('Cumulative Weight Loss (%)', fontsize=11)
@@ -394,6 +440,9 @@ def plot_user_examples(df: pd.DataFrame, ax: plt.Axes) -> None:
     ax.legend(loc='best', fontsize=9)
     ax.grid(True, alpha=0.3)
     ax.set_xlim(0, 90)
+
+    elapsed = time.time() - start_time
+    logger.debug(f"User journeys plot completed in {elapsed:.2f}s (parallel)")
 
 def plot_cohort_analysis(df: pd.DataFrame, ax: plt.Axes) -> None:
     """Create cohort analysis heatmap"""
@@ -540,18 +589,18 @@ def plot_insights(df: pd.DataFrame, stats: Dict, ax: plt.Axes) -> None:
 
 def main():
     """Main execution function"""
-    
+
     logger.info("Starting Dashboard Generation")
     logger.info("=" * 50)
-    
+
     try:
         # Load data
         df = load_data(DATA_FILE)
-        
+
         # Calculate statistics
         logger.info("Calculating statistics...")
         stats = calculate_statistics(df)
-        
+
         # Log key metrics
         logger.info("\nKey Metrics:")
         logger.info(f"  Total Users: {stats['total_users']:,}")
@@ -562,25 +611,27 @@ def main():
         logger.info(f"  Average Weight Loss at 90 Days:")
         logger.info(f"    Raw Data: {stats.get('avg_raw_loss_pct', 0):.2f}%")
         logger.info(f"    Filtered Data: {stats.get('avg_filtered_loss_pct', 0):.2f}%")
-        
+
         # Create dashboard
         logger.info("\nGenerating dashboard visualizations...")
-        create_dashboard(df, stats, OUTPUT_DIR)
-        
+        dashboard_file = create_dashboard(df, stats, OUTPUT_DIR)
+
         # Save statistics to JSON
         import json
         stats_file = OUTPUT_DIR / "dashboard_stats.json"
-        
+
         # Convert non-serializable values
-        stats_export = {k: float(v) if isinstance(v, (np.float32, np.float64)) else v 
+        stats_export = {k: float(v) if isinstance(v, (np.float32, np.float64)) else v
                        for k, v in stats.items()}
-        
+
         with open(stats_file, 'w') as f:
             json.dump(stats_export, f, indent=2)
         logger.info(f"Statistics saved to {stats_file}")
-        
+
         logger.info("\n✅ Dashboard generation complete!")
-        
+
+        return dashboard_file
+
     except Exception as e:
         logger.error(f"Error generating dashboard: {str(e)}")
         raise

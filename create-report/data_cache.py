@@ -6,9 +6,11 @@ Provides singleton cache for CSV data to avoid redundant loading across modules
 
 import pandas as pd
 from pathlib import Path
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict, List
 import threading
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -111,6 +113,28 @@ class DataCache:
         df_filtered = self.get_dataframe(filtered_path, usecols)
         return df_raw, df_filtered
 
+    def _load_file_task(self, file_info: Tuple) -> Tuple[str, pd.DataFrame]:
+        """Load a single file for parallel preloading."""
+        file_path, usecols = file_info
+        cache_key = str(file_path)
+        if usecols:
+            cache_key += f"_cols_{','.join(sorted(usecols))}"
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        logging.info(f"Loading {file_path.name} into cache...")
+        df = pd.read_csv(file_path, usecols=usecols)
+
+        # Convert datetime columns if present
+        datetime_cols = ['effectiveDateTime', 'start_date']
+        for col in datetime_cols:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col])
+
+        logging.info(f"Loaded {len(df):,} rows from {file_path.name}")
+        return cache_key, df
+
     def preload_all(
         self,
         raw_path: Path,
@@ -118,25 +142,47 @@ class DataCache:
         user_employers_path: Optional[Path] = None
     ):
         """
-        Preload all commonly used files into cache.
+        Preload all commonly used files into cache with parallel loading.
 
         Args:
             raw_path: Path to raw CSV
             filtered_path: Path to filtered CSV
             user_employers_path: Optional path to user employers CSV
         """
-        logging.info("Preloading data files into cache...")
+        start_time = time.time()
+        logging.info("Preloading data files into cache (parallel)...")
 
-        # Load weight data files with commonly needed columns
+        # Prepare file loading tasks
         weight_cols = ['user_id', 'effectiveDateTime', 'weight']
-        self.get_dataframe(raw_path, weight_cols)
-        self.get_dataframe(filtered_path, weight_cols)
+        load_tasks = [
+            (raw_path, weight_cols),
+            (filtered_path, weight_cols)
+        ]
 
-        # Load user employers if provided
+        # Add user employers if provided
         if user_employers_path and user_employers_path.exists():
-            self.get_dataframe(user_employers_path)
+            load_tasks.append((user_employers_path, None))
 
-        logging.info("Data preloading complete")
+        # Load files in parallel
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            # Submit all loading tasks
+            futures = {
+                executor.submit(self._load_file_task, task): task
+                for task in load_tasks
+            }
+
+            # Collect results as they complete
+            for future in as_completed(futures):
+                try:
+                    cache_key, df = future.result()
+                    # Store in cache with thread safety
+                    with self._lock:
+                        self._cache[cache_key] = df
+                except Exception as e:
+                    logging.error(f"Failed to load file: {e}")
+
+        elapsed = time.time() - start_time
+        logging.info(f"Data preloading complete in {elapsed:.2f}s (parallel)")
 
     def clear_cache(self):
         """Clear all cached data."""

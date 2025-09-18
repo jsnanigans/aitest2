@@ -22,20 +22,23 @@ export_database = true
 # Uncomment and add user IDs to test specific users
 # test_users = ["user_001", "user_002", "user_003"]
 test_users = [
-  "e751ebe4-3e13-423d-bf50-88a9dd13f132",
-  "262e084b-6d5c-490c-af3a-d926d6c44966",
-  "76f01a11-1119-4d1a-bd3f-2cb8a1203d6e",
-  "9575e299-bef6-4c76-9f27-aecc5fdf13a4",
-  "3df4485f-ad98-4f5d-9e95-030a6bf38ef4A",
-  "be60a3cd-6e89-4a61-9de1-8163ce800497",
-  "99518101-ca9c-4a76-b86c-cca12a6bbbd6",
-  "eb61194e-491f-40e4-9064-d3d096e0fe64",
-  "f68ac505-6d26-4426-9673-c0fa66f12ed6",
-  "cbadea01-579c-48d4-a6d8-27d9d42a43ca",
-  "5417b197-41b5-4bd5-8143-965ed78152d4",
-  "df27331b-d031-44a0-8f31-50436a516870",
-  "1ab1af65-119a-4906-b526-3d8f66bb0b6d",
-  "917e90a1-6b70-496e-81f7-6e1333500ba6"
+  # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4"
+  # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4",
+#   "99518101-ca9c-4a76-b86c-cca12a6bbbd6"
+#   # "e751ebe4-3e13-423d-bf50-88a9dd13f132",
+#   # "262e084b-6d5c-490c-af3a-d926d6c44966",
+#   # "76f01a11-1119-4d1a-bd3f-2cb8a1203d6e",
+#   # "9575e299-bef6-4c76-9f27-aecc5fdf13a4",
+#   # "3df4485f-ad98-4f5d-9e95-030a6bf38ef4A",
+#   # "be60a3cd-6e89-4a61-9de1-8163ce800497",
+#   # "99518101-ca9c-4a76-b86c-cca12a6bbbd6",
+#   # "eb61194e-491f-40e4-9064-d3d096e0fe64",
+#   # "f68ac505-6d26-4426-9673-c0fa66f12ed6",
+#   # "cbadea01-579c-48d4-a6d8-27d9d42a43ca",
+#   # "5417b197-41b5-4bd5-8143-965ed78152d4",
+#   # "df27331b-d031-44a0-8f31-50436a516870",
+#   # "1ab1af65-119a-4906-b526-3d8f66bb0b6d",
+#   # "917e90a1-6b70-496e-81f7-6e1333500ba6"
 ]
 
 # Visualization settings

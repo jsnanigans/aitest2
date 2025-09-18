@@ -8,6 +8,9 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+import os
 
 import numpy as np
 import pandas as pd
@@ -22,14 +25,60 @@ DATA_DIR = Path("../data")
 RAW_FILE = DATA_DIR / "2025-09-05_nocon.csv"
 FILTERED_FILE = DATA_DIR / "2025-09-05_nocon_filtered.csv"
 
+def _process_normality_test_batch(user_batch: List[str], df_raw: pd.DataFrame,
+                                  df_filtered: pd.DataFrame) -> Dict:
+    """Process a batch of users for normality testing."""
+    batch_results = {
+        'raw_normal_count': 0,
+        'filtered_normal_count': 0,
+        'both_normal_count': 0,
+        'improvement_count': 0,
+        'p_values_raw': [],
+        'p_values_filtered': [],
+        'sample_size': 0
+    }
+
+    for user_id in user_batch:
+        user_raw = df_raw[df_raw['user_id'] == user_id]['weight'].values
+        user_filtered = df_filtered[df_filtered['user_id'] == user_id]['weight'].values
+
+        if len(user_raw) >= 3 and len(user_filtered) >= 3:
+            try:
+                # Perform Shapiro-Wilk test
+                stat_raw, p_raw = stats.shapiro(user_raw) if len(user_raw) <= 5000 else (0, 0)
+                stat_filtered, p_filtered = stats.shapiro(user_filtered) if len(user_filtered) <= 5000 else (0, 0)
+
+                batch_results['p_values_raw'].append(p_raw)
+                batch_results['p_values_filtered'].append(p_filtered)
+                batch_results['sample_size'] += 1
+
+                # Count normal distributions (p > 0.05)
+                if p_raw > 0.05:
+                    batch_results['raw_normal_count'] += 1
+                if p_filtered > 0.05:
+                    batch_results['filtered_normal_count'] += 1
+                if p_raw > 0.05 and p_filtered > 0.05:
+                    batch_results['both_normal_count'] += 1
+                if p_filtered > p_raw:
+                    batch_results['improvement_count'] += 1
+
+            except Exception as e:
+                logging.debug(f"Normality test failed for user {user_id}: {e}")
+                continue
+
+    return batch_results
+
+
 def perform_normality_tests(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
                            sample_users: List[str]) -> Dict:
     """
-    Perform Shapiro-Wilk normality tests on weight distributions.
+    Perform Shapiro-Wilk normality tests on weight distributions with parallel processing.
 
     Returns:
         Dictionary with test results
     """
+    start_time = time.time()
+
     results = {
         'raw_normal_count': 0,
         'filtered_normal_count': 0,
@@ -40,48 +89,48 @@ def perform_normality_tests(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
         'sample_size': 0
     }
 
-    for user_id in sample_users:
-        user_raw = df_raw[df_raw['user_id'] == user_id]['weight'].values
-        user_filtered = df_filtered[df_filtered['user_id'] == user_id]['weight'].values
+    # Determine optimal number of workers
+    n_workers = min(os.cpu_count() or 4, 8)
+    batch_size = max(10, len(sample_users) // (n_workers * 4))
 
-        if len(user_raw) >= 3 and len(user_filtered) >= 3:
+    # Split users into batches
+    user_batches = [sample_users[i:i + batch_size]
+                    for i in range(0, len(sample_users), batch_size)]
+
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        # Submit batch processing tasks
+        futures = {
+            executor.submit(_process_normality_test_batch, batch, df_raw, df_filtered): batch
+            for batch in user_batches
+        }
+
+        # Collect results as they complete
+        for future in as_completed(futures):
             try:
-                # Perform Shapiro-Wilk test
-                stat_raw, p_raw = stats.shapiro(user_raw) if len(user_raw) <= 5000 else (0, 0)
-                stat_filtered, p_filtered = stats.shapiro(user_filtered) if len(user_filtered) <= 5000 else (0, 0)
-
-                results['p_values_raw'].append(p_raw)
-                results['p_values_filtered'].append(p_filtered)
-                results['sample_size'] += 1
-
-                # Count normal distributions (p > 0.05)
-                if p_raw > 0.05:
-                    results['raw_normal_count'] += 1
-                if p_filtered > 0.05:
-                    results['filtered_normal_count'] += 1
-                if p_raw > 0.05 and p_filtered > 0.05:
-                    results['both_normal_count'] += 1
-                if p_filtered > p_raw:
-                    results['improvement_count'] += 1
-
+                batch_results = future.result()
+                # Aggregate results
+                results['raw_normal_count'] += batch_results['raw_normal_count']
+                results['filtered_normal_count'] += batch_results['filtered_normal_count']
+                results['both_normal_count'] += batch_results['both_normal_count']
+                results['improvement_count'] += batch_results['improvement_count']
+                results['p_values_raw'].extend(batch_results['p_values_raw'])
+                results['p_values_filtered'].extend(batch_results['p_values_filtered'])
+                results['sample_size'] += batch_results['sample_size']
             except Exception as e:
-                logging.debug(f"Normality test failed for user {user_id}: {e}")
-                continue
+                logging.error(f"Batch processing failed: {e}")
+
+    elapsed = time.time() - start_time
+    logging.debug(f"Normality tests completed in {elapsed:.2f}s (parallel)")
 
     return results
 
-def calculate_variance_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
-                              sample_users: List[str]) -> Dict:
-    """
-    Calculate variance reduction metrics.
-
-    Returns:
-        Dictionary with variance statistics
-    """
+def _process_variance_batch(user_batch: List[str], df_raw: pd.DataFrame,
+                            df_filtered: pd.DataFrame) -> Dict:
+    """Process a batch of users for variance metrics."""
     variance_reductions = []
     std_reductions = []
 
-    for user_id in sample_users:
+    for user_id in user_batch:
         user_raw = df_raw[df_raw['user_id'] == user_id]['weight'].values
         user_filtered = df_filtered[df_filtered['user_id'] == user_id]['weight'].values
 
@@ -99,25 +148,66 @@ def calculate_variance_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
                 std_reductions.append(std_reduction)
 
     return {
-        'mean_variance_reduction': np.mean(variance_reductions) if variance_reductions else 0,
-        'median_variance_reduction': np.median(variance_reductions) if variance_reductions else 0,
-        'mean_std_reduction': np.mean(std_reductions) if std_reductions else 0,
-        'positive_reduction_count': sum(1 for v in variance_reductions if v > 0),
-        'total_users': len(variance_reductions)
+        'variance_reductions': variance_reductions,
+        'std_reductions': std_reductions
     }
 
-def calculate_smoothness_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
-                                sample_users: List[str]) -> Dict:
+
+def calculate_variance_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
+                              sample_users: List[str]) -> Dict:
     """
-    Calculate trend smoothness improvements.
+    Calculate variance reduction metrics with parallel processing.
 
     Returns:
-        Dictionary with smoothness metrics
+        Dictionary with variance statistics
     """
+    start_time = time.time()
+
+    all_variance_reductions = []
+    all_std_reductions = []
+
+    # Determine optimal number of workers
+    n_workers = min(os.cpu_count() or 4, 8)
+    batch_size = max(10, len(sample_users) // (n_workers * 4))
+
+    # Split users into batches
+    user_batches = [sample_users[i:i + batch_size]
+                    for i in range(0, len(sample_users), batch_size)]
+
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        # Submit batch processing tasks
+        futures = {
+            executor.submit(_process_variance_batch, batch, df_raw, df_filtered): batch
+            for batch in user_batches
+        }
+
+        # Collect results as they complete
+        for future in as_completed(futures):
+            try:
+                batch_results = future.result()
+                all_variance_reductions.extend(batch_results['variance_reductions'])
+                all_std_reductions.extend(batch_results['std_reductions'])
+            except Exception as e:
+                logging.error(f"Variance batch processing failed: {e}")
+
+    elapsed = time.time() - start_time
+    logging.debug(f"Variance metrics completed in {elapsed:.2f}s (parallel)")
+
+    return {
+        'mean_variance_reduction': np.mean(all_variance_reductions) if all_variance_reductions else 0,
+        'median_variance_reduction': np.median(all_variance_reductions) if all_variance_reductions else 0,
+        'mean_std_reduction': np.mean(all_std_reductions) if all_std_reductions else 0,
+        'positive_reduction_count': sum(1 for v in all_variance_reductions if v > 0),
+        'total_users': len(all_variance_reductions)
+    }
+
+def _process_smoothness_batch(user_batch: List[str], df_raw: pd.DataFrame,
+                              df_filtered: pd.DataFrame) -> Dict:
+    """Process a batch of users for smoothness metrics."""
     smoothness_improvements = []
     jitter_reductions = []
 
-    for user_id in sample_users:
+    for user_id in user_batch:
         user_raw = df_raw[df_raw['user_id'] == user_id].sort_values('effectiveDateTime')
         user_filtered = df_filtered[df_filtered['user_id'] == user_id].sort_values('effectiveDateTime')
 
@@ -144,31 +234,67 @@ def calculate_smoothness_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFrame
                 smoothness_improvements.append(smooth_improvement)
 
     return {
-        'mean_smoothness_improvement': np.mean(smoothness_improvements) if smoothness_improvements else 0,
-        'median_smoothness_improvement': np.median(smoothness_improvements) if smoothness_improvements else 0,
-        'mean_jitter_reduction': np.mean(jitter_reductions) if jitter_reductions else 0,
-        'improved_count': sum(1 for s in smoothness_improvements if s > 0),
-        'total_users': len(smoothness_improvements)
+        'smoothness_improvements': smoothness_improvements,
+        'jitter_reductions': jitter_reductions
     }
 
-def calculate_plausibility_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
-                                  sample_users: List[str]) -> Dict:
+
+def calculate_smoothness_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
+                                sample_users: List[str]) -> Dict:
     """
-    Calculate plausible weight change improvements.
-    Accounts for GLP-1 medication effects on weight loss rates.
+    Calculate trend smoothness improvements with parallel processing.
 
     Returns:
-        Dictionary with plausibility metrics
+        Dictionary with smoothness metrics
     """
+    start_time = time.time()
+
+    all_smoothness_improvements = []
+    all_jitter_reductions = []
+
+    # Determine optimal number of workers
+    n_workers = min(os.cpu_count() or 4, 8)
+    batch_size = max(10, len(sample_users) // (n_workers * 4))
+
+    # Split users into batches
+    user_batches = [sample_users[i:i + batch_size]
+                    for i in range(0, len(sample_users), batch_size)]
+
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        # Submit batch processing tasks
+        futures = {
+            executor.submit(_process_smoothness_batch, batch, df_raw, df_filtered): batch
+            for batch in user_batches
+        }
+
+        # Collect results as they complete
+        for future in as_completed(futures):
+            try:
+                batch_results = future.result()
+                all_smoothness_improvements.extend(batch_results['smoothness_improvements'])
+                all_jitter_reductions.extend(batch_results['jitter_reductions'])
+            except Exception as e:
+                logging.error(f"Smoothness batch processing failed: {e}")
+
+    elapsed = time.time() - start_time
+    logging.debug(f"Smoothness metrics completed in {elapsed:.2f}s (parallel)")
+
+    return {
+        'mean_smoothness_improvement': np.mean(all_smoothness_improvements) if all_smoothness_improvements else 0,
+        'median_smoothness_improvement': np.median(all_smoothness_improvements) if all_smoothness_improvements else 0,
+        'mean_jitter_reduction': np.mean(all_jitter_reductions) if all_jitter_reductions else 0,
+        'improved_count': sum(1 for s in all_smoothness_improvements if s > 0),
+        'total_users': len(all_smoothness_improvements)
+    }
+
+def _process_plausibility_batch(user_batch: List[str], df_raw: pd.DataFrame,
+                                df_filtered: pd.DataFrame) -> Dict:
+    """Process a batch of users for plausibility metrics."""
     # Define plausible weight range (kg)
     MIN_PLAUSIBLE = 30
     MAX_PLAUSIBLE = 300
 
     # GLP-1 adjusted limits for weight changes
-    # Standard: 0.5-1 kg/week (0.07-0.14 kg/day)
-    # GLP-1: 0.5-1 kg/week initially, up to 1-2 kg/week (0.14-0.28 kg/day)
-    # Allow up to 1 kg/day for extreme but possible GLP-1 responses
-    # But flag anything over 2 kg/day as likely measurement error
     MAX_DAILY_LOSS_GLP1 = 1.0  # kg/day - aggressive but possible on GLP-1
     MAX_DAILY_GAIN = 0.5  # kg/day - weight gain is less common but possible
     EXTREME_CHANGE = 2.0  # kg/day - likely measurement error even with GLP-1
@@ -183,7 +309,7 @@ def calculate_plausibility_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFra
     rapid_loss_raw = 0
     rapid_loss_filtered = 0
 
-    for user_id in sample_users:
+    for user_id in user_batch:
         user_raw = df_raw[df_raw['user_id'] == user_id].sort_values('effectiveDateTime')
         user_filtered = df_filtered[df_filtered['user_id'] == user_id].sort_values('effectiveDateTime')
 
@@ -233,14 +359,80 @@ def calculate_plausibility_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFra
                             rapid_loss_filtered += 1
 
     return {
-        'raw_implausible_rate': (raw_implausible_total / raw_total * 100) if raw_total > 0 else 0,
-        'filtered_implausible_rate': (filtered_implausible_total / filtered_total * 100) if filtered_total > 0 else 0,
-        'implausible_removed': raw_implausible_total - filtered_implausible_total,
-        'raw_extreme_changes': extreme_changes_raw,
-        'filtered_extreme_changes': extreme_changes_filtered,
-        'extreme_changes_removed': extreme_changes_raw - extreme_changes_filtered,
-        'raw_rapid_loss': rapid_loss_raw,
-        'filtered_rapid_loss': rapid_loss_filtered,
+        'raw_implausible_total': raw_implausible_total,
+        'filtered_implausible_total': filtered_implausible_total,
+        'raw_total': raw_total,
+        'filtered_total': filtered_total,
+        'extreme_changes_raw': extreme_changes_raw,
+        'extreme_changes_filtered': extreme_changes_filtered,
+        'rapid_loss_raw': rapid_loss_raw,
+        'rapid_loss_filtered': rapid_loss_filtered
+    }
+
+
+def calculate_plausibility_metrics(df_raw: pd.DataFrame, df_filtered: pd.DataFrame,
+                                  sample_users: List[str]) -> Dict:
+    """
+    Calculate plausible weight change improvements with parallel processing.
+    Accounts for GLP-1 medication effects on weight loss rates.
+
+    Returns:
+        Dictionary with plausibility metrics
+    """
+    start_time = time.time()
+
+    # Aggregate results
+    total_raw_implausible = 0
+    total_filtered_implausible = 0
+    total_raw = 0
+    total_filtered = 0
+    total_extreme_changes_raw = 0
+    total_extreme_changes_filtered = 0
+    total_rapid_loss_raw = 0
+    total_rapid_loss_filtered = 0
+
+    # Determine optimal number of workers
+    n_workers = min(os.cpu_count() or 4, 8)
+    batch_size = max(10, len(sample_users) // (n_workers * 4))
+
+    # Split users into batches
+    user_batches = [sample_users[i:i + batch_size]
+                    for i in range(0, len(sample_users), batch_size)]
+
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        # Submit batch processing tasks
+        futures = {
+            executor.submit(_process_plausibility_batch, batch, df_raw, df_filtered): batch
+            for batch in user_batches
+        }
+
+        # Collect results as they complete
+        for future in as_completed(futures):
+            try:
+                batch_results = future.result()
+                total_raw_implausible += batch_results['raw_implausible_total']
+                total_filtered_implausible += batch_results['filtered_implausible_total']
+                total_raw += batch_results['raw_total']
+                total_filtered += batch_results['filtered_total']
+                total_extreme_changes_raw += batch_results['extreme_changes_raw']
+                total_extreme_changes_filtered += batch_results['extreme_changes_filtered']
+                total_rapid_loss_raw += batch_results['rapid_loss_raw']
+                total_rapid_loss_filtered += batch_results['rapid_loss_filtered']
+            except Exception as e:
+                logging.error(f"Plausibility batch processing failed: {e}")
+
+    elapsed = time.time() - start_time
+    logging.debug(f"Plausibility metrics completed in {elapsed:.2f}s (parallel)")
+
+    return {
+        'raw_implausible_rate': (total_raw_implausible / total_raw * 100) if total_raw > 0 else 0,
+        'filtered_implausible_rate': (total_filtered_implausible / total_filtered * 100) if total_filtered > 0 else 0,
+        'implausible_removed': total_raw_implausible - total_filtered_implausible,
+        'raw_extreme_changes': total_extreme_changes_raw,
+        'filtered_extreme_changes': total_extreme_changes_filtered,
+        'extreme_changes_removed': total_extreme_changes_raw - total_extreme_changes_filtered,
+        'raw_rapid_loss': total_rapid_loss_raw,
+        'filtered_rapid_loss': total_rapid_loss_filtered,
         'note': 'Adjusted for GLP-1 medication effects (up to 1kg/day loss considered plausible)'
     }
 
@@ -386,13 +578,35 @@ def generate_report(output_dir: Path = Path(".")) -> None:
 
     logging.info(f"Analyzing {sample_size} users for statistical evidence...")
 
-    # Perform analyses
+    # Track overall performance
+    overall_start = time.time()
+
+    # Perform analyses with timing
+    test_start = time.time()
     normality_results = perform_normality_tests(df_raw, df_filtered, sample_users)
+    logging.info(f"  Normality tests: {time.time() - test_start:.2f}s")
+
+    test_start = time.time()
     variance_results = calculate_variance_metrics(df_raw, df_filtered, sample_users)
+    logging.info(f"  Variance metrics: {time.time() - test_start:.2f}s")
+
+    test_start = time.time()
     smoothness_results = calculate_smoothness_metrics(df_raw, df_filtered, sample_users)
+    logging.info(f"  Smoothness metrics: {time.time() - test_start:.2f}s")
+
+    test_start = time.time()
     plausibility_results = calculate_plausibility_metrics(df_raw, df_filtered, sample_users)
+    logging.info(f"  Plausibility metrics: {time.time() - test_start:.2f}s")
+
+    test_start = time.time()
     consistency_results = calculate_temporal_consistency(df_raw, df_filtered, sample_users)
+    logging.info(f"  Temporal consistency: {time.time() - test_start:.2f}s")
+
+    test_start = time.time()
     statistical_tests = perform_statistical_tests(df_90_day)
+    logging.info(f"  Statistical tests: {time.time() - test_start:.2f}s")
+
+    logging.info(f"Total analysis time: {time.time() - overall_start:.2f}s")
 
     # Generate markdown report
     report_content = f"""# Statistical Evidence Report: Filtering Effectiveness
