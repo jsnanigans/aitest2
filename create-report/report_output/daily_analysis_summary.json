@@ -1,0 +1,27 @@
+{
+  "total_records": 2353,
+  "total_users": 13,
+  "max_days_analyzed": 180,
+  "output_file": "report_output/daily_weight_analysis.csv",
+  "generated_at": "2025-09-18T18:03:25.710977",
+  "avg_raw_data_availability": 90.69273268168295,
+  "avg_filtered_data_availability": 88.69528261793455,
+  "avg_divergence_pct": 5.077597597597597,
+  "max_divergence_pct": 73.75,
+  "median_divergence_pct": 8.9,
+  "days_with_conflicting_direction": 651,
+  "day_30_data_availability": {
+    "raw": 84.61538461538461,
+    "filtered": 84.61538461538461
+  },
+  "day_60_data_availability": {
+    "raw": 92.3076923076923,
+    "filtered": 92.3076923076923
+  },
+  "day_90_data_availability": {
+    "raw": 100.0,
+    "filtered": 100.0
+  },
+  "processing_time_seconds": 2.3932950496673584,
+  "records_per_second": 983.1633589544427
+}

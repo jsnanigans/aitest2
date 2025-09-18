@@ -356,12 +356,19 @@ def generate_report(output_dir: Path = Path(".")) -> None:
     """
     Generate comprehensive statistical evidence report.
     """
-    # Load data
-    logging.info("Loading data for statistical analysis...")
-    df_raw = pd.read_csv(RAW_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
-    df_filtered = pd.read_csv(FILTERED_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
-    df_raw['effectiveDateTime'] = pd.to_datetime(df_raw['effectiveDateTime'])
-    df_filtered['effectiveDateTime'] = pd.to_datetime(df_filtered['effectiveDateTime'])
+    # Load data - try cache first
+    try:
+        from data_cache import data_cache
+        logging.info("Loading data from cache for statistical analysis...")
+        weight_cols = ['user_id', 'effectiveDateTime', 'weight']
+        df_raw = data_cache.get_dataframe(RAW_FILE, weight_cols)
+        df_filtered = data_cache.get_dataframe(FILTERED_FILE, weight_cols)
+    except:
+        logging.info("Loading data directly for statistical analysis...")
+        df_raw = pd.read_csv(RAW_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
+        df_filtered = pd.read_csv(FILTERED_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
+        df_raw['effectiveDateTime'] = pd.to_datetime(df_raw['effectiveDateTime'])
+        df_filtered['effectiveDateTime'] = pd.to_datetime(df_filtered['effectiveDateTime'])
 
     # Load 90-day analysis if available
     analysis_file = output_dir / "90_day_analysis.csv"

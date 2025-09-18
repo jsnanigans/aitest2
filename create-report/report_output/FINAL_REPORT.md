@@ -1,5 +1,5 @@
 # Filtering Effectiveness Analysis: Final Report
-Generated: 2025-09-18 15:12:43
+Generated: 2025-09-18 18:03:29
 
 ## Executive Summary
 
@@ -8,20 +8,20 @@ of users with 90+ days in the program, comparing raw vs filtered data across mul
 
 ## Key Finding: Filtering Impact on 90-Day Weight Loss
 
-Based on analysis of **2588 users** with complete 90-day data:
+Based on analysis of **13 users** with complete 90-day data:
 
 | Metric | Raw Data | Filtered Data | Difference |
 |--------|----------|---------------|------------|
-| **Average Weight Loss** | 3.23% | 3.30% | +0.07% |
-| **Median Weight Loss** | 2.86% | 2.86% | +0.01% |
-| **Success Rate** | 77.9% | 78.0% | +0.0% |
-| **Std Deviation** | 6.78% | 7.12% | +0.33% |
+| **Average Weight Loss** | 6.67% | 7.52% | +0.85% |
+| **Median Weight Loss** | 2.69% | 3.40% | +0.71% |
+| **Success Rate** | 69.2% | 84.6% | +15.4% |
+| **Std Deviation** | 18.56% | 10.29% | -8.27% |
 
 ### Interpretation:
 
-✅ **HIGHLY CONSISTENT**: Raw and filtered data show nearly identical weight loss outcomes (<0.5% difference)
-- Filtering removes noise without distorting clinical outcomes
-- High data quality with minimal outliers
+✓ **CONSISTENT**: Small difference between raw and filtered outcomes (0.8%)
+- Filtering effectively removes outliers while preserving trends
+- Slightly better outcomes after filtering
 
 
 ## Outcome Agreement Analysis
@@ -30,12 +30,12 @@ How often do raw and filtered data agree on weight loss outcomes?
 
 | Outcome | Count | Percentage |
 |---------|-------|------------|
-| Both show weight loss | 2016 | 77.9% |
-| Only filtered shows loss | 2 | 0.1% |
-| Only raw shows loss | 1 | 0.0% |
-| Both show weight gain | 569 | 22.0% |
+| Both show weight loss | 9 | 69.2% |
+| Only filtered shows loss | 2 | 15.4% |
+| Only raw shows loss | 0 | 0.0% |
+| Both show weight gain | 2 | 15.4% |
 
-**Agreement Rate**: 99.9% of users have consistent outcomes
+**Agreement Rate**: 84.6% of users have consistent outcomes
 
 
 ## Representative Case Studies
@@ -43,10 +43,10 @@ How often do raw and filtered data agree on weight loss outcomes?
 ### Examples of Different Filtering Impacts:
 
 **High Success**
-- Raw weight loss: 55.85%
-- Filtered weight loss: 55.85%
-- Difference: +0.00%
-- Start weight: 92.1 kg → 90-day: 40.7 kg
+- Raw weight loss: 20.65%
+- Filtered weight loss: 23.66%
+- Difference: +3.01%
+- Start weight: 111.6 kg → 90-day: 85.2 kg
 
 **Moderate Success**
 - Raw weight loss: 5.74%
@@ -55,16 +55,16 @@ How often do raw and filtered data agree on weight loss outcomes?
 - Start weight: 103.4 kg → 90-day: 97.5 kg
 
 **Filtering Helped**
-- Raw weight loss: 2.69%
-- Filtered weight loss: 57.67%
-- Difference: +54.97%
-- Start weight: 81.6 kg → 90-day: 34.6 kg
+- Raw weight loss: 6.10%
+- Filtered weight loss: 34.60%
+- Difference: +28.50%
+- Start weight: 116.6 kg → 90-day: 76.2 kg
 
 **Filtering Hurt**
-- Raw weight loss: 0.00%
-- Filtered weight loss: -47.00%
-- Difference: -47.00%
-- Start weight: 68.8 kg → 90-day: 101.2 kg
+- Raw weight loss: 62.32%
+- Filtered weight loss: 3.40%
+- Difference: -58.92%
+- Start weight: 124.7 kg → 90-day: 120.5 kg
 
 **Minimal Impact**
 - Raw weight loss: 5.74%

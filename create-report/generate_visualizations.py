@@ -4,6 +4,11 @@ Visualization Generation Module
 Creates charts comparing raw vs filtered data effectiveness
 """
 
+# Set matplotlib backend to non-interactive before any other matplotlib imports
+# This prevents GUI operations in threads which causes crashes on macOS
+import matplotlib
+matplotlib.use('Agg')
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,6 +17,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import logging
 from typing import Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure plotting style
 plt.style.use('seaborn-v0_8-darkgrid')
@@ -88,7 +94,7 @@ def create_weight_loss_distribution(df_90_day: pd.DataFrame, output_dir: Path) -
     
     output_file = output_dir / "chart1_distribution.png"
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
-    plt.close()
+    plt.close(fig)  # Explicitly close the specific figure
     logging.info(f"Saved distribution chart to {output_file}")
 
 def create_individual_journeys(df_90_day: pd.DataFrame, output_dir: Path) -> None:
@@ -202,7 +208,7 @@ def create_individual_journeys(df_90_day: pd.DataFrame, output_dir: Path) -> Non
     
     output_file = output_dir / "chart2_journeys.png"
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
-    plt.close()
+    plt.close(fig)  # Explicitly close the specific figure
     logging.info(f"Saved journey chart to {output_file}")
 
 def create_filtering_impact_timeline(output_dir: Path) -> None:
@@ -308,7 +314,7 @@ def create_filtering_impact_timeline(output_dir: Path) -> None:
     
     output_file = output_dir / "chart3_timeline.png"
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
-    plt.close()
+    plt.close(fig)  # Explicitly close the specific figure
     logging.info(f"Saved timeline chart to {output_file}")
 
 def create_quality_metrics_dashboard(df_90_day: pd.DataFrame, output_dir: Path) -> None:
@@ -426,7 +432,7 @@ def create_quality_metrics_dashboard(df_90_day: pd.DataFrame, output_dir: Path) 
     
     output_file = output_dir / "chart4_quality_metrics.png"
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
-    plt.close()
+    plt.close(fig)  # Explicitly close the specific figure
     logging.info(f"Saved quality metrics chart to {output_file}")
 
 def main(input_file: Path = Path("90_day_analysis.csv"), output_dir: Path = Path("visualizations")):
@@ -451,15 +457,52 @@ def main(input_file: Path = Path("90_day_analysis.csv"), output_dir: Path = Path
         # Convert date columns
         df_90_day['start_date'] = pd.to_datetime(df_90_day['start_date'])
     
-    logging.info("Generating visualizations...")
-    
-    # Generate each chart
-    create_weight_loss_distribution(df_90_day, output_dir)
-    create_individual_journeys(df_90_day, output_dir)
-    create_filtering_impact_timeline(output_dir)
-    create_quality_metrics_dashboard(df_90_day, output_dir)
-    
-    logging.info(f"\nAll visualizations saved to {output_dir}/")
+    logging.info("Generating visualizations in parallel...")
+
+    # Define visualization tasks
+    def gen_distribution():
+        logging.info("  Generating weight loss distribution chart...")
+        create_weight_loss_distribution(df_90_day, output_dir)
+        logging.info("  Distribution chart complete")
+        return "chart1_distribution"
+
+    def gen_journeys():
+        logging.info("  Generating individual journeys chart...")
+        create_individual_journeys(df_90_day, output_dir)
+        logging.info("  Journeys chart complete")
+        return "chart2_journeys"
+
+    def gen_timeline():
+        logging.info("  Generating timeline impact chart...")
+        create_filtering_impact_timeline(output_dir)
+        logging.info("  Timeline chart complete")
+        return "chart3_timeline"
+
+    def gen_dashboard():
+        logging.info("  Generating quality metrics dashboard...")
+        create_quality_metrics_dashboard(df_90_day, output_dir)
+        logging.info("  Dashboard complete")
+        return "chart4_quality_metrics"
+
+    # Generate all charts in parallel
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [
+            executor.submit(gen_distribution),
+            executor.submit(gen_journeys),
+            executor.submit(gen_timeline),
+            executor.submit(gen_dashboard)
+        ]
+
+        # Wait for all to complete
+        completed_charts = []
+        for future in futures:
+            try:
+                chart_name = future.result()
+                completed_charts.append(chart_name)
+            except Exception as e:
+                logging.error(f"Visualization generation failed: {e}")
+
+    logging.info(f"\nGenerated {len(completed_charts)} visualizations in {output_dir}/")
 
 if __name__ == "__main__":
     import argparse

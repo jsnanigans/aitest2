@@ -1,29 +1,29 @@
 # Statistical Evidence Report: Filtering Effectiveness
-Generated: 2025-09-18 15:12:43
+Generated: 2025-09-18 18:03:26
 
 ## Executive Summary
 
 This report provides statistical evidence for the effectiveness of weight data filtering
-based on analysis of 200 users with comprehensive data.
+based on analysis of 13 users with comprehensive data.
 
 ## 1. Distribution Normality (Shapiro-Wilk Test)
 
 **Hypothesis**: Filtering improves data distribution normality
 
-- **Raw data normal distributions**: 39/200 (19.5%)
-- **Filtered data normal distributions**: 47/200 (23.5%)
-- **Improvement rate**: 35/200 users showed improvement
+- **Raw data normal distributions**: 0/13 (0.0%)
+- **Filtered data normal distributions**: 0/13 (0.0%)
+- **Improvement rate**: 8/13 users showed improvement
 
-**Verdict**: ✅ Filtering improves normality
+**Verdict**: ❌ No normality improvement
 
 ## 2. Variance Reduction
 
 **Hypothesis**: Filtering reduces measurement variance
 
-- **Mean variance reduction**: 13.53%
-- **Median variance reduction**: 0.00%
-- **Standard deviation reduction**: 10.05%
-- **Users with reduced variance**: 42/200 (21.0%)
+- **Mean variance reduction**: 36.67%
+- **Median variance reduction**: 50.66%
+- **Standard deviation reduction**: 30.42%
+- **Users with reduced variance**: 8/13 (61.5%)
 
 **Verdict**: ✅ Significant variance reduction
 
@@ -31,10 +31,10 @@ based on analysis of 200 users with comprehensive data.
 
 **Hypothesis**: Filtering produces smoother weight trends
 
-- **Mean smoothness improvement**: 2481.0%
-- **Median smoothness improvement**: 0.0%
-- **Jitter reduction**: 16.2%
-- **Users with smoother trends**: 42/200 (21.0%)
+- **Mean smoothness improvement**: 3737.8%
+- **Median smoothness improvement**: 102.8%
+- **Jitter reduction**: 39.9%
+- **Users with smoother trends**: 10/13 (76.9%)
 
 **Verdict**: ✅ Trends significantly smoother
 
@@ -45,10 +45,10 @@ based on analysis of 200 users with comprehensive data.
 - **Raw implausible rate**: 0.000%
 - **Filtered implausible rate**: 0.000%
 - **Implausible values removed**: 0
-- **Extreme changes (>2kg/day) removed**: 366
+- **Extreme changes (>2kg/day) removed**: 371
 - **Rapid weight loss events (0.5-1kg/day)**:
-  - Raw data: 778 occurrences
-  - Filtered data: 773 occurrences
+  - Raw data: 41 occurrences
+  - Filtered data: 40 occurrences
 
 *Note: Thresholds adjusted for GLP-1 medication - up to 1kg/day loss considered physiologically plausible*
 
@@ -58,57 +58,57 @@ based on analysis of 200 users with comprehensive data.
 
 **Hypothesis**: Filtering improves temporal consistency
 
-- **Raw mean autocorrelation**: 0.717
-- **Filtered mean autocorrelation**: 0.805
-- **Mean improvement**: +0.089
-- **Users with improved consistency**: 38/200
+- **Raw mean autocorrelation**: 0.472
+- **Filtered mean autocorrelation**: 0.649
+- **Mean improvement**: +0.177
+- **Users with improved consistency**: 9/13
 
 **Verdict**: ✅ Improved temporal consistency
 
 ## 6. 90-Day Weight Loss Statistical Tests
 
 ### Paired t-test (Raw vs Filtered Weight Loss %)
-- **t-statistic**: -1.6641
-- **p-value**: 0.096212
+- **t-statistic**: -0.1536
+- **p-value**: 0.880449
 - **Result**: No significant difference
 
 ### Wilcoxon Signed-Rank Test (Non-parametric)
-- **Statistic**: 32.00
-- **p-value**: 0.062671
+- **Statistic**: 8.00
+- **p-value**: 0.195312
 - **Significant**: No
 
 ### Effect Size (Cohen's d)
-- **Value**: 0.033
+- **Value**: 0.044
 - **Interpretation**: Small effect
 
 ### Success Rate Comparison (Chi-square)
-- **Raw success rate**: 77.9%
-- **Filtered success rate**: 78.0%
-- **Chi-square statistic**: 0.0000
-- **p-value**: 1.000000
+- **Raw success rate**: 69.2%
+- **Filtered success rate**: 84.6%
+- **Chi-square statistic**: 0.2167
+- **p-value**: 0.641592
 - **Significant difference**: No
 
 ## Overall Conclusion
 
-**Statistical Evidence Score**: 4/5 metrics show improvement
+**Statistical Evidence Score**: 3/5 metrics show improvement
 
 ### Final Verdict:
 
-✅ **STRONG EVIDENCE**: Filtering significantly improves data quality
-- Multiple statistical tests confirm improvement
-- Recommendation: Continue using current filtering approach
+✓ **MODERATE EVIDENCE**: Filtering provides meaningful improvements
+- Most metrics show positive impact
+- Recommendation: Fine-tune thresholds for optimal performance
 
 
 ## Key Findings
 
-1. **Variance Reduction**: 13.5% average reduction in measurement variance
-2. **Smoothness Gain**: 2481% improvement in trend smoothness
-3. **Temporal Consistency**: +0.089 improvement in autocorrelation
-4. **Plausibility (GLP-1 adjusted)**: 366 extreme changes removed
+1. **Variance Reduction**: 36.7% average reduction in measurement variance
+2. **Smoothness Gain**: 3738% improvement in trend smoothness
+3. **Temporal Consistency**: +0.177 improvement in autocorrelation
+4. **Plausibility (GLP-1 adjusted)**: 371 extreme changes removed
 
 ## Methodology Notes
 
-- Sample size: 200 users
+- Sample size: 13 users
 - Significance level: α = 0.05
 - Tests performed: Shapiro-Wilk, paired t-test, Wilcoxon, Chi-square
 - Metrics: Variance, smoothness, autocorrelation, plausible weight changes

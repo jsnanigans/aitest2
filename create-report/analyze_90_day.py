@@ -10,6 +10,8 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, Tuple, Optional, List
 import logging
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -99,6 +101,75 @@ def get_weight_at_date(df: pd.DataFrame, target_date: datetime, window_days: int
     closest_idx = df_window['time_diff'].idxmin()
     return df_window.loc[closest_idx, 'weight']
 
+def process_user_batch_90day(user_batch: List[Tuple[str, datetime]],
+                             raw_data: pd.DataFrame,
+                             filtered_data: pd.DataFrame) -> List[Dict]:
+    """
+    Process a batch of users for 90-day metrics (for parallel processing).
+
+    Args:
+        user_batch: List of (user_id, start_date) tuples
+        raw_data: Raw weight data DataFrame
+        filtered_data: Filtered weight data DataFrame
+
+    Returns:
+        List of result dictionaries
+    """
+    results = []
+
+    for user_id, start_date in user_batch:
+        # Get user's data
+        user_raw = raw_data[raw_data['user_id'] == user_id]
+        user_filtered = filtered_data[filtered_data['user_id'] == user_id]
+
+        # Skip if no data
+        if user_raw.empty and user_filtered.empty:
+            continue
+
+        # Calculate 90-day date
+        day_90 = start_date + timedelta(days=90)
+
+        # Get weights at start and 90 days
+        raw_start = get_weight_at_date(user_raw, start_date)
+        raw_90 = get_weight_at_date(user_raw, day_90)
+        filtered_start = get_weight_at_date(user_filtered, start_date)
+        filtered_90 = get_weight_at_date(user_filtered, day_90)
+
+        # Calculate losses
+        raw_loss_kg = None
+        raw_loss_pct = None
+        if raw_start and raw_90:
+            raw_loss_kg = raw_start - raw_90
+            raw_loss_pct = (raw_loss_kg / raw_start) * 100
+
+        filtered_loss_kg = None
+        filtered_loss_pct = None
+        if filtered_start and filtered_90:
+            filtered_loss_kg = filtered_start - filtered_90
+            filtered_loss_pct = (filtered_loss_kg / filtered_start) * 100
+
+        # Calculate difference
+        difference_pct = None
+        if raw_loss_pct is not None and filtered_loss_pct is not None:
+            difference_pct = filtered_loss_pct - raw_loss_pct
+
+        results.append({
+            'user_id': user_id,
+            'start_date': start_date,
+            'raw_start_weight': raw_start,
+            'raw_90_day_weight': raw_90,
+            'raw_loss_kg': raw_loss_kg,
+            'raw_loss_pct': raw_loss_pct,
+            'filtered_start_weight': filtered_start,
+            'filtered_90_day_weight': filtered_90,
+            'filtered_loss_kg': filtered_loss_kg,
+            'filtered_loss_pct': filtered_loss_pct,
+            'difference_pct': difference_pct
+        })
+
+    return results
+
+
 def calculate_90_day_metrics(user_start_dates: Dict[str, datetime]) -> pd.DataFrame:
     """
     Calculate 90-day weight loss metrics for eligible users.
@@ -117,86 +188,62 @@ def calculate_90_day_metrics(user_start_dates: Dict[str, datetime]) -> pd.DataFr
         - filtered_loss_pct
         - difference_pct (filtered - raw)
     """
-    # Load data files - but only for users we care about
-    logging.info("Loading weight data files...")
-    
+    # Try to use cached data first
+    try:
+        from data_cache import data_cache
+        logging.info("Loading weight data from cache...")
+        weight_cols = ['user_id', 'effectiveDateTime', 'weight']
+        df_raw = data_cache.get_dataframe(RAW_FILE, weight_cols)
+        df_filtered = data_cache.get_dataframe(FILTERED_FILE, weight_cols)
+    except:
+        # Fallback to direct loading if cache not available
+        logging.info("Loading weight data files directly...")
+        df_raw = pd.read_csv(RAW_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
+        df_filtered = pd.read_csv(FILTERED_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
+        df_raw['effectiveDateTime'] = pd.to_datetime(df_raw['effectiveDateTime'])
+        df_filtered['effectiveDateTime'] = pd.to_datetime(df_filtered['effectiveDateTime'])
+
     # Get the list of user IDs we need
     target_user_ids = list(user_start_dates.keys())
-    logging.info(f"Loading data for {len(target_user_ids)} target users...")
-    
-    # Load full data first
-    df_raw = pd.read_csv(RAW_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
-    df_filtered = pd.read_csv(FILTERED_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
-    
-    # Filter to only our target users IMMEDIATELY
+    logging.info(f"Processing data for {len(target_user_ids)} target users...")
+
+    # Filter to only our target users
     df_raw = df_raw[df_raw['user_id'].isin(target_user_ids)]
     df_filtered = df_filtered[df_filtered['user_id'].isin(target_user_ids)]
-    
+
     logging.info(f"Filtered to {len(df_raw['user_id'].unique())} users in raw data")
     logging.info(f"Filtered to {len(df_filtered['user_id'].unique())} users in filtered data")
-    
-    # Convert datetime columns
-    df_raw['effectiveDateTime'] = pd.to_datetime(df_raw['effectiveDateTime'])
-    df_filtered['effectiveDateTime'] = pd.to_datetime(df_filtered['effectiveDateTime'])
-    
+
+    # Prepare user batches for parallel processing
+    user_items = list(user_start_dates.items())
+    batch_size = max(1, len(user_items) // (multiprocessing.cpu_count() * 2))  # Optimize batch size
+    user_batches = [user_items[i:i+batch_size] for i in range(0, len(user_items), batch_size)]
+
     results = []
-    processed = 0
     skipped_no_data = 0
-    
-    for user_id, start_date in user_start_dates.items():
-        # Get user's data
-        user_raw = df_raw[df_raw['user_id'] == user_id]
-        user_filtered = df_filtered[df_filtered['user_id'] == user_id]
-        
-        # Skip if no data
-        if user_raw.empty and user_filtered.empty:
-            skipped_no_data += 1
-            continue
-        
-        # Calculate 90-day date
-        day_90 = start_date + timedelta(days=90)
-        
-        # Get weights at start and 90 days
-        raw_start = get_weight_at_date(user_raw, start_date)
-        raw_90 = get_weight_at_date(user_raw, day_90)
-        filtered_start = get_weight_at_date(user_filtered, start_date)
-        filtered_90 = get_weight_at_date(user_filtered, day_90)
-        
-        # Calculate losses
-        raw_loss_kg = None
-        raw_loss_pct = None
-        if raw_start and raw_90:
-            raw_loss_kg = raw_start - raw_90
-            raw_loss_pct = (raw_loss_kg / raw_start) * 100
-        
-        filtered_loss_kg = None
-        filtered_loss_pct = None
-        if filtered_start and filtered_90:
-            filtered_loss_kg = filtered_start - filtered_90
-            filtered_loss_pct = (filtered_loss_kg / filtered_start) * 100
-        
-        # Calculate difference
-        difference_pct = None
-        if raw_loss_pct is not None and filtered_loss_pct is not None:
-            difference_pct = filtered_loss_pct - raw_loss_pct
-        
-        results.append({
-            'user_id': user_id,
-            'start_date': start_date,
-            'raw_start_weight': raw_start,
-            'raw_90_day_weight': raw_90,
-            'raw_loss_kg': raw_loss_kg,
-            'raw_loss_pct': raw_loss_pct,
-            'filtered_start_weight': filtered_start,
-            'filtered_90_day_weight': filtered_90,
-            'filtered_loss_kg': filtered_loss_kg,
-            'filtered_loss_pct': filtered_loss_pct,
-            'difference_pct': difference_pct
-        })
-        
-        processed += 1
-        if processed % 100 == 0:
-            logging.info(f"Processed {processed} users...")
+
+    # Decide whether to use parallel processing based on data size
+    if len(user_items) > 100:  # Use parallel processing for larger datasets
+        logging.info(f"Processing {len(user_batches)} batches in parallel using {multiprocessing.cpu_count()} CPUs...")
+
+        # Process batches in parallel
+        with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            futures = []
+            for batch in user_batches:
+                future = executor.submit(process_user_batch_90day, batch, df_raw, df_filtered)
+                futures.append(future)
+
+            # Collect results
+            for i, future in enumerate(futures):
+                batch_results = future.result()
+                results.extend(batch_results)
+                if (i + 1) % 10 == 0:
+                    logging.info(f"Processed {(i + 1) * batch_size} users...")
+    else:
+        # For small datasets, use single-threaded processing
+        logging.info("Processing users sequentially (small dataset)...")
+        batch_results = process_user_batch_90day(user_items, df_raw, df_filtered)
+        results = batch_results
     
     df_results = pd.DataFrame(results)
     

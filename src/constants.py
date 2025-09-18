@@ -10,15 +10,15 @@ from typing import Dict, Optional
 @dataclass
 class ThresholdResult:
     """Result from threshold calculation with explicit units."""
-    
+
     value: float
     unit: str
     metadata: Optional[Dict] = None
-    
+
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
-    
+
     def to_dict(self) -> Dict:
         """Convert to dictionary for serialization."""
         return {
@@ -51,7 +51,7 @@ SUPPORTED_WEIGHT_UNITS = {
     # Metric units
     'kg', 'kilogram', 'kilograms',
     'g', 'gram', 'grams',
-    # Imperial units  
+    # Imperial units
     'lb', 'lbs', 'pound', 'pounds',
     'st', 'stone', 'stones',
 }
@@ -66,10 +66,10 @@ BMI_LIMITS = {
     'SEVERE_OBESE': 35.0,
     'MORBID_OBESE': 40.0,
     'CRITICAL_HIGH': 50.0,
-    'IMPOSSIBLE_LOW': 18.0,  # Weight loss program - reject below healthy BMI
+    'IMPOSSIBLE_LOW': 16.0,
     'IMPOSSIBLE_HIGH': 100.0,
-    'SUSPICIOUS_LOW': 20.0,  # Flag weights below BMI 20 as suspicious
-    'SUSPICIOUS_HIGH': 60.0
+    'SUSPICIOUS_LOW': 20.0,
+    'SUSPICIOUS_HIGH': 70.0
 }
 
 # Kalman filter defaults
@@ -278,7 +278,7 @@ def get_noise_multiplier(source: str) -> float:
 def categorize_rejection_enhanced(reason: str) -> str:
     """Enhanced categorization including BMI and unit issues."""
     reason_lower = reason.lower()
-    
+
     if "bmi" in reason_lower:
         return "BMI_Detection"
     elif "unit" in reason_lower or "pound" in reason_lower or "conversion" in reason_lower:
@@ -302,7 +302,7 @@ def categorize_rejection_enhanced(reason: str) -> str:
 def get_rejection_severity(reason: str, weight_change: float = 0) -> str:
     """Determine severity of rejection."""
     reason_lower = reason.lower()
-    
+
     if "impossible" in reason_lower or "physiologically impossible" in reason_lower:
         return "Critical"
     elif "extreme" in reason_lower or weight_change > 20:

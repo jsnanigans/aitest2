@@ -14,6 +14,8 @@ import logging
 import json
 import time
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 # Import from existing module
 from analyze_90_day import get_weight_at_date, RAW_FILE, FILTERED_FILE
@@ -184,25 +186,34 @@ def generate_daily_report(
     start_time = time.time()
     output_file = output_path / "daily_weight_analysis.csv"
     
-    # Load data once
-    logging.info("Loading weight data files...")
+    # Load data once - try cache first
     load_start = time.time()
-    
-    if not RAW_FILE.exists():
-        logging.error(f"Raw file not found: {RAW_FILE}")
-        return {}
-    
-    if not FILTERED_FILE.exists():
-        logging.error(f"Filtered file not found: {FILTERED_FILE}")
-        return {}
-    
-    # Load with minimal columns for memory efficiency
-    df_raw = pd.read_csv(RAW_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
-    df_filtered = pd.read_csv(FILTERED_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
-    
-    # Convert datetime columns
-    df_raw['effectiveDateTime'] = pd.to_datetime(df_raw['effectiveDateTime'])
-    df_filtered['effectiveDateTime'] = pd.to_datetime(df_filtered['effectiveDateTime'])
+
+    try:
+        from data_cache import data_cache
+        logging.info("Loading weight data from cache...")
+        weight_cols = ['user_id', 'effectiveDateTime', 'weight']
+        df_raw = data_cache.get_dataframe(RAW_FILE, weight_cols)
+        df_filtered = data_cache.get_dataframe(FILTERED_FILE, weight_cols)
+    except:
+        # Fallback to direct loading
+        logging.info("Loading weight data files directly...")
+
+        if not RAW_FILE.exists():
+            logging.error(f"Raw file not found: {RAW_FILE}")
+            return {}
+
+        if not FILTERED_FILE.exists():
+            logging.error(f"Filtered file not found: {FILTERED_FILE}")
+            return {}
+
+        # Load with minimal columns for memory efficiency
+        df_raw = pd.read_csv(RAW_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
+        df_filtered = pd.read_csv(FILTERED_FILE, usecols=['user_id', 'effectiveDateTime', 'weight'])
+
+        # Convert datetime columns
+        df_raw['effectiveDateTime'] = pd.to_datetime(df_raw['effectiveDateTime'])
+        df_filtered['effectiveDateTime'] = pd.to_datetime(df_filtered['effectiveDateTime'])
     
     logging.info(f"Data loaded in {time.time() - load_start:.1f} seconds")
     logging.info(f"Raw data: {len(df_raw):,} records for {df_raw['user_id'].nunique():,} users")
@@ -227,37 +238,80 @@ def generate_daily_report(
     total_records = 0
     total_users_processed = 0
     
-    # Process users in batches
+    # Process users in batches - use parallel processing for large datasets
     logging.info(f"Processing {len(user_ids)} users in batches of {batch_size}...")
     processing_start = time.time()
-    
-    for batch_start in range(0, len(user_ids), batch_size):
-        batch_end = min(batch_start + batch_size, len(user_ids))
-        batch_users = user_ids[batch_start:batch_end]
-        
-        batch_time_start = time.time()
-        
-        # Process batch
-        batch_records = process_user_batch(
-            batch_users, 
-            user_start_dates,
-            raw_user_data,
-            filtered_user_data,
-            max_days
-        )
-        
-        # Write batch to CSV
-        if batch_records:
-            df_batch = pd.DataFrame(batch_records)
-            df_batch.to_csv(output_file, mode='w' if first_batch else 'a', 
-                           header=first_batch, index=False)
-            first_batch = False
-            total_records += len(batch_records)
-            total_users_processed += len(batch_users)
-        
-        # Progress reporting
-        batch_time = time.time() - batch_time_start
-        avg_time_per_user = batch_time / len(batch_users)
+
+    # Determine if we should use parallel processing
+    use_parallel = len(user_ids) > 100
+
+    if use_parallel:
+        # Parallel processing for large datasets
+        logging.info(f"Using parallel processing with {multiprocessing.cpu_count()} CPUs...")
+
+        # Process all batches in parallel and collect results
+        all_records = []
+        with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            futures = []
+            for batch_start in range(0, len(user_ids), batch_size):
+                batch_end = min(batch_start + batch_size, len(user_ids))
+                batch_users = user_ids[batch_start:batch_end]
+
+                future = executor.submit(
+                    process_user_batch,
+                    batch_users,
+                    user_start_dates,
+                    raw_user_data,
+                    filtered_user_data,
+                    max_days
+                )
+                futures.append((batch_start, future))
+
+            # Collect results in order
+            for batch_start, future in futures:
+                batch_records = future.result()
+                all_records.extend(batch_records)
+                total_records += len(batch_records)
+
+                # Progress reporting
+                if batch_start % (batch_size * 10) == 0:
+                    logging.info(f"Processed {batch_start + batch_size} users...")
+
+        # Write all records at once
+        if all_records:
+            df_all = pd.DataFrame(all_records)
+            df_all.to_csv(output_file, index=False)
+            total_users_processed = len(user_ids)
+
+    else:
+        # Sequential processing for small datasets
+        for batch_start in range(0, len(user_ids), batch_size):
+            batch_end = min(batch_start + batch_size, len(user_ids))
+            batch_users = user_ids[batch_start:batch_end]
+
+            batch_time_start = time.time()
+
+            # Process batch
+            batch_records = process_user_batch(
+                batch_users,
+                user_start_dates,
+                raw_user_data,
+                filtered_user_data,
+                max_days
+            )
+
+            # Write batch to CSV
+            if batch_records:
+                df_batch = pd.DataFrame(batch_records)
+                df_batch.to_csv(output_file, mode='w' if first_batch else 'a',
+                               header=first_batch, index=False)
+                first_batch = False
+                total_records += len(batch_records)
+                total_users_processed += len(batch_users)
+
+            # Progress reporting
+            batch_time = time.time() - batch_time_start
+            avg_time_per_user = batch_time / len(batch_users)
         remaining_users = len(user_ids) - batch_end
         eta_seconds = remaining_users * avg_time_per_user
         
