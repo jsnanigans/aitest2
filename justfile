@@ -12,7 +12,7 @@ create-filtered:
   uv run python main.py data/2025-09-05_nocon.csv --max-users 0 --no-viz --filtered-output filtered.csv
 
 report:
-  uv run python simple_report.py --employer AMAZON_EMPLOYER
+  uv run python simple_report.py --employer AMAZON_EMPLOYER --interval-analysis --limit 500
 
 generate-report:
   uv run python report.py data/2025-09-05_nocon.csv filtered.csv --parallel --top-n 10
