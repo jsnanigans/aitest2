@@ -67,7 +67,7 @@ filtering_strength = "strict"           # How aggressively to filter outliers
 adaptation_speed = "moderate"               # How quickly to accept new weight ranges
 trust_manual_entries = "high"           # Trust level for user-reported weights
 gap_sensitivity = "low"               # How sensitive to data gaps
-quality_threshold = 0.5               # Minimum quality score to accept (70%)
+quality_threshold = 0.46               # Minimum quality score to accept (70%)
 # Reset behavior
 reset_on_gaps = "moderate"          # Reset after shorter gaps (21 days)
 reset_on_manual = "moderate"          # Don't reset on manual entries
