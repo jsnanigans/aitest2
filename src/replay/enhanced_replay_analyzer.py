@@ -402,7 +402,11 @@ class EnhancedReplayAnalyzer:
 
         # Extract weight from state (first component)
         if isinstance(last_state, (list, np.ndarray)) and len(last_state) > 0:
-            last_weight = float(last_state[0])
+            # Handle numpy array properly
+            if isinstance(last_state, np.ndarray):
+                last_weight = last_state[0].item() if hasattr(last_state[0], 'item') else float(last_state[0])
+            else:
+                last_weight = float(last_state[0])
         else:
             last_weight = 0.0
 
@@ -419,7 +423,10 @@ class EnhancedReplayAnalyzer:
                     if snap_time and snap_time < timestamp:
                         snap_state = snapshot.get('state')
                         if snap_state and len(snap_state) > 0:
-                            best_prediction = float(snap_state[0])
+                            if isinstance(snap_state, np.ndarray):
+                                best_prediction = snap_state[0].item() if hasattr(snap_state[0], 'item') else float(snap_state[0])
+                            else:
+                                best_prediction = float(snap_state[0])
                             break
 
             predictions.append(best_prediction)
@@ -514,7 +521,10 @@ class EnhancedReplayAnalyzer:
         last_state = user_state.get('last_state')
         if last_state is not None:
             if isinstance(last_state, (list, np.ndarray)) and len(last_state) > 0:
-                return float(last_state[0])
+                if isinstance(last_state, np.ndarray):
+                    return last_state[0].item() if hasattr(last_state[0], 'item') else float(last_state[0])
+                else:
+                    return float(last_state[0])
 
         return None
 
@@ -532,7 +542,10 @@ class EnhancedReplayAnalyzer:
             if snap_time and snap_time < reset_time:
                 state = snapshot.get('state')
                 if state and len(state) > 0:
-                    return float(state[0])
+                    if isinstance(state, np.ndarray):
+                        return state[0].item() if hasattr(state[0], 'item') else float(state[0])
+                    else:
+                        return float(state[0])
 
         # Fallback to last state if before reset
         last_timestamp = user_state.get('last_timestamp')
@@ -543,7 +556,10 @@ class EnhancedReplayAnalyzer:
             if last_timestamp < reset_time:
                 last_state = user_state.get('last_state')
                 if last_state and len(last_state) > 0:
-                    return float(last_state[0])
+                    if isinstance(last_state, np.ndarray):
+                        return last_state[0].item() if hasattr(last_state[0], 'item') else float(last_state[0])
+                    else:
+                        return float(last_state[0])
 
         return None
 

@@ -1,0 +1,38 @@
+[
+  {
+    "weight": 104.32616,
+    "timestamp": "2024-07-15 00:00:00",
+    "source": "internal-questionnaire",
+    "unit": "kg"
+  },
+  {
+    "weight": 100.697424,
+    "timestamp": "2025-03-26 00:00:00",
+    "source": "internal-questionnaire",
+    "unit": "kg"
+  },
+  {
+    "weight": 103.418976,
+    "timestamp": "2025-03-26 00:00:00",
+    "source": "internal-questionnaire",
+    "unit": "kg"
+  },
+  {
+    "weight": 103.418976,
+    "timestamp": "2025-05-01 00:00:00",
+    "source": "internal-questionnaire",
+    "unit": "kg"
+  },
+  {
+    "weight": 103.418976,
+    "timestamp": "2025-05-15 00:00:00",
+    "source": "internal-questionnaire",
+    "unit": "kg"
+  },
+  {
+    "weight": 100.243832,
+    "timestamp": "2025-05-24 00:00:00",
+    "source": "internal-questionnaire",
+    "unit": "kg"
+  }
+]
