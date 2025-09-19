@@ -208,14 +208,14 @@ persistence = true                # Save user states to database
 
 # Reset management
 [features.resets]
-initial = false                   # Enable initial reset for new users
-hard = false                      # Enable hard reset after long gaps
-soft = false                      # Enable soft reset for manual entries
+initial = true                    # Enable initial reset for new users
+hard = true                       # Enable hard reset after long gaps
+soft = true                       # Enable soft reset for manual entries
 
 # Adaptive features
 [features.adaptive]
-noise_model = false               # Source-specific noise multipliers
-parameters = false                # Adaptive Kalman parameters
+noise_model = true                # Source-specific noise multipliers
+parameters = true                 # Adaptive Kalman parameters
 # parameter_decay = true            # Parameter decay over time - NOT IMPLEMENTED
 
 # Replay processing (controlled by [replay].enabled above)
@@ -279,10 +279,10 @@ use_harmonic_mean = true
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
 kalman_fit = 0.5           # Primary signal - deviation from Kalman prediction
-temporal_consistency = 0.1  # Rate of change validation
-anomaly_detection = 0.2  # Different user, unit confusion, BMI detection
+temporal_consistency = 0  # Rate of change validation
+anomaly_detection = 0.25  # Different user, unit confusion, BMI detection
 source_reliability = 0    # Source-based trust scoring (disabled)
-trend_alignment = 0.2       # Consistency with established trend (disabled)
+trend_alignment = 0.25       # Consistency with established trend (disabled)
 
 # Temporal consistency parameters (new continuous exponential function)
 [quality_scoring.temporal]

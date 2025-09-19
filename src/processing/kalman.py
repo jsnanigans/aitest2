@@ -273,6 +273,73 @@ class KalmanFilterManager:
         return max(0.1, delta)
 
     @staticmethod
+    def predict_next_state(
+        state: Dict[str, Any],
+        timestamp: datetime,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[Optional[float], Optional[float]]:
+        """
+        Get prediction for the next timestamp WITHOUT updating state.
+        This is the true Kalman prediction step, used for quality scoring.
+
+        Args:
+            state: Current Kalman state
+            timestamp: Timestamp to predict for
+            config: Optional config with Kalman parameters
+
+        Returns:
+            Tuple of (predicted_weight, innovation_covariance)
+        """
+        # Check if we have a valid state
+        if not state or state.get("last_state") is None or not state.get("kalman_params"):
+            return None, None
+
+        # Get last timestamp
+        last_timestamp = state.get("last_timestamp")
+        if not last_timestamp:
+            return None, None
+
+        # Calculate time delta
+        time_delta_days = KalmanFilterManager.calculate_time_delta_days(
+            timestamp, last_timestamp
+        )
+
+        # Get last posterior state and covariance
+        last_state = state["last_state"]
+        last_covariance = state["last_covariance"]
+
+        if len(last_state.shape) > 1:
+            posterior_state = last_state[-1]
+            posterior_covariance = last_covariance[-1]
+        else:
+            posterior_state = last_state
+            posterior_covariance = last_covariance
+
+        # Build transition matrix F
+        F = np.array([[1, time_delta_days], [0, 1]])
+
+        # Get process noise Q from kalman_params
+        kalman_params = state["kalman_params"]
+        Q = np.array(kalman_params["transition_covariance"])
+
+        # Predict state: x_pred = F * x_posterior
+        predicted_state = F @ posterior_state
+
+        # Predict covariance: P_pred = F * P_posterior * F' + Q
+        predicted_covariance = F @ posterior_covariance @ F.T + Q
+
+        # Extract predicted weight (first element of state vector)
+        predicted_weight = float(predicted_state[0])
+
+        # Calculate innovation covariance for the measurement
+        # S = H * P_pred * H' + R, where H = [1, 0] for weight observation
+        # Since H = [1, 0], this simplifies to P_pred[0,0] + R
+        R = kalman_params["observation_covariance"][0][0]
+        innovation_covariance = float(predicted_covariance[0, 0] + R)
+
+        return predicted_weight, innovation_covariance
+
+    @staticmethod
     def get_adaptive_covariances(
         measurements_since_reset: int, config: dict
     ) -> Dict[str, float]:

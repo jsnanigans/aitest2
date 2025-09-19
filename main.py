@@ -463,17 +463,6 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                 if result.get('accepted'):
                     stats["accepted"] += 1
 
-                    # Print acceptance details if available
-                    if debug and result.get('acceptance_details'):
-                        details = result['acceptance_details']
-                        print(f"  ✅ ACCEPTED at {details.get('decision_point', 'unknown')}")
-                        print(f"     Location: {details.get('location', 'N/A')}")
-                        print(f"     Reason: {details.get('acceptance_reason', 'N/A')}")
-                        if details.get('quality_score') is not None:
-                            print(f"     Quality Score: {details['quality_score']:.3f}")
-                        if details.get('kalman_prediction') is not None and details.get('innovation') is not None:
-                            print(f"     Kalman Prediction: {details['kalman_prediction']:.2f} kg, Innovation: {details['innovation']:.2f} kg")
-                        print()
 
                     # Write accepted row to filtered CSV with quality_score
                     if filtered_csv_writer:
@@ -484,18 +473,6 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                 else:
                     stats["rejected"] += 1
 
-                    # Print rejection details if available
-                    if debug and result.get('acceptance_details'):
-                        details = result['acceptance_details']
-                        print(f"  ❌ REJECTED at {details.get('decision_point', 'unknown')}")
-                        print(f"     Location: {details.get('location', 'N/A')}")
-                        print(f"     Failed Check: {details.get('failed_check', 'N/A')}")
-                        print(f"     Reason: {details.get('rejection_reason', result.get('reason', 'N/A'))}")
-                        if details.get('threshold') is not None and details.get('actual_score') is not None:
-                            print(f"     Threshold: {details['threshold']:.3f}, Actual: {details['actual_score']:.3f}")
-                        if details.get('deviation_percentage') is not None:
-                            print(f"     Deviation from Kalman: {details['deviation_percentage']:.1f}%")
-                        print()
 
                 # Add to replay buffer if enabled
                 if replay_enabled and replay_buffer:

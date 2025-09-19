@@ -84,20 +84,6 @@ def process_measurement(
             "reason": preprocess_metadata.get("rejected", "Preprocessing failed"),
             "stage": "preprocessing",
             "metadata": preprocess_metadata,
-            "acceptance_details": {
-                "decision_point": "preprocessing",
-                "location": "src/processing/processor.py:DataQualityPreprocessor",
-                "checks_performed": [
-                    "data_quality",
-                    "unit_conversion",
-                    "source_validation",
-                ],
-                "failed_check": "preprocessing",
-                "rejection_reason": preprocess_metadata.get(
-                    "rejected", "Preprocessing failed"
-                ),
-                "preprocessing_metadata": preprocess_metadata,
-            },
         }
 
     # Step 2: Load or create user state
@@ -180,19 +166,7 @@ def process_measurement(
         result["preprocessing"] = preprocess_metadata
         result["noise_multiplier"] = noise_multiplier
 
-        # Add acceptance tracking for initial acceptance
-        result["acceptance_details"] = {
-            "decision_point": "initialization",
-            "location": "src/processing/processor.py:KalmanInitialization",
-            "checks_performed": ["first_measurement"],
-            "all_checks_passed": True,
-            "kalman_initialized": True,
-            "kalman_updated": True,
-            "source": source,
-            "noise_multiplier": noise_multiplier,
-            "acceptance_reason": "Initial measurement - Kalman filter initialized",
-            "adaptive_params_applied": reset_timestamp is not None,
-        }
+        # Initial measurement - Kalman filter initialized
 
         # Add reset event info if it occurred (flattened for visualization)
         if reset_occurred:
@@ -246,40 +220,33 @@ def process_measurement(
 
     if use_unified_scoring:
         # Use unified Kalman-centric quality scorer
-        # Get Kalman prediction if available
+        # Get Kalman prediction using proper predict step
         kalman_prediction = None
         innovation_covariance = None
 
         if state and "kalman_params" in state:
-            current_weight, current_trend = (
-                KalmanFilterManager.get_current_state_values(state)
+            # Use the proper Kalman predict step to get prediction BEFORE update
+            kalman_prediction, innovation_covariance = (
+                KalmanFilterManager.predict_next_state(state, timestamp)
             )
-            if current_weight is not None:
-                # Calculate predicted weight
-                time_delta_days = KalmanFilterManager.calculate_time_delta_days(
-                    timestamp, state.get("last_timestamp")
-                )
-                kalman_prediction = current_weight + current_trend * time_delta_days
 
-                # Get innovation covariance
-                last_covariance = state.get("last_covariance")
-                if last_covariance is not None:
-                    if len(last_covariance.shape) > 2:
-                        current_covariance = last_covariance[-1]
-                    else:
-                        current_covariance = last_covariance
-
-                    # Get observation covariance
-                    obs_covariance = get_noise_multiplier(source)
+            # Apply source-specific noise multiplier to innovation covariance if needed
+            if innovation_covariance is not None:
+                # The predict_next_state already includes base observation noise
+                # We need to adjust for source-specific multiplier
+                noise_multiplier = get_noise_multiplier(source)
+                if noise_multiplier != 1.0:
+                    # Adjust innovation covariance for source reliability
+                    # Remove base R, apply multiplier, add back
                     kalman_params = state.get("kalman_params", {})
                     base_obs_cov = kalman_params.get(
                         "observation_covariance",
                         [[KALMAN_DEFAULTS["observation_covariance"]]],
                     )[0][0]
-                    obs_covariance = obs_covariance * base_obs_cov
-
-                    # Innovation covariance = P + R
-                    innovation_covariance = current_covariance[0, 0] + obs_covariance
+                    # innovation_cov = P_pred[0,0] + R
+                    # We need: P_pred[0,0] + (R * multiplier)
+                    predicted_cov_00 = innovation_covariance - base_obs_cov
+                    innovation_covariance = predicted_cov_00 + (base_obs_cov * noise_multiplier)
 
         # Get recent timestamps if available
         recent_timestamps = []
@@ -328,34 +295,6 @@ def process_measurement(
                 "quality_score": quality_score.overall,
                 "quality_components": quality_score.components,
                 "quality_details": quality_score.to_dict(),
-                "acceptance_details": {
-                    "decision_point": "unified_quality_scoring",
-                    "location": "src/processing/processor.py:UnifiedQualityScorer",
-                    "checks_performed": list(quality_score.components.keys()),
-                    "failed_check": "quality_threshold",
-                    "threshold": quality_config.get(
-                        "quality_acceptance_threshold", 0.5
-                    ),
-                    "actual_score": quality_score.overall,
-                    "component_scores": quality_score.components,
-                    "rejection_reason": quality_score.rejection_reason,
-                    "in_adaptive_period": False,
-                    "kalman_prediction": kalman_prediction,
-                    "deviation": (
-                        abs(cleaned_weight - kalman_prediction)
-                        if kalman_prediction
-                        else None
-                    ),
-                    "deviation_percentage": (
-                        (
-                            abs(cleaned_weight - kalman_prediction)
-                            / kalman_prediction
-                            * 100
-                        )
-                        if kalman_prediction
-                        else None
-                    ),
-                },
             }
 
         # Store quality score for later use
@@ -439,9 +378,9 @@ def process_measurement(
 
     # Step 8: Add comprehensive metadata
     result["preprocessing"] = preprocess_metadata
-    # noise_multiplier was set during initialization or normal update
+    # Set noise multiplier if not already set
     if "noise_multiplier" not in result:
-        result["noise_multiplier"] = locals().get("noise_multiplier", 1.0)
+        result["noise_multiplier"] = noise_multiplier
     result["stage"] = "accepted"
 
     # Add quality score if available
