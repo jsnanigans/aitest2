@@ -99,12 +99,12 @@ class UnifiedQualityScorer:
     BMI_RANGE = (15.0, 50.0)  # Common BMI range that might be entered as weight
 
     # Rapid measurement detection thresholds
-    DUPLICATE_THRESHOLD_SECONDS = 30  # Measurements within 30 seconds are likely duplicates
-    RAPID_THRESHOLD_MINUTES = 5  # Measurements within 5 minutes are suspicious
+    DUPLICATE_THRESHOLD_SECONDS = 5  # Only reject if < 5 seconds (true duplicates)
+    RAPID_THRESHOLD_MINUTES = 5  # Measurements within 5 minutes need special handling
     BURST_WINDOW_MINUTES = 30  # Window to detect burst patterns
-    BURST_COUNT_THRESHOLD = 3  # Number of measurements to trigger burst detection
-    MAX_1MIN_CHANGE_KG = 0.1  # Maximum believable change in 1 minute
-    MAX_5MIN_CHANGE_KG = 0.3  # Maximum believable change in 5 minutes
+    BURST_COUNT_THRESHOLD = 5  # Increased from 3 to be less aggressive
+    MAX_1MIN_CHANGE_KG = 0.5  # Increased from 0.1 to allow scale variance
+    MAX_5MIN_CHANGE_KG = 1.0  # Increased from 0.3 to allow water/bathroom
 
     def __init__(self, config: Optional[Dict] = None):
         """Initialize with optional config overrides."""
@@ -162,6 +162,9 @@ class UnifiedQualityScorer:
         """
         components = {}
         metadata = {}
+
+        # Store current source for use in anomaly detection
+        self.current_source = source
 
         # Only calculate components with non-zero weights
         # 1. Kalman Fit Component
@@ -436,41 +439,55 @@ class UnifiedQualityScorer:
                     )
 
                     # Enhanced rapid-fire measurement detection
-                    # Reject measurements that are too close together (likely duplicates or errors)
+                    # Only reject true duplicates (same weight within 5 seconds)
                     if time_diff_seconds < self.DUPLICATE_THRESHOLD_SECONDS:
-                        metadata["rejected_reason"] = "duplicate_measurement"
-                        metadata["time_diff_seconds"] = time_diff_seconds
-                        metadata["threshold_seconds"] = self.DUPLICATE_THRESHOLD_SECONDS
-                        return 0.0, metadata  # Reject as duplicate
+                        # Check if weight is essentially the same (within 50g)
+                        if weight_change < 0.05:
+                            metadata["rejected_reason"] = "duplicate_measurement"
+                            metadata["time_diff_seconds"] = time_diff_seconds
+                            metadata["threshold_seconds"] = self.DUPLICATE_THRESHOLD_SECONDS
+                            return 0.0, metadata  # Reject as duplicate
+                        # Allow small variations (scale noise) even in rapid succession
+                        elif weight_change < 0.2:
+                            score *= 0.8  # Minor penalty for rapid but different reading
+                            metadata["rapid_but_different"] = True
 
                     elif time_diff_minutes < self.RAPID_THRESHOLD_MINUTES:
-                        # Unless it's a manual entry with minute precision
-                        if not has_minute_precision:
-                            # Different thresholds for different time windows
-                            if time_diff_minutes <= 1:
-                                max_allowed = self.MAX_1MIN_CHANGE_KG
-                            else:
-                                # Linear interpolation between 1 min and 5 min thresholds
-                                max_allowed = self.MAX_1MIN_CHANGE_KG + (
-                                    (self.MAX_5MIN_CHANGE_KG - self.MAX_1MIN_CHANGE_KG)
-                                    * (time_diff_minutes - 1) / 4
-                                )
+                        # Calculate adaptive threshold based on time and source
+                        # More lenient for device measurements (scale variance)
+                        source_factor = 1.0
+                        if hasattr(self, 'current_source'):
+                            if 'device' in self.current_source.lower():
+                                source_factor = 1.5  # 50% more lenient for devices
+                            elif 'manual' in self.current_source.lower() or 'upload' in self.current_source.lower():
+                                source_factor = 1.2  # 20% more lenient for manual
 
-                            if weight_change > max_allowed:
-                                metadata["rejected_reason"] = "rapid_impossible_change"
-                                metadata["time_diff_minutes"] = time_diff_minutes
-                                metadata["change_kg"] = weight_change
-                                metadata["max_allowed_change"] = max_allowed
-                                return 0.0, metadata  # Reject as impossible
+                        # Smooth exponential growth of allowed change
+                        # Starts at 0.5kg at 0 min, grows to 1.0kg at 5 min
+                        max_allowed = 0.5 + 0.5 * (1 - math.exp(-time_diff_minutes / 2))
+                        max_allowed *= source_factor
 
-                            # Apply heavy penalty for rapid measurements (likely technical errors)
-                            # Score decreases exponentially as time gap decreases below threshold
-                            # Formula: exp(-k * (threshold - actual) / threshold)
-                            # This gives: ~0.05 at 0 min, ~0.37 at 2.5 min, ~1.0 at 5 min
-                            rapid_penalty = math.exp(-3 * (self.RAPID_THRESHOLD_MINUTES - time_diff_minutes) / self.RAPID_THRESHOLD_MINUTES)
+                        if weight_change > max_allowed * 2:  # Only reject if WAY over (2x)
+                            metadata["rejected_reason"] = "rapid_impossible_change"
+                            metadata["time_diff_minutes"] = time_diff_minutes
+                            metadata["change_kg"] = weight_change
+                            metadata["max_allowed_change"] = max_allowed
+                            return 0.0, metadata  # Reject as impossible
+
+                        elif weight_change > max_allowed:
+                            # Over threshold but not impossible - apply gradual penalty
+                            excess_ratio = (weight_change - max_allowed) / max_allowed
+                            rapid_penalty = math.exp(-excess_ratio)  # Smoother penalty
                             score *= rapid_penalty
                             metadata["rapid_measurement_penalty"] = rapid_penalty
                             metadata["time_diff_minutes"] = time_diff_minutes
+                            metadata["exceeded_soft_threshold"] = True
+                        else:
+                            # Within acceptable range for short-term change
+                            # Small penalty that decreases as time increases
+                            time_penalty = 0.9 + 0.1 * (time_diff_minutes / self.RAPID_THRESHOLD_MINUTES)
+                            score *= time_penalty
+                            metadata["minor_time_penalty"] = time_penalty
 
                     # Additional check: Look for burst patterns (multiple measurements in short period)
                     if len(recent_timestamps) >= self.BURST_COUNT_THRESHOLD:
@@ -483,14 +500,14 @@ class UnifiedQualityScorer:
                                 burst_count += 1
 
                         if burst_count >= self.BURST_COUNT_THRESHOLD:
-                            # Multiple rapid measurements detected - likely technical issue
+                            # Multiple rapid measurements detected - could be intentional averaging
                             metadata["burst_pattern_detected"] = True
                             metadata["burst_count"] = burst_count
                             metadata["burst_window_minutes"] = self.BURST_WINDOW_MINUTES
 
-                            # Progressive penalty based on burst count
-                            # 3 measurements = 0.5, 4 = 0.35, 5+ = 0.25
-                            burst_penalty = max(0.25, 0.8 - (burst_count - 2) * 0.15)
+                            # Less aggressive penalty - users often take multiple readings
+                            # 5 measurements = 0.8, 6 = 0.7, 7+ = 0.6
+                            burst_penalty = max(0.6, 1.0 - (burst_count - 4) * 0.1)
                             score *= burst_penalty
                             metadata["burst_penalty"] = burst_penalty
 
@@ -568,14 +585,14 @@ class UnifiedQualityScorer:
         if time_hours <= 0:
             return 0.0
 
-        # Ultra short-term (< 1 minute): Only measurement error
+        # Ultra short-term (< 1 minute): Scale variance + positioning
         if time_hours < 0.0167:  # 1 minute
-            return PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1MIN", 0.1)
+            return PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1MIN", 0.5)  # Increased from 0.1
 
-        # Very short-term (< 5 minutes): Small measurement variance
+        # Very short-term (< 5 minutes): Scale variance + water/bathroom
         elif time_hours < 0.0833:  # 5 minutes
-            max_1min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1MIN", 0.1)
-            max_5min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_5MIN", 0.3)
+            max_1min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1MIN", 0.5)  # Increased
+            max_5min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_5MIN", 1.0)  # Increased
             # Linear interpolation
             minutes = time_hours * 60
             return max_1min + (max_5min - max_1min) * (minutes - 1) / 4
@@ -596,15 +613,16 @@ class UnifiedQualityScorer:
         # Hours (1-6 hours): Water, food, exercise effects
         elif time_hours <= 6:
             base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1H", 1.0)
-            max_6h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 1.5)
-            # Diminishing returns
-            additional = (max_6h - base_change) * (1 - math.exp(-(time_hours - 1) / 3))
+            max_6h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 3.0)
+            # Smooth interpolation from 1h to 6h
+            # At 2h: ~1.6kg, 3h: ~2.0kg, 4h: ~2.4kg, 6h: 3.0kg
+            additional = (max_6h - base_change) * math.log(1 + (time_hours - 1)) / math.log(6)
             return base_change + additional
 
         # Day (6-24 hours): Full daily fluctuation
         elif time_hours <= 24:
-            base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 1.5)
-            max_24h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_24H", 2.0)
+            base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 3.0)
+            max_24h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_24H", 4.0)
             # Logarithmic growth
             additional = (max_24h - base_change) * math.log(1 + (time_hours - 6) / 6) / math.log(4)
             return base_change + additional

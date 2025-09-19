@@ -36,10 +36,10 @@ PHYSIOLOGICAL_LIMITS = {
     "TYPICAL_DAILY_VARIATION_KG": 1.5,  # Normal daily variation
     "MAX_SUSTAINED_DAILY_KG": 0.5,  # Sustainable long-term change
     "MAX_CHANGE_1H": 1.0,  # Water/food intake immediate effect
-    "MAX_CHANGE_6H": 1.5,  # Half-day variation
-    "MAX_CHANGE_24H": 2.0,  # Full day variation
-    "MAX_CHANGE_1MIN": 0.1,  # Measurement error tolerance
-    "MAX_CHANGE_5MIN": 0.3,  # Multiple measurement tolerance
+    "MAX_CHANGE_6H": 3.0,  # Half-day variation (increased for meal+water+exercise)
+    "MAX_CHANGE_24H": 4.0,  # Full day variation (meal cycles + exercise + hydration)
+    "MAX_CHANGE_1MIN": 0.5,  # Scale variance + positioning tolerance
+    "MAX_CHANGE_5MIN": 1.0,  # Water/bathroom + multiple measurements
     "MAX_MONTHLY_PERCENT": 15,  # Maximum 15% body weight change per month
     "LIMIT_TOLERANCE": 0.1,  # Optimized from 0.10
     "SUSTAINED_TOLERANCE": 0.25,  # Optimized from 0.25
