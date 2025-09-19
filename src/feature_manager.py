@@ -17,6 +17,7 @@ class FeatureManager:
     # Feature dependencies (feature -> set of required features)
     DEPENDENCIES = {
         'quality_scoring': {'kalman_filtering'},
+        'unified_quality_scoring': {'kalman_filtering'},
         'quality_override': {'quality_scoring', 'outlier_detection'},
         'kalman_deviation_check': {'kalman_filtering', 'outlier_detection'},
         'adaptive_parameters': {'kalman_filtering'},
@@ -29,6 +30,7 @@ class FeatureManager:
         # Core processing
         'kalman_filtering': True,
         'quality_scoring': True,
+        'unified_quality_scoring': True,  # New unified Kalman-centric scorer
         'outlier_detection': True,
         'quality_override': True,
 

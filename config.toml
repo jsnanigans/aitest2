@@ -272,8 +272,21 @@ use_harmonic_mean = true
 # threshold is set by profile, but can be overridden here
 # threshold = 0.6
 
-# Component weights are set by profile, but can be overridden here
-# [quality_scoring.component_weights]
+# Component weights for unified quality scorer (must sum to 1.0)
+[quality_scoring.component_weights]
+kalman_fit = 0.40           # Primary signal - deviation from Kalman prediction
+temporal_consistency = 0.20  # Rate of change validation
+anomaly_detection = 0.20     # Different user, unit confusion, BMI detection
+source_reliability = 0.10   # Source-based trust scoring
+trend_alignment = 0.10       # Consistency with established trend
+
+# Temporal consistency thresholds
+[quality_scoring.temporal_thresholds]
+"6h" = 3.0   # Maximum kg change in 6 hours
+"24h" = 2.0  # Maximum kg change in 24 hours
+sustained = 2.0  # Maximum sustained kg/day rate
+
+# Legacy component weights (for non-unified scoring)
 # safety = 0.35
 # plausibility = 0.25
 # consistency = 0.25

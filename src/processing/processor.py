@@ -39,6 +39,11 @@ try:
 except ImportError:
     from quality_scorer import QualityScorer, MeasurementHistory
 
+try:
+    from .unified_quality_scorer import UnifiedQualityScorer, QualityScore
+except ImportError:
+    from unified_quality_scorer import UnifiedQualityScorer, QualityScore
+
 # Use constants from constants.py
 MIN_WEIGHT = PHYSIOLOGICAL_LIMITS['ABSOLUTE_MIN_WEIGHT']
 MAX_WEIGHT = PHYSIOLOGICAL_LIMITS['ABSOLUTE_MAX_WEIGHT']
@@ -249,6 +254,7 @@ def process_measurement(
     processing_config = config.get('processing', {})
     quality_config = config.get('quality_scoring', {})
     use_quality_scoring = feature_manager.is_enabled('quality_scoring')
+    use_unified_scoring = feature_manager.is_enabled('unified_quality_scoring')
     
     # Get previous weight and time diff
     previous_weight = None
@@ -275,8 +281,121 @@ def process_measurement(
         history = state['measurement_history']
         if isinstance(history, list):
             recent_weights = [h['weight'] for h in history[-20:] if 'weight' in h]
-    
-    if use_quality_scoring:
+
+    if use_unified_scoring:
+        # Use unified Kalman-centric quality scorer
+        # Get Kalman prediction if available
+        kalman_prediction = None
+        innovation_covariance = None
+
+        if state and 'kalman_params' in state:
+            current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
+            if current_weight is not None:
+                # Calculate predicted weight
+                time_delta_days = KalmanFilterManager.calculate_time_delta_days(
+                    timestamp, state.get('last_timestamp')
+                )
+                kalman_prediction = current_weight + current_trend * time_delta_days
+
+                # Get innovation covariance
+                last_covariance = state.get('last_covariance')
+                if last_covariance is not None:
+                    if len(last_covariance.shape) > 2:
+                        current_covariance = last_covariance[-1]
+                    else:
+                        current_covariance = last_covariance
+
+                    # Get observation covariance
+                    obs_covariance = get_noise_multiplier(source)
+                    kalman_params = state.get('kalman_params', {})
+                    base_obs_cov = kalman_params.get('observation_covariance', [[KALMAN_DEFAULTS['observation_covariance']]])[0][0]
+                    obs_covariance = obs_covariance * base_obs_cov
+
+                    # Innovation covariance = P + R
+                    innovation_covariance = current_covariance[0, 0] + obs_covariance
+
+        # Get recent timestamps if available
+        recent_timestamps = []
+        if state and 'measurement_history' in state:
+            history = state['measurement_history']
+            if isinstance(history, list):
+                recent_timestamps = [h.get('timestamp') for h in history[-20:] if 'timestamp' in h]
+                # Convert strings to datetime if needed
+                recent_timestamps = [datetime.fromisoformat(ts) if isinstance(ts, str) else ts for ts in recent_timestamps]
+
+        # Check if we're in adaptive period
+        in_adaptive_period = False
+        if state:
+            measurements_since_reset = state.get("measurements_since_reset", 100)
+            reset_params = state.get('reset_parameters', {})
+            adaptation_measurements = reset_params.get('adaptation_measurements', 10)
+            if measurements_since_reset < adaptation_measurements:
+                in_adaptive_period = True
+            else:
+                # Also check time-based (7 days)
+                reset_timestamp = get_reset_timestamp(state)
+                if not reset_timestamp and not state.get("kalman_params"):
+                    reset_timestamp = timestamp
+                if reset_timestamp:
+                    days_since = (timestamp - reset_timestamp).total_seconds() / 86400.0
+                    adaptation_days = reset_params.get('adaptation_days', 7)
+                    if days_since < adaptation_days:
+                        in_adaptive_period = True
+
+        # Adjust quality config if in adaptive period
+        adaptive_quality_config = quality_config.copy()
+        if in_adaptive_period:
+            reset_params = state.get('reset_parameters', {})
+            adaptive_threshold = reset_params.get('quality_acceptance_threshold', 0.4)
+            adaptive_quality_config['threshold'] = adaptive_threshold
+            # Adjust component weights to be more forgiving
+            if "component_weights" not in adaptive_quality_config:
+                adaptive_quality_config["component_weights"] = {}
+            weights = adaptive_quality_config["component_weights"]
+            # Reduce temporal and anomaly weights during adaptation
+            weights["kalman_fit"] = 0.30  # Reduce since Kalman is still adapting
+            weights["temporal_consistency"] = 0.15  # Often fails during adaptation
+            weights["anomaly_detection"] = 0.15  # May have false positives
+            weights["source_reliability"] = 0.30  # Increase source trust
+            weights["trend_alignment"] = 0.10  # Keep low during adaptation
+            adaptive_quality_config["component_weights"] = weights
+
+        # Create unified scorer instance
+        unified_scorer = UnifiedQualityScorer(config=adaptive_quality_config)
+
+        # Calculate quality score
+        quality_score = unified_scorer.calculate_quality_score(
+            weight=cleaned_weight,
+            source=source,
+            kalman_state=state,
+            kalman_prediction=kalman_prediction,
+            innovation_covariance=innovation_covariance,
+            previous_weight=previous_weight,
+            time_diff_hours=time_diff_hours,
+            recent_weights=recent_weights,
+            recent_timestamps=recent_timestamps,
+            user_height_m=user_height
+        )
+
+        if not quality_score.accepted:
+            return {
+                'accepted': False,
+                'timestamp': timestamp,
+                'raw_weight': weight,
+                'cleaned_weight': cleaned_weight,
+                'source': source,
+                'reason': quality_score.rejection_reason,
+                'stage': 'unified_quality_scoring',
+                'quality_score': quality_score.overall,
+                'quality_components': quality_score.components,
+                'quality_details': quality_score.to_dict()
+            }
+
+        # Store quality score for later use
+        quality_score_value = quality_score.overall
+        quality_components = quality_score.components
+
+    elif use_quality_scoring:
         # Use new quality scoring system
         # Check if we're in adaptive period (initial or post-reset)
         in_adaptive_period = False
@@ -374,8 +493,11 @@ def process_measurement(
     # Step 6: Check deviation from Kalman prediction
     current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
 
-    # Only check Kalman deviation if feature is enabled
-    kalman_deviation_enabled = feature_manager.is_enabled('kalman_deviation_check') and feature_manager.is_enabled('kalman_filtering')
+    # Only check Kalman deviation if feature is enabled AND not using unified scorer
+    # (unified scorer handles deviation internally)
+    kalman_deviation_enabled = (feature_manager.is_enabled('kalman_deviation_check') and
+                                feature_manager.is_enabled('kalman_filtering') and
+                                not use_unified_scoring)
 
     if current_weight is not None and kalman_deviation_enabled:
         time_delta_days = KalmanFilterManager.calculate_time_delta_days(

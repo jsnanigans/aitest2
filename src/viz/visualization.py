@@ -25,18 +25,18 @@ except ImportError:
 def load_user_employer_start_date(user_id: str, employer_file: str = "data/2025-09-17-user-employers.csv") -> Optional[datetime]:
     """
     Load the start date for a specific user from the employer CSV file.
-    
+
     Args:
         user_id: User identifier to look up
         employer_file: Path to the employer CSV file
-        
+
     Returns:
         Start date as datetime if found, None otherwise
     """
     employer_path = Path(employer_file)
     if not employer_path.exists():
         return None
-    
+
     try:
         with open(employer_path, 'r') as f:
             reader = csv.DictReader(f)
@@ -50,34 +50,34 @@ def load_user_employer_start_date(user_id: str, employer_file: str = "data/2025-
                     return datetime.strptime(start_date_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
     except Exception as e:
         print(f"Warning: Could not load employer start date for user {user_id}: {e}")
-    
+
     return None
 
 
 def create_weight_timeline(
-    results: List[Dict[str, Any]], 
+    results: List[Dict[str, Any]],
     user_id: str,
     output_dir: str = "output",
     config: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Create an interactive weight timeline with quality analysis and Kalman insights.
-    
+
     Args:
         results: List of measurement results
         user_id: User identifier
         output_dir: Output directory for HTML file
         config: Optional visualization configuration
-        
+
     Returns:
         Path to generated HTML file
     """
     if not PLOTLY_AVAILABLE:
         raise ImportError("Plotly is required for visualization")
-    
+
     if not results:
         raise ValueError("No results to visualize")
-    
+
     # Default configuration
     viz_config = config or {}
     colors = viz_config.get('colors', {
@@ -90,20 +90,20 @@ def create_weight_timeline(
         'quality_consistency': '#FF9800',
         'quality_reliability': '#9C27B0',
     })
-    
+
     # Process data
     accepted_data = []
     rejected_data = []
     reset_events = []
-    
+
     for r in results:
         timestamp = r.get('timestamp')
         if isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp)
-        
+
         source = r.get('source', 'unknown')
         marker_symbol = SOURCE_MARKER_SYMBOLS.get(source, SOURCE_MARKER_SYMBOLS['default'])
-        
+
         # Check for reset events
         if r.get('was_reset', False):
             reset_events.append({
@@ -112,7 +112,7 @@ def create_weight_timeline(
                 'type': r.get('reset_type', 'unknown'),
                 'gap_days': r.get('gap_days')
             })
-        
+
         # Extract data
         data_point = {
             'timestamp': timestamp,
@@ -133,7 +133,7 @@ def create_weight_timeline(
             'reset_type': r.get('reset_type'),
             'gap_days': r.get('gap_days'),
         }
-        
+
         # Extract quality components
         if 'quality_components' in r:
             data_point['quality_components'] = r['quality_components']
@@ -149,7 +149,7 @@ def create_weight_timeline(
         else:
             data_point['quality_score'] = 0
             data_point['quality_components'] = {}
-        
+
         if r.get('accepted', False):
             data_point['hover_text'] = _create_accepted_hover(r, data_point)
             accepted_data.append(data_point)
@@ -157,12 +157,12 @@ def create_weight_timeline(
             reason = r.get('reason', 'Unknown')
             weight_change = abs(r.get('raw_weight', 0) - r.get('filtered_weight', r.get('raw_weight', 0)))
             severity = get_rejection_severity(reason, weight_change)
-            
+
             data_point['reason'] = reason
             data_point['severity'] = severity
             data_point['hover_text'] = _create_rejected_hover(r, data_point)
             rejected_data.append(data_point)
-    
+
     # Create subplots with shared x-axes
     fig = make_subplots(
         rows=3, cols=1,
@@ -180,16 +180,16 @@ def create_weight_timeline(
         ],
         shared_xaxes=True  # This links all x-axes together
     )
-    
+
     # Main weight timeline (Row 1)
     _add_weight_traces(fig, accepted_data, rejected_data, colors, row=1)
-    
+
     # Quality components (Row 2)
     _add_quality_traces(fig, accepted_data, rejected_data, colors, row=2)
-    
+
     # Innovation/Residuals (Row 3)
     _add_innovation_traces(fig, accepted_data, rejected_data, colors, row=3)
-    
+
     # Add reset event vertical lines across all subplots (subtle, behind data)
     if reset_events:
         for reset in reset_events:
@@ -208,7 +208,7 @@ def create_weight_timeline(
                 ),
                 layer="below"  # Place behind the data
             )
-            
+
             # Add subtle annotation at the top
             gap_days = reset.get('gap_days')
             if gap_days is not None:
@@ -228,7 +228,7 @@ def create_weight_timeline(
                 borderwidth=0.5,
                 align="center"
             )
-    
+
     # Add employer start date vertical line if available
     employer_start_date = load_user_employer_start_date(user_id)
     if employer_start_date:
@@ -247,7 +247,7 @@ def create_weight_timeline(
             ),
             layer="below"  # Place behind the data
         )
-        
+
         # Add annotation for employer start date
         fig.add_annotation(
             x=employer_start_date,
@@ -262,11 +262,11 @@ def create_weight_timeline(
             borderpad=2,
             align="center"
         )
-        
+
         # Add 90-day mark after start date
         from datetime import timedelta
         ninety_day_mark = employer_start_date + timedelta(days=90)
-        
+
         # Add vertical line for 90-day mark
         fig.add_shape(
             type="line",
@@ -282,7 +282,7 @@ def create_weight_timeline(
             ),
             layer="below"  # Place behind the data
         )
-        
+
         # Add annotation for 90-day mark
         fig.add_annotation(
             x=ninety_day_mark,
@@ -297,7 +297,7 @@ def create_weight_timeline(
             borderpad=2,
             align="center"
         )
-    
+
     # Add invisible traces for source type legend
     source_types = {
         'care-team-upload': ('Care Team', 'triangle-up'),
@@ -307,7 +307,7 @@ def create_weight_timeline(
         'https://connectivehealth.io': ('ConnectiveHealth', 'hexagon'),
         'https://api.iglucose.com': ('iGlucose', 'hexagon')
     }
-    
+
     # Add legend entries for source types (only to first subplot)
     for source_key, (display_name, symbol) in source_types.items():
         fig.add_trace(go.Scatter(
@@ -325,10 +325,10 @@ def create_weight_timeline(
             legendgroup='sources',
             legendgrouptitle_text="Source Types"
         ), row=1, col=1)
-    
+
     # Update layout
     stats = _calculate_stats(results, accepted_data, rejected_data)
-    
+
     fig.update_layout(
         title={
             'text': f'Enhanced Weight Analysis - {user_id}<br><sub>{stats}</sub>',
@@ -353,11 +353,11 @@ def create_weight_timeline(
         paper_bgcolor='white',
         updatemenus=[_create_visibility_menu()],
     )
-    
+
     # Update axes - x-axes are shared so zooming one affects all
     # Add range selector buttons to the top subplot for easy time navigation
     fig.update_xaxes(
-        showgrid=True, 
+        showgrid=True,
         gridcolor='#E0E0E0',
         rangeselector=dict(
             buttons=list([
@@ -377,8 +377,8 @@ def create_weight_timeline(
     fig.update_xaxes(showgrid=True, gridcolor='#E0E0E0', row=2, col=1)
     # Add range slider to bottom subplot for fine control
     fig.update_xaxes(
-        showgrid=True, 
-        gridcolor='#E0E0E0', 
+        showgrid=True,
+        gridcolor='#E0E0E0',
         title_text='Date',
         rangeslider=dict(
             visible=True,
@@ -386,16 +386,16 @@ def create_weight_timeline(
         ),
         row=3, col=1
     )
-    
+
     fig.update_yaxes(title_text="Weight (kg)", showgrid=True, gridcolor='#E0E0E0', row=1, col=1)
     fig.update_yaxes(title_text="Quality Score", range=[0, 1.1], showgrid=True, gridcolor='#E0E0E0', row=2, col=1)
     fig.update_yaxes(title_text="Innovation (kg)", showgrid=True, gridcolor='#E0E0E0', row=3, col=1)
-    
+
     # Save HTML
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True, parents=True)
     html_file = output_path / f"{user_id}_timeline.html"
-    
+
     config = {
         'displayModeBar': True,
         'displaylogo': False,
@@ -408,15 +408,15 @@ def create_weight_timeline(
             'scale': 2
         }
     }
-    
+
     fig.write_html(str(html_file), config=config)
-    
+
     return str(html_file)
 
 
 def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict], colors: Dict, row: int):
     """Add weight measurement traces to the main plot."""
-    
+
     # Raw measurements - Accepted
     if accepted_data:
         fig.add_trace(
@@ -427,7 +427,7 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
                 name='Raw (Accepted)',
                 marker=dict(
                     size=10,
-                    color=[d['quality_score'] for d in accepted_data],
+                    color=['#000000' if d['was_reset'] else d['quality_score'] for d in accepted_data],
                     colorscale='Viridis',
                     cmin=0,
                     cmax=1,
@@ -447,7 +447,7 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
             ),
             row=row, col=1
         )
-        
+
         # Kalman filtered line
         fig.add_trace(
             go.Scatter(
@@ -460,12 +460,12 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
             ),
             row=row, col=1
         )
-        
+
         # Confidence bands
         timestamps = [d['timestamp'] for d in accepted_data if d.get('kalman_upper') is not None]
         upper_bounds = [d['kalman_upper'] for d in accepted_data if d.get('kalman_upper') is not None]
         lower_bounds = [d['kalman_lower'] for d in accepted_data if d.get('kalman_lower') is not None]
-        
+
         if timestamps:
             # Upper bound
             fig.add_trace(
@@ -480,7 +480,7 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
                 ),
                 row=row, col=1
             )
-            
+
             # Lower bound with fill
             fig.add_trace(
                 go.Scatter(
@@ -495,7 +495,7 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
                 ),
                 row=row, col=1
             )
-    
+
     # Raw measurements - Rejected (grouped by severity)
     if rejected_data:
         severity_groups = {}
@@ -504,7 +504,7 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
             if severity not in severity_groups:
                 severity_groups[severity] = []
             severity_groups[severity].append(d)
-        
+
         for severity, data_points in severity_groups.items():
             fig.add_trace(
                 go.Scatter(
@@ -528,22 +528,22 @@ def _add_weight_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict]
 
 def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict], colors: Dict, row: int):
     """Add quality score component traces."""
-    
+
     all_data = accepted_data + rejected_data
     all_data.sort(key=lambda x: x['timestamp'])
-    
+
     if not all_data:
         return
-    
+
     timestamps = [d['timestamp'] for d in all_data]
-    
+
     # Extract component scores
     safety_scores = []
     plausibility_scores = []
     consistency_scores = []
     reliability_scores = []
     overall_scores = []
-    
+
     for d in all_data:
         components = d.get('quality_components', {})
         safety_scores.append(components.get('safety', 0))
@@ -551,7 +551,7 @@ def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict
         consistency_scores.append(components.get('consistency', 0))
         reliability_scores.append(components.get('reliability', 0))
         overall_scores.append(d.get('quality_score', 0))
-    
+
     # Add stacked area chart for components
     fig.add_trace(
         go.Scatter(
@@ -566,7 +566,7 @@ def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict
         ),
         row=row, col=1
     )
-    
+
     fig.add_trace(
         go.Scatter(
             x=timestamps,
@@ -580,7 +580,7 @@ def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict
         ),
         row=row, col=1
     )
-    
+
     fig.add_trace(
         go.Scatter(
             x=timestamps,
@@ -594,7 +594,7 @@ def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict
         ),
         row=row, col=1
     )
-    
+
     fig.add_trace(
         go.Scatter(
             x=timestamps,
@@ -608,7 +608,7 @@ def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict
         ),
         row=row, col=1
     )
-    
+
     # Add overall score line
     fig.add_trace(
         go.Scatter(
@@ -622,7 +622,7 @@ def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict
         ),
         row=row, col=1
     )
-    
+
     # Add threshold line
     fig.add_trace(
         go.Scatter(
@@ -639,12 +639,12 @@ def _add_quality_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict
 
 def _add_innovation_traces(fig, accepted_data: List[Dict], rejected_data: List[Dict], colors: Dict, row: int):
     """Add innovation/residual traces."""
-    
+
     if accepted_data:
         innovations = [d['innovation'] for d in accepted_data]
         timestamps = [d['timestamp'] for d in accepted_data]
         normalized = [d['normalized_innovation'] for d in accepted_data]
-        
+
         # Color based on normalized innovation
         bar_colors = []
         for n in normalized:
@@ -656,7 +656,7 @@ def _add_innovation_traces(fig, accepted_data: List[Dict], rejected_data: List[D
                 bar_colors.append('orange')
             else:
                 bar_colors.append('red')
-        
+
         fig.add_trace(
             go.Bar(
                 x=timestamps,
@@ -669,18 +669,18 @@ def _add_innovation_traces(fig, accepted_data: List[Dict], rejected_data: List[D
             ),
             row=row, col=1
         )
-        
+
         # Add reference lines
         if timestamps:
             # Find y-axis range
             max_innovation = max(abs(min(innovations)), abs(max(innovations))) if innovations else 5
-            
+
             # Add standard deviation reference lines
             for sigma, label, color in [(1, '±1σ', 'green'), (2, '±2σ', 'orange'), (3, '±3σ', 'red')]:
                 # Estimate sigma from data (rough approximation)
                 estimated_sigma = max_innovation / 3
                 y_val = sigma * estimated_sigma
-                
+
                 fig.add_trace(
                     go.Scatter(
                         x=[timestamps[0], timestamps[-1]],
@@ -693,7 +693,7 @@ def _add_innovation_traces(fig, accepted_data: List[Dict], rejected_data: List[D
                     ),
                     row=row, col=1
                 )
-                
+
                 fig.add_trace(
                     go.Scatter(
                         x=[timestamps[0], timestamps[-1]],
@@ -710,13 +710,13 @@ def _add_innovation_traces(fig, accepted_data: List[Dict], rejected_data: List[D
 def _create_accepted_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -> str:
     """Create hover text for accepted measurements."""
     timestamp = data_point['timestamp']
-    
+
     lines = [
         f"<b>✓ ACCEPTED</b>",
         f"<b>Date:</b> {timestamp.strftime('%Y-%m-%d %H:%M')}",
         f"<b>Source:</b> {_format_source(data_point['source'])}",
     ]
-    
+
     # Add reset information if applicable
     if data_point.get('was_reset', False):
         lines.extend([
@@ -730,7 +730,7 @@ def _create_accepted_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -
         if data_point.get('gap_days'):
             lines.append(f"<b>Data Gap:</b> {data_point['gap_days']:.1f} days")
         lines.append(f"<b>Filter reinitialized from this measurement</b>")
-    
+
     lines.extend([
         "",
         "<b>Weight Data:</b>",
@@ -743,32 +743,32 @@ def _create_accepted_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -
         f"  Innovation: {data_point.get('innovation', 0):.2f} kg",
         f"  Normalized: {data_point.get('normalized_innovation', 0):.2f}σ",
     ])
-    
+
     if data_point.get('kalman_upper') is not None:
         lines.extend([
             f"  CI Upper: {data_point['kalman_upper']:.2f} kg",
             f"  CI Lower: {data_point['kalman_lower']:.2f} kg",
         ])
-    
+
     if data_point.get('quality_score') is not None:
         lines.extend([
             "",
             f"<b>Quality Score:</b> {data_point['quality_score']:.2f}",
         ])
-        
+
         if data_point.get('quality_components'):
             lines.append("<b>Components:</b>")
             for key, value in data_point['quality_components'].items():
                 indicator = "✓" if value >= 0.7 else "⚠" if value >= 0.4 else "✗"
                 lines.append(f"  {indicator} {key.capitalize()}: {value:.2f}")
-    
+
     return "<br>".join(lines)
 
 
 def _create_rejected_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -> str:
     """Create hover text for rejected measurements."""
     timestamp = data_point['timestamp']
-    
+
     lines = [
         f"<b>✗ REJECTED</b>",
         f"<b>Date:</b> {timestamp.strftime('%Y-%m-%d %H:%M')}",
@@ -777,19 +777,19 @@ def _create_rejected_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -
         f"<b>Reason:</b> {data_point.get('reason', 'Unknown')}",
         f"<b>Severity:</b> {data_point.get('severity', 'Unknown')}",
     ]
-    
+
     if data_point.get('quality_score') is not None:
         lines.extend([
             "",
             f"<b>Quality Score:</b> {data_point['quality_score']:.2f}",
         ])
-        
+
         if data_point.get('quality_components'):
             lines.append("<b>Components:</b>")
             for key, value in data_point['quality_components'].items():
                 indicator = "✓" if value >= 0.7 else "⚠" if value >= 0.4 else "✗"
                 lines.append(f"  {indicator} {key.capitalize()}: {value:.2f}")
-    
+
     return "<br>".join(lines)
 
 
@@ -808,30 +808,30 @@ def _format_source(source: str) -> str:
 
 
 def _calculate_stats(
-    results: List[Dict[str, Any]], 
-    accepted_data: List[Dict[str, Any]], 
+    results: List[Dict[str, Any]],
+    accepted_data: List[Dict[str, Any]],
     rejected_data: List[Dict[str, Any]]
 ) -> str:
     """Calculate summary statistics for display."""
     total = len(results)
     accepted = len(accepted_data)
     rejected = len(rejected_data)
-    
+
     if total > 0:
         acceptance_rate = (accepted / total) * 100
     else:
         acceptance_rate = 0
-    
+
     stats_parts = [
         f"Total: {total}",
         f"Accepted: {accepted} ({acceptance_rate:.1f}%)",
         f"Rejected: {rejected}",
     ]
-    
+
     if accepted_data:
         weights = [d['raw_weight'] for d in accepted_data]
         avg_weight = sum(weights) / len(weights)
-        
+
         # Get latest Kalman state
         latest = accepted_data[-1]
         if latest.get('filtered_weight'):
@@ -839,13 +839,13 @@ def _calculate_stats(
         if latest.get('trend_weekly'):
             trend_sign = "+" if latest['trend_weekly'] > 0 else ""
             stats_parts.append(f"Trend: {trend_sign}{latest['trend_weekly']:.2f} kg/week")
-        
+
         # Average quality score
         quality_scores = [d['quality_score'] for d in accepted_data if d.get('quality_score') is not None]
         if quality_scores:
             avg_quality = sum(quality_scores) / len(quality_scores)
             stats_parts.append(f"Avg Quality: {avg_quality:.2f}")
-    
+
     return " | ".join(stats_parts)
 
 
