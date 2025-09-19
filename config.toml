@@ -22,9 +22,12 @@ export_database = true
 # Priority: test_users > filtered_users_csv > test_users_file
 # Uncomment and add user IDs to test specific users
 # test_users = ["user_001", "user_002", "user_003"]
- filtered_users_csv = "create-report/report_output/filtered_users_APPLE_EMPLOYER_20250919_104340.csv"
+filtered_users_csv = "create-report/report_output/filtered_users_APPLE_EMPLOYER_20250919_104340.csv"
 test_users = [
-  #"eb61194e-491f-40e4-9064-d3d096e0fe64"
+  # "eb61194e-491f-40e4-9064-d3d096e0fe64"
+  # "1fe1e802-101b-4a5c-8480-16b4f00a638e"
+  # "001adb56-40a5-4ef2-a092-e20915e0fb81"
+  # "eb61194e-491f-40e4-9064-d3d096e0fe64"
   # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4"
   # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4",
 #   "99518101-ca9c-4a76-b86c-cca12a6bbbd6"
@@ -64,7 +67,7 @@ filtering_strength = "strict"           # How aggressively to filter outliers
 adaptation_speed = "moderate"               # How quickly to accept new weight ranges
 trust_manual_entries = "high"           # Trust level for user-reported weights
 gap_sensitivity = "low"               # How sensitive to data gaps
-quality_threshold = 0.4               # Minimum quality score to accept (70%)
+quality_threshold = 0.5               # Minimum quality score to accept (70%)
 # Reset behavior
 reset_on_gaps = "moderate"          # Reset after shorter gaps (21 days)
 reset_on_manual = "moderate"          # Don't reset on manual entries
@@ -263,9 +266,9 @@ outlier_threshold_multiplier = 2 # Multiplier for outlier detection in analysis
 
 [kalman]
 # Core Kalman filter parameters - rarely need modification
-initial_variance = 0.361
-transition_covariance_weight = 0.016
-transition_covariance_trend = 0.0001
+initial_variance = 0.364
+transition_covariance_weight = 0.018
+transition_covariance_trend = 0.00015
 observation_covariance = 3.4
 
 [quality_scoring]
@@ -275,11 +278,11 @@ use_harmonic_mean = true
 
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
-kalman_fit = 0.6           # Primary signal - deviation from Kalman prediction
-temporal_consistency = 0.2  # Rate of change validation
-anomaly_detection = 0.1     # Different user, unit confusion, BMI detection
-source_reliability = 0.0    # Source-based trust scoring (disabled)
-trend_alignment = 0.1       # Consistency with established trend (disabled)
+kalman_fit = 0.5           # Primary signal - deviation from Kalman prediction
+temporal_consistency = 0.15  # Rate of change validation
+anomaly_detection = 0.2  # Different user, unit confusion, BMI detection
+source_reliability = 0    # Source-based trust scoring (disabled)
+trend_alignment = 0.15       # Consistency with established trend (disabled)
 
 # Temporal consistency parameters (new continuous exponential function)
 [quality_scoring.temporal]
@@ -293,7 +296,7 @@ time_constant_hours = 48           # Time constant for exponential growth
 [quality_scoring.temporal_thresholds]
 "6h" = 1   # Maximum kg change in 6 hours (deprecated)
 "24h" = 3.0  # Maximum kg change in 24 hours (deprecated)
-sustained = 1  # Maximum sustained kg/day rate (deprecated)
+sustained = 0.01  # Maximum sustained kg/day rate (deprecated)
 
 # Trend alignment parameters
 [quality_scoring.trend_alignment]

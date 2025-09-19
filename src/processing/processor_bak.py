@@ -295,8 +295,57 @@ def process_measurement(
                     for ts in recent_timestamps
                 ]
 
+        # Check if we're in adaptive period
+        in_adaptive_period = False
+        if state:
+            measurements_since_reset = state.get("measurements_since_reset", 100)
+            reset_params = state.get("reset_parameters", {})
+            adaptation_measurements = reset_params.get("adaptation_measurements", 10)
+            if measurements_since_reset < adaptation_measurements:
+                in_adaptive_period = True
+            else:
+                # Also check time-based (7 days)
+                reset_timestamp = get_reset_timestamp(state)
+                if not reset_timestamp and not state.get("kalman_params"):
+                    reset_timestamp = timestamp
+                if reset_timestamp:
+                    days_since = (timestamp - reset_timestamp).total_seconds() / 86400.0
+                    adaptation_days = reset_params.get("adaptation_days", 7)
+                    if days_since < adaptation_days:
+                        in_adaptive_period = True
+
+        # Adjust quality config if in adaptive period
+        adaptive_quality_config = quality_config.copy()
+        if in_adaptive_period:
+            reset_params = state.get("reset_parameters", {})
+            adaptive_threshold = reset_params.get("quality_acceptance_threshold", 0.4)
+            adaptive_quality_config["threshold"] = adaptive_threshold
+            # Adjust component weights to be more forgiving
+            if "component_weights" not in adaptive_quality_config:
+                adaptive_quality_config["component_weights"] = {}
+            weights = adaptive_quality_config["component_weights"].copy()
+            # During adaptation, redistribute weights among active components
+            # Only adjust components that were originally configured with weight > 0
+            active_weights = {k: v for k, v in weights.items() if v > 0}
+
+            if active_weights:
+                # Use adaptive weights for active components
+                if "kalman_fit" in active_weights:
+                    weights["kalman_fit"] = 0.40  # Slightly reduce during adaptation
+                if "temporal_consistency" in active_weights:
+                    weights["temporal_consistency"] = 0.35  # Keep reasonable
+                if "anomaly_detection" in active_weights:
+                    weights["anomaly_detection"] = 0.25  # Keep for safety
+
+                # Normalize to sum to 1.0
+                total = sum(weights.values())
+                if total > 0:
+                    weights = {k: v / total for k, v in weights.items()}
+
+            adaptive_quality_config["component_weights"] = weights
+
         # Create unified scorer instance
-        unified_scorer = UnifiedQualityScorer(config=quality_config)
+        unified_scorer = UnifiedQualityScorer(config=adaptive_quality_config)
 
         # Add current timestamp to kalman_state for time-based decay calculation
         kalman_state_with_timestamp = state.copy() if state else {}
@@ -317,6 +366,19 @@ def process_measurement(
         )
 
         if not quality_score.accepted:
+            # During adaptive period, still increment counter to prevent infinite loop
+            if in_adaptive_period and state:
+                state["measurements_since_reset"] = (
+                    state.get("measurements_since_reset", 0) + 1
+                )
+                # Update temporal baseline even for rejected measurements
+                state = unified_scorer.update_temporal_baseline(
+                    state, cleaned_weight, timestamp
+                )
+                # Persist the updated counter and temporal baseline
+                if feature_manager.is_enabled("state_persistence"):
+                    db.save_state(user_id, state)
+
             return {
                 "accepted": False,
                 "timestamp": timestamp,
@@ -333,13 +395,11 @@ def process_measurement(
                     "location": "src/processing/processor.py:UnifiedQualityScorer",
                     "checks_performed": list(quality_score.components.keys()),
                     "failed_check": "quality_threshold",
-                    "threshold": quality_config.get(
-                        "quality_acceptance_threshold", 0.5
-                    ),
+                    "threshold": adaptive_quality_config.get("threshold", 0.6),
                     "actual_score": quality_score.overall,
                     "component_scores": quality_score.components,
                     "rejection_reason": quality_score.rejection_reason,
-                    "in_adaptive_period": False,
+                    "in_adaptive_period": in_adaptive_period,
                     "kalman_prediction": kalman_prediction,
                     "deviation": (
                         abs(cleaned_weight - kalman_prediction)
@@ -362,7 +422,113 @@ def process_measurement(
         quality_score_value = quality_score.overall
         quality_components = quality_score.components
 
+    # Step 6: Check deviation from Kalman prediction
+    # current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
+    #
+    # # Only check Kalman deviation if feature is enabled AND not using unified scorer
+    # # (unified scorer handles deviation internally)
+    # kalman_deviation_enabled = (feature_manager.is_enabled('kalman_deviation_check') and
+    #                             feature_manager.is_enabled('kalman_filtering') and
+    #                             not use_unified_scoring)
+    #
+    # if current_weight is not None and kalman_deviation_enabled:
+    #     time_delta_days = KalmanFilterManager.calculate_time_delta_days(
+    #         timestamp, state.get('last_timestamp')
+    #     )
+    #     predicted_weight = current_weight + current_trend * time_delta_days
+    #     deviation = abs(cleaned_weight - predicted_weight) / predicted_weight
+    #
+    #     # Check if we're in adaptation phase for more lenient threshold
+    #     extreme_threshold = processing_config.get('extreme_threshold', 0.20)
+    #     if state:
+    #         measurements_since_reset = state.get("measurements_since_reset", 100)
+    #         reset_params = state.get('reset_parameters', {})
+    #         adaptation_measurements = reset_params.get('adaptation_measurements', 10)
+    #         if measurements_since_reset < adaptation_measurements:
+    #             # During adaptation, use a much more lenient threshold
+    #             # or skip the check entirely if quality_acceptance_threshold is 0
+    #             quality_threshold = reset_params.get('quality_acceptance_threshold', 0.4)
+    #             if quality_threshold == 0:
+    #                 # Skip extreme deviation check during initial adaptation
+    #                 extreme_threshold = float('inf')  # Effectively disable the check
+    #             else:
+    #                 # Use a moderately lenient threshold during adaptation
+    #                 extreme_threshold = 0.25  # 25% deviation allowed during adaptation (reduced from 50%)
+    #
+    #     if deviation > extreme_threshold:
+    #         pseudo_normalized_innovation = (deviation / extreme_threshold) * 3.0
+    #         confidence = KalmanFilterManager.calculate_confidence(pseudo_normalized_innovation)
+    #
+    #         return {
+    #             'accepted': False,
+    #             'timestamp': timestamp,
+    #             'raw_weight': weight,
+    #             'cleaned_weight': cleaned_weight,
+    #             'filtered_weight': float(predicted_weight),
+    #             'trend': float(current_trend),
+    #             'reason': f"Extreme deviation: {deviation:.1%}",
+    #             'confidence': confidence,
+    #             'source': source,
+    #             'stage': 'kalman_deviation'
+    #         }
+
+    # Step 7: Update Kalman filter (skip if already done during initialization)
+    # Only update Kalman if feature is enabled and not already updated
+    # if not feature_manager.is_enabled('kalman_filtering'):
+    #     # Skip Kalman filtering - just pass through the weight
+    #     result = {
+    #         'accepted': True,
+    #         'timestamp': timestamp,
+    #         'raw_weight': weight,
+    #         'cleaned_weight': cleaned_weight,
+    #         'filtered_weight': cleaned_weight,  # No filtering
+    #         'trend': 0.0,
+    #         'confidence': 1.0,
+    #         'source': source,
+    #         'stage': 'no_filtering'
+    #     }
+    #
+    #     # Save minimal state if persistence enabled (early return path - no Kalman filtering)
+    #     if feature_manager.is_enabled('state_persistence'):
+    #         state['last_source'] = source
+    #         state['last_timestamp'] = timestamp
+    #         state['last_accepted_timestamp'] = timestamp
+    #         state['last_raw_weight'] = cleaned_weight
+    #
+    #         # Validate state before persistence
+    #         is_valid, error_msg = PersistenceValidator.validate_state(
+    #             state, user_id, reason="no_kalman_filtering"
+    #         )
+    #         if is_valid:
+    #             # Get previous state for change detection
+    #             previous_state = db.get_state(user_id)
+    #             should_persist, audit_msg = PersistenceValidator.should_persist(
+    #                 state, previous_state, user_id, reason="no_kalman_filtering"
+    #             )
+    #
+    #             if should_persist:
+    #                 db.save_state(user_id, state)
+    #                 PersistenceValidator.create_audit_log(
+    #                     user_id, "persist", state, True,
+    #                     reason="no_kalman_filtering", error=None
+    #                 )
+    #             else:
+    #                 # Log why we're not persisting
+    #                 PersistenceValidator.create_audit_log(
+    #                     user_id, "skip", state, True,
+    #                     reason=audit_msg, error=None
+    #                 )
+    #         else:
+    #             # Log validation failure
+    #             PersistenceValidator.create_audit_log(
+    #                 user_id, "validate_failed", state, False,
+    #                 reason="no_kalman_filtering", error=error_msg
+    #             )
+    #
+    #     return result
+
     # Only do Kalman update if not already done during initialization
+    # DEBUG- ALWAYS
     if not kalman_already_updated:
         # Check if we should use adaptive parameters (within 7 days of reset)
         reset_timestamp = get_reset_timestamp(state)
@@ -547,10 +713,9 @@ def process_measurement(
                 error=error_msg,
             )
 
-    # if result.get("quality_score") < 0.5:
-    #     result["warning"] = "Low quality score - review measurement history"
-    #     result["accepted"] = False  # Mark as not accepted for downstream handling
-
+    if result.get("quality_score") < 0.5:
+        result["warning"] = "Low quality score - review measurement history"
+        result["accepted"] = False  # Mark as not accepted for downstream handling
     return result
 
 

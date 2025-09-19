@@ -4,8 +4,6 @@ Weight Stream Processor Package
 
 # Core processing
 from .processing.processor import (
-    WeightProcessor,
-    process_weight_enhanced,
     process_measurement
 )
 
@@ -66,18 +64,16 @@ from .utils import (
 
 __all__ = [
     # Core processor
-    'WeightProcessor',
-    'process_weight_enhanced',
     'process_measurement',
-    
+
     # Database
     'ProcessorStateDB',
     'ProcessorDatabase',
     'get_state_db',
-    
+
     # Visualization
     'create_weight_timeline',
-    
+
     # Constants
     'ThresholdResult',
     'SOURCE_PROFILES',
@@ -92,21 +88,21 @@ __all__ = [
     'get_source_priority',
     'get_source_reliability',
     'get_noise_multiplier',
-    
+
     # Validation
     'BMIValidator',
     'ThresholdCalculator',
     'PhysiologicalValidator',
     'DataQualityPreprocessor',
-    
+
     # Kalman
     'KalmanFilterManager',
-    
+
     # Quality
     'QualityScorer',
     'QualityScore',
     'MeasurementHistory',
-    
+
     # Utilities
     'StructuredLogger',
     'PerformanceTimer',

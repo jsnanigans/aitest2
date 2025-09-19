@@ -156,7 +156,7 @@ def get_optimal_thread_count(num_users: int, config: dict) -> int:
     return max(1, optimal)
 
 
-def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output: str = None):
+def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output: str = None, debug: bool = False):
     """
     Simplified stream processing - no complex state accumulation.
     Process each measurement and stream results.
@@ -462,6 +462,19 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 
                 if result.get('accepted'):
                     stats["accepted"] += 1
+
+                    # Print acceptance details if available
+                    if debug and result.get('acceptance_details'):
+                        details = result['acceptance_details']
+                        print(f"  ✅ ACCEPTED at {details.get('decision_point', 'unknown')}")
+                        print(f"     Location: {details.get('location', 'N/A')}")
+                        print(f"     Reason: {details.get('acceptance_reason', 'N/A')}")
+                        if details.get('quality_score') is not None:
+                            print(f"     Quality Score: {details['quality_score']:.3f}")
+                        if details.get('kalman_prediction') is not None and details.get('innovation') is not None:
+                            print(f"     Kalman Prediction: {details['kalman_prediction']:.2f} kg, Innovation: {details['innovation']:.2f} kg")
+                        print()
+
                     # Write accepted row to filtered CSV with quality_score
                     if filtered_csv_writer:
                         # Create a copy of the row and add quality_score
@@ -470,6 +483,19 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                         filtered_csv_writer.writerow(filtered_row)
                 else:
                     stats["rejected"] += 1
+
+                    # Print rejection details if available
+                    if debug and result.get('acceptance_details'):
+                        details = result['acceptance_details']
+                        print(f"  ❌ REJECTED at {details.get('decision_point', 'unknown')}")
+                        print(f"     Location: {details.get('location', 'N/A')}")
+                        print(f"     Failed Check: {details.get('failed_check', 'N/A')}")
+                        print(f"     Reason: {details.get('rejection_reason', result.get('reason', 'N/A'))}")
+                        if details.get('threshold') is not None and details.get('actual_score') is not None:
+                            print(f"     Threshold: {details['threshold']:.3f}, Actual: {details['actual_score']:.3f}")
+                        if details.get('deviation_percentage') is not None:
+                            print(f"     Deviation from Kalman: {details['deviation_percentage']:.1f}%")
+                        print()
 
                 # Add to replay buffer if enabled
                 if replay_enabled and replay_buffer:
@@ -799,6 +825,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-db-export", action="store_true", help="Skip database export")
     parser.add_argument("--filtered-output", help="Path to write filtered CSV (accepted rows only)")
     parser.add_argument("--filtered-users-csv", help="Path to CSV file with users to process (user_id,removed_count format)")
+    parser.add_argument("--debug", action="store_true", help="Enable debug output with acceptance/rejection details")
 
     args = parser.parse_args()
 
@@ -833,4 +860,6 @@ if __name__ == "__main__":
         print(f"Error: File {csv_file} not found")
         sys.exit(1)
 
-    stream_process(csv_file, config["data"]["output_dir"], config, filtered_output=args.filtered_output if hasattr(args, 'filtered_output') else None)
+    stream_process(csv_file, config["data"]["output_dir"], config,
+                   filtered_output=args.filtered_output if hasattr(args, 'filtered_output') else None,
+                   debug=args.debug if hasattr(args, 'debug') else False)
