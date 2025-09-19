@@ -372,7 +372,7 @@ class UnifiedQualityScorer:
 
             if weight_change > 10.0:
                 metadata["large_jump"] = weight_change
-                score *= 0.5  # Penalize large jumps
+                score = 0  # Penalize large jumps heavily
 
         # Check for BMI entry (15-50 range)
         if self.BMI_RANGE[0] <= weight <= self.BMI_RANGE[1]:

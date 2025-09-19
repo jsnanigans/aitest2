@@ -153,9 +153,8 @@ def process_measurement(
         # Merge Kalman state with existing state to preserve reset parameters
         state.update(kalman_state)
 
-        state = KalmanFilterManager.update_state(
-            state, cleaned_weight, timestamp, source, {}, observation_covariance
-        )
+        # DO NOT call update_state here - initialize_immediate already set the state
+        # with the first measurement. Calling update_state would process it twice!
 
         result = KalmanFilterManager.create_result(
             state, cleaned_weight, timestamp, source, True, observation_covariance
