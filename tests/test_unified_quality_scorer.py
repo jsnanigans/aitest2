@@ -103,7 +103,7 @@ class TestUnifiedQualityScorer:
         assert score.components['kalman_fit'] == 1.0  # Perfect fit to prediction
 
     def test_post_meal_variation(self):
-        """Test 3: +2kg after large meal (score: 0.70-0.80)."""
+        """Test 3: +2kg after large meal (now rejected with continuous scoring)."""
         state = self._create_kalman_state(70.0, 0.0)
         recent_weights, recent_timestamps = self._create_recent_weights(
             70.0, [0, 0.1, -0.1, 0.2, -0.2, 0, 0.1, -0.1, 0, 0.1]
@@ -121,9 +121,11 @@ class TestUnifiedQualityScorer:
             recent_timestamps=recent_timestamps
         )
 
-        assert score.accepted == True  # Use == for numpy bool compatibility  # Should still accept
-        assert 0.70 <= score.overall <= 0.80
-        assert score.components['kalman_fit'] < 0.8
+        # With continuous scoring, 2kg in 3 hours exceeds acceptable threshold (~0.77kg)
+        # Temporal consistency score will be 0.2, pulling overall below threshold
+        assert score.accepted == False  # Now rejected due to strict temporal scoring
+        assert score.overall < 0.6  # Below acceptance threshold
+        assert score.components['temporal_consistency'] == 0.2  # Minimum score for large deviation
 
     def test_different_user(self):
         """Test 4: Different user 70kg → 95kg → 70kg (score: <0.20)."""
@@ -197,7 +199,7 @@ class TestUnifiedQualityScorer:
         )
 
         assert score.accepted == False  # Use == for numpy bool compatibility
-        assert score.overall < 0.10
+        assert score.overall < 0.15  # Slightly higher due to min temporal score of 0.2
         assert score.components['anomaly_detection'] < 0.3
         assert score.components['kalman_fit'] < 0.1
 

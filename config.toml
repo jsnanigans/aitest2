@@ -64,7 +64,7 @@ filtering_strength = "strict"           # How aggressively to filter outliers
 adaptation_speed = "moderate"               # How quickly to accept new weight ranges
 trust_manual_entries = "high"           # Trust level for user-reported weights
 gap_sensitivity = "low"               # How sensitive to data gaps
-quality_threshold = 0.45                # Minimum quality score to accept (70%)
+quality_threshold = 0.4               # Minimum quality score to accept (70%)
 # Reset behavior
 reset_on_gaps = "moderate"          # Reset after shorter gaps (21 days)
 reset_on_manual = "moderate"          # Don't reset on manual entries
@@ -264,8 +264,8 @@ outlier_threshold_multiplier = 2 # Multiplier for outlier detection in analysis
 [kalman]
 # Core Kalman filter parameters - rarely need modification
 initial_variance = 0.361
-transition_covariance_weight = 0.02
-transition_covariance_trend = 0.0002
+transition_covariance_weight = 0.016
+transition_covariance_trend = 0.0001
 observation_covariance = 3.4
 
 [quality_scoring]
@@ -275,17 +275,25 @@ use_harmonic_mean = true
 
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
-kalman_fit = 0.4           # Primary signal - deviation from Kalman prediction
+kalman_fit = 0.6           # Primary signal - deviation from Kalman prediction
 temporal_consistency = 0.2  # Rate of change validation
-anomaly_detection = 0.2     # Different user, unit confusion, BMI detection
+anomaly_detection = 0.1     # Different user, unit confusion, BMI detection
 source_reliability = 0.0    # Source-based trust scoring (disabled)
-trend_alignment = 0.2       # Consistency with established trend (disabled)
+trend_alignment = 0.1       # Consistency with established trend (disabled)
 
-# Temporal consistency thresholds
+# Temporal consistency parameters (new continuous exponential function)
+[quality_scoring.temporal]
+min_score = 0.2                    # Minimum temporal consistency score
+max_score = 1.0                    # Maximum temporal consistency score
+initial_threshold_kg = 0.5         # Initial acceptable change (kg)
+max_threshold_kg = 5.0             # Maximum acceptable change after 7 days (kg)
+time_constant_hours = 48           # Time constant for exponential growth
+
+# Legacy temporal consistency thresholds (deprecated - kept for backward compatibility)
 [quality_scoring.temporal_thresholds]
-"6h" = 0.5   # Maximum kg change in 6 hours
-"24h" = 3.0  # Maximum kg change in 24 hours
-sustained = 1.5  # Maximum sustained kg/day rate
+"6h" = 1   # Maximum kg change in 6 hours (deprecated)
+"24h" = 3.0  # Maximum kg change in 24 hours (deprecated)
+sustained = 1  # Maximum sustained kg/day rate (deprecated)
 
 # Trend alignment parameters
 [quality_scoring.trend_alignment]

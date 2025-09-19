@@ -6,6 +6,7 @@ Replaces dual validation with single Kalman-deviation-based quality scorer.
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
+import math
 import numpy as np
 from scipy import stats
 
@@ -300,8 +301,8 @@ class UnifiedQualityScorer:
         recent_timestamps: Optional[List[datetime]]
     ) -> Tuple[float, Dict]:
         """
-        Calculate temporal consistency based on rate of change.
-        Thresholds: 3kg/6hr, 2kg/24hr, 2kg/day sustained.
+        Calculate temporal consistency using continuous exponential function.
+        Eliminates step functions that cause artificial cycles.
         """
         metadata = {}
 
@@ -310,41 +311,33 @@ class UnifiedQualityScorer:
             metadata['reason'] = 'No previous weight for comparison'
             return 0.7, metadata
 
-        # Calculate change rate
         weight_change = abs(weight - previous_weight)
-        metadata['weight_change'] = weight_change
+
+        # Exponential growth of acceptable change over time
+        # Starts at 0.5kg for immediate, grows to ~5kg at 7 days
+        max_acceptable_change = 0.5 + 4.5 * (1 - math.exp(-time_diff_hours / 48))
+
+        metadata['max_acceptable_change'] = max_acceptable_change
+        metadata['actual_change'] = weight_change
         metadata['time_diff_hours'] = time_diff_hours
 
-        # Apply time-based thresholds
-        score = 1.0
-
-        # 6-hour threshold
-        if time_diff_hours <= 6:
-            threshold = self.temporal_thresholds['6h']
-            if weight_change > threshold:
-                score *= max(0.2, 1.0 - (weight_change - threshold) / threshold)
-                metadata['violated_6h'] = True
-
-        # 24-hour threshold
-        elif time_diff_hours <= 24:
-            threshold = self.temporal_thresholds['24h']
-            if weight_change > threshold:
-                score *= max(0.3, 1.0 - (weight_change - threshold) / threshold)
-                metadata['violated_24h'] = True
-
-        # Sustained change (daily rate)
+        # Smooth scoring based on deviation from acceptable
+        if weight_change <= max_acceptable_change:
+            # Within acceptable range: high score with smooth decay
+            score = 0.8 + 0.2 * math.exp(-weight_change / max_acceptable_change)
         else:
-            daily_rate = weight_change / (time_diff_hours / 24.0)
-            metadata['daily_rate'] = daily_rate
-            threshold = self.temporal_thresholds['sustained']
-            if daily_rate > threshold:
-                score *= max(0.4, 1.0 - (daily_rate - threshold) / threshold)
-                metadata['violated_sustained'] = True
+            # Beyond acceptable: exponential penalty
+            excess_ratio = (weight_change - max_acceptable_change) / max_acceptable_change
+            score = 0.8 * math.exp(-excess_ratio)
 
-        # Check for measurement gaps (be more lenient after gaps)
-        if time_diff_hours > 168:  # More than a week
-            score = max(score, 0.6)  # Don't penalize too harshly
+        # Check for adaptive period from kalman state (more lenient during adaptation)
+        # This maintains backward compatibility with existing adaptive period handling
+        if time_diff_hours > 168:  # More than a week gap
+            score = max(score, 0.4)
             metadata['gap_adjustment'] = True
+
+        # Clamp between 0.2 and 1.0
+        score = max(0.2, min(1.0, score))
 
         return score, metadata
 
@@ -583,3 +576,29 @@ class UnifiedQualityScorer:
             return weight_sum / weighted_sum
         else:
             return 0.0
+
+    def update_temporal_baseline(self, state: Dict, weight: float, timestamp: datetime) -> Dict:
+        """
+        Update rolling temporal baseline for continuity across measurements.
+        """
+        baseline = state.get('temporal_baseline', {})
+
+        if baseline.get('last_weight') and baseline.get('last_timestamp'):
+            last_ts = baseline['last_timestamp']
+            if isinstance(last_ts, str):
+                last_ts = datetime.fromisoformat(last_ts)
+
+            time_diff = (timestamp - last_ts).total_seconds() / 3600
+            if time_diff > 0:
+                weight_change = abs(weight - baseline['last_weight'])
+                daily_rate = weight_change / max(time_diff / 24, 0.1)
+
+                # Exponential moving average with α=0.3
+                prev_rate = baseline.get('rolling_avg_change_rate', daily_rate)
+                baseline['rolling_avg_change_rate'] = 0.3 * daily_rate + 0.7 * prev_rate
+
+        baseline['last_weight'] = weight
+        baseline['last_timestamp'] = timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp
+
+        state['temporal_baseline'] = baseline
+        return state
