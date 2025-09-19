@@ -98,6 +98,14 @@ class UnifiedQualityScorer:
     UNIT_CONFUSION_FACTORS = [2.2, 0.454, 10.0, 0.1]  # kg/lbs, lbs/kg, decimal errors
     BMI_RANGE = (15.0, 50.0)  # Common BMI range that might be entered as weight
 
+    # Rapid measurement detection thresholds
+    DUPLICATE_THRESHOLD_SECONDS = 30  # Measurements within 30 seconds are likely duplicates
+    RAPID_THRESHOLD_MINUTES = 5  # Measurements within 5 minutes are suspicious
+    BURST_WINDOW_MINUTES = 30  # Window to detect burst patterns
+    BURST_COUNT_THRESHOLD = 3  # Number of measurements to trigger burst detection
+    MAX_1MIN_CHANGE_KG = 0.1  # Maximum believable change in 1 minute
+    MAX_5MIN_CHANGE_KG = 0.3  # Maximum believable change in 5 minutes
+
     def __init__(self, config: Optional[Dict] = None):
         """Initialize with optional config overrides."""
         self.config = config or {}
@@ -178,8 +186,13 @@ class UnifiedQualityScorer:
 
         # 3. Anomaly Detection
         if self.weights.get("anomaly_detection", 0) > 0:
+            # Try to get current timestamp from kalman_state or recent data
+            current_ts = None
+            if kalman_state and "current_timestamp" in kalman_state:
+                current_ts = kalman_state["current_timestamp"]
+
             anomaly_score, anomaly_meta = self.calculate_anomaly_detection(
-                weight, recent_weights, recent_timestamps, user_height_m
+                weight, recent_weights, recent_timestamps, user_height_m, current_ts
             )
             components["anomaly_detection"] = anomaly_score
             metadata["anomaly_detection"] = anomaly_meta
@@ -358,6 +371,7 @@ class UnifiedQualityScorer:
         recent_weights: Optional[List[float]],
         recent_timestamps: Optional[List[datetime]],
         user_height_m: Optional[float],
+        current_timestamp: Optional[datetime] = None,
     ) -> Tuple[float, Dict]:
         """
         Enhanced anomaly detection with time-aware physiological limits.
@@ -398,27 +412,88 @@ class UnifiedQualityScorer:
 
                 # Calculate time difference
                 if len(recent_timestamps) >= 1:
-                    current_timestamp = datetime.now()  # Current measurement time
+                    # Use provided timestamp or fall back to now (for real-time processing)
+                    if current_timestamp is None:
+                        current_timestamp = datetime.now()
+                    elif isinstance(current_timestamp, str):
+                        current_timestamp = datetime.fromisoformat(current_timestamp)
+
                     prev_timestamp = recent_timestamps[-1]
                     if isinstance(prev_timestamp, str):
                         prev_timestamp = datetime.fromisoformat(prev_timestamp)
 
+                    # Calculate time differences
+                    time_diff_seconds = (current_timestamp - prev_timestamp).total_seconds()
+                    time_diff_minutes = time_diff_seconds / 60.0
+                    time_diff_hours = time_diff_seconds / 3600.0
+
+                    # Check for minute-level precision (likely from manual entry)
                     has_minute_precision = (
                         current_timestamp.second == 0
                         and current_timestamp.microsecond == 0
                     ) and (
                         prev_timestamp.second == 0 and prev_timestamp.microsecond == 0
                     )
-                    time_diff_minutes = (
-                        current_timestamp - prev_timestamp
-                    ).total_seconds() / 60.0
 
-                    if time_diff_minutes < 1 and not has_minute_precision:
-                        return 0, metadata  # Too close, ignore
+                    # Enhanced rapid-fire measurement detection
+                    # Reject measurements that are too close together (likely duplicates or errors)
+                    if time_diff_seconds < self.DUPLICATE_THRESHOLD_SECONDS:
+                        metadata["rejected_reason"] = "duplicate_measurement"
+                        metadata["time_diff_seconds"] = time_diff_seconds
+                        metadata["threshold_seconds"] = self.DUPLICATE_THRESHOLD_SECONDS
+                        return 0.0, metadata  # Reject as duplicate
 
-                    time_diff_hours = (
-                        current_timestamp - prev_timestamp
-                    ).total_seconds() / 3600.0
+                    elif time_diff_minutes < self.RAPID_THRESHOLD_MINUTES:
+                        # Unless it's a manual entry with minute precision
+                        if not has_minute_precision:
+                            # Different thresholds for different time windows
+                            if time_diff_minutes <= 1:
+                                max_allowed = self.MAX_1MIN_CHANGE_KG
+                            else:
+                                # Linear interpolation between 1 min and 5 min thresholds
+                                max_allowed = self.MAX_1MIN_CHANGE_KG + (
+                                    (self.MAX_5MIN_CHANGE_KG - self.MAX_1MIN_CHANGE_KG)
+                                    * (time_diff_minutes - 1) / 4
+                                )
+
+                            if weight_change > max_allowed:
+                                metadata["rejected_reason"] = "rapid_impossible_change"
+                                metadata["time_diff_minutes"] = time_diff_minutes
+                                metadata["change_kg"] = weight_change
+                                metadata["max_allowed_change"] = max_allowed
+                                return 0.0, metadata  # Reject as impossible
+
+                            # Apply heavy penalty for rapid measurements (likely technical errors)
+                            # Score decreases exponentially as time gap decreases below threshold
+                            # Formula: exp(-k * (threshold - actual) / threshold)
+                            # This gives: ~0.05 at 0 min, ~0.37 at 2.5 min, ~1.0 at 5 min
+                            rapid_penalty = math.exp(-3 * (self.RAPID_THRESHOLD_MINUTES - time_diff_minutes) / self.RAPID_THRESHOLD_MINUTES)
+                            score *= rapid_penalty
+                            metadata["rapid_measurement_penalty"] = rapid_penalty
+                            metadata["time_diff_minutes"] = time_diff_minutes
+
+                    # Additional check: Look for burst patterns (multiple measurements in short period)
+                    if len(recent_timestamps) >= self.BURST_COUNT_THRESHOLD:
+                        # Check if we have multiple measurements within burst window
+                        burst_count = 1  # Start with current measurement
+                        for ts in recent_timestamps[-(self.BURST_COUNT_THRESHOLD + 2):]:  # Look at recent measurements
+                            if isinstance(ts, str):
+                                ts = datetime.fromisoformat(ts)
+                            if (current_timestamp - ts).total_seconds() / 60.0 <= self.BURST_WINDOW_MINUTES:
+                                burst_count += 1
+
+                        if burst_count >= self.BURST_COUNT_THRESHOLD:
+                            # Multiple rapid measurements detected - likely technical issue
+                            metadata["burst_pattern_detected"] = True
+                            metadata["burst_count"] = burst_count
+                            metadata["burst_window_minutes"] = self.BURST_WINDOW_MINUTES
+
+                            # Progressive penalty based on burst count
+                            # 3 measurements = 0.5, 4 = 0.35, 5+ = 0.25
+                            burst_penalty = max(0.25, 0.8 - (burst_count - 2) * 0.15)
+                            score *= burst_penalty
+                            metadata["burst_penalty"] = burst_penalty
+
                     metadata["time_diff_hours"] = time_diff_hours
 
                     # Time-based physiological limits
@@ -444,7 +519,38 @@ class UnifiedQualityScorer:
                             score *= 0.5 - excess_ratio * 0.4  # Gradual penalty
                             metadata["unlikely_change"] = True
 
-                    # 3. Check for sustained vs. fluctuation patterns
+                    # 3. Check for percentage-based changes (catch weight doubling etc.)
+                    # Only apply percentage checks for periods > 3 days where percentage matters more
+                    if time_diff_hours > 72 and time_diff_hours <= 720:  # Between 3-30 days
+                        percent_change = (weight_change / previous_weight) * 100
+                        max_monthly_percent = PHYSIOLOGICAL_LIMITS.get("MAX_MONTHLY_PERCENT", 15)
+
+                        # Scale the allowed percentage based on actual time elapsed
+                        # But with a minimum of 3 days worth to avoid being too strict on short periods
+                        time_factor = max(0.1, min(1.0, time_diff_hours / 720))  # At least 3 days worth
+                        allowed_percent = max_monthly_percent * time_factor
+
+                        metadata["percent_change"] = percent_change
+                        metadata["allowed_percent"] = allowed_percent
+
+                        if percent_change > allowed_percent:
+                            excess_percent_ratio = (percent_change - allowed_percent) / allowed_percent
+                            metadata["excess_percent_ratio"] = excess_percent_ratio
+
+                            if excess_percent_ratio > 2.0:  # More than 3x the allowed percentage
+                                score *= 0.0
+                                metadata["impossible_percent_change"] = True
+                            elif excess_percent_ratio > 1.0:  # More than 2x the allowed percentage
+                                score *= 0.05
+                                metadata["extreme_percent_change"] = True
+                            elif excess_percent_ratio > 0.5:  # More than 1.5x the allowed percentage
+                                score *= 0.1
+                                metadata["high_percent_change"] = True
+                            else:
+                                score *= max(0.2, 0.5 - excess_percent_ratio * 0.6)
+                                metadata["suspicious_percent_change"] = True
+
+                    # 4. Check for sustained vs. fluctuation patterns
                     if len(recent_weights) >= 3:
                         sustained_score = self._check_sustained_pattern(
                             weight, recent_weights, recent_timestamps
@@ -457,49 +563,72 @@ class UnifiedQualityScorer:
     def _calculate_max_physiological_change(self, time_hours: float) -> float:
         """
         Calculate maximum physiological weight change based on time elapsed.
-        Accounts for both short-term fluctuations and long-term sustainable changes.
+        Uses strict, realistic limits to prevent accepting impossible changes.
         """
         if time_hours <= 0:
             return 0.0
 
-        # Short-term (< 1 hour): Mostly measurement error or immediate water/food
-        if time_hours < 1:
-            return PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1H", 4.0) * (time_hours / 1.0)
+        # Ultra short-term (< 1 minute): Only measurement error
+        if time_hours < 0.0167:  # 1 minute
+            return PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1MIN", 0.1)
 
-        # Very short-term (1-6 hours): Water, food, exercise effects
+        # Very short-term (< 5 minutes): Small measurement variance
+        elif time_hours < 0.0833:  # 5 minutes
+            max_1min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1MIN", 0.1)
+            max_5min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_5MIN", 0.3)
+            # Linear interpolation
+            minutes = time_hours * 60
+            return max_1min + (max_5min - max_1min) * (minutes - 1) / 4
+
+        # Short-term (< 1 hour): Limited by water/food intake
+        elif time_hours < 1:
+            max_5min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_5MIN", 0.3)
+            max_1h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1H", 1.0)
+            minutes = time_hours * 60
+            # Use smooth curve from 5 min to 60 min
+            # At 5 min: 0.3kg, at 60 min: 1.0kg
+            if minutes <= 5:
+                return max_5min
+            else:
+                # Logarithmic growth from 5 min to 1 hour
+                return max_5min + (max_1h - max_5min) * math.log(minutes / 5) / math.log(12)
+
+        # Hours (1-6 hours): Water, food, exercise effects
         elif time_hours <= 6:
-            base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1H", 4.0)
-            additional = (
-                PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 6.0) - base_change
-            ) * ((time_hours - 1) / 5)
+            base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1H", 1.0)
+            max_6h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 1.5)
+            # Diminishing returns
+            additional = (max_6h - base_change) * (1 - math.exp(-(time_hours - 1) / 3))
             return base_change + additional
 
-        # Short-term (6-24 hours): Full daily fluctuation
+        # Day (6-24 hours): Full daily fluctuation
         elif time_hours <= 24:
-            base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 6.0)
-            additional = (
-                PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_24H", 6.5) - base_change
-            ) * ((time_hours - 6) / 18)
+            base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 1.5)
+            max_24h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_24H", 2.0)
+            # Logarithmic growth
+            additional = (max_24h - base_change) * math.log(1 + (time_hours - 6) / 6) / math.log(4)
             return base_change + additional
 
-        # Medium-term (1-7 days): Daily changes compound but with diminishing effect
+        # Week (1-7 days): Compound changes with realistic limits
         elif time_hours <= 168:  # 7 days
             days = time_hours / 24
-            daily_max = PHYSIOLOGICAL_LIMITS.get("MAX_DAILY_CHANGE_KG", 6.5)
-            # Use square root for multi-day to account for non-linear accumulation
-            # This prevents unrealistic linear accumulation while allowing for genuine changes
-            return daily_max * math.sqrt(days)
+            daily_max = PHYSIOLOGICAL_LIMITS.get("MAX_DAILY_CHANGE_KG", 2.0)
+            weekly_max = PHYSIOLOGICAL_LIMITS.get("MAX_WEEKLY_CHANGE_KG", 3.5)
+            # Use square root for realistic accumulation
+            # This gives ~2.8kg for 2 days, ~3.5kg for 3 days, ~4kg for 4 days, capped at weekly max
+            return min(weekly_max, daily_max * math.sqrt(days))
 
-        # Long-term (> 1 week): Sustainable change rate dominates
+        # Long-term (> 1 week): Sustainable rates only
         else:
             days = time_hours / 24
-            weekly_max = PHYSIOLOGICAL_LIMITS.get("MAX_WEEKLY_CHANGE_KG", 10.0)
-            sustained_daily = PHYSIOLOGICAL_LIMITS.get("MAX_SUSTAINED_DAILY_KG", 2.5)
+            weekly_max = PHYSIOLOGICAL_LIMITS.get("MAX_WEEKLY_CHANGE_KG", 3.5)
+            sustained_daily = PHYSIOLOGICAL_LIMITS.get("MAX_SUSTAINED_DAILY_KG", 0.5)
 
-            # First week at higher rate, then sustained rate
+            # First week at aggressive rate, then sustainable rate
             if days <= 7:
                 return weekly_max
             else:
+                # Additional sustainable change after first week
                 return weekly_max + (days - 7) * sustained_daily
 
     def _check_sustained_pattern(

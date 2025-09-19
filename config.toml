@@ -278,11 +278,11 @@ use_harmonic_mean = true
 
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
-kalman_fit = 0.5           # Primary signal - deviation from Kalman prediction
+kalman_fit = 0.65           # Primary signal - deviation from Kalman prediction
 temporal_consistency = 0  # Rate of change validation
 anomaly_detection = 0.25  # Different user, unit confusion, BMI detection
 source_reliability = 0    # Source-based trust scoring (disabled)
-trend_alignment = 0.25       # Consistency with established trend (disabled)
+trend_alignment = 0.1       # Consistency with established trend (disabled)
 
 # Temporal consistency parameters (new continuous exponential function)
 [quality_scoring.temporal]
