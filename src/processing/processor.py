@@ -186,16 +186,19 @@ def process_measurement(
         )
     
     # Step 4: Initialize Kalman if needed
+    kalman_already_updated = False
+    result = None
+
     if not state.get('kalman_params'):
         # Check if this is a post-reset initialization
         # For initial measurements, treat current timestamp as "reset" to get adaptive params
         reset_timestamp = get_reset_timestamp(state) if reset_occurred else timestamp
-        
+
         # Get adaptive Kalman config if within post-reset period
         adaptive_kalman_config = get_adaptive_kalman_params(
             reset_timestamp, timestamp, kalman_config, adaptive_days=7, state=state
         )
-        
+
         # Get adaptive noise for this source
         adaptive_config = config.get('adaptive_noise', {})
         if feature_manager.is_enabled('adaptive_noise'):
@@ -204,26 +207,26 @@ def process_measurement(
         else:
             noise_multiplier = 1.0
         observation_covariance = adaptive_kalman_config.get('observation_covariance', 3.49) * noise_multiplier
-        
+
         kalman_state = KalmanFilterManager.initialize_immediate(
             cleaned_weight, timestamp, adaptive_kalman_config, observation_covariance
         )
         # Merge Kalman state with existing state to preserve reset parameters
         state.update(kalman_state)
-    
+
         state = KalmanFilterManager.update_state(
             state, cleaned_weight, timestamp, source, {}, observation_covariance
         )
-        
+
         result = KalmanFilterManager.create_result(
             state, cleaned_weight, timestamp, source, True, observation_covariance
         )
-        
+
         # Add metadata
         result['stage'] = 'initialization'
         result['preprocessing'] = preprocess_metadata
         result['noise_multiplier'] = noise_multiplier
-        
+
         # Add reset event info if it occurred (flattened for visualization)
         if reset_occurred:
             result['was_reset'] = True
@@ -236,55 +239,11 @@ def process_measurement(
                 'gap_days': reset_event.get('gap_days'),
                 'reason': reset_event.get('reason', 'unknown')
             }
-        
-        # Save state - This is after outlier rejection (early rejection path)
-        state['last_source'] = source
-        state['last_timestamp'] = timestamp  # Keep for backward compatibility
-        state['last_accepted_timestamp'] = timestamp
-        state['last_raw_weight'] = cleaned_weight  # Track for soft reset detection
-        state["measurements_since_reset"] = state.get("measurements_since_reset", 0) + 1
 
-        # Validate state before persistence
-        if feature_manager.is_enabled('state_persistence'):
-            is_valid, error_msg = PersistenceValidator.validate_state(
-                state, user_id, reason="outlier_rejection_accept"
-            )
-            if is_valid:
-                # Get previous state for change detection
-                previous_state = db.get_state(user_id)
-                should_persist, audit_msg = PersistenceValidator.should_persist(
-                    state, previous_state, user_id, reason="outlier_rejection_accept"
-                )
+        # Mark that we've already done the Kalman update
+        kalman_already_updated = True
 
-                if should_persist:
-                    db.save_state(user_id, state)
-                    PersistenceValidator.create_audit_log(
-                        user_id, "persist", state, True,
-                        reason="outlier_rejection_accept", error=None
-                    )
-                    
-                    # Save snapshot after reset for replay functionality
-                    if reset_occurred:
-                        try:
-                            db.save_state_snapshot(user_id, timestamp)
-                            logger.debug(f"Saved post-reset snapshot for user {user_id} at {timestamp}")
-                        except Exception as e:
-                            logger.warning(f"Failed to save post-reset snapshot for {user_id}: {e}")
-                            # Continue processing even if snapshot fails
-                else:
-                    # Log why we're not persisting
-                    PersistenceValidator.create_audit_log(
-                        user_id, "skip", state, True,
-                        reason=audit_msg, error=None
-                    )
-            else:
-                # Log validation failure
-                PersistenceValidator.create_audit_log(
-                    user_id, "validate_failed", state, False,
-                    reason="outlier_rejection_accept", error=error_msg
-                )
-        
-        return result
+        # Continue to quality validation - no early return during initialization
     
     # Step 5: Quality scoring (replaces physiological validation)
     processing_config = config.get('processing', {})
@@ -459,8 +418,8 @@ def process_measurement(
                 'stage': 'kalman_deviation'
             }
     
-    # Step 7: Update Kalman filter
-    # Only update Kalman if feature is enabled
+    # Step 7: Update Kalman filter (skip if already done during initialization)
+    # Only update Kalman if feature is enabled and not already updated
     if not feature_manager.is_enabled('kalman_filtering'):
         # Skip Kalman filtering - just pass through the weight
         result = {
@@ -514,37 +473,55 @@ def process_measurement(
 
         return result
 
-    # Check if we should use adaptive parameters (within 7 days of reset)
-    reset_timestamp = get_reset_timestamp(state)
-    adaptive_kalman_config = get_adaptive_kalman_params(
-        reset_timestamp, timestamp, kalman_config, adaptive_days=7, state=state
-    )
-    
-    # Update state's kalman_params with adaptive values
-    if reset_timestamp and (timestamp - reset_timestamp).total_seconds() / 86400.0 < 7:
-        # Only update if we have the adaptive values
-        if 'transition_covariance_weight' in adaptive_kalman_config and 'transition_covariance_trend' in adaptive_kalman_config:
-            state['kalman_params']['transition_covariance'] = [
-                [adaptive_kalman_config['transition_covariance_weight'], 0],
-                [0, adaptive_kalman_config['transition_covariance_trend']]
-            ]
-    
-    adaptive_config = config.get('adaptive_noise', {})
-    if feature_manager.is_enabled('adaptive_noise'):
-        default_multiplier = adaptive_config.get('default_multiplier', 1.5)
-        noise_multiplier = get_noise_multiplier(source)
-    else:
-        noise_multiplier = 1.0
-    observation_covariance = adaptive_kalman_config.get('observation_covariance', 3.49) * noise_multiplier
-    
-    # Apply trend limiting before update
-    current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
-    if current_trend is not None:
-        # Limit trend to ±5kg/week (±0.714kg/day)
-        max_daily_trend = 0.714  # 5kg/week
-        if abs(current_trend) > max_daily_trend:
-            # Clamp the trend in the state before update
-            limited_trend = max_daily_trend if current_trend > 0 else -max_daily_trend
+    # Only do Kalman update if not already done during initialization
+    if not kalman_already_updated:
+        # Check if we should use adaptive parameters (within 7 days of reset)
+        reset_timestamp = get_reset_timestamp(state)
+        adaptive_kalman_config = get_adaptive_kalman_params(
+            reset_timestamp, timestamp, kalman_config, adaptive_days=7, state=state
+        )
+
+        # Update state's kalman_params with adaptive values
+        if reset_timestamp and (timestamp - reset_timestamp).total_seconds() / 86400.0 < 7:
+            # Only update if we have the adaptive values
+            if 'transition_covariance_weight' in adaptive_kalman_config and 'transition_covariance_trend' in adaptive_kalman_config:
+                state['kalman_params']['transition_covariance'] = [
+                    [adaptive_kalman_config['transition_covariance_weight'], 0],
+                    [0, adaptive_kalman_config['transition_covariance_trend']]
+                ]
+
+        adaptive_config = config.get('adaptive_noise', {})
+        if feature_manager.is_enabled('adaptive_noise'):
+            default_multiplier = adaptive_config.get('default_multiplier', 1.5)
+            noise_multiplier = get_noise_multiplier(source)
+        else:
+            noise_multiplier = 1.0
+        observation_covariance = adaptive_kalman_config.get('observation_covariance', 3.49) * noise_multiplier
+
+        # Apply trend limiting before update
+        current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
+        if current_trend is not None:
+            # Limit trend to ±5kg/week (±0.714kg/day)
+            max_daily_trend = 0.714  # 5kg/week
+            if abs(current_trend) > max_daily_trend:
+                # Clamp the trend in the state before update
+                limited_trend = max_daily_trend if current_trend > 0 else -max_daily_trend
+                if state.get('last_state') is not None:
+                    last_state = state['last_state']
+                    if len(last_state.shape) > 1:
+                        last_state[-1][1] = limited_trend
+                    else:
+                        last_state[1] = limited_trend
+
+        state = KalmanFilterManager.update_state(
+            state, cleaned_weight, timestamp, source, {}, observation_covariance
+        )
+
+        # Apply trend limiting after update
+        current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
+        if current_trend is not None and abs(current_trend) > 0.714:
+            # Clamp the trend after update
+            limited_trend = 0.714 if current_trend > 0 else -0.714
             if state.get('last_state') is not None:
                 last_state = state['last_state']
                 if len(last_state.shape) > 1:
@@ -552,29 +529,15 @@ def process_measurement(
                 else:
                     last_state[1] = limited_trend
 
-    state = KalmanFilterManager.update_state(
-        state, cleaned_weight, timestamp, source, {}, observation_covariance
-    )
-
-    # Apply trend limiting after update
-    current_weight, current_trend = KalmanFilterManager.get_current_state_values(state)
-    if current_trend is not None and abs(current_trend) > 0.714:
-        # Clamp the trend after update
-        limited_trend = 0.714 if current_trend > 0 else -0.714
-        if state.get('last_state') is not None:
-            last_state = state['last_state']
-            if len(last_state.shape) > 1:
-                last_state[-1][1] = limited_trend
-            else:
-                last_state[1] = limited_trend
-    
-    result = KalmanFilterManager.create_result(
-        state, cleaned_weight, timestamp, source, True, observation_covariance
-    )
+        result = KalmanFilterManager.create_result(
+            state, cleaned_weight, timestamp, source, True, observation_covariance
+        )
     
     # Step 8: Add comprehensive metadata
     result['preprocessing'] = preprocess_metadata
-    result['noise_multiplier'] = noise_multiplier
+    # noise_multiplier was set during initialization or normal update
+    if 'noise_multiplier' not in result:
+        result['noise_multiplier'] = locals().get('noise_multiplier', 1.0)
     result['stage'] = 'accepted'
     
     # Add quality score if available
