@@ -1,9 +1,11 @@
 """
 Configuration loader that interprets high-level profiles into full config.
 """
-from typing import Dict, Any
+
 import tomllib
 from pathlib import Path
+from typing import Any, Dict
+
 from src.feature_manager import FeatureManager
 
 
@@ -15,47 +17,78 @@ class ConfigLoader:
         "strict": {"extreme_threshold": 0.10, "quality_threshold": 0.70},
         "moderate": {"extreme_threshold": 0.15, "quality_threshold": 0.60},
         "lenient": {"extreme_threshold": 0.25, "quality_threshold": 0.45},
-        "source_based": {"extreme_threshold": 0.15, "quality_threshold": 0.55}
+        "source_based": {"extreme_threshold": 0.15, "quality_threshold": 0.55},
     }
 
     ADAPTATION_SPEED_MAP = {
-        "slow": {"initial_adapt": 20, "hard_adapt": 15, "soft_adapt": 20, "decay_rate": 4.0},
-        "moderate": {"initial_adapt": 10, "hard_adapt": 15, "soft_adapt": 15, "decay_rate": 2.5},
-        "fast": {"initial_adapt": 5, "hard_adapt": 5, "soft_adapt": 10, "decay_rate": 1.0}
+        "slow": {
+            "initial_adapt": 20,
+            "hard_adapt": 15,
+            "soft_adapt": 20,
+            "decay_rate": 4.0,
+        },
+        "moderate": {
+            "initial_adapt": 10,
+            "hard_adapt": 15,
+            "soft_adapt": 15,
+            "decay_rate": 2.5,
+        },
+        "fast": {
+            "initial_adapt": 5,
+            "hard_adapt": 5,
+            "soft_adapt": 10,
+            "decay_rate": 1.0,
+        },
     }
 
     TRUST_MANUAL_MAP = {
         "low": {"soft_reset_enabled": False},
         "moderate": {"soft_reset_enabled": True, "min_change": 5},
         "high": {"soft_reset_enabled": True, "min_change": 3},
-        "clinical_only": {"soft_reset_enabled": True, "sources": ["care-team-upload"]}
+        "clinical_only": {"soft_reset_enabled": True, "sources": ["care-team-upload"]},
     }
 
     GAP_SENSITIVITY_MAP = {
         "low": {"gap_days": 45},
         "moderate": {"gap_days": 30},
-        "high": {"gap_days": 21}
+        "high": {"gap_days": 21},
     }
 
     # New reset behavior mappings
     RESET_ON_GAPS_MAP = {
         "aggressive": {"gap_days": 21, "hard_variance_mult": 5, "hard_adapt": 15},
         "moderate": {"gap_days": 30, "hard_variance_mult": 3, "hard_adapt": 10},
-        "lenient": {"gap_days": 45, "hard_variance_mult": 2, "hard_adapt": 7}
+        "lenient": {"gap_days": 45, "hard_variance_mult": 2, "hard_adapt": 7},
     }
 
     RESET_ON_MANUAL_MAP = {
         "disabled": {"enabled": False},
-        "sensitive": {"enabled": True, "min_change": 3, "sources": ["questionnaire", "care-team-upload"]},
-        "moderate": {"enabled": True, "min_change": 5, "sources": ["questionnaire", "care-team-upload"]},
-        "clinical": {"enabled": True, "min_change": 5, "sources": ["care-team-upload"]}
+        "sensitive": {
+            "enabled": True,
+            "min_change": 3,
+            "sources": ["questionnaire", "care-team-upload"],
+        },
+        "moderate": {
+            "enabled": True,
+            "min_change": 5,
+            "sources": ["questionnaire", "care-team-upload"],
+        },
+        "clinical": {"enabled": True, "min_change": 5, "sources": ["care-team-upload"]},
     }
 
     INITIAL_TRUST_MAP = {
         "low": {"initial_adapt": 20, "initial_variance_mult": 15, "initial_decay": 4.0},
-        "moderate": {"initial_adapt": 10, "initial_variance_mult": 10, "initial_decay": 2.5},
+        "moderate": {
+            "initial_adapt": 10,
+            "initial_variance_mult": 10,
+            "initial_decay": 2.5,
+        },
         "high": {"initial_adapt": 5, "initial_variance_mult": 5, "initial_decay": 1.5},
-        "clinical": {"initial_adapt": 10, "initial_variance_mult": 10, "initial_decay": 2.5}
+        "clinical": {
+            "initial_adapt": 10,
+            "initial_variance_mult": 10,
+            "initial_decay": 2.5,
+        },
     }
 
     @classmethod
@@ -104,25 +137,23 @@ class ConfigLoader:
                 "transition_covariance_weight": 0.016,
                 "transition_covariance_trend": 0.0001,
                 "observation_covariance": 3.4,
-                "reset": {
-                    "initial": {},
-                    "hard": {},
-                    "soft": {}
-                }
+                "reset": {"initial": {}, "hard": {}, "soft": {}},
             },
             "visualization": raw_config.get("visualization", {}),
             "adaptive_noise": raw_config.get("adaptive_noise", {}),
             "retrospective": raw_config.get("retrospective", {}),
             "logging": raw_config.get("logging", {}),
-            "quality_scoring": {
-                "use_harmonic_mean": True
-            }
+            "quality_scoring": {"use_harmonic_mean": True},
         }
 
         # Copy Kalman base parameters if specified
         if "kalman" in raw_config:
-            for key in ["initial_variance", "transition_covariance_weight",
-                       "transition_covariance_trend", "observation_covariance"]:
+            for key in [
+                "initial_variance",
+                "transition_covariance_weight",
+                "transition_covariance_trend",
+                "observation_covariance",
+            ]:
                 if key in raw_config["kalman"]:
                     config["kalman"][key] = raw_config["kalman"][key]
 
@@ -133,9 +164,15 @@ class ConfigLoader:
         """Apply profile settings to configuration."""
         # Filtering strength
         strength = profile.get("filtering_strength", "moderate")
-        strength_settings = cls.FILTERING_STRENGTH_MAP.get(strength, cls.FILTERING_STRENGTH_MAP["moderate"])
-        config["processing"]["extreme_threshold"] = strength_settings["extreme_threshold"]
-        config["quality_scoring"]["threshold"] = profile.get("quality_threshold", strength_settings["quality_threshold"])
+        strength_settings = cls.FILTERING_STRENGTH_MAP.get(
+            strength, cls.FILTERING_STRENGTH_MAP["moderate"]
+        )
+        config["processing"]["extreme_threshold"] = strength_settings[
+            "extreme_threshold"
+        ]
+        config["quality_scoring"]["threshold"] = profile.get(
+            "quality_threshold", strength_settings["quality_threshold"]
+        )
 
         # Get reset behavior settings from profile
         reset_gaps = profile.get("reset_on_gaps", "moderate")
@@ -143,89 +180,130 @@ class ConfigLoader:
         initial_trust = profile.get("initial_trust", "moderate")
 
         # Get mappings
-        gaps_settings = cls.RESET_ON_GAPS_MAP.get(reset_gaps, cls.RESET_ON_GAPS_MAP["moderate"])
-        manual_settings = cls.RESET_ON_MANUAL_MAP.get(reset_manual, cls.RESET_ON_MANUAL_MAP["moderate"])
-        initial_settings = cls.INITIAL_TRUST_MAP.get(initial_trust, cls.INITIAL_TRUST_MAP["moderate"])
+        gaps_settings = cls.RESET_ON_GAPS_MAP.get(
+            reset_gaps, cls.RESET_ON_GAPS_MAP["moderate"]
+        )
+        manual_settings = cls.RESET_ON_MANUAL_MAP.get(
+            reset_manual, cls.RESET_ON_MANUAL_MAP["moderate"]
+        )
+        initial_settings = cls.INITIAL_TRUST_MAP.get(
+            initial_trust, cls.INITIAL_TRUST_MAP["moderate"]
+        )
 
         # Apply to initial reset (new user)
-        config["kalman"]["reset"]["initial"].update({
-            "initial_variance_multiplier": initial_settings["initial_variance_mult"],
-            "weight_noise_multiplier": 50,
-            "trend_noise_multiplier": 50,
-            "observation_noise_multiplier": 20,
-            "adaptation_measurements": initial_settings["initial_adapt"],
-            "adaptation_days": initial_settings["initial_adapt"],
-            "adaptation_decay_rate": initial_settings["initial_decay"],
-            "quality_acceptance_threshold": 0.45,
-            "quality_safety_weight": 0.45,
-            "quality_plausibility_weight": 0.10,
-            "quality_consistency_weight": 0.10,
-            "quality_reliability_weight": 0.35
-        })
+        config["kalman"]["reset"]["initial"].update(
+            {
+                "initial_variance_multiplier": initial_settings[
+                    "initial_variance_mult"
+                ],
+                "weight_noise_multiplier": 50,
+                "trend_noise_multiplier": 50,
+                "observation_noise_multiplier": 20,
+                "adaptation_measurements": initial_settings["initial_adapt"],
+                "adaptation_days": initial_settings["initial_adapt"],
+                "adaptation_decay_rate": initial_settings["initial_decay"],
+                "quality_acceptance_threshold": 0.45,
+                "quality_safety_weight": 0.45,
+                "quality_plausibility_weight": 0.10,
+                "quality_consistency_weight": 0.10,
+                "quality_reliability_weight": 0.35,
+            }
+        )
 
         # Apply to hard reset (gaps)
-        config["kalman"]["reset"]["hard"].update({
-            "gap_threshold_days": gaps_settings["gap_days"],
-            "initial_variance_multiplier": gaps_settings["hard_variance_mult"],
-            "weight_noise_multiplier": 5,
-            "trend_noise_multiplier": 50,
-            "observation_noise_multiplier": 0.7,
-            "adaptation_measurements": gaps_settings["hard_adapt"],
-            "adaptation_days": 7,
-            "adaptation_decay_rate": 2.5,
-            "quality_acceptance_threshold": 0.45,
-            "quality_safety_weight": 0.45,
-            "quality_plausibility_weight": 0.10,
-            "quality_consistency_weight": 0.10,
-            "quality_reliability_weight": 0.35
-        })
+        config["kalman"]["reset"]["hard"].update(
+            {
+                "gap_threshold_days": gaps_settings["gap_days"],
+                "initial_variance_multiplier": gaps_settings["hard_variance_mult"],
+                "weight_noise_multiplier": 5,
+                "trend_noise_multiplier": 50,
+                "observation_noise_multiplier": 0.7,
+                "adaptation_measurements": gaps_settings["hard_adapt"],
+                "adaptation_days": 7,
+                "adaptation_decay_rate": 2.5,
+                "quality_acceptance_threshold": 0.45,
+                "quality_safety_weight": 0.45,
+                "quality_plausibility_weight": 0.10,
+                "quality_consistency_weight": 0.10,
+                "quality_reliability_weight": 0.35,
+            }
+        )
 
         # Apply to soft reset (manual entries)
-        config["kalman"]["reset"]["soft"]["enabled"] = manual_settings.get("enabled", True)
+        config["kalman"]["reset"]["soft"]["enabled"] = manual_settings.get(
+            "enabled", True
+        )
         if manual_settings.get("enabled", True):
-            config["kalman"]["reset"]["soft"].update({
-                "min_weight_change_kg": manual_settings.get("min_change", 5),
-                "cooldown_days": 3,
-                "trigger_sources": manual_settings.get("sources", ["questionnaire", "care-team-upload"]),
-                "initial_variance_multiplier": 2,
-                "weight_noise_multiplier": 5,
-                "trend_noise_multiplier": 20,
-                "observation_noise_multiplier": 0.7,
-                "adaptation_measurements": 15,
-                "adaptation_days": 10,
-                "adaptation_decay_rate": 2.5,
-                "quality_acceptance_threshold": 0.4,
-                "quality_safety_weight": 0.40,
-                "quality_plausibility_weight": 0.15,
-                "quality_consistency_weight": 0.15,
-                "quality_reliability_weight": 0.30
-            })
+            config["kalman"]["reset"]["soft"].update(
+                {
+                    "min_weight_change_kg": manual_settings.get("min_change", 5),
+                    "cooldown_days": 3,
+                    "trigger_sources": manual_settings.get(
+                        "sources",
+                        ["questionnaire", "patient-upload", "care-team-upload"],
+                    ),
+                    "initial_variance_multiplier": 2,
+                    "weight_noise_multiplier": 5,
+                    "trend_noise_multiplier": 20,
+                    "observation_noise_multiplier": 0.7,
+                    "adaptation_measurements": 15,
+                    "adaptation_days": 10,
+                    "adaptation_decay_rate": 2.5,
+                    "quality_acceptance_threshold": 0.4,
+                    "quality_safety_weight": 0.40,
+                    "quality_plausibility_weight": 0.15,
+                    "quality_consistency_weight": 0.15,
+                    "quality_reliability_weight": 0.30,
+                }
+            )
 
         # Keep backward compatibility with old settings if they exist
         # (These override the new reset behavior settings)
         if "gap_sensitivity" in profile:
             gap = profile["gap_sensitivity"]
-            gap_settings = cls.GAP_SENSITIVITY_MAP.get(gap, cls.GAP_SENSITIVITY_MAP["moderate"])
-            config["kalman"]["reset"]["hard"]["gap_threshold_days"] = gap_settings["gap_days"]
+            gap_settings = cls.GAP_SENSITIVITY_MAP.get(
+                gap, cls.GAP_SENSITIVITY_MAP["moderate"]
+            )
+            config["kalman"]["reset"]["hard"]["gap_threshold_days"] = gap_settings[
+                "gap_days"
+            ]
 
         if "trust_manual_entries" in profile:
             trust = profile["trust_manual_entries"]
-            trust_settings = cls.TRUST_MANUAL_MAP.get(trust, cls.TRUST_MANUAL_MAP["moderate"])
+            trust_settings = cls.TRUST_MANUAL_MAP.get(
+                trust, cls.TRUST_MANUAL_MAP["moderate"]
+            )
             if "soft_reset_enabled" in trust_settings:
-                config["kalman"]["reset"]["soft"]["enabled"] = trust_settings["soft_reset_enabled"]
+                config["kalman"]["reset"]["soft"]["enabled"] = trust_settings[
+                    "soft_reset_enabled"
+                ]
             if "min_change" in trust_settings:
-                config["kalman"]["reset"]["soft"]["min_weight_change_kg"] = trust_settings["min_change"]
+                config["kalman"]["reset"]["soft"]["min_weight_change_kg"] = (
+                    trust_settings["min_change"]
+                )
             if "sources" in trust_settings:
-                config["kalman"]["reset"]["soft"]["trigger_sources"] = trust_settings["sources"]
+                config["kalman"]["reset"]["soft"]["trigger_sources"] = trust_settings[
+                    "sources"
+                ]
 
         if "adaptation_speed" in profile:
             speed = profile["adaptation_speed"]
-            speed_settings = cls.ADAPTATION_SPEED_MAP.get(speed, cls.ADAPTATION_SPEED_MAP["moderate"])
+            speed_settings = cls.ADAPTATION_SPEED_MAP.get(
+                speed, cls.ADAPTATION_SPEED_MAP["moderate"]
+            )
             # Update adaptation measurements based on speed
-            config["kalman"]["reset"]["initial"]["adaptation_measurements"] = speed_settings["initial_adapt"]
-            config["kalman"]["reset"]["initial"]["adaptation_days"] = speed_settings["initial_adapt"]
-            config["kalman"]["reset"]["hard"]["adaptation_measurements"] = speed_settings["hard_adapt"]
-            config["kalman"]["reset"]["soft"]["adaptation_measurements"] = speed_settings["soft_adapt"]
+            config["kalman"]["reset"]["initial"]["adaptation_measurements"] = (
+                speed_settings["initial_adapt"]
+            )
+            config["kalman"]["reset"]["initial"]["adaptation_days"] = speed_settings[
+                "initial_adapt"
+            ]
+            config["kalman"]["reset"]["hard"]["adaptation_measurements"] = (
+                speed_settings["hard_adapt"]
+            )
+            config["kalman"]["reset"]["soft"]["adaptation_measurements"] = (
+                speed_settings["soft_adapt"]
+            )
 
         # Quality scoring weights based on filtering strength
         if strength == "strict":
@@ -233,21 +311,21 @@ class ConfigLoader:
                 "safety": 0.40,
                 "plausibility": 0.25,
                 "consistency": 0.25,
-                "reliability": 0.10
+                "reliability": 0.10,
             }
         elif strength == "lenient":
             weights = {
                 "safety": 0.30,
                 "plausibility": 0.20,
                 "consistency": 0.20,
-                "reliability": 0.30
+                "reliability": 0.30,
             }
         else:  # moderate or source_based
             weights = {
                 "safety": 0.35,
                 "plausibility": 0.25,
                 "consistency": 0.25,
-                "reliability": 0.15
+                "reliability": 0.15,
             }
 
         config["quality_scoring"]["component_weights"] = weights
@@ -256,8 +334,13 @@ class ConfigLoader:
     def _apply_overrides(cls, config: Dict, raw_config: Dict):
         """Apply any explicit overrides from advanced sections."""
         # Processing overrides
-        if "processing" in raw_config and "extreme_threshold" in raw_config["processing"]:
-            config["processing"]["extreme_threshold"] = raw_config["processing"]["extreme_threshold"]
+        if (
+            "processing" in raw_config
+            and "extreme_threshold" in raw_config["processing"]
+        ):
+            config["processing"]["extreme_threshold"] = raw_config["processing"][
+                "extreme_threshold"
+            ]
 
         # Quality scoring overrides
         if "quality_scoring" in raw_config:
@@ -268,7 +351,10 @@ class ConfigLoader:
                 config["quality_scoring"]["component_weights"] = qs["component_weights"]
 
         # Source multipliers
-        if "adaptive_noise" in raw_config and "source_multipliers" in raw_config["adaptive_noise"]:
+        if (
+            "adaptive_noise" in raw_config
+            and "source_multipliers" in raw_config["adaptive_noise"]
+        ):
             config["adaptive_noise"]["default_multiplier"] = 1.5
             # The actual multipliers will be read directly by the code
 
@@ -305,13 +391,13 @@ class ConfigLoader:
             "reset_marker_color": "#FF6600",
             "reset_marker_opacity": 0.2,
             "reset_marker_width": 1,
-            "reset_marker_style": "dot"
+            "reset_marker_style": "dot",
         }
 
         # Rejection settings
         config["visualization"]["rejection"] = {
             "show_severity_colors": detail_level in ["normal", "detailed"],
-            "group_by_severity": detail_level == "detailed"
+            "group_by_severity": detail_level == "detailed",
         }
 
         # Reset settings
@@ -326,7 +412,7 @@ class ConfigLoader:
             "gap_region_opacity": 0.5,
             "gap_region_pattern": "diagonal",
             "show_transition_markers": detail_level == "detailed",
-            "transition_marker_size": 10
+            "transition_marker_size": 10,
         }
 
 

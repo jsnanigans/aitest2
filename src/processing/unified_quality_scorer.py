@@ -360,40 +360,227 @@ class UnifiedQualityScorer:
         user_height_m: Optional[float],
     ) -> Tuple[float, Dict]:
         """
-        Detect anomalies: unit confusion, BMI entry.
+        Enhanced anomaly detection with time-aware physiological limits.
+        - Short-term fluctuations (hours): water/food intake, exercise
+        - Medium-term changes (days): diet, illness, medication
+        - Long-term trends (weeks): sustainable weight loss/gain
         """
         metadata = {}
         score = 1.0
 
-        previous_weight = recent_weights[-1] if recent_weights else None
-        if previous_weight is not None:
-            previous_weight = float(previous_weight)
-            weight_change = abs(weight - previous_weight)
+        # 1. Check absolute physiological bounds
+        if weight < PHYSIOLOGICAL_LIMITS["ABSOLUTE_MIN_WEIGHT"]:
+            metadata["outside_absolute_min"] = True
+            return 0.0, metadata  # Reject outright
 
-            if weight_change > 10.0:
-                metadata["large_jump"] = weight_change
-                score = 0  # Penalize large jumps heavily
+        if weight > PHYSIOLOGICAL_LIMITS["ABSOLUTE_MAX_WEIGHT"]:
+            metadata["outside_absolute_max"] = True
+            return 0.0, metadata  # Reject outright
 
-        # Check for BMI entry (15-50 range)
-        if self.BMI_RANGE[0] <= weight <= self.BMI_RANGE[1]:
-            metadata["possible_bmi"] = True
-            score *= 0.5  # Suspicious but not conclusive
+        # Check suspicious bounds (softer penalty)
+        if weight < PHYSIOLOGICAL_LIMITS["SUSPICIOUS_MIN_WEIGHT"]:
+            metadata["below_suspicious_min"] = True
+            score *= 0.3
+        elif weight > PHYSIOLOGICAL_LIMITS["SUSPICIOUS_MAX_WEIGHT"]:
+            metadata["above_suspicious_max"] = True
+            score *= 0.3
 
-        # Check for unit confusion
-        if recent_weights and len(recent_weights) >= 2:
-            median_weight = np.median(recent_weights)
+        # 2. Time-aware change detection
+        if recent_weights and recent_timestamps:
+            # Ensure we have matching lengths
+            min_len = min(len(recent_weights), len(recent_timestamps))
+            recent_weights = recent_weights[-min_len:]
+            recent_timestamps = recent_timestamps[-min_len:]
 
-            for factor in self.UNIT_CONFUSION_FACTORS:
-                if abs(weight - median_weight * factor) < 5.0:
-                    metadata["possible_unit_confusion"] = factor
-                    score *= 0.2
-                    break
-                elif abs(weight * factor - median_weight) < 5.0:
-                    metadata["possible_unit_confusion"] = 1 / factor
-                    score *= 0.2
-                    break
+            if len(recent_weights) > 0:
+                previous_weight = float(recent_weights[-1])
+                weight_change = abs(weight - previous_weight)
 
-        return score, metadata
+                # Calculate time difference
+                if len(recent_timestamps) >= 1:
+                    current_timestamp = datetime.now()  # Current measurement time
+                    prev_timestamp = recent_timestamps[-1]
+                    if isinstance(prev_timestamp, str):
+                        prev_timestamp = datetime.fromisoformat(prev_timestamp)
+
+                    has_minute_precision = (
+                        current_timestamp.second == 0
+                        and current_timestamp.microsecond == 0
+                    ) and (
+                        prev_timestamp.second == 0 and prev_timestamp.microsecond == 0
+                    )
+                    time_diff_minutes = (
+                        current_timestamp - prev_timestamp
+                    ).total_seconds() / 60.0
+
+                    if time_diff_minutes < 1 and not has_minute_precision:
+                        return 0, metadata  # Too close, ignore
+
+                    time_diff_hours = (
+                        current_timestamp - prev_timestamp
+                    ).total_seconds() / 3600.0
+                    metadata["time_diff_hours"] = time_diff_hours
+
+                    # Time-based physiological limits
+                    max_change = self._calculate_max_physiological_change(
+                        time_diff_hours
+                    )
+                    metadata["max_physiological_change"] = max_change
+                    metadata["actual_change"] = weight_change
+
+                    # Apply penalty based on deviation from max allowed
+                    if weight_change > max_change:
+                        # Calculate severity of violation
+                        excess_ratio = (weight_change - max_change) / max_change
+                        metadata["excess_ratio"] = excess_ratio
+
+                        if excess_ratio > 1.0:  # More than double the max
+                            score *= 0.0  # Impossible change
+                            metadata["impossible_change"] = True
+                        elif excess_ratio > 0.5:  # 50% over max
+                            score *= 0.1  # Very unlikely
+                            metadata["very_unlikely_change"] = True
+                        else:
+                            score *= 0.5 - excess_ratio * 0.4  # Gradual penalty
+                            metadata["unlikely_change"] = True
+
+                    # 3. Check for sustained vs. fluctuation patterns
+                    if len(recent_weights) >= 3:
+                        sustained_score = self._check_sustained_pattern(
+                            weight, recent_weights, recent_timestamps
+                        )
+                        metadata["sustained_pattern_score"] = sustained_score
+                        score *= sustained_score
+
+        return max(0.0, min(1.0, score)), metadata
+
+    def _calculate_max_physiological_change(self, time_hours: float) -> float:
+        """
+        Calculate maximum physiological weight change based on time elapsed.
+        Accounts for both short-term fluctuations and long-term sustainable changes.
+        """
+        if time_hours <= 0:
+            return 0.0
+
+        # Short-term (< 1 hour): Mostly measurement error or immediate water/food
+        if time_hours < 1:
+            return PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1H", 4.0) * (time_hours / 1.0)
+
+        # Very short-term (1-6 hours): Water, food, exercise effects
+        elif time_hours <= 6:
+            base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1H", 4.0)
+            additional = (
+                PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 6.0) - base_change
+            ) * ((time_hours - 1) / 5)
+            return base_change + additional
+
+        # Short-term (6-24 hours): Full daily fluctuation
+        elif time_hours <= 24:
+            base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 6.0)
+            additional = (
+                PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_24H", 6.5) - base_change
+            ) * ((time_hours - 6) / 18)
+            return base_change + additional
+
+        # Medium-term (1-7 days): Daily changes compound but with diminishing effect
+        elif time_hours <= 168:  # 7 days
+            days = time_hours / 24
+            daily_max = PHYSIOLOGICAL_LIMITS.get("MAX_DAILY_CHANGE_KG", 6.5)
+            # Use square root for multi-day to account for non-linear accumulation
+            # This prevents unrealistic linear accumulation while allowing for genuine changes
+            return daily_max * math.sqrt(days)
+
+        # Long-term (> 1 week): Sustainable change rate dominates
+        else:
+            days = time_hours / 24
+            weekly_max = PHYSIOLOGICAL_LIMITS.get("MAX_WEEKLY_CHANGE_KG", 10.0)
+            sustained_daily = PHYSIOLOGICAL_LIMITS.get("MAX_SUSTAINED_DAILY_KG", 2.5)
+
+            # First week at higher rate, then sustained rate
+            if days <= 7:
+                return weekly_max
+            else:
+                return weekly_max + (days - 7) * sustained_daily
+
+    def _check_sustained_pattern(
+        self,
+        current_weight: float,
+        recent_weights: List[float],
+        recent_timestamps: List[datetime],
+    ) -> float:
+        """
+        Check if changes follow a sustained pattern vs. erratic fluctuations.
+        Sustained patterns are more believable than sudden jumps.
+        """
+        if len(recent_weights) < 3:
+            return 1.0  # Not enough data
+
+        # Look at last 5 measurements or available data
+        lookback = min(5, len(recent_weights))
+        weights = recent_weights[-lookback:] + [current_weight]
+
+        # Calculate successive differences
+        differences = [weights[i + 1] - weights[i] for i in range(len(weights) - 1)]
+
+        # Check consistency of direction (all gains or all losses)
+        positive = sum(1 for d in differences if d > 0.1)
+        negative = sum(1 for d in differences if d < -0.1)
+
+        # Consistent direction is more believable
+        if positive == len(differences) or negative == len(differences):
+            consistency_score = 1.0  # Perfectly consistent
+        else:
+            # Mixed directions - calculate variance
+            variance = np.var(differences)
+            mean_abs_change = np.mean([abs(d) for d in differences])
+
+            if mean_abs_change > 0:
+                # Coefficient of variation
+                cv = math.sqrt(variance) / mean_abs_change
+                # Lower CV = more consistent
+                consistency_score = math.exp(-cv * 0.5)
+            else:
+                consistency_score = 1.0
+
+        return max(0.3, min(1.0, consistency_score))
+
+    def _calculate_mad_score(self, weight: float, recent_weights: List[float]) -> float:
+        """
+        Calculate outlier score using Median Absolute Deviation (MAD).
+        More robust than standard deviation for outlier detection.
+        """
+        if len(recent_weights) < 3:
+            return 1.0  # Not enough data
+
+        # Use last 10 measurements or available
+        lookback_weights = (
+            recent_weights[-10:] if len(recent_weights) >= 10 else recent_weights
+        )
+
+        # Calculate median and MAD
+        median = np.median(lookback_weights)
+        mad = np.median([abs(w - median) for w in lookback_weights])
+
+        # Avoid division by zero
+        if mad < 0.5:  # Less than 0.5kg variation
+            mad = 0.5
+
+        # Calculate z-score equivalent using MAD
+        z_mad = abs(weight - median) / (
+            1.4826 * mad
+        )  # 1.4826 makes MAD comparable to std dev
+
+        # Convert to score (higher z = lower score)
+        if z_mad <= 2:  # Within 2 MAD - very likely
+            score = 1.0
+        elif z_mad <= 3:  # 2-3 MAD - possible
+            score = 0.8 - (z_mad - 2) * 0.3
+        elif z_mad <= 4:  # 3-4 MAD - unlikely
+            score = 0.5 - (z_mad - 3) * 0.3
+        else:  # > 4 MAD - very unlikely
+            score = 0.2 * math.exp(-(z_mad - 4) * 0.5)
+
+        return max(0.1, min(1.0, score))
 
     def calculate_source_reliability(self, source: str) -> float:
         """
@@ -573,4 +760,3 @@ class UnifiedQualityScorer:
 
         state["temporal_baseline"] = baseline
         return state
-
