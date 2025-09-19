@@ -565,6 +565,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
         print(f"  Successful replays: {stats.get('replay_replays_successful', 0):,}")
         if stats.get("replay_replays_failed", 0) > 0:
             print(f"  Failed replays: {stats.get('replay_replays_failed', 0):,}")
+        if stats.get("replay_resets_changed", 0) > 0:
+            print(f"  Reset anchors changed: {stats.get('replay_resets_changed', 0):,}")
+        if stats.get("replay_corrections_made", 0) > 0:
+            print(f"  Corrections made: {stats.get('replay_corrections_made', 0):,}")
         if stats.get("replay_errors", 0) > 0:
             print(f"  Processing errors: {stats.get('replay_errors', 0):,}")
 
@@ -713,10 +717,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
         try:
             buffer_stats = buffer_factory.get_stats()
             if buffer_stats['total_instances'] > 0:
-                logger.debug(f"Cleaning up {buffer_stats['total_instances']} buffer instances")
+                print(f"Cleaning up {buffer_stats['total_instances']} buffer instances")
                 buffer_factory.clear_all(force=True)
         except Exception as e:
-            logger.warning(f"Error during buffer cleanup: {e}")
+            print(f"Warning: Error during buffer cleanup: {e}")
 
     return user_results, stats
 
@@ -724,12 +728,13 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay_manager, stats: dict) -> None:
     """
     Process a replay buffer for outlier detection and replay.
+    Uses enhanced replay processor if available, falls back to original logic.
 
     Args:
         user_id: User identifier
         replay_buffer: ReplayBuffer instance
-        outlier_detector: OutlierDetector instance
-        replay_manager: ReplayManager instance
+        outlier_detector: OutlierDetector instance (may be unused with enhanced processor)
+        replay_manager: ReplayManager instance (may be unused with enhanced processor)
         stats: Statistics dictionary to update
     """
     try:
@@ -741,31 +746,83 @@ def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay
         buffer_info = replay_buffer.get_buffer_info(user_id)
         buffer_start_time = buffer_info['first_timestamp'] if buffer_info else None
 
-        # Detect outliers (now with quality score awareness and Kalman prediction)
-        clean_measurements, outlier_indices = outlier_detector.get_clean_measurements(buffered_measurements, user_id=user_id)
+        # Try to use enhanced replay processor if available
+        enhanced_mode = False
+        try:
+            from src.replay.replay_processor import ReplayProcessor
 
-        # Get analysis details
-        analysis = outlier_detector.analyze_outliers(buffered_measurements, outlier_indices)
+            # Get database instance
+            from src.database.database import get_state_db
+            db = get_state_db()
 
-        # Update statistics
-        stats["replay_processed"] = stats.get("replay_processed", 0) + 1
-        stats["replay_outliers_found"] = stats.get("replay_outliers_found", 0) + len(outlier_indices)
-        stats["replay_measurements_analyzed"] = stats.get("replay_measurements_analyzed", 0) + len(buffered_measurements)
+            # Create replay processor with config
+            replay_config = {
+                'analysis': {
+                    'kalman_deviation_threshold': 0.10,
+                    'temporal_change_threshold': 0.05,
+                    'outlier_score_threshold': 0.4,
+                    'reset_reevaluation_threshold': 0.6
+                },
+                'safety': replay_manager.config if hasattr(replay_manager, 'config') else {}
+            }
 
-        if len(outlier_indices) > 0:
-            # Replay clean measurements if we have any and found outliers
-            if clean_measurements and buffer_start_time:
-                replay_result = replay_manager.replay_clean_measurements(
-                    user_id=user_id,
-                    clean_measurements=clean_measurements,
-                    buffer_start_time=buffer_start_time
-                )
+            processor = ReplayProcessor(db, replay_config)
 
-                if replay_result['success']:
-                    stats["replay_replays_successful"] = stats.get("replay_replays_successful", 0) + 1
-                else:
-                    stats["replay_replays_failed"] = stats.get("replay_replays_failed", 0) + 1
-                    print(f"  Replay failed: {replay_result.get('error', 'unknown error')}")
+            # Process buffer with enhanced analyzer
+            result = processor.process_buffer(user_id, buffered_measurements, buffer_start_time)
+
+            # Update stats from processor metrics
+            metrics = processor.get_metrics()
+            stats["replay_processed"] = stats.get("replay_processed", 0) + 1
+            stats["replay_outliers_found"] = stats.get("replay_outliers_found", 0) + metrics.get('outliers_found', 0)
+            stats["replay_measurements_analyzed"] = stats.get("replay_measurements_analyzed", 0) + len(buffered_measurements)
+            stats["replay_resets_changed"] = stats.get("replay_resets_changed", 0) + metrics.get('resets_changed', 0)
+            stats["replay_corrections_made"] = stats.get("replay_corrections_made", 0) + metrics.get('corrections_made', 0)
+
+            if result['success']:
+                stats["replay_replays_successful"] = stats.get("replay_replays_successful", 0) + 1
+
+                # Log if reset was changed
+                if result.get('reset_changed'):
+                    change_details = result.get('reset_change_details', {})
+                    print(f"  Reset anchor changed: {change_details.get('reason', 'unknown')}")
+            else:
+                stats["replay_replays_failed"] = stats.get("replay_replays_failed", 0) + 1
+                print(f"  Replay failed: {result.get('error', 'unknown error')}")
+
+            enhanced_mode = True
+
+        except ImportError:
+            # Enhanced processor not available, fall back to original logic
+            pass
+
+        # Fallback to original logic if enhanced mode not available or failed
+        if not enhanced_mode:
+            # Detect outliers (now with quality score awareness and Kalman prediction)
+            clean_measurements, outlier_indices = outlier_detector.get_clean_measurements(buffered_measurements, user_id=user_id)
+
+            # Get analysis details
+            analysis = outlier_detector.analyze_outliers(buffered_measurements, outlier_indices)
+
+            # Update statistics
+            stats["replay_processed"] = stats.get("replay_processed", 0) + 1
+            stats["replay_outliers_found"] = stats.get("replay_outliers_found", 0) + len(outlier_indices)
+            stats["replay_measurements_analyzed"] = stats.get("replay_measurements_analyzed", 0) + len(buffered_measurements)
+
+            if len(outlier_indices) > 0:
+                # Replay clean measurements if we have any and found outliers
+                if clean_measurements and buffer_start_time:
+                    replay_result = replay_manager.replay_clean_measurements(
+                        user_id=user_id,
+                        clean_measurements=clean_measurements,
+                        buffer_start_time=buffer_start_time
+                    )
+
+                    if replay_result['success']:
+                        stats["replay_replays_successful"] = stats.get("replay_replays_successful", 0) + 1
+                    else:
+                        stats["replay_replays_failed"] = stats.get("replay_replays_failed", 0) + 1
+                        print(f"  Replay failed: {replay_result.get('error', 'unknown error')}")
 
         # Clear buffer after processing
         replay_buffer.clear_buffer(user_id)
