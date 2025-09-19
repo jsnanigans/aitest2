@@ -275,16 +275,16 @@ use_harmonic_mean = true
 
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
-kalman_fit = 0.6           # Primary signal - deviation from Kalman prediction
+kalman_fit = 0.4           # Primary signal - deviation from Kalman prediction
 temporal_consistency = 0.2  # Rate of change validation
-anomaly_detection = 0.0     # Different user, unit confusion, BMI detection
+anomaly_detection = 0.2     # Different user, unit confusion, BMI detection
 source_reliability = 0.0    # Source-based trust scoring (disabled)
 trend_alignment = 0.2       # Consistency with established trend (disabled)
 
 # Temporal consistency thresholds
 [quality_scoring.temporal_thresholds]
-"6h" = 2.0   # Maximum kg change in 6 hours
-"24h" = 4.0  # Maximum kg change in 24 hours
+"6h" = 0.5   # Maximum kg change in 6 hours
+"24h" = 3.0  # Maximum kg change in 24 hours
 sustained = 1.5  # Maximum sustained kg/day rate
 
 # Trend alignment parameters

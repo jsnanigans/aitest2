@@ -394,6 +394,13 @@ def process_measurement(
         )
 
         if not quality_score.accepted:
+            # During adaptive period, still increment counter to prevent infinite loop
+            if in_adaptive_period and state:
+                state['measurements_since_reset'] = state.get('measurements_since_reset', 0) + 1
+                # Persist the updated counter
+                if feature_manager.is_enabled('state_persistence'):
+                    db.save_state(user_id, state)
+
             return {
                 'accepted': False,
                 'timestamp': timestamp,
@@ -463,6 +470,13 @@ def process_measurement(
         )
         
         if not quality_score.accepted:
+            # During adaptive period, still increment counter to prevent infinite loop
+            if in_adaptive_period and state:
+                state['measurements_since_reset'] = state.get('measurements_since_reset', 0) + 1
+                # Persist the updated counter
+                if feature_manager.is_enabled('state_persistence'):
+                    db.save_state(user_id, state)
+
             return {
                 'accepted': False,
                 'timestamp': timestamp,
@@ -481,6 +495,25 @@ def process_measurement(
         quality_components = quality_score.components
     else:
         # Use legacy validation
+        # Check if we're in adaptive period for legacy path
+        in_adaptive_period = False
+        if state:
+            measurements_since_reset = state.get("measurements_since_reset", 100)
+            reset_params = state.get('reset_parameters', {})
+            adaptation_measurements = reset_params.get('adaptation_measurements', 10)
+            if measurements_since_reset < adaptation_measurements:
+                in_adaptive_period = True
+            else:
+                # Also check time-based (7 days)
+                reset_timestamp = get_reset_timestamp(state)
+                if not reset_timestamp and not state.get("kalman_params"):
+                    reset_timestamp = timestamp
+                if reset_timestamp:
+                    days_since = (timestamp - reset_timestamp).total_seconds() / 86400.0
+                    adaptation_days = reset_params.get('adaptation_days', 7)
+                    if days_since < adaptation_days:
+                        in_adaptive_period = True
+
         validation_result = PhysiologicalValidator.validate_comprehensive(
             cleaned_weight,
             previous_weight=previous_weight,
@@ -488,11 +521,18 @@ def process_measurement(
             source=source,
             feature_manager=feature_manager
         )
-        
+
         is_valid = validation_result['valid']
         rejection_reason = validation_result.get('rejection_reason')
-        
+
         if not is_valid:
+            # During adaptive period, still increment counter to prevent infinite loop
+            if in_adaptive_period and state:
+                state['measurements_since_reset'] = state.get('measurements_since_reset', 0) + 1
+                # Persist the updated counter
+                if feature_manager.is_enabled('state_persistence'):
+                    db.save_state(user_id, state)
+
             return {
                 'accepted': False,
                 'timestamp': timestamp,
