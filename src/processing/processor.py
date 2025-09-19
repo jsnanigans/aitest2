@@ -224,8 +224,13 @@ def process_measurement(
         result['preprocessing'] = preprocess_metadata
         result['noise_multiplier'] = noise_multiplier
         
-        # Add reset event info if it occurred
+        # Add reset event info if it occurred (flattened for visualization)
         if reset_occurred:
+            result['was_reset'] = True
+            result['reset_reason'] = reset_event.get('reason', 'unknown')
+            result['reset_type'] = reset_event.get('type', 'unknown')
+            result['gap_days'] = reset_event.get('gap_days', 0)
+            # Also keep nested structure for backward compatibility
             result['reset_event'] = {
                 'type': reset_event.get('type', 'unknown'),
                 'gap_days': reset_event.get('gap_days'),

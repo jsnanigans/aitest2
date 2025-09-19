@@ -18,7 +18,6 @@ MANUAL_DATA_SOURCES = {
     'internal-questionnaire',
     'initial-questionnaire',
     'questionnaire',
-    'patient-upload',
     'user-upload',
     'care-team-upload',
     'care-team-entry'

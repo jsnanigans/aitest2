@@ -46,8 +46,8 @@ class ConfigLoader:
 
     RESET_ON_MANUAL_MAP = {
         "disabled": {"enabled": False},
-        "sensitive": {"enabled": True, "min_change": 3, "sources": ["questionnaire", "patient-upload", "care-team-upload"]},
-        "moderate": {"enabled": True, "min_change": 5, "sources": ["questionnaire", "patient-upload", "care-team-upload"]},
+        "sensitive": {"enabled": True, "min_change": 3, "sources": ["questionnaire", "care-team-upload"]},
+        "moderate": {"enabled": True, "min_change": 5, "sources": ["questionnaire", "care-team-upload"]},
         "clinical": {"enabled": True, "min_change": 5, "sources": ["care-team-upload"]}
     }
 
@@ -186,7 +186,7 @@ class ConfigLoader:
             config["kalman"]["reset"]["soft"].update({
                 "min_weight_change_kg": manual_settings.get("min_change", 5),
                 "cooldown_days": 3,
-                "trigger_sources": manual_settings.get("sources", ["questionnaire", "patient-upload", "care-team-upload"]),
+                "trigger_sources": manual_settings.get("sources", ["questionnaire", "care-team-upload"]),
                 "initial_variance_multiplier": 2,
                 "weight_noise_multiplier": 5,
                 "trend_noise_multiplier": 20,

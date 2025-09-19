@@ -119,7 +119,7 @@ class TestResetDetection:
         )
         assert result is None
 
-    @pytest.mark.parametrize("source", ['questionnaire', 'patient-upload', 'care-team-upload'])
+    @pytest.mark.parametrize("source", ['questionnaire', 'care-team-upload'])
     def test_soft_reset_manual_sources(self, valid_state, base_config, source):
         """Each manual source triggers SOFT with 5kg+ change."""
         new_timestamp = datetime(2024, 1, 2)
@@ -131,6 +131,44 @@ class TestResetDetection:
             config=base_config
         )
         assert result == ResetType.SOFT
+
+    def test_patient_upload_requires_config(self, valid_state):
+        """Patient-upload only triggers soft reset when in trigger_sources."""
+        new_timestamp = datetime(2024, 1, 2)
+
+        # Without patient-upload in trigger_sources
+        config_without = {
+            'kalman': {'reset': {'soft': {
+                'enabled': True,
+                'min_weight_change_kg': 5,
+                'trigger_sources': ['questionnaire']  # No patient-upload
+            }}}
+        }
+        result = ResetManager.should_trigger_reset(
+            state=valid_state,
+            weight=81.0,  # 6kg change
+            timestamp=new_timestamp,
+            source='patient-upload',
+            config=config_without
+        )
+        assert result is None, "patient-upload should not trigger without config"
+
+        # With patient-upload in trigger_sources
+        config_with = {
+            'kalman': {'reset': {'soft': {
+                'enabled': True,
+                'min_weight_change_kg': 5,
+                'trigger_sources': ['questionnaire', 'patient-upload']
+            }}}
+        }
+        result = ResetManager.should_trigger_reset(
+            state=valid_state,
+            weight=81.0,  # 6kg change
+            timestamp=new_timestamp,
+            source='patient-upload',
+            config=config_with
+        )
+        assert result == ResetType.SOFT, "patient-upload should trigger with config"
 
     def test_soft_reset_weight_change_threshold(self, valid_state, base_config):
         """Test exactly 5kg vs 4.99kg change."""

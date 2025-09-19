@@ -19,8 +19,10 @@ max_date = "2026-01-01"
 export_database = true
 
 # Test users - if defined, only these users will be processed
+# Priority: test_users > filtered_users_csv > test_users_file
 # Uncomment and add user IDs to test specific users
 # test_users = ["user_001", "user_002", "user_003"]
+filtered_users_csv = "create-report/report_output/filtered_users_APPLE_EMPLOYER_20250919_104340.csv"
 test_users = [
   # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4"
   # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4",

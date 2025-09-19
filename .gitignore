@@ -55,3 +55,4 @@ config/*.toml
 
 # Clean DB exports
 clean_db_export/*.csv
+report_output

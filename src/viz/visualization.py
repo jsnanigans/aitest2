@@ -109,7 +109,8 @@ def create_weight_timeline(
             reset_events.append({
                 'timestamp': timestamp,
                 'reason': r.get('reset_reason', 'Unknown'),
-                'gap_days': r.get('gap_days', 0)
+                'type': r.get('reset_type', 'unknown'),
+                'gap_days': r.get('gap_days')
             })
         
         # Extract data
@@ -129,6 +130,7 @@ def create_weight_timeline(
             'trend_weekly': r.get('trend_weekly', 0),
             'was_reset': r.get('was_reset', False),
             'reset_reason': r.get('reset_reason'),
+            'reset_type': r.get('reset_type'),
             'gap_days': r.get('gap_days'),
         }
         
@@ -208,11 +210,17 @@ def create_weight_timeline(
             )
             
             # Add subtle annotation at the top
+            gap_days = reset.get('gap_days')
+            if gap_days is not None:
+                gap_text = f"{gap_days:.0f}d"
+            else:
+                gap_text = "Reset"
+
             fig.add_annotation(
                 x=reset['timestamp'],
                 y=1.01,
                 yref="paper",
-                text=f"{reset['gap_days']:.0f}d",
+                text=gap_text,
                 showarrow=False,
                 font=dict(size=8, color='rgba(255, 102, 0, 0.5)'),
                 bgcolor='rgba(255, 255, 255, 0.7)',
@@ -715,6 +723,10 @@ def _create_accepted_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -
             "",
             f"<b>⚠️ KALMAN FILTER RESET</b>",
         ])
+        if data_point.get('reset_type'):
+            lines.append(f"<b>Type:</b> {data_point['reset_type'].upper()}")
+        if data_point.get('reset_reason'):
+            lines.append(f"<b>Reason:</b> {data_point['reset_reason'].replace('_', ' ').title()}")
         if data_point.get('gap_days'):
             lines.append(f"<b>Data Gap:</b> {data_point['gap_days']:.1f} days")
         lines.append(f"<b>Filter reinitialized from this measurement</b>")
