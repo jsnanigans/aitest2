@@ -76,6 +76,11 @@ def test_initialization_quality_validation():
         unit='kg'
     )
 
+    # Debug why it might be rejected
+    if not result['accepted']:
+        print(f"Result rejected: reason={result.get('reason')}, stage={result.get('stage')}")
+        print(f"Quality score: {result.get('quality_score')}, components: {result.get('quality_components')}")
+        print(f"Quality details: {result.get('quality_details')}")
     # Should be accepted
     assert result['accepted'] == True
     assert result['stage'] == 'initialization' or result['stage'] == 'accepted'

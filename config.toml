@@ -64,7 +64,7 @@ filtering_strength = "strict"           # How aggressively to filter outliers
 adaptation_speed = "moderate"               # How quickly to accept new weight ranges
 trust_manual_entries = "high"           # Trust level for user-reported weights
 gap_sensitivity = "low"               # How sensitive to data gaps
-quality_threshold = 0.59                # Minimum quality score to accept (70%)
+quality_threshold = 0.45                # Minimum quality score to accept (70%)
 # Reset behavior
 reset_on_gaps = "moderate"          # Reset after shorter gaps (21 days)
 reset_on_manual = "moderate"          # Don't reset on manual entries
@@ -264,8 +264,8 @@ outlier_threshold_multiplier = 2 # Multiplier for outlier detection in analysis
 [kalman]
 # Core Kalman filter parameters - rarely need modification
 initial_variance = 0.361
-transition_covariance_weight = 0.016
-transition_covariance_trend = 0.0001
+transition_covariance_weight = 0.02
+transition_covariance_trend = 0.0002
 observation_covariance = 3.4
 
 [quality_scoring]
@@ -275,17 +275,17 @@ use_harmonic_mean = true
 
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
-kalman_fit = 0.45           # Primary signal - deviation from Kalman prediction
-temporal_consistency = 0.30  # Rate of change validation
-anomaly_detection = 0.25     # Different user, unit confusion, BMI detection
+kalman_fit = 0.6           # Primary signal - deviation from Kalman prediction
+temporal_consistency = 0.2  # Rate of change validation
+anomaly_detection = 0.0     # Different user, unit confusion, BMI detection
 source_reliability = 0.0    # Source-based trust scoring (disabled)
-trend_alignment = 0.0       # Consistency with established trend (disabled)
+trend_alignment = 0.2       # Consistency with established trend (disabled)
 
 # Temporal consistency thresholds
 [quality_scoring.temporal_thresholds]
-"6h" = 3.0   # Maximum kg change in 6 hours
-"24h" = 2.0  # Maximum kg change in 24 hours
-sustained = 0.5  # Maximum sustained kg/day rate
+"6h" = 2.0   # Maximum kg change in 6 hours
+"24h" = 4.0  # Maximum kg change in 24 hours
+sustained = 1.5  # Maximum sustained kg/day rate
 
 # Trend alignment parameters
 [quality_scoring.trend_alignment]

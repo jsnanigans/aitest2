@@ -46,11 +46,17 @@ class QualityScore:
             self.metadata = {}
 
         if not self.accepted and not self.rejection_reason:
-            min_component = min(self.components.items(), key=lambda x: x[1])
-            self.rejection_reason = (
-                f"Quality score {self.overall:.2f} below threshold {self.threshold} "
-                f"(weakest: {min_component[0]}={min_component[1]:.2f})"
-            )
+            if self.components:
+                min_component = min(self.components.items(), key=lambda x: x[1])
+                self.rejection_reason = (
+                    f"Quality score {self.overall:.2f} below threshold {self.threshold} "
+                    f"(weakest: {min_component[0]}={min_component[1]:.2f})"
+                )
+            else:
+                self.rejection_reason = (
+                    f"Quality score {self.overall:.2f} below threshold {self.threshold} "
+                    f"(no components calculated)"
+                )
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for serialization."""
@@ -208,6 +214,7 @@ class UnifiedQualityScorer:
         """
         Calculate how well measurement fits Kalman prediction.
         Uses Mahalanobis distance and chi-squared test.
+        Applies time-based decay: importance decreases over time since last measurement.
         """
         metadata = {}
 
@@ -252,6 +259,31 @@ class UnifiedQualityScorer:
         else:
             # Standard scoring
             score = np.exp(-0.5 * normalized_innovation)  # Exponential decay
+
+        # Apply time-based decay for gap tolerance
+        # After gaps, Kalman predictions become less reliable
+        days_since_last = 0
+        if kalman_state and 'last_timestamp' in kalman_state:
+            last_timestamp = kalman_state['last_timestamp']
+            if isinstance(last_timestamp, str):
+                last_timestamp = datetime.fromisoformat(last_timestamp)
+            # Get current timestamp from state or use now as fallback
+            current_timestamp = kalman_state.get('current_timestamp', datetime.now())
+            if isinstance(current_timestamp, str):
+                current_timestamp = datetime.fromisoformat(current_timestamp)
+            days_since_last = (current_timestamp - last_timestamp).total_seconds() / 86400.0
+            metadata['days_since_last'] = days_since_last
+
+        # Apply decay factor based on time gap
+        # Linear decay: at 30 days, Kalman fit doesn't matter (score approaches 1.0)
+        # Formula: final_score = score + (1 - score) * min(1, days/30)
+        if days_since_last > 0:
+            decay_factor = min(1.0, days_since_last / 30.0)  # Linear decay over 30 days
+            # Blend towards 1.0 (full acceptance) as time increases
+            adjusted_score = score + (1.0 - score) * decay_factor
+            metadata['decay_factor'] = decay_factor
+            metadata['original_score'] = score
+            score = adjusted_score
 
         # Ensure score is in [0, 1]
         score = max(0.0, min(1.0, score))

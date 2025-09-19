@@ -375,11 +375,15 @@ def process_measurement(
         # Create unified scorer instance
         unified_scorer = UnifiedQualityScorer(config=adaptive_quality_config)
 
+        # Add current timestamp to kalman_state for time-based decay calculation
+        kalman_state_with_timestamp = state.copy() if state else {}
+        kalman_state_with_timestamp['current_timestamp'] = timestamp
+
         # Calculate quality score
         quality_score = unified_scorer.calculate_quality_score(
             weight=cleaned_weight,
             source=source,
-            kalman_state=state,
+            kalman_state=kalman_state_with_timestamp,
             kalman_prediction=kalman_prediction,
             innovation_covariance=innovation_covariance,
             previous_weight=previous_weight,
