@@ -148,7 +148,15 @@ def process_measurement(
             'raw_weight': weight,
             'reason': preprocess_metadata.get('rejected', 'Preprocessing failed'),
             'stage': 'preprocessing',
-            'metadata': preprocess_metadata
+            'metadata': preprocess_metadata,
+            'acceptance_details': {
+                'decision_point': 'preprocessing',
+                'location': 'src/processing/processor.py:DataQualityPreprocessor',
+                'checks_performed': ['data_quality', 'unit_conversion', 'source_validation'],
+                'failed_check': 'preprocessing',
+                'rejection_reason': preprocess_metadata.get('rejected', 'Preprocessing failed'),
+                'preprocessing_metadata': preprocess_metadata
+            }
         }
 
     # Step 2: Load or create user state
@@ -231,6 +239,20 @@ def process_measurement(
         result['stage'] = 'initialization'
         result['preprocessing'] = preprocess_metadata
         result['noise_multiplier'] = noise_multiplier
+
+        # Add acceptance tracking for initial acceptance
+        result['acceptance_details'] = {
+            'decision_point': 'initialization',
+            'location': 'src/processing/processor.py:KalmanInitialization',
+            'checks_performed': ['first_measurement'],
+            'all_checks_passed': True,
+            'kalman_initialized': True,
+            'kalman_updated': True,
+            'source': source,
+            'noise_multiplier': noise_multiplier,
+            'acceptance_reason': 'Initial measurement - Kalman filter initialized',
+            'adaptive_params_applied': reset_timestamp is not None
+        }
 
         # Add reset event info if it occurred (flattened for visualization)
         if reset_occurred:
@@ -413,7 +435,21 @@ def process_measurement(
                 'stage': 'unified_quality_scoring',
                 'quality_score': quality_score.overall,
                 'quality_components': quality_score.components,
-                'quality_details': quality_score.to_dict()
+                'quality_details': quality_score.to_dict(),
+                'acceptance_details': {
+                    'decision_point': 'unified_quality_scoring',
+                    'location': 'src/processing/processor.py:UnifiedQualityScorer',
+                    'checks_performed': list(quality_score.components.keys()),
+                    'failed_check': 'quality_threshold',
+                    'threshold': adaptive_quality_config.get('threshold', 0.6),
+                    'actual_score': quality_score.overall,
+                    'component_scores': quality_score.components,
+                    'rejection_reason': quality_score.rejection_reason,
+                    'in_adaptive_period': in_adaptive_period,
+                    'kalman_prediction': kalman_prediction,
+                    'deviation': abs(cleaned_weight - kalman_prediction) if kalman_prediction else None,
+                    'deviation_percentage': (abs(cleaned_weight - kalman_prediction) / kalman_prediction * 100) if kalman_prediction else None
+                }
             }
 
         # Store quality score for later use
@@ -527,7 +563,7 @@ def process_measurement(
 
     # Only do Kalman update if not already done during initialization
     # DEBUG- ALWAYS
-    if True or not kalman_already_updated:
+    if not kalman_already_updated:
         # Check if we should use adaptive parameters (within 7 days of reset)
         reset_timestamp = get_reset_timestamp(state)
         adaptive_kalman_config = get_adaptive_kalman_params(
@@ -617,6 +653,29 @@ def process_measurement(
         'original_unit': unit,
         'cleaned_weight': cleaned_weight
     }
+
+    # Add comprehensive acceptance tracking for successful measurements
+    if 'acceptance_details' not in result:  # Only add if not already present (e.g., from initialization)
+        acceptance_checks = ['preprocessing', 'data_quality']
+        if use_unified_scoring:
+            acceptance_checks.append('unified_quality_scoring')
+
+        result['acceptance_details'] = {
+            'decision_point': 'final_acceptance',
+            'location': 'src/processing/processor.py:KalmanUpdate',
+            'checks_performed': acceptance_checks,
+            'all_checks_passed': True,
+            'quality_score': quality_score_value if 'quality_score_value' in locals() and quality_score_value is not None else None,
+            'quality_components': quality_components if 'quality_components' in locals() and quality_components else None,
+            'kalman_updated': True,
+            'kalman_prediction': kalman_prediction if 'kalman_prediction' in locals() and kalman_prediction else None,
+            'innovation': cleaned_weight - kalman_prediction if 'kalman_prediction' in locals() and kalman_prediction else None,
+            'source': source,
+            'noise_multiplier': result.get('noise_multiplier', 1.0),
+            'in_adaptive_period': in_adaptive_period if 'in_adaptive_period' in locals() else False,
+            'measurements_since_reset': state.get('measurements_since_reset', 0) if state else 0,
+            'acceptance_reason': 'All validation checks passed - measurement accepted'
+        }
 
     # Update measurement history for quality scoring
     if use_quality_scoring:

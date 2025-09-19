@@ -717,6 +717,20 @@ def _create_accepted_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -
         f"<b>Source:</b> {_format_source(data_point['source'])}",
     ]
 
+    # Add acceptance details if available
+    acceptance_details = result.get('acceptance_details', {})
+    if acceptance_details:
+        lines.extend([
+            "",
+            f"<b>📍 Decision Point:</b> {acceptance_details.get('decision_point', 'unknown')}",
+            f"<b>📂 Location:</b> {acceptance_details.get('location', 'unknown')}",
+        ])
+        if acceptance_details.get('acceptance_reason'):
+            lines.append(f"<b>✅ Reason:</b> {acceptance_details['acceptance_reason']}")
+        if acceptance_details.get('checks_performed'):
+            checks = ', '.join(acceptance_details['checks_performed'])
+            lines.append(f"<b>🔍 Checks:</b> {checks}")
+
     # Add reset information if applicable
     if data_point.get('was_reset', False):
         lines.extend([
@@ -777,6 +791,31 @@ def _create_rejected_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -
         f"<b>Reason:</b> {data_point.get('reason', 'Unknown')}",
         f"<b>Severity:</b> {data_point.get('severity', 'Unknown')}",
     ]
+
+    # Add detailed acceptance/rejection information
+    acceptance_details = result.get('acceptance_details', {})
+    if acceptance_details:
+        lines.extend([
+            "",
+            f"<b>📍 Decision Point:</b> {acceptance_details.get('decision_point', 'unknown')}",
+            f"<b>📂 Location:</b> {acceptance_details.get('location', 'unknown')}",
+            f"<b>❌ Failed Check:</b> {acceptance_details.get('failed_check', 'unknown')}",
+        ])
+
+        # Add specific failure details
+        if acceptance_details.get('threshold') is not None and acceptance_details.get('actual_score') is not None:
+            lines.append(f"<b>📊 Threshold:</b> {acceptance_details['threshold']:.2f}")
+            lines.append(f"<b>📈 Actual Score:</b> {acceptance_details['actual_score']:.2f}")
+
+        if acceptance_details.get('deviation_percentage') is not None:
+            lines.append(f"<b>📏 Deviation:</b> {acceptance_details['deviation_percentage']:.1f}%")
+
+        if acceptance_details.get('kalman_prediction') is not None:
+            lines.append(f"<b>🎯 Expected:</b> {acceptance_details['kalman_prediction']:.2f} kg")
+
+        if acceptance_details.get('checks_performed'):
+            checks = ', '.join(acceptance_details['checks_performed'])
+            lines.append(f"<b>🔍 Checks Run:</b> {checks}")
 
     if data_point.get('quality_score') is not None:
         lines.extend([
