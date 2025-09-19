@@ -351,13 +351,25 @@ def process_measurement(
             # Adjust component weights to be more forgiving
             if "component_weights" not in adaptive_quality_config:
                 adaptive_quality_config["component_weights"] = {}
-            weights = adaptive_quality_config["component_weights"]
-            # Reduce temporal and anomaly weights during adaptation
-            weights["kalman_fit"] = 0.30  # Reduce since Kalman is still adapting
-            weights["temporal_consistency"] = 0.15  # Often fails during adaptation
-            weights["anomaly_detection"] = 0.15  # May have false positives
-            weights["source_reliability"] = 0.30  # Increase source trust
-            weights["trend_alignment"] = 0.10  # Keep low during adaptation
+            weights = adaptive_quality_config["component_weights"].copy()
+            # During adaptation, redistribute weights among active components
+            # Only adjust components that were originally configured with weight > 0
+            active_weights = {k: v for k, v in weights.items() if v > 0}
+
+            if active_weights:
+                # Use adaptive weights for active components
+                if "kalman_fit" in active_weights:
+                    weights["kalman_fit"] = 0.40  # Slightly reduce during adaptation
+                if "temporal_consistency" in active_weights:
+                    weights["temporal_consistency"] = 0.35  # Keep reasonable
+                if "anomaly_detection" in active_weights:
+                    weights["anomaly_detection"] = 0.25  # Keep for safety
+
+                # Normalize to sum to 1.0
+                total = sum(weights.values())
+                if total > 0:
+                    weights = {k: v/total for k, v in weights.items()}
+
             adaptive_quality_config["component_weights"] = weights
 
         # Create unified scorer instance

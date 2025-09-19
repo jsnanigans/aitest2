@@ -22,8 +22,9 @@ export_database = true
 # Priority: test_users > filtered_users_csv > test_users_file
 # Uncomment and add user IDs to test specific users
 # test_users = ["user_001", "user_002", "user_003"]
-filtered_users_csv = "create-report/report_output/filtered_users_APPLE_EMPLOYER_20250919_104340.csv"
+ filtered_users_csv = "create-report/report_output/filtered_users_APPLE_EMPLOYER_20250919_104340.csv"
 test_users = [
+  #"eb61194e-491f-40e4-9064-d3d096e0fe64"
   # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4"
   # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4",
 #   "99518101-ca9c-4a76-b86c-cca12a6bbbd6"
@@ -274,17 +275,22 @@ use_harmonic_mean = true
 
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
-kalman_fit = 0.40           # Primary signal - deviation from Kalman prediction
-temporal_consistency = 0.20  # Rate of change validation
-anomaly_detection = 0.20     # Different user, unit confusion, BMI detection
-source_reliability = 0.10   # Source-based trust scoring
-trend_alignment = 0.10       # Consistency with established trend
+kalman_fit = 0.45           # Primary signal - deviation from Kalman prediction
+temporal_consistency = 0.30  # Rate of change validation
+anomaly_detection = 0.25     # Different user, unit confusion, BMI detection
+source_reliability = 0.0    # Source-based trust scoring (disabled)
+trend_alignment = 0.0       # Consistency with established trend (disabled)
 
 # Temporal consistency thresholds
 [quality_scoring.temporal_thresholds]
 "6h" = 3.0   # Maximum kg change in 6 hours
 "24h" = 2.0  # Maximum kg change in 24 hours
-sustained = 2.0  # Maximum sustained kg/day rate
+sustained = 0.5  # Maximum sustained kg/day rate
+
+# Trend alignment parameters
+[quality_scoring.trend_alignment]
+trend_decay_constant = 0.1  # Lower = more lenient (0.2 is lenient, 0.3 is moderate, 0.5 is strict)
+trend_min_std_dev = 0.8     # Minimum standard deviation in kg for trend variance
 
 # Legacy component weights (for non-unified scoring)
 # safety = 0.35

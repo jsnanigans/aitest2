@@ -145,41 +145,51 @@ class UnifiedQualityScorer:
         components = {}
         metadata = {}
 
-        # 1. Kalman Fit Component (40% weight)
-        kalman_score, kalman_meta = self.calculate_kalman_fit(
-            weight, kalman_prediction, innovation_covariance, kalman_state
-        )
-        components['kalman_fit'] = kalman_score
-        metadata['kalman_fit'] = kalman_meta
+        # Only calculate components with non-zero weights
+        # 1. Kalman Fit Component
+        if self.weights.get('kalman_fit', 0) > 0:
+            kalman_score, kalman_meta = self.calculate_kalman_fit(
+                weight, kalman_prediction, innovation_covariance, kalman_state
+            )
+            components['kalman_fit'] = kalman_score
+            metadata['kalman_fit'] = kalman_meta
 
-        # 2. Temporal Consistency (20% weight)
-        temporal_score, temporal_meta = self.calculate_temporal_consistency(
-            weight, previous_weight, time_diff_hours, recent_weights, recent_timestamps
-        )
-        components['temporal_consistency'] = temporal_score
-        metadata['temporal_consistency'] = temporal_meta
+        # 2. Temporal Consistency
+        if self.weights.get('temporal_consistency', 0) > 0:
+            temporal_score, temporal_meta = self.calculate_temporal_consistency(
+                weight, previous_weight, time_diff_hours, recent_weights, recent_timestamps
+            )
+            components['temporal_consistency'] = temporal_score
+            metadata['temporal_consistency'] = temporal_meta
 
-        # 3. Anomaly Detection (20% weight)
-        anomaly_score, anomaly_meta = self.calculate_anomaly_detection(
-            weight, recent_weights, recent_timestamps, user_height_m
-        )
-        components['anomaly_detection'] = anomaly_score
-        metadata['anomaly_detection'] = anomaly_meta
+        # 3. Anomaly Detection
+        if self.weights.get('anomaly_detection', 0) > 0:
+            anomaly_score, anomaly_meta = self.calculate_anomaly_detection(
+                weight, recent_weights, recent_timestamps, user_height_m
+            )
+            components['anomaly_detection'] = anomaly_score
+            metadata['anomaly_detection'] = anomaly_meta
 
-        # 4. Source Reliability (10% weight)
-        source_score = self.calculate_source_reliability(source)
-        components['source_reliability'] = source_score
-        metadata['source_reliability'] = {'source': source, 'score': source_score}
+        # 4. Source Reliability - skip if weight is 0
+        if self.weights.get('source_reliability', 0) > 0:
+            source_score = self.calculate_source_reliability(source)
+            components['source_reliability'] = source_score
+            metadata['source_reliability'] = {'source': source, 'score': source_score}
 
-        # 5. Trend Alignment (10% weight)
-        trend_score, trend_meta = self.calculate_trend_alignment(
-            weight, kalman_state, recent_weights
-        )
-        components['trend_alignment'] = trend_score
-        metadata['trend_alignment'] = trend_meta
+        # 5. Trend Alignment - skip if weight is 0
+        if self.weights.get('trend_alignment', 0) > 0:
+            trend_score, trend_meta = self.calculate_trend_alignment(
+                weight, kalman_state, recent_weights
+            )
+            components['trend_alignment'] = trend_score
+            metadata['trend_alignment'] = trend_meta
 
-        # Calculate overall score using weighted geometric mean
-        overall = self._calculate_weighted_geometric_mean(components)
+        # Calculate overall score using configured mean type
+        use_harmonic = self.config.get('use_harmonic_mean', False)
+        if use_harmonic:
+            overall = self._calculate_weighted_harmonic_mean(components)
+        else:
+            overall = self._calculate_weighted_geometric_mean(components)
 
         return QualityScore(
             overall=overall,
@@ -459,9 +469,11 @@ class UnifiedQualityScorer:
         std_dev = np.std(residuals)
 
         # Ensure minimum std_dev to avoid division by zero
-        # Use 0.5 kg as minimum expected variation
-        if std_dev < 0.5:
-            std_dev = 0.5
+        # Use 0.5 kg as minimum expected variation (configurable)
+        trend_config = self.config.get('trend_alignment', {})
+        min_std_dev = trend_config.get('trend_min_std_dev', 0.5)
+        if std_dev < min_std_dev:
+            std_dev = min_std_dev
 
         metadata['deviation'] = deviation
         metadata['std_dev'] = std_dev
@@ -469,11 +481,16 @@ class UnifiedQualityScorer:
         # Score based on deviation from trend
         normalized_deviation = deviation / std_dev
 
-        # Convert to score (allow up to 2 std devs)
-        if normalized_deviation <= 2.0:
-            score = 1.0 - (normalized_deviation / 4.0)
-        else:
-            score = max(0.2, 1.0 - (normalized_deviation / 6.0))
+        # More gradual scoring: use exponential decay
+        # Score = exp(-k * normalized_deviation)
+        # k=0.3 gives ~0.74 at 1 std dev, ~0.55 at 2 std devs, ~0.40 at 3 std devs
+        # k=0.2 gives ~0.82 at 1 std dev, ~0.67 at 2 std devs, ~0.55 at 3 std devs (more lenient)
+        trend_config = self.config.get('trend_alignment', {})
+        k = trend_config.get('trend_decay_constant', 0.3)  # Lower = more lenient
+        score = np.exp(-k * normalized_deviation)
+
+        # Ensure minimum score of 0.3 for reasonable deviations
+        score = max(0.3, score)
 
         return score, metadata
 
@@ -506,3 +523,31 @@ class UnifiedQualityScorer:
             overall = 0.0
 
         return max(0.0, min(1.0, overall))
+
+    def _calculate_weighted_harmonic_mean(self, components: Dict[str, float]) -> float:
+        """
+        Calculate weighted harmonic mean of component scores.
+        More forgiving than geometric mean - doesn't penalize low scores as harshly.
+        H = Σw_i / Σ(w_i / c_i)
+        """
+        if not components:
+            return 0.0
+
+        # Ensure all scores are positive (avoid division by 0)
+        epsilon = 1e-10
+
+        weighted_sum = 0.0
+        weight_sum = 0.0
+
+        for component_name, score in components.items():
+            weight = self.weights.get(component_name, 0.0)
+            if weight > 0:
+                # Clamp score to avoid numerical issues
+                score = max(epsilon, min(1.0, score))
+                weighted_sum += weight / score
+                weight_sum += weight
+
+        if weighted_sum > 0:
+            return weight_sum / weighted_sum
+        else:
+            return 0.0
