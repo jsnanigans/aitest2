@@ -355,9 +355,9 @@ def process_measurement(
     result["stage"] = "accepted"
 
     # Add quality score if available
-    if quality_score_value is not None:
-        result["quality_score"] = quality_score_value
-        result["quality_components"] = quality_components
+    # Always add quality score for accepted measurements
+    result["quality_score"] = quality_score_value
+    result["quality_components"] = quality_components
 
     # Add reset event info if it occurred
     if reset_occurred:

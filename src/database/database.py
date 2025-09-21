@@ -107,6 +107,34 @@ class ProcessorStateDB:
             return True
         return False
 
+    def check_and_restore_snapshot(self, user_id: str, buffer_start_time: datetime) -> dict:
+        """
+        Check if a snapshot exists and restore it atomically.
+
+        Args:
+            user_id: User identifier
+            buffer_start_time: Time to check for snapshot (currently unused)
+
+        Returns:
+            Dictionary with success status and snapshot details
+        """
+        if user_id in self._snapshots:
+            snapshot = self._snapshots[user_id]
+            # Restore the state
+            self.states[user_id] = copy.deepcopy(snapshot['state'])
+            return {
+                'success': True,
+                'snapshot': snapshot,
+                'snapshot_timestamp': snapshot.get('timestamp', buffer_start_time),
+                'user_id': user_id
+            }
+        else:
+            return {
+                'success': False,
+                'error': f'No snapshot found for user {user_id}',
+                'user_id': user_id
+            }
+
     def export_to_csv(self, filepath: str) -> int:
         """
         Export all states to CSV (simplified version).

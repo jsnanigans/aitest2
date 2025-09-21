@@ -17,9 +17,9 @@ export_database = true
 filtered_users_csv = "create-report/report_output/filtered_users_APPLE_EMPLOYER_20250919_104340.csv"
 # Test with actual users from the CSV
 test_users = [
-  "00088d03-2305-4032-852a-354d0786ad87",
-  "001adb56-40a5-4ef2-a092-e20915e0fb81",
-  "001b4e0a-535f-4713-b262-bdd4e5b89b7d",
+  # "019a504f-3376-46eb-ace1-97b44979a5aa",
+  # "091baa98-cf05-4399-b490-e24324f7607f",
+  # "eb61194e-491f-40e4-9064-d3d096e0fe64",
 ]
 
 # ============================================================================

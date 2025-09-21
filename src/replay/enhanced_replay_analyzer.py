@@ -187,11 +187,20 @@ class EnhancedReplayAnalyzer:
 
             # 4. Quality score (from original processing)
             quality_score = measurement.get('metadata', {}).get('quality_score', 0.5)
+            if quality_score is None:
+                quality_score = 0.5
 
             # 5. Reset context score
             reset_score = self._calculate_reset_context_score(
                 i, measurement, reset_events, measurements
             )
+
+            # Ensure all scores are valid floats (defensive programming)
+            kalman_score = float(kalman_score) if kalman_score is not None else 0.5
+            temporal_score = float(temporal_score) if temporal_score is not None else 0.5
+            previous_score = float(previous_score) if previous_score is not None else 0.0
+            quality_score = float(quality_score) if quality_score is not None else 0.5
+            reset_score = float(reset_score) if reset_score is not None else 0.5
 
             # Calculate total score
             total_score = (
@@ -404,7 +413,14 @@ class EnhancedReplayAnalyzer:
         if isinstance(last_state, (list, np.ndarray)) and len(last_state) > 0:
             # Handle numpy array properly
             if isinstance(last_state, np.ndarray):
-                last_weight = last_state[0].item() if hasattr(last_state[0], 'item') else float(last_state[0])
+                # Check if it's a 2D array (multiple states)
+                if last_state.ndim > 1:
+                    # Get the last state row and extract weight
+                    state_row = last_state[-1] if len(last_state) > 0 else last_state[0]
+                    last_weight = float(state_row[0]) if len(state_row) > 0 else 0.0
+                else:
+                    # 1D array - weight is the first element
+                    last_weight = float(last_state[0])
             else:
                 last_weight = float(last_state[0])
         else:
@@ -424,7 +440,14 @@ class EnhancedReplayAnalyzer:
                         snap_state = snapshot.get('state')
                         if snap_state and len(snap_state) > 0:
                             if isinstance(snap_state, np.ndarray):
-                                best_prediction = snap_state[0].item() if hasattr(snap_state[0], 'item') else float(snap_state[0])
+                                # Check if it's a 2D array (multiple states)
+                                if snap_state.ndim > 1:
+                                    # Get the last state row and extract weight
+                                    state_row = snap_state[-1] if len(snap_state) > 0 else snap_state[0]
+                                    best_prediction = float(state_row[0]) if len(state_row) > 0 else 0.0
+                                else:
+                                    # 1D array - weight is the first element
+                                    best_prediction = float(snap_state[0])
                             else:
                                 best_prediction = float(snap_state[0])
                             break
@@ -452,6 +475,10 @@ class EnhancedReplayAnalyzer:
         # Calculate rate of change
         curr = measurements[index]
         prev = measurements[index - 1]
+
+        # Check for None timestamps
+        if curr['timestamp'] is None or prev['timestamp'] is None:
+            return 0.5  # Can't calculate without timestamps
 
         time_diff = (curr['timestamp'] - prev['timestamp']).total_seconds() / 86400.0  # Days
         if time_diff <= 0:
@@ -482,6 +509,10 @@ class EnhancedReplayAnalyzer:
             reset_time = reset['timestamp']
             if isinstance(reset_time, str):
                 reset_time = datetime.fromisoformat(reset_time)
+
+            # Check for None timestamps
+            if measurement['timestamp'] is None or reset_time is None:
+                continue
 
             time_diff = abs((measurement['timestamp'] - reset_time).total_seconds())
             if time_diff < min_time_diff:
