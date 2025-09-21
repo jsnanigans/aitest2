@@ -463,55 +463,39 @@ def _add_weight_traces(
 ):
     """Add weight measurement traces to the main plot."""
 
-    # Raw measurements - Accepted
-    if accepted_data:
-        fig.add_trace(
-            go.Scatter(
-                x=[d["timestamp"] for d in accepted_data],
-                y=[d["raw_weight"] for d in accepted_data],
-                mode="markers",
-                name="Raw (Accepted)",
-                marker=dict(
-                    size=10,
-                    color=[
-                        "#000000" if d["was_reset"] else d["quality_score"]
-                        for d in accepted_data
-                    ],
-                    colorscale="Viridis",
-                    cmin=0,
-                    cmax=1,
-                    showscale=True,
-                    colorbar=dict(title="Quality<br>Score", x=1.15, y=0.85, len=0.3),
-                    symbol=[d["marker_symbol"] for d in accepted_data],
-                    line=dict(color="white", width=1),
+    # Add rejected measurements first (so they appear below accepted in z-order)
+    if rejected_data:
+        severity_groups = {}
+        for d in rejected_data:
+            severity = d.get("severity", "Low")
+            if severity not in severity_groups:
+                severity_groups[severity] = []
+            severity_groups[severity].append(d)
+
+        for severity, data_points in severity_groups.items():
+            fig.add_trace(
+                go.Scatter(
+                    x=[d["timestamp"] for d in data_points],
+                    y=[d["raw_weight"] for d in data_points],
+                    mode="markers",
+                    name=f"Rejected ({severity})",
+                    marker=dict(
+                        size=6,
+                        color=REJECTION_SEVERITY_COLORS.get(severity, "#FF0000"),
+                        symbol=[d["marker_symbol"] for d in data_points],
+                        line=dict(color="#8B0000", width=1),
+                    ),
+                    text=[d["hover_text"] for d in data_points],
+                    hovertemplate="%{text}<extra></extra>",
+                    legendgroup="rejected",
                 ),
-                text=[d["hover_text"] for d in accepted_data],
-                hovertemplate="%{text}<extra></extra>",
-                legendgroup="raw",
-            ),
-            row=row,
-            col=1,
-        )
+                row=row,
+                col=1,
+            )
 
-        # Kalman filtered line
-        fig.add_trace(
-            go.Scatter(
-                x=[d["timestamp"] for d in accepted_data],
-                y=[
-                    d["filtered_weight"]
-                    for d in accepted_data
-                    if d["filtered_weight"] is not None
-                ],
-                mode="lines",
-                name="Kalman Filtered",
-                line=dict(color=colors["kalman_line"], width=2),
-                legendgroup="kalman",
-            ),
-            row=row,
-            col=1,
-        )
-
-        # Confidence bands
+    # Add Kalman filter components (confidence bands and line)
+    if accepted_data:
+        # Confidence bands first (so they appear behind the Kalman line)
         timestamps = [
             d["timestamp"] for d in accepted_data if d.get("kalman_upper") is not None
         ]
@@ -558,35 +542,52 @@ def _add_weight_traces(
                 col=1,
             )
 
-    # Raw measurements - Rejected (grouped by severity)
-    if rejected_data:
-        severity_groups = {}
-        for d in rejected_data:
-            severity = d.get("severity", "Low")
-            if severity not in severity_groups:
-                severity_groups[severity] = []
-            severity_groups[severity].append(d)
+        # Kalman filtered line
+        fig.add_trace(
+            go.Scatter(
+                x=[d["timestamp"] for d in accepted_data],
+                y=[
+                    d["filtered_weight"]
+                    for d in accepted_data
+                    if d["filtered_weight"] is not None
+                ],
+                mode="lines",
+                name="Kalman Filtered",
+                line=dict(color=colors["kalman_line"], width=2),
+                legendgroup="kalman",
+            ),
+            row=row,
+            col=1,
+        )
 
-        for severity, data_points in severity_groups.items():
-            fig.add_trace(
-                go.Scatter(
-                    x=[d["timestamp"] for d in data_points],
-                    y=[d["raw_weight"] for d in data_points],
-                    mode="markers",
-                    name=f"Rejected ({severity})",
-                    marker=dict(
-                        size=6,
-                        color=REJECTION_SEVERITY_COLORS.get(severity, "#FF0000"),
-                        symbol=[d["marker_symbol"] for d in data_points],
-                        line=dict(color="#8B0000", width=1),
-                    ),
-                    text=[d["hover_text"] for d in data_points],
-                    hovertemplate="%{text}<extra></extra>",
-                    legendgroup="rejected",
+        # Raw accepted measurements last (so they appear on top)
+        fig.add_trace(
+            go.Scatter(
+                x=[d["timestamp"] for d in accepted_data],
+                y=[d["raw_weight"] for d in accepted_data],
+                mode="markers",
+                name="Raw (Accepted)",
+                marker=dict(
+                    size=10,
+                    color=[
+                        "#000000" if d["was_reset"] else d["quality_score"]
+                        for d in accepted_data
+                    ],
+                    colorscale="Viridis",
+                    cmin=0,
+                    cmax=1,
+                    showscale=True,
+                    colorbar=dict(title="Quality<br>Score", x=1.15, y=0.85, len=0.3),
+                    symbol=[d["marker_symbol"] for d in accepted_data],
+                    line=dict(color="white", width=1),
                 ),
-                row=row,
-                col=1,
-            )
+                text=[d["hover_text"] for d in accepted_data],
+                hovertemplate="%{text}<extra></extra>",
+                legendgroup="raw",
+            ),
+            row=row,
+            col=1,
+        )
 
 
 def _add_quality_traces(
