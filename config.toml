@@ -17,6 +17,8 @@ export_database = true
 filtered_users_csv = "create-report/report_output/filtered_users_APPLE_EMPLOYER_20250919_104340.csv"
 # Test with actual users from the CSV
 test_users = [
+  # "187b215b-dd62-4ce3-8d01-59b43339cec7",
+  # "678639d5-e18b-4014-8859-fa3f1b436a99"
   # "019a504f-3376-46eb-ace1-97b44979a5aa",
   # "091baa98-cf05-4399-b490-e24324f7607f",
   # "eb61194e-491f-40e4-9064-d3d096e0fe64",
@@ -150,11 +152,11 @@ threshold = 0.46
 
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
-kalman_fit = 0.65
-temporal_consistency = 0
-anomaly_detection = 0.25
-source_reliability = 0
-trend_alignment = 0.1
+kalman_fit = 0.40
+temporal_consistency = 0.30
+anomaly_detection = 0.20
+source_reliability = 0.05
+trend_alignment = 0.05
 
 # Temporal consistency parameters
 [quality_scoring.temporal]

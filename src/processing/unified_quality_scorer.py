@@ -516,6 +516,10 @@ class UnifiedQualityScorer:
                     metadata["max_physiological_change"] = max_change
                     metadata["actual_change"] = weight_change
 
+                    # Track individual penalty components for weighted average
+                    penalty_components = []
+                    penalty_weights = []
+
                     # Apply penalty based on deviation from max allowed
                     if weight_change > max_change:
                         # Calculate severity of violation
@@ -523,14 +527,23 @@ class UnifiedQualityScorer:
                         metadata["excess_ratio"] = excess_ratio
 
                         if excess_ratio > 1.0:  # More than double the max
-                            score *= 0.0  # Impossible change
+                            penalty_components.append(0.0)  # Impossible change
+                            penalty_weights.append(2.0)  # High weight for impossible changes
                             metadata["impossible_change"] = True
                         elif excess_ratio > 0.5:  # 50% over max
-                            score *= 0.1  # Very unlikely
+                            penalty_components.append(0.2)  # Less harsh than before (was 0.1)
+                            penalty_weights.append(1.5)
                             metadata["very_unlikely_change"] = True
                         else:
-                            score *= 0.5 - excess_ratio * 0.4  # Gradual penalty
+                            # More gradual penalty curve
+                            penalty_score = max(0.4, 0.7 - excess_ratio * 0.5)
+                            penalty_components.append(penalty_score)
+                            penalty_weights.append(1.0)
                             metadata["unlikely_change"] = True
+                    else:
+                        # No physiological penalty
+                        penalty_components.append(1.0)
+                        penalty_weights.append(1.0)
 
                     # 3. Check for percentage-based changes (catch weight doubling etc.)
                     # Only apply percentage checks for periods > 3 days where percentage matters more
@@ -538,9 +551,9 @@ class UnifiedQualityScorer:
                         percent_change = (weight_change / previous_weight) * 100
                         max_monthly_percent = PHYSIOLOGICAL_LIMITS.get("MAX_MONTHLY_PERCENT", 15)
 
-                        # Scale the allowed percentage based on actual time elapsed
-                        # But with a minimum of 3 days worth to avoid being too strict on short periods
-                        time_factor = max(0.1, min(1.0, time_diff_hours / 720))  # At least 3 days worth
+                        # More generous time scaling for shorter periods
+                        # Use square root for smoother scaling
+                        time_factor = max(0.2, min(1.0, math.sqrt(time_diff_hours / 720)))
                         allowed_percent = max_monthly_percent * time_factor
 
                         metadata["percent_change"] = percent_change
@@ -551,17 +564,26 @@ class UnifiedQualityScorer:
                             metadata["excess_percent_ratio"] = excess_percent_ratio
 
                             if excess_percent_ratio > 2.0:  # More than 3x the allowed percentage
-                                score *= 0.0
+                                penalty_components.append(0.0)
+                                penalty_weights.append(2.0)
                                 metadata["impossible_percent_change"] = True
                             elif excess_percent_ratio > 1.0:  # More than 2x the allowed percentage
-                                score *= 0.05
+                                penalty_components.append(0.15)  # Less harsh (was 0.05)
+                                penalty_weights.append(1.2)
                                 metadata["extreme_percent_change"] = True
                             elif excess_percent_ratio > 0.5:  # More than 1.5x the allowed percentage
-                                score *= 0.1
+                                penalty_components.append(0.35)  # Less harsh (was 0.1)
+                                penalty_weights.append(0.8)
                                 metadata["high_percent_change"] = True
                             else:
-                                score *= max(0.2, 0.5 - excess_percent_ratio * 0.6)
+                                penalty_score = max(0.5, 0.8 - excess_percent_ratio * 0.4)
+                                penalty_components.append(penalty_score)
+                                penalty_weights.append(0.6)
                                 metadata["suspicious_percent_change"] = True
+                        else:
+                            # No percentage penalty
+                            penalty_components.append(1.0)
+                            penalty_weights.append(0.5)  # Lower weight when no issue
 
                     # 4. Check for sustained vs. fluctuation patterns
                     if len(recent_weights) >= 3:
@@ -569,7 +591,23 @@ class UnifiedQualityScorer:
                             weight, recent_weights, recent_timestamps
                         )
                         metadata["sustained_pattern_score"] = sustained_score
-                        score *= sustained_score
+                        # Add as a component with moderate weight
+                        penalty_components.append(sustained_score)
+                        penalty_weights.append(0.7)
+
+                    # Calculate weighted average of penalties instead of pure multiplication
+                    if penalty_components:
+                        total_weight = sum(penalty_weights)
+                        if total_weight > 0:
+                            weighted_score = sum(p * w for p, w in zip(penalty_components, penalty_weights)) / total_weight
+                            # Apply a minimum floor to prevent overly harsh rejections
+                            # Unless we have an impossible change (score of 0.0)
+                            if weighted_score > 0:
+                                weighted_score = max(0.25, weighted_score)
+                            score *= weighted_score
+                            metadata["penalty_method"] = "weighted_average"
+                            metadata["penalty_components"] = penalty_components
+                            metadata["penalty_weights"] = penalty_weights
 
         return max(0.0, min(1.0, score)), metadata
 
