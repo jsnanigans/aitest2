@@ -32,40 +32,49 @@ This is a **weight measurement processing system** with Kalman filtering and int
 ### Core Processing Pipeline
 
 ```
-main.py → processor.py → kalman.py → quality_scorer.py → database.py
+main.py → processor.py → kalman.py → unified_quality_scorer.py → database.py
                 ↓
          validation.py → outlier_detection.py
 ```
 
 ### Key Components
 
-**src/processor.py**: Main processing pipeline that orchestrates all components
+**src/processing/processor.py**: Main processing pipeline that orchestrates all components
 - Handles measurement flow through validation, Kalman filtering, and quality scoring
 - Manages state persistence via database
+- No feature flags - all processing enabled by default
 
-**src/kalman_adaptive.py**: Adaptive Kalman filter implementation
+**src/processing/kalman.py**: Adaptive Kalman filter implementation
 - Three reset types: INITIAL (first measurements), HARD (after 30+ day gaps), SOFT (manual entries)
 - Adaptive noise parameters that decay over time after resets
 - Source-specific noise multipliers based on data reliability
 
-**src/quality_scorer.py**: Multi-factor quality assessment
-- Safety score (physiological limits)
-- Plausibility score (BMI detection, trend analysis)
-- Consistency score (change rate validation)
-- Reliability score (source-based)
+**src/processing/unified_quality_scorer.py**: Unified Kalman-centric quality scoring
+- Primary quality assessment based on Kalman deviation
+- Component weights configurable via config.toml
+- Handles temporal consistency and anomaly detection
+- Includes MeasurementHistory utility class for tests
 
-**src/outlier_detection.py**: Statistical outlier detection with quality override
-- Uses MAD-based detection with dynamic thresholds
-- Can be overridden by high quality scores
-- Extreme threshold: 15% deviation from Kalman prediction
+**src/processing/outlier_detection.py**: Statistical outlier detection with quality override
+- Uses IQR, MAD, and temporal consistency methods
+- High quality scores can override outlier detection
+- Configurable thresholds via config.toml
 
-**src/reset_manager.py**: Manages Kalman filter resets
+**src/processing/reset_manager.py**: Manages Kalman filter resets
 - Detects gaps and triggers appropriate reset types
 - Tracks adaptation state and decay
 
+**src/replay/**: Replay processing system
+- replay_manager.py: Orchestrates replay operations with rollback capability
+- replay_buffer.py: Buffering system for measurements
+- replay_processor.py: Enhanced replay processing logic
+
 ### Configuration System
 
-**config.toml**: Runtime parameters (thresholds, Kalman parameters, reset settings)
+**config.toml**: Simple, flat configuration file with all runtime parameters
+- Direct parameter specification (no profiles or feature flags)
+- Organized by functional sections (kalman, replay, quality_scoring, etc.)
+
 **src/constants.py**: Hard-coded safety limits and physiological boundaries
 
 ### Data Source Reliability

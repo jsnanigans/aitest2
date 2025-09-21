@@ -14,7 +14,7 @@ import warnings
 from src.processing.buffer_factory import (
     BufferFactory, get_factory, get_replay_buffer, with_buffer
 )
-from src.processing.replay_buffer import ReplayBuffer
+from src.replay.replay_buffer import ReplayBuffer
 
 
 # =============================================================================

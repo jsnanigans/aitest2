@@ -11,7 +11,7 @@ from unittest.mock import Mock, MagicMock, patch
 import numpy as np
 
 from src.processing.processor import process_measurement
-from src.processing.replay_buffer import ReplayBuffer
+from src.replay.replay_buffer import ReplayBuffer
 from src.replay.replay_manager import ReplayManager
 from src.processing.outlier_detection import OutlierDetector
 

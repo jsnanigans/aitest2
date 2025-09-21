@@ -8,7 +8,6 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 from ..database.database import get_state_db
-from ..feature_manager import FeatureManager
 from .circuit_breaker import CircuitBreaker, CircuitOpenError
 from .kalman import (
     KalmanFilterManager,
@@ -24,15 +23,7 @@ from .validation import DataQualityPreprocessor
 logger = logging.getLogger(__name__)
 from ..constants import KALMAN_DEFAULTS, PHYSIOLOGICAL_LIMITS, get_noise_multiplier
 
-try:
-    from .quality_scorer import MeasurementHistory, QualityScorer
-except ImportError:
-    pass
-
-try:
-    from .unified_quality_scorer import QualityScore, UnifiedQualityScorer
-except ImportError:
-    from unified_quality_scorer import UnifiedQualityScorer
+from .unified_quality_scorer import QualityScore, UnifiedQualityScorer, MeasurementHistory
 
 
 def process_measurement(
@@ -87,18 +78,8 @@ def process_measurement(
         }
 
     # Step 2: Load or create user state
-    # Get feature manager
-    feature_manager = config.get("feature_manager")
-    if not feature_manager:
-        feature_manager = FeatureManager(config)
-
-    # Only load state if persistence is enabled
-    if feature_manager.is_enabled("state_persistence"):
-        state = db.get_state(user_id)
-        if state is None:
-            state = db.create_initial_state()
-    else:
-        # Use minimal state without persistence
+    state = db.get_state(user_id)
+    if state is None:
         state = db.create_initial_state()
 
     # Add user height to config for validation
@@ -137,11 +118,8 @@ def process_measurement(
 
         # Get adaptive noise for this source
         adaptive_config = config.get("adaptive_noise", {})
-        if feature_manager.is_enabled("adaptive_noise"):
-            default_multiplier = adaptive_config.get("default_multiplier", 1.5)
-            noise_multiplier = get_noise_multiplier(source)
-        else:
-            noise_multiplier = 1.0
+        default_multiplier = adaptive_config.get("default_multiplier", 1.5)
+        noise_multiplier = get_noise_multiplier(source)
         observation_covariance = (
             adaptive_kalman_config.get("observation_covariance", 3.49)
             * noise_multiplier
@@ -188,8 +166,6 @@ def process_measurement(
     # Step 5: Quality scoring (replaces physiological validation)
     processing_config = config.get("processing", {})
     quality_config = config.get("quality_scoring", {})
-    use_quality_scoring = feature_manager.is_enabled("quality_scoring")
-    use_unified_scoring = feature_manager.is_enabled("unified_quality_scoring")
 
     # Get previous weight and time diff
     previous_weight = None
@@ -217,88 +193,87 @@ def process_measurement(
         if isinstance(history, list):
             recent_weights = [h["weight"] for h in history[-20:] if "weight" in h]
 
-    if use_unified_scoring:
-        # Use unified Kalman-centric quality scorer
-        # Get Kalman prediction using proper predict step
-        kalman_prediction = None
-        innovation_covariance = None
+    # Use unified Kalman-centric quality scorer
+    # Get Kalman prediction using proper predict step
+    kalman_prediction = None
+    innovation_covariance = None
 
-        if state and "kalman_params" in state:
-            # Use the proper Kalman predict step to get prediction BEFORE update
-            kalman_prediction, innovation_covariance = (
-                KalmanFilterManager.predict_next_state(state, timestamp)
-            )
-
-            # Apply source-specific noise multiplier to innovation covariance if needed
-            if innovation_covariance is not None:
-                # The predict_next_state already includes base observation noise
-                # We need to adjust for source-specific multiplier
-                noise_multiplier = get_noise_multiplier(source)
-                if noise_multiplier != 1.0:
-                    # Adjust innovation covariance for source reliability
-                    # Remove base R, apply multiplier, add back
-                    kalman_params = state.get("kalman_params", {})
-                    base_obs_cov = kalman_params.get(
-                        "observation_covariance",
-                        [[KALMAN_DEFAULTS["observation_covariance"]]],
-                    )[0][0]
-                    # innovation_cov = P_pred[0,0] + R
-                    # We need: P_pred[0,0] + (R * multiplier)
-                    predicted_cov_00 = innovation_covariance - base_obs_cov
-                    innovation_covariance = predicted_cov_00 + (base_obs_cov * noise_multiplier)
-
-        # Get recent timestamps if available
-        recent_timestamps = []
-        if state and "measurement_history" in state:
-            history = state["measurement_history"]
-            if isinstance(history, list):
-                recent_timestamps = [
-                    h.get("timestamp") for h in history[-20:] if "timestamp" in h
-                ]
-                # Convert strings to datetime if needed
-                recent_timestamps = [
-                    datetime.fromisoformat(ts) if isinstance(ts, str) else ts
-                    for ts in recent_timestamps
-                ]
-
-        # Create unified scorer instance
-        unified_scorer = UnifiedQualityScorer(config=quality_config)
-
-        # Add current timestamp to kalman_state for time-based decay calculation
-        kalman_state_with_timestamp = state.copy() if state else {}
-        kalman_state_with_timestamp["current_timestamp"] = timestamp
-
-        # Calculate quality score
-        quality_score = unified_scorer.calculate_quality_score(
-            weight=cleaned_weight,
-            source=source,
-            kalman_state=kalman_state_with_timestamp,
-            kalman_prediction=kalman_prediction,
-            innovation_covariance=innovation_covariance,
-            previous_weight=previous_weight,
-            time_diff_hours=time_diff_hours,
-            recent_weights=recent_weights,
-            recent_timestamps=recent_timestamps,
-            user_height_m=user_height,
+    if state and "kalman_params" in state:
+        # Use the proper Kalman predict step to get prediction BEFORE update
+        kalman_prediction, innovation_covariance = (
+            KalmanFilterManager.predict_next_state(state, timestamp)
         )
 
-        if not quality_score.accepted:
-            return {
-                "accepted": False,
-                "timestamp": timestamp,
-                "raw_weight": weight,
-                "cleaned_weight": cleaned_weight,
-                "source": source,
-                "reason": quality_score.rejection_reason,
-                "stage": "unified_quality_scoring",
-                "quality_score": quality_score.overall,
-                "quality_components": quality_score.components,
-                "quality_details": quality_score.to_dict(),
-            }
+        # Apply source-specific noise multiplier to innovation covariance if needed
+        if innovation_covariance is not None:
+            # The predict_next_state already includes base observation noise
+            # We need to adjust for source-specific multiplier
+            noise_multiplier = get_noise_multiplier(source)
+            if noise_multiplier != 1.0:
+                # Adjust innovation covariance for source reliability
+                # Remove base R, apply multiplier, add back
+                kalman_params = state.get("kalman_params", {})
+                base_obs_cov = kalman_params.get(
+                    "observation_covariance",
+                    [[KALMAN_DEFAULTS["observation_covariance"]]],
+                )[0][0]
+                # innovation_cov = P_pred[0,0] + R
+                # We need: P_pred[0,0] + (R * multiplier)
+                predicted_cov_00 = innovation_covariance - base_obs_cov
+                innovation_covariance = predicted_cov_00 + (base_obs_cov * noise_multiplier)
 
-        # Store quality score for later use
-        quality_score_value = quality_score.overall
-        quality_components = quality_score.components
+    # Get recent timestamps if available
+    recent_timestamps = []
+    if state and "measurement_history" in state:
+        history = state["measurement_history"]
+        if isinstance(history, list):
+            recent_timestamps = [
+                h.get("timestamp") for h in history[-20:] if "timestamp" in h
+            ]
+            # Convert strings to datetime if needed
+            recent_timestamps = [
+                datetime.fromisoformat(ts) if isinstance(ts, str) else ts
+                for ts in recent_timestamps
+            ]
+
+    # Create unified scorer instance
+    unified_scorer = UnifiedQualityScorer(config=quality_config)
+
+    # Add current timestamp to kalman_state for time-based decay calculation
+    kalman_state_with_timestamp = state.copy() if state else {}
+    kalman_state_with_timestamp["current_timestamp"] = timestamp
+
+    # Calculate quality score
+    quality_score = unified_scorer.calculate_quality_score(
+        weight=cleaned_weight,
+        source=source,
+        kalman_state=kalman_state_with_timestamp,
+        kalman_prediction=kalman_prediction,
+        innovation_covariance=innovation_covariance,
+        previous_weight=previous_weight,
+        time_diff_hours=time_diff_hours,
+        recent_weights=recent_weights,
+        recent_timestamps=recent_timestamps,
+        user_height_m=user_height,
+    )
+
+    if not quality_score.accepted:
+        return {
+            "accepted": False,
+            "timestamp": timestamp,
+            "raw_weight": weight,
+            "cleaned_weight": cleaned_weight,
+            "source": source,
+            "reason": quality_score.rejection_reason,
+            "stage": "unified_quality_scoring",
+            "quality_score": quality_score.overall,
+            "quality_components": quality_score.components,
+            "quality_details": quality_score.to_dict(),
+        }
+
+    # Store quality score for later use
+    quality_score_value = quality_score.overall
+    quality_components = quality_score.components
 
     # Only do Kalman update if not already done during initialization
     if not kalman_already_updated:
@@ -324,11 +299,8 @@ def process_measurement(
                 ]
 
         adaptive_config = config.get("adaptive_noise", {})
-        if feature_manager.is_enabled("adaptive_noise"):
-            default_multiplier = adaptive_config.get("default_multiplier", 1.5)
-            noise_multiplier = get_noise_multiplier(source)
-        else:
-            noise_multiplier = 1.0
+        default_multiplier = adaptive_config.get("default_multiplier", 1.5)
+        noise_multiplier = get_noise_multiplier(source)
         observation_covariance = (
             adaptive_kalman_config.get("observation_covariance", 3.49)
             * noise_multiplier
@@ -406,21 +378,20 @@ def process_measurement(
     }
 
     # Update measurement history for quality scoring
-    if use_quality_scoring:
-        if "measurement_history" not in state:
-            state["measurement_history"] = []
+    if "measurement_history" not in state:
+        state["measurement_history"] = []
 
-        state["measurement_history"].append(
-            {
-                "weight": cleaned_weight,
-                "timestamp": timestamp.isoformat(),
-                "quality_score": quality_score_value,
-                "source": source,
-            }
-        )
+    state["measurement_history"].append(
+        {
+            "weight": cleaned_weight,
+            "timestamp": timestamp.isoformat(),
+            "quality_score": quality_score_value,
+            "source": source,
+        }
+    )
 
-        # Keep only last 30 measurements
-        state["measurement_history"] = state["measurement_history"][-30:]
+    # Keep only last 30 measurements
+    state["measurement_history"] = state["measurement_history"][-30:]
 
     # Save updated state - Main successful processing path
     # Increment measurements counter for adaptation tracking
@@ -435,55 +406,54 @@ def process_measurement(
     state = unified_scorer.update_temporal_baseline(state, cleaned_weight, timestamp)
 
     # Validate state before persistence
-    if feature_manager.is_enabled("state_persistence"):
-        is_valid, error_msg = PersistenceValidator.validate_state(
-            state, user_id, reason="successful_processing"
+    is_valid, error_msg = PersistenceValidator.validate_state(
+        state, user_id, reason="successful_processing"
+    )
+    if is_valid:
+        # Get previous state for change detection
+        previous_state = db.get_state(user_id)
+        should_persist, audit_msg = PersistenceValidator.should_persist(
+            state, previous_state, user_id, reason="successful_processing"
         )
-        if is_valid:
-            # Get previous state for change detection
-            previous_state = db.get_state(user_id)
-            should_persist, audit_msg = PersistenceValidator.should_persist(
-                state, previous_state, user_id, reason="successful_processing"
-            )
 
-            if should_persist:
-                db.save_state(user_id, state)
-                PersistenceValidator.create_audit_log(
-                    user_id,
-                    "persist",
-                    state,
-                    True,
-                    reason="successful_processing",
-                    error=None,
-                )
-
-                # Save snapshot after reset for replay functionality
-                if reset_occurred:
-                    try:
-                        db.save_state_snapshot(user_id, timestamp)
-                        logger.debug(
-                            f"Saved post-reset snapshot for user {user_id} at {timestamp}"
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to save post-reset snapshot for {user_id}: {e}"
-                        )
-                        # Continue processing even if snapshot fails
-            else:
-                # Log why we're not persisting
-                PersistenceValidator.create_audit_log(
-                    user_id, "skip", state, True, reason=audit_msg, error=None
-                )
-        else:
-            # Log validation failure
+        if should_persist:
+            db.save_state(user_id, state)
             PersistenceValidator.create_audit_log(
                 user_id,
-                "validate_failed",
+                "persist",
                 state,
-                False,
+                True,
                 reason="successful_processing",
-                error=error_msg,
+                error=None,
             )
+
+            # Save snapshot after reset for replay functionality
+            if reset_occurred:
+                try:
+                    db.save_state_snapshot(user_id, timestamp)
+                    logger.debug(
+                        f"Saved post-reset snapshot for user {user_id} at {timestamp}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to save post-reset snapshot for {user_id}: {e}"
+                    )
+                    # Continue processing even if snapshot fails
+        else:
+            # Log why we're not persisting
+            PersistenceValidator.create_audit_log(
+                user_id, "skip", state, True, reason=audit_msg, error=None
+            )
+    else:
+        # Log validation failure
+        PersistenceValidator.create_audit_log(
+            user_id,
+            "validate_failed",
+            state,
+            False,
+            reason="successful_processing",
+            error=error_msg,
+        )
 
     # if result.get("quality_score") < 0.5:
     #     result["warning"] = "Low quality score - review measurement history"

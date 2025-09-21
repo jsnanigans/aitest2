@@ -23,7 +23,7 @@ from src.viz.visualization import create_weight_timeline
 
 
 def load_config(config_path: str = "config.toml") -> dict:
-    """Load configuration with profile interpretation."""
+    """Load configuration directly from TOML file."""
     if not Path(config_path).exists():
         print(f"Warning: Config file {config_path} not found, using defaults")
         return {
@@ -42,15 +42,9 @@ def load_config(config_path: str = "config.toml") -> dict:
             }
         }
 
-    # Use the new config loader that interprets profiles
-    from src.config_loader import load_config as load_config_with_profiles
-    config = load_config_with_profiles(config_path)
-
-    # Print which profile is being used
+    # Load config directly
     with open(config_path, "rb") as f:
-        raw_config = tomllib.load(f)
-        profile = raw_config.get("profile", "balanced")
-        print(f"Using profile: {profile}")
+        config = tomllib.load(f)
 
     return config
 

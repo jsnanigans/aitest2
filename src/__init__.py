@@ -45,8 +45,8 @@ from .processing.validation import (
 from .processing.kalman import KalmanFilterManager
 
 # Quality scoring
-from .processing.quality_scorer import (
-    QualityScorer,
+from .processing.unified_quality_scorer import (
+    UnifiedQualityScorer,
     QualityScore,
     MeasurementHistory
 )

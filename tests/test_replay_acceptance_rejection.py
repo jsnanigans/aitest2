@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 import copy
 
-from src.processing.replay_buffer import ReplayBuffer
+from src.replay.replay_buffer import ReplayBuffer
 from src.replay.replay_manager import ReplayManager
 
 

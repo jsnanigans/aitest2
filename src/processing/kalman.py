@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from pykalman import KalmanFilter
 
-from ..feature_manager import FeatureManager
 
 try:
     from ..constants import KALMAN_DEFAULTS
@@ -364,9 +363,6 @@ class KalmanFilterManager:
         )
 
         # Get adaptive settings from config
-        feature_manager = config.get("feature_manager")
-        if feature_manager and not feature_manager.is_enabled("adaptive_parameters"):
-            return {"weight": base_weight_cov, "trend": base_trend_cov}
 
         adaptive_config = config.get("post_reset_adaptation", {})
 
@@ -585,20 +581,13 @@ class ResetManager:
         """
 
         # Get feature manager if available
-        feature_manager = config.get("feature_manager")
-
         # 1. Check for initial reset (no Kalman params yet)
         if not state or not state.get("kalman_params"):
-            # Check if initial reset is enabled via feature toggle
-            if feature_manager and not feature_manager.is_enabled("reset_initial"):
-                return None
             return ResetType.INITIAL
 
         # 2. Check for hard reset gap
         hard_config = config.get("kalman", {}).get("reset", {}).get("hard", {})
         hard_enabled = hard_config.get("enabled", True)
-        if feature_manager:
-            hard_enabled = hard_enabled and feature_manager.is_enabled("reset_hard")
 
         if hard_enabled:
             last_timestamp = state.get("last_accepted_timestamp") or state.get(
@@ -615,8 +604,6 @@ class ResetManager:
         # 3. Check for soft reset (manual data with significant change)
         soft_config = config.get("kalman", {}).get("reset", {}).get("soft", {})
         soft_enabled = soft_config.get("enabled", True)
-        if feature_manager:
-            soft_enabled = soft_enabled and feature_manager.is_enabled("reset_soft")
 
         if soft_enabled:
             if source in MANUAL_DATA_SOURCES or source in soft_config.get(

@@ -11,7 +11,7 @@ from threading import RLock
 from typing import Dict, Optional, Any, Set
 from contextlib import contextmanager
 
-from .replay_buffer import ReplayBuffer
+from ..replay.replay_buffer import ReplayBuffer
 
 logger = logging.getLogger(__name__)
 

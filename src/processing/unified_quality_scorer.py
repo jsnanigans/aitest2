@@ -4,6 +4,7 @@ Replaces dual validation with single Kalman-deviation-based quality scorer.
 """
 
 import math
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -11,7 +12,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from scipy import stats
 
-from ..feature_manager import FeatureManager
 
 try:
     from ..constants import (
@@ -124,10 +124,6 @@ class UnifiedQualityScorer:
             "temporal_thresholds", self.TEMPORAL_THRESHOLDS.copy()
         )
 
-        # Get feature manager
-        self.feature_manager = config.get("feature_manager") if config else None
-        if not self.feature_manager:
-            self.feature_manager = FeatureManager(config)
 
     def calculate_quality_score(
         self,
@@ -907,3 +903,44 @@ class UnifiedQualityScorer:
 
         state["temporal_baseline"] = baseline
         return state
+
+
+class MeasurementHistory:
+    """
+    Test utility for maintaining measurement history.
+    NOT used in production (processor is stateless).
+    """
+
+    def __init__(self, max_size: int = 20):
+        self.max_size = max_size
+        self.weights: deque = deque(maxlen=max_size)
+        self.timestamps: deque = deque(maxlen=max_size)
+        self.quality_scores: deque = deque(maxlen=max_size)
+
+    def add(self, weight: float, timestamp: datetime, quality_score: float):
+        """Add a measurement to history."""
+        self.weights.append(weight)
+        self.timestamps.append(timestamp)
+        self.quality_scores.append(quality_score)
+
+    def get_recent_weights(self, min_quality: float = 0.6) -> List[float]:
+        """Get recent weights above quality threshold."""
+        return [
+            w for w, q in zip(self.weights, self.quality_scores)
+            if q >= min_quality
+        ]
+
+    def get_statistics(self) -> Dict[str, float]:
+        """Calculate statistics for recent measurements."""
+        if not self.weights:
+            return {}
+
+        weights_array = np.array(list(self.weights))
+        return {
+            'mean': np.mean(weights_array),
+            'std': np.std(weights_array),
+            'median': np.median(weights_array),
+            'min': np.min(weights_array),
+            'max': np.max(weights_array),
+            'count': len(weights_array)
+        }

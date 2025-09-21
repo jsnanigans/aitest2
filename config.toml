@@ -1,11 +1,6 @@
 # ============================================================================
-# SIMPLE CONFIGURATION
-# Most users only need to modify this section
+# WEIGHT PROCESSING CONFIGURATION
 # ============================================================================
-
-# Choose a processing profile
-# Options: "conservative", "balanced", "aggressive", "clinical", "custom"
-profile = "custom"
 
 # Data source settings
 [data]
@@ -18,122 +13,99 @@ min_date = "2015-01-01"
 max_date = "2026-01-01"
 export_database = true
 
-# Test users - if defined, only these users will be processed
-# Priority: test_users > filtered_users_csv > test_users_file
-# Uncomment and add user IDs to test specific users
-# test_users = ["user_001", "user_002", "user_003"]
+# Test users configuration
 filtered_users_csv = "create-report/report_output/filtered_users_APPLE_EMPLOYER_20250919_104340.csv"
+# Test with actual users from the CSV
 test_users = [
-  # "eb61194e-491f-40e4-9064-d3d096e0fe64"
-  # "1fe1e802-101b-4a5c-8480-16b4f00a638e"
-  # "001adb56-40a5-4ef2-a092-e20915e0fb81"
-  # "eb61194e-491f-40e4-9064-d3d096e0fe64"
-  # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4"
-  # "c50eda0e-7e26-4c4b-b415-1c8e328db8b4",
-#   "99518101-ca9c-4a76-b86c-cca12a6bbbd6"
-#   # "e751ebe4-3e13-423d-bf50-88a9dd13f132",
-#   # "262e084b-6d5c-490c-af3a-d926d6c44966",
-#   # "76f01a11-1119-4d1a-bd3f-2cb8a1203d6e",
-#   # "9575e299-bef6-4c76-9f27-aecc5fdf13a4",
-#   # "3df4485f-ad98-4f5d-9e95-030a6bf38ef4A",
-#   # "be60a3cd-6e89-4a61-9de1-8163ce800497",
-#   # "99518101-ca9c-4a76-b86c-cca12a6bbbd6",
-#   # "eb61194e-491f-40e4-9064-d3d096e0fe64",
-#   # "f68ac505-6d26-4426-9673-c0fa66f12ed6",
-#   # "cbadea01-579c-48d4-a6d8-27d9d42a43ca",
-#   # "5417b197-41b5-4bd5-8143-965ed78152d4",
-#   # "df27331b-d031-44a0-8f31-50436a516870",
-#   # "1ab1af65-119a-4906-b526-3d8f66bb0b6d",
-#   # "917e90a1-6b70-496e-81f7-6e1333500ba6"
+  "00088d03-2305-4032-852a-354d0786ad87",
+  "001adb56-40a5-4ef2-a092-e20915e0fb81",
+  "001b4e0a-535f-4713-b262-bdd4e5b89b7d",
 ]
 
-# Visualization settings
-[visualization]
-detail_level = "normal"  # Options: "minimal", "normal", "detailed"
-
-# Threading settings for visualization generation
-[visualization.threading]
-max_workers = 8        # Maximum number of threads (0 = auto-detect based on CPU cores)
-timeout_seconds = 30   # Maximum time per visualization before timeout
-
 # ============================================================================
-# PROFILE DEFINITIONS
-# These define the behavior for each profile option above
-# ============================================================================
-
-[profiles.custom]
-description = "Custom profile - modify settings as needed"
-filtering_strength = "strict"           # How aggressively to filter outliers
-adaptation_speed = "moderate"               # How quickly to accept new weight ranges
-trust_manual_entries = "high"           # Trust level for user-reported weights
-gap_sensitivity = "low"               # How sensitive to data gaps
-quality_threshold = 0.46               # Minimum quality score to accept (70%)
-# Reset behavior
-reset_on_gaps = "moderate"          # Reset after shorter gaps (21 days)
-reset_on_manual = "moderate"          # Don't reset on manual entries
-initial_trust = "low"                 # Slow initial adaptation for new users
-
-[profiles.conservative]
-description = "Strict filtering, rejects questionable data, slow to adapt"
-filtering_strength = "strict"           # How aggressively to filter outliers
-adaptation_speed = "slow"               # How quickly to accept new weight ranges
-trust_manual_entries = "low"           # Trust level for user-reported weights
-gap_sensitivity = "high"               # How sensitive to data gaps
-quality_threshold = 0.7                # Minimum quality score to accept (70%)
-# Reset behavior
-reset_on_gaps = "aggressive"          # Reset after shorter gaps (21 days)
-reset_on_manual = "disabled"          # Don't reset on manual entries
-initial_trust = "low"                 # Slow initial adaptation for new users
-
-[profiles.balanced]
-description = "Default settings, moderate filtering, reasonable adaptation"
-filtering_strength = "moderate"
-adaptation_speed = "moderate"
-trust_manual_entries = "moderate"
-gap_sensitivity = "moderate"
-quality_threshold = 0.6
-# Reset behavior
-reset_on_gaps = "moderate"            # Reset after 30 days
-reset_on_manual = "moderate"          # Reset on 5kg+ changes from trusted sources
-initial_trust = "moderate"            # Normal initial adaptation
-
-[profiles.aggressive]
-description = "Accepts most data, quick to adapt, minimal filtering"
-filtering_strength = "lenient"
-adaptation_speed = "fast"
-trust_manual_entries = "high"
-gap_sensitivity = "low"
-quality_threshold = 0.45
-# Reset behavior
-reset_on_gaps = "lenient"             # Only reset after long gaps (45 days)
-reset_on_manual = "sensitive"         # Reset on smaller changes (3kg+)
-initial_trust = "high"                # Quick initial adaptation
-
-[profiles.clinical]
-description = "Healthcare setting: trusts clinical sources, strict on devices"
-filtering_strength = "source_based"    # Different rules per source
-adaptation_speed = "moderate"
-trust_manual_entries = "clinical_only" # Only trust care-team entries
-gap_sensitivity = "moderate"
-quality_threshold = 0.55
-# Reset behavior
-reset_on_gaps = "moderate"            # Standard gap handling
-reset_on_manual = "clinical"          # Only reset on care-team entries
-initial_trust = "clinical"            # Trust varies by source
-
-# ============================================================================
-# ADVANCED SETTINGS
-# Only modify if you need specific behavior not covered by profiles
-# These values can override profile defaults
+# PROCESSING SETTINGS
 # ============================================================================
 
 [processing]
-# Leave empty to use profile defaults
-# extreme_threshold = 0.15  # Max % deviation from expected (0.0-1.0)
+quality_threshold = 0.46  # Minimum quality score to accept (46%)
 
-[logging]
-progress_interval = 10000
-timestamp_format = "test_no_date"
+# ============================================================================
+# VISUALIZATION
+# ============================================================================
+
+[visualization]
+detail_level = "normal"  # Options: "minimal", "normal", "detailed"
+
+[visualization.threading]
+max_workers = 8        # Maximum number of threads (0 = auto-detect)
+timeout_seconds = 30   # Maximum time per visualization
+
+# ============================================================================
+# KALMAN FILTER
+# ============================================================================
+
+[kalman]
+initial_variance = 0.364
+transition_covariance_weight = 0.018
+transition_covariance_trend = 0.00015
+observation_covariance = 3.4
+
+# ============================================================================
+# RESET CONFIGURATION
+# ============================================================================
+
+[kalman.reset.initial]
+enabled = true
+initial_variance_multiplier = 10
+weight_noise_multiplier = 50
+trend_noise_multiplier = 50
+observation_noise_multiplier = 20
+adaptation_measurements = 10
+adaptation_days = 10
+adaptation_decay_rate = 2.5
+
+[kalman.reset.hard]
+enabled = true
+gap_threshold_days = 30
+initial_variance_multiplier = 3
+weight_noise_multiplier = 5
+trend_noise_multiplier = 50
+observation_noise_multiplier = 0.7
+adaptation_measurements = 10
+adaptation_days = 7
+adaptation_decay_rate = 2.5
+
+[kalman.reset.soft]
+enabled = true
+min_weight_change_kg = 5
+cooldown_days = 3
+trigger_sources = ["questionnaire", "patient-upload", "care-team-upload"]
+initial_variance_multiplier = 2
+weight_noise_multiplier = 5
+trend_noise_multiplier = 20
+observation_noise_multiplier = 0.7
+adaptation_measurements = 15
+adaptation_days = 10
+adaptation_decay_rate = 2.5
+
+# ============================================================================
+# ADAPTIVE SETTINGS
+# ============================================================================
+
+[adaptive_ranges]
+enabled = true
+ema_alpha = 0.1           # Learning rate for exponential moving averages
+noise_alpha = 0.05        # Learning rate for noise estimation
+buffer_size = 7           # Days of recent history to maintain
+
+[adaptive_ranges.thresholds]
+base_multiplier = 3.0
+min_threshold = 1.0       # Minimum threshold in kg
+max_threshold = 10.0      # Maximum threshold in kg
+
+[adaptive_ranges.oscillation]
+high_oscillation_score = 0.5
+moderate_oscillation_score = 0.3
 
 [adaptive_noise]
 # Source reliability multipliers (lower = more trusted)
@@ -145,9 +117,13 @@ patient-device = 1.0
 connectivehealth-io = 1.5
 iglucose-com = 3.0
 
+# ============================================================================
+# REPLAY PROCESSING
+# ============================================================================
+
 [replay]
-enabled = true  # Enable replay buffer and processing
-buffer_hours = 48  # Increased from 1 to capture more measurements for better outlier detection
+enabled = true
+buffer_hours = 48
 trigger_mode = "time_based"
 max_buffer_measurements = 100
 state_history_limit = 100
@@ -164,187 +140,63 @@ require_rollback_confirmation = false
 preserve_immediate_results = true
 
 # ============================================================================
-# FEATURE TOGGLES
-# Control individual features of the processing pipeline
-# All features default to true for backward compatibility
+# QUALITY SCORING
 # ============================================================================
-
-[features]
-# Core processing features
-kalman_filtering = true          # Core Kalman filter (required for many features)
-quality_scoring = true            # Multi-factor quality assessment
-outlier_detection = true          # Statistical outlier detection
-quality_override = true           # Allow high-quality scores to override outlier detection
-kalman_state_validation = false  # Validate Kalman state on deserialization (feature flag for gradual rollout)
-strict_validation = false         # Fail loudly on validation errors (requires kalman_state_validation=true)
-
-# Validation features
-[features.validation]
-physiological = true              # Hard limits (30-400kg)
-# bmi_checking = true               # BMI plausibility checks - NOT IMPLEMENTED
-# rate_limiting = true              # Daily/weekly change limits - NOT IMPLEMENTED
-# temporal_consistency = true       # Temporal consistency checks - NOT IMPLEMENTED
-# session_variance = true           # Session-based variance detection - NOT IMPLEMENTED
-
-# Outlier detection methods
-[features.outlier_methods]
-iqr = true                        # Interquartile range detection
-mad = true                        # Median absolute deviation
-temporal = true                   # Temporal change detection
-kalman_deviation = true           # Deviation from Kalman prediction
-
-# Quality scoring components
-[features.quality_components]
-safety = true                     # Safety score (physiological limits)
-plausibility = true               # Plausibility score (BMI, trends)
-consistency = true                # Consistency score (change rates)
-reliability = true                # Source-based reliability
-
-# State management
-[features.state]
-persistence = true                # Save user states to database
-# history_buffer = true             # Maintain measurement history - NOT IMPLEMENTED
-# reset_tracking = true             # Track reset events - NOT IMPLEMENTED
-
-# Reset management
-[features.resets]
-initial = true                    # Enable initial reset for new users
-hard = true                       # Enable hard reset after long gaps
-soft = true                       # Enable soft reset for manual entries
-
-# Adaptive features
-[features.adaptive]
-noise_model = true                # Source-specific noise multipliers
-parameters = true                 # Adaptive Kalman parameters
-# parameter_decay = true            # Parameter decay over time - NOT IMPLEMENTED
-
-# Replay processing (controlled by [replay].enabled above)
-[features.replay]
-enabled = true                   # Enable replay buffer and processing (use [replay].enabled instead)
-outlier_detection = true          # Replay-based outlier detection
-rollback = true                   # Allow state rollback
-
-# Visualization
-[features.visualization]
-enabled = true                    # Enable visualization generation
-# threading = true                  # Enable multi-threading for visualizations - USES DIFFERENT CONFIG
-
-# ============================================================================
-# ANALYSIS SETTINGS
-# Configuration for weight loss interval analysis and reporting
-# ============================================================================
-
-[database]
-path = "data/weight_tracking.db"    # Path to the database file
-
-[analysis]
-# Interval configuration
-interval_days = 30               # Days between analysis intervals
-window_tolerance_days = 7        # ±days for finding measurements at intervals
-max_intervals = 12                # Maximum number of intervals to analyze (1 year)
-
-# Report configuration
-top_users_count = 200            # Number of top divergent users to visualize
-min_measurements_required = 2    # Minimum measurements needed to include user
-batch_size = 100                 # Users to process in parallel
-
-# Visualization settings
-generate_individual_charts = true    # Generate charts for each top user
-chart_dpi = 150                      # DPI for individual user charts
-summary_chart_dpi = 300              # DPI for summary charts
-parallel_visualization = true        # Enable parallel chart generation
-
-# Data quality thresholds
-min_data_completeness = 0.2     # Minimum data completeness (0-1) to include user
-outlier_threshold_multiplier = 2 # Multiplier for outlier detection in analysis
-
-# ============================================================================
-# EXPERT SETTINGS
-# These are automatically configured based on profile selection
-# Only modify if you have deep understanding of the system
-# ============================================================================
-
-[kalman]
-# Core Kalman filter parameters - rarely need modification
-initial_variance = 0.364
-transition_covariance_weight = 0.018
-transition_covariance_trend = 0.00015
-observation_covariance = 3.4
 
 [quality_scoring]
 use_harmonic_mean = true
-# threshold is set by profile, but can be overridden here
-# threshold = 0.6
+threshold = 0.46
 
 # Component weights for unified quality scorer (must sum to 1.0)
 [quality_scoring.component_weights]
-kalman_fit = 0.65           # Primary signal - deviation from Kalman prediction
-temporal_consistency = 0  # Rate of change validation
-anomaly_detection = 0.25  # Different user, unit confusion, BMI detection
-source_reliability = 0    # Source-based trust scoring (disabled)
-trend_alignment = 0.1       # Consistency with established trend (disabled)
+kalman_fit = 0.65
+temporal_consistency = 0
+anomaly_detection = 0.25
+source_reliability = 0
+trend_alignment = 0.1
 
-# Temporal consistency parameters (new continuous exponential function)
+# Temporal consistency parameters
 [quality_scoring.temporal]
-min_score = 0.2                    # Minimum temporal consistency score
-max_score = 1.0                    # Maximum temporal consistency score
-initial_threshold_kg = 0.5         # Initial acceptable change (kg)
-max_threshold_kg = 5.0             # Maximum acceptable change after 7 days (kg)
-time_constant_hours = 48           # Time constant for exponential growth
-
-# Legacy temporal consistency thresholds (deprecated - kept for backward compatibility)
-[quality_scoring.temporal_thresholds]
-"6h" = 1   # Maximum kg change in 6 hours (deprecated)
-"24h" = 3.0  # Maximum kg change in 24 hours (deprecated)
-sustained = 0.01  # Maximum sustained kg/day rate (deprecated)
+min_score = 0.2
+max_score = 1.0
+initial_threshold_kg = 0.5
+max_threshold_kg = 5.0
+time_constant_hours = 48
 
 # Trend alignment parameters
 [quality_scoring.trend_alignment]
-trend_decay_constant = 0.1  # Lower = more lenient (0.2 is lenient, 0.3 is moderate, 0.5 is strict)
-trend_min_std_dev = 0.8     # Minimum standard deviation in kg for trend variance
-
-# Legacy component weights (for non-unified scoring)
-# safety = 0.35
-# plausibility = 0.25
-# consistency = 0.25
-# reliability = 0.15
+trend_decay_constant = 0.1
+trend_min_std_dev = 0.8
 
 # ============================================================================
-# RESET CONFIGURATION OVERRIDES
-# These are automatically configured based on profile selection
-# Only uncomment and modify if you need direct control
+# DATABASE & ANALYSIS
 # ============================================================================
 
-# [kalman.reset.initial]
-# enabled = true
-# initial_variance_multiplier = 10
-# weight_noise_multiplier = 50
-# trend_noise_multiplier = 50
-# observation_noise_multiplier = 20
-# adaptation_measurements = 10
-# adaptation_days = 10
-# adaptation_decay_rate = 2.5
+[database]
+path = "data/weight_tracking.db"
 
-# [kalman.reset.hard]
-# enabled = true
-# gap_threshold_days = 30
-# initial_variance_multiplier = 3
-# weight_noise_multiplier = 5
-# trend_noise_multiplier = 50
-# observation_noise_multiplier = 0.7
-# adaptation_measurements = 10
-# adaptation_days = 7
-# adaptation_decay_rate = 2.5
+[analysis]
+# Interval configuration
+interval_days = 30
+window_tolerance_days = 7
+max_intervals = 12
+# Report configuration
+top_users_count = 200
+min_measurements_required = 2
+batch_size = 100
+# Visualization settings
+generate_individual_charts = true
+chart_dpi = 150
+summary_chart_dpi = 300
+parallel_visualization = true
+# Data quality thresholds
+min_data_completeness = 0.2
+outlier_threshold_multiplier = 2
 
-# [kalman.reset.soft]
-# enabled = true
-# min_weight_change_kg = 5
-# cooldown_days = 3
-# trigger_sources = ["questionnaire", "patient-upload", "care-team-upload"]
-# initial_variance_multiplier = 2
-# weight_noise_multiplier = 5
-# trend_noise_multiplier = 20
-# observation_noise_multiplier = 0.7
-# adaptation_measurements = 15
-# adaptation_days = 10
-# adaptation_decay_rate = 2.5
+# ============================================================================
+# LOGGING
+# ============================================================================
+
+[logging]
+progress_interval = 10000
+timestamp_format = "test_no_date"

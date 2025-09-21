@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from unittest.mock import MagicMock, patch
 
-from src.processing.replay_buffer import ReplayBuffer
+from src.replay.replay_buffer import ReplayBuffer
 from src.replay.replay_manager import ReplayManager
 
 

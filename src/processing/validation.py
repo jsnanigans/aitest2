@@ -8,7 +8,6 @@ from typing import Dict, List, Tuple, Optional, Any
 from collections import defaultdict, deque
 import numpy as np
 import pandas as pd
-from ..feature_manager import FeatureManager
 
 try:
     from ..constants import (
@@ -34,10 +33,6 @@ except ImportError:
     )
 
 
-try:
-    from .quality_scorer import QualityScorer, QualityScore, MeasurementHistory
-except ImportError:
-    from src.processing.quality_scorer import QualityScorer, QualityScore, MeasurementHistory
 
 
 class PhysiologicalValidator:
@@ -146,40 +141,6 @@ class PhysiologicalValidator:
             'suspicious_pattern': std_weight > PhysiologicalValidator.TYPICAL_DAILY_VARIATION_KG * 2
         }
 
-    @staticmethod
-    def calculate_quality_score(
-        weight: float,
-        source: str,
-        previous_weight: Optional[float] = None,
-        time_diff_hours: Optional[float] = None,
-        recent_weights: Optional[List[float]] = None,
-        user_height_m: float = 1.67,
-        config: Optional[Dict] = None
-    ) -> QualityScore:
-        """
-        Calculate quality score for a weight measurement.
-
-        Args:
-            weight: Weight measurement in kg
-            source: Data source identifier
-            previous_weight: Previous weight measurement
-            time_diff_hours: Hours since previous measurement
-            recent_weights: List of recent accepted weights
-            user_height_m: User's height in meters
-            config: Optional configuration overrides
-
-        Returns:
-            QualityScore object with overall and component scores
-        """
-        scorer = QualityScorer(config)
-        return scorer.calculate_quality_score(
-            weight=weight,
-            source=source,
-            previous_weight=previous_weight,
-            time_diff_hours=time_diff_hours,
-            recent_weights=recent_weights,
-            user_height_m=user_height_m
-        )
 
     @staticmethod
     def validate_comprehensive(
@@ -187,8 +148,7 @@ class PhysiologicalValidator:
         previous_weight: Optional[float] = None,
         time_diff_hours: Optional[float] = None,
         source: Optional[str] = None,
-        recent_measurements: Optional[List[Tuple[datetime, float]]] = None,
-        feature_manager: Optional[FeatureManager] = None
+        recent_measurements: Optional[List[Tuple[datetime, float]]] = None
     ) -> Dict[str, Any]:
         """
         Comprehensive validation combining all checks.
@@ -205,32 +165,29 @@ class PhysiologicalValidator:
         }
 
         # Always perform physiological validation (safety critical)
-        # But can be disabled through feature_manager
-        if not feature_manager or feature_manager.is_enabled('validation_physiological'):
-            is_valid, reason = PhysiologicalValidator.validate_absolute_limits(weight)
-            if not is_valid:
-                result['valid'] = False
-                result['rejection_reason'] = reason
-                return result
-            result['checks'].append('absolute_limits')
+        is_valid, reason = PhysiologicalValidator.validate_absolute_limits(weight)
+        if not is_valid:
+            result['valid'] = False
+            result['rejection_reason'] = reason
+            return result
+        result['checks'].append('absolute_limits')
 
         warning = PhysiologicalValidator.check_suspicious_range(weight)
         if warning:
             result['warnings'].append(warning)
 
-        # Check rate limiting if enabled
+        # Check rate limiting
         if previous_weight is not None and time_diff_hours is not None:
-            if not feature_manager or feature_manager.is_enabled('validation_rate_limiting'):
-                is_valid, reason, rate = PhysiologicalValidator.validate_rate_of_change(
-                    weight, previous_weight, time_diff_hours, source
-                )
-                if not is_valid:
-                    result['valid'] = False
-                    result['rejection_reason'] = reason
-                    result['daily_change_rate'] = rate
-                    return result
-                result['checks'].append('rate_of_change')
+            is_valid, reason, rate = PhysiologicalValidator.validate_rate_of_change(
+                weight, previous_weight, time_diff_hours, source
+            )
+            if not is_valid:
+                result['valid'] = False
+                result['rejection_reason'] = reason
                 result['daily_change_rate'] = rate
+                return result
+            result['checks'].append('rate_of_change')
+            result['daily_change_rate'] = rate
 
         if recent_measurements:
             pattern_analysis = PhysiologicalValidator.check_measurement_pattern(recent_measurements)
