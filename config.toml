@@ -196,6 +196,12 @@ parallel_visualization = true
 min_data_completeness = 0.2
 outlier_threshold_multiplier = 2
 
+# Filtering effectiveness analysis settings
+output_dir = "reports/visualizations"
+max_users = 10
+min_measurements = 20
+parallel_processing = true
+
 # ============================================================================
 # LOGGING
 # ============================================================================
