@@ -15,6 +15,11 @@ from typing import Dict, List, Any, Optional
 import numpy as np
 import pandas as pd
 import toml
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.gridspec import GridSpec
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -23,6 +28,7 @@ from src.analysis.filtering_effectiveness import FilteringAnalyzer
 from src.analysis.visualization_generator import FilteringVisualizationGenerator
 from src.analysis.quarterly_reporting import QuarterlyReportingAnalyzer
 from src.analysis.quarterly_visualizations import QuarterlyVisualizationGenerator
+from src.analysis.inline_charts import InlineChartGenerator
 from src.database.database import get_state_db
 
 # Configure logging
@@ -305,7 +311,12 @@ class FilteringAnalysisRunner:
         if viz_file:
             viz_files.append(viz_file)
 
-        # Cohort progression analysis
+        # Clean weight loss progression chart (for embedding in report)
+        viz_file = self.quarterly_viz.create_weight_loss_progression_chart(cohort_results)
+        if viz_file:
+            viz_files.append(viz_file)
+
+        # Cohort progression analysis (detailed multi-panel)
         viz_file = self.quarterly_viz.create_cohort_progression_analysis(cohort_results)
         if viz_file:
             viz_files.append(viz_file)
@@ -334,12 +345,80 @@ class FilteringAnalysisRunner:
             'visualizations': viz_files
         }
 
-    def generate_report(self, metrics: Dict[str, Any]) -> str:
+    def generate_all_inline_charts(self, metrics: Dict[str, Any], raw_data: Dict[str, pd.DataFrame],
+                                  filtered_data: Dict[str, pd.DataFrame]) -> Dict[str, str]:
+        """Generate all inline charts for the report."""
+        report_dir = Path(self.config.get('analysis', {}).get('output_dir', 'reports/visualizations'))
+        report_dir.mkdir(parents=True, exist_ok=True)
+
+        charts = {}
+
+        # Generate each chart
+        logger.info("Generating inline visualizations...")
+
+        # Executive Summary
+        chart_path = self.generate_executive_summary_chart(metrics, report_dir)
+        if chart_path:
+            charts['executive_summary'] = chart_path
+
+        # Weight Change Statistics
+        chart_path = self.generate_weight_change_chart(metrics, report_dir)
+        if chart_path:
+            charts['weight_change'] = chart_path
+
+        # Clinical Success Rates
+        chart_path = self.generate_clinical_success_chart(metrics, report_dir)
+        if chart_path:
+            charts['clinical_success'] = chart_path
+
+        # User Inclusion Funnel
+        chart_path = self.generate_user_inclusion_funnel(metrics, report_dir)
+        if chart_path:
+            charts['user_inclusion'] = chart_path
+
+        # Statistical Power
+        chart_path = self.generate_statistical_power_chart(metrics, report_dir)
+        if chart_path:
+            charts['statistical_power'] = chart_path
+
+        # Quarterly Data Quality
+        if 'quarterly' in metrics and metrics['quarterly']:
+            chart_path = self.generate_quarterly_data_quality_chart(metrics['quarterly'], report_dir)
+            if chart_path:
+                charts['quarterly_data_quality'] = chart_path
+
+            # Quarterly Success Rates
+            chart_path = self.generate_quarterly_success_rates_chart(metrics['quarterly'], report_dir)
+            if chart_path:
+                charts['quarterly_success_rates'] = chart_path
+
+        # User Analysis Histograms
+        chart_path = self.generate_user_analysis_histograms(metrics, raw_data, filtered_data, report_dir)
+        if chart_path:
+            charts['user_histograms'] = chart_path
+
+        # Data Quality Summary
+        chart_path = self.generate_data_quality_summary_chart(metrics, report_dir)
+        if chart_path:
+            charts['data_quality_summary'] = chart_path
+
+        # Clinical Impact
+        chart_path = self.generate_clinical_impact_chart(metrics, report_dir)
+        if chart_path:
+            charts['clinical_impact'] = chart_path
+
+        logger.info(f"Generated {len(charts)} inline visualizations")
+        return charts
+
+    def generate_report(self, metrics: Dict[str, Any], raw_data: Dict[str, pd.DataFrame] = None,
+                       filtered_data: Dict[str, pd.DataFrame] = None) -> str:
         """
         Generate comprehensive markdown report.
 
         Args:
             metrics: Analysis metrics
+            raw_data: Raw measurement data (optional, for histograms)
+            filtered_data: Filtered measurement data (optional, for histograms)
 
         Returns:
             Path to generated report
@@ -349,6 +428,11 @@ class FilteringAnalysisRunner:
         # Use configured output directory
         report_dir = Path(self.config.get('analysis', {}).get('output_dir', 'reports/visualizations'))
         report_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate all inline charts if data is provided
+        inline_charts = {}
+        if raw_data and filtered_data:
+            inline_charts = self.generate_all_inline_charts(metrics, raw_data, filtered_data)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_path = report_dir / f"filtering_analysis_{timestamp}.md"
@@ -382,8 +466,17 @@ class FilteringAnalysisRunner:
                     f.write(f"- **Total Users Analyzed**: {agg.get('total_users', 0)}\n")
                     f.write(f"- **Average Removal Rate**: {agg.get('avg_removal_rate', 0):.1%}\n")
                     f.write(f"- **Average Outlier Rate**: {agg.get('outlier_summary', {}).get('avg_outlier_rate', 0):.1%}\n")
-                    f.write(f"- **Average CI Improvement**: {agg.get('medical_summary', {}).get('avg_confidence_improvement', 0):.1%}\n")
-                    f.write("\n")
+                    f.write(f"- **Average CI Improvement**: {agg.get('medical_summary', {}).get('avg_confidence_improvement', 0):.1%}\n\n")
+
+                    # Add PNG visualization instead of ASCII art
+                    if 'executive_summary' in inline_charts:
+                        f.write(f"![Executive Summary Metrics]({inline_charts['executive_summary']})\n\n")
+                    else:
+                        # Fallback to ASCII if chart generation failed
+                        removal_rate = agg.get('avg_removal_rate', 0) * 100
+                        bar_width = int(removal_rate / 2)  # Scale to max 50 chars
+                        f.write(f"**Data Quality Impact:**\n")
+                        f.write(f"```\nRemoval Rate: {'█' * bar_width} {removal_rate:.1f}%\n```\n\n")
 
                 # Cohort Statistics
                 if 'reporting' in metrics:
@@ -403,8 +496,24 @@ class FilteringAnalysisRunner:
 
                     raw_mean = cohort_dict.get('cohort', {}).get('raw_mean', 0)
                     filtered_mean = cohort_dict.get('cohort', {}).get('filtered_mean', 0)
+                    difference = cohort_dict.get('cohort', {}).get('difference', 0)
                     f.write(f"| Mean Weight Change | {raw_mean:.2f}% | {filtered_mean:.2f}% | "
-                           f"{cohort_dict.get('cohort', {}).get('difference', 0):.2f}% |\n")
+                           f"{difference:.2f}% |\n\n")
+
+                    # Add PNG visualization instead of ASCII art
+                    if 'weight_change' in inline_charts:
+                        f.write(f"![Weight Change Comparison]({inline_charts['weight_change']})\n\n")
+                    else:
+                        # Fallback to ASCII if chart generation failed
+                        f.write("```\n")
+                        raw_bar = '█' * int(abs(raw_mean) * 2)
+                        filt_bar = '█' * int(abs(filtered_mean) * 2)
+                        f.write(f"Raw:      {raw_bar} {raw_mean:.2f}%\n")
+                        f.write(f"Filtered: {filt_bar} {filtered_mean:.2f}%\n")
+                        if difference != 0:
+                            improvement = "↑ Better" if filtered_mean < raw_mean else "↓ Worse" if filtered_mean > raw_mean else "→ Same"
+                            f.write(f"Impact:   {improvement} by {abs(difference):.2f}%\n")
+                        f.write("```\n\n")
 
                     # Success rates
                     f.write("\n### Clinical Success Rates\n\n")
@@ -421,7 +530,19 @@ class FilteringAnalysisRunner:
                     pct_10_raw = success.get('10pct_loss', {}).get('raw', 0)
                     pct_10_filt = success.get('10pct_loss', {}).get('filtered', 0)
                     f.write(f"| 10% Weight Loss | {pct_10_raw:.1f}% | {pct_10_filt:.1f}% | "
-                           f"{pct_10_filt - pct_10_raw:+.1f}% |\n")
+                           f"{pct_10_filt - pct_10_raw:+.1f}% |\n\n")
+
+                    # Add PNG visualization instead of ASCII art
+                    if 'clinical_success' in inline_charts:
+                        f.write(f"![Clinical Success Rates]({inline_charts['clinical_success']})\n\n")
+                    else:
+                        # Fallback to ASCII if chart generation failed
+                        f.write("**Visual Comparison:**\n```\n")
+                        f.write(f"5% Success:  Raw    {'█' * int(pct_5_raw/2)} {pct_5_raw:.1f}%\n")
+                        f.write(f"             Filtered {'█' * int(pct_5_filt/2)} {pct_5_filt:.1f}%\n")
+                        f.write(f"10% Success: Raw    {'█' * int(pct_10_raw/2)} {pct_10_raw:.1f}%\n")
+                        f.write(f"             Filtered {'█' * int(pct_10_filt/2)} {pct_10_filt:.1f}%\n")
+                        f.write("```\n\n")
 
                     # User inclusion
                     f.write("\n### User Inclusion Impact\n\n")
@@ -438,15 +559,41 @@ class FilteringAnalysisRunner:
                     endpoint_raw = inclusion.get('endpoint', {}).get('raw', 0)
                     endpoint_filt = inclusion.get('endpoint', {}).get('filtered', 0)
                     f.write(f"| Valid Endpoint | {endpoint_raw} | {endpoint_filt} | "
-                           f"{endpoint_filt - endpoint_raw:+d} |\n")
+                           f"{endpoint_filt - endpoint_raw:+d} |\n\n")
+
+                    # Add PNG visualization instead of ASCII art
+                    if 'user_inclusion' in inline_charts:
+                        f.write(f"![Data Retention Funnel]({inline_charts['user_inclusion']})\n\n")
+                    else:
+                        # Fallback to ASCII if chart generation failed
+                        if baseline_raw > 0:
+                            f.write("**Data Retention Funnel:**\n```\n")
+                            f.write(f"Raw:      [{'█' * int((baseline_raw/baseline_raw)*30)}] {baseline_raw} → ")
+                            f.write(f"[{'█' * int((endpoint_raw/baseline_raw)*30)}] {endpoint_raw}\n")
+                            f.write(f"Filtered: [{'█' * int((baseline_filt/baseline_raw)*30)}] {baseline_filt} → ")
+                            f.write(f"[{'█' * int((endpoint_filt/baseline_raw)*30)}] {endpoint_filt}\n")
+                            f.write("```\n\n")
 
                     # Statistical power
                     f.write("\n### Statistical Power Improvements\n\n")
                     f.write("*How filtering improves the statistical reliability of analyses.*\n\n")
                     power = cohort_dict.get('power', {})
-                    f.write(f"- **Variance Reduction**: {power.get('variance_reduction', 0):.1%} - Lower variance means more consistent measurements\n")
-                    f.write(f"- **Effect Size Improvement**: {power.get('effect_size_improvement', 0):.3f} - Larger effect sizes are easier to detect statistically\n")
-                    f.write("\n")
+                    var_reduction = power.get('variance_reduction', 0)
+                    effect_improvement = power.get('effect_size_improvement', 0)
+                    f.write(f"- **Variance Reduction**: {var_reduction:.1%} - Lower variance means more consistent measurements\n")
+                    f.write(f"- **Effect Size Improvement**: {effect_improvement:.3f} - Larger effect sizes are easier to detect statistically\n\n")
+
+                    # Add PNG visualization instead of ASCII art
+                    if 'statistical_power' in inline_charts:
+                        f.write(f"![Statistical Power Improvements]({inline_charts['statistical_power']})\n\n")
+                    else:
+                        # Fallback to ASCII if chart generation failed
+                        f.write("**Statistical Power Boost:**\n```\n")
+                        var_bar = int(var_reduction * 50)  # Scale to max 50 chars
+                        effect_bar = int(min(effect_improvement, 1.0) * 50)  # Cap at 1.0 for display
+                        f.write(f"Variance Reduction: {'█' * var_bar} {var_reduction:.1%}\n")
+                        f.write(f"Effect Size:        {'█' * effect_bar} {effect_improvement:.2f}\n")
+                        f.write("```\n\n")
 
                 # Quarterly Reporting Analysis (90+ Day Users)
                 if 'quarterly' in metrics and metrics['quarterly']:
@@ -483,8 +630,11 @@ class FilteringAnalysisRunner:
                         f.write("*How many users have usable data for quarterly reporting.*\n\n")
                         f.write(f"- **Eligible Users**: {rm.eligible_users} users with 90+ days in program\n")
                         f.write(f"- **Valid Data (Raw)**: {rm.users_with_valid_endpoint} users ({rm.users_with_valid_endpoint/rm.eligible_users*100:.1f}%)\n")
-                        f.write(f"- **Valid Data (Filtered)**: {fm.users_with_valid_endpoint} users ({fm.users_with_valid_endpoint/fm.eligible_users*100:.1f}%)\n")
-                        f.write("\n")
+                        f.write(f"- **Valid Data (Filtered)**: {fm.users_with_valid_endpoint} users ({fm.users_with_valid_endpoint/fm.eligible_users*100:.1f}%)\n\n")
+
+                        # Add PNG visualization
+                        if 'quarterly_data_quality' in inline_charts:
+                            f.write(f"![Quarterly Data Quality]({inline_charts['quarterly_data_quality']})\n\n")
 
                         # Success rates
                         f.write("### Clinical Success Rates (90+ Day Users)\n\n")
@@ -507,21 +657,43 @@ class FilteringAnalysisRunner:
                         filt_15pct = fm.users_losing_15pct / fm.users_with_valid_endpoint * 100 if fm.users_with_valid_endpoint > 0 else 0
                         f.write(f"| 15% Loss | {raw_15pct:.1f}% ({rm.users_losing_15pct} users) | "
                                f"{filt_15pct:.1f}% ({fm.users_losing_15pct} users) | "
-                               f"{filt_15pct - raw_15pct:+.1f}% |\n")
-                        f.write("\n")
+                               f"{filt_15pct - raw_15pct:+.1f}% |\n\n")
+
+                        # Add PNG visualization
+                        if 'quarterly_success_rates' in inline_charts:
+                            f.write(f"![Quarterly Success Rates]({inline_charts['quarterly_success_rates']})\n\n")
 
                         # Cohort progression
                         if 'cohort_results' in quarterly and quarterly['cohort_results']:
                             f.write("### Weight Loss Progression by Program Duration\n\n")
+
+                            # Check if the progression chart exists and reference it
+                            progression_chart_path = Path(self.config.get('analysis', {}).get('output_dir', 'reports/visualizations')) / "quarterly" / "weight_loss_progression_chart.png"
+                            if progression_chart_path.exists():
+                                f.write(f"![Weight Loss Progression Chart]({progression_chart_path})\n\n")
+
                             f.write("Average weight loss at different time checkpoints:\n\n")
                             f.write("| Days in Program | Raw Avg Loss | Filtered Avg Loss | Improvement |\n")
                             f.write("|-----------------|--------------|-------------------|-------------|\n")
 
                             for cohort in quarterly['cohort_results']:
+                                # Add visual indicator for improvement
+                                improvement = cohort.mean_loss_difference
+                                indicator = "📈" if improvement > 0.1 else "➡️" if improvement > 0 else "📉"
                                 f.write(f"| {cohort.day_checkpoint} days | "
                                        f"{cohort.raw_mean_loss_pct:.2f}% | "
                                        f"{cohort.filtered_mean_loss_pct:.2f}% | "
-                                       f"{cohort.mean_loss_difference:+.2f}% |\n")
+                                       f"{cohort.mean_loss_difference:+.2f}% {indicator} |\n")
+
+                            # Add summary statistics
+                            import numpy as np
+                            avg_improvement = np.mean([c.mean_loss_difference for c in quarterly['cohort_results']])
+                            max_improvement = max(c.mean_loss_difference for c in quarterly['cohort_results'])
+                            f.write("\n")
+                            f.write(f"**Average Improvement Across All Checkpoints:** {avg_improvement:+.2f}%\n")
+                            f.write(f"**Maximum Improvement:** {max_improvement:+.2f}% at ")
+                            max_cohort = max(quarterly['cohort_results'], key=lambda c: c.mean_loss_difference)
+                            f.write(f"{max_cohort.day_checkpoint} days\n")
                             f.write("\n")
 
                         # Visualizations
@@ -558,6 +730,10 @@ class FilteringAnalysisRunner:
 
                     f.write("\n")
 
+                    # Add PNG visualization for user analysis
+                    if 'user_histograms' in inline_charts:
+                        f.write(f"![User Analysis Distributions]({inline_charts['user_histograms']})\n\n")
+
                 # Key Findings
                 f.write("## Key Findings & Interpretation\n\n")
 
@@ -575,6 +751,10 @@ class FilteringAnalysisRunner:
                            f"{agg.get('temporal_summary', {}).get('total_impossible_changes', 0)} "
                            f"physiologically impossible weight changes\n\n")
 
+                    # Add PNG visualization for data quality summary
+                    if 'data_quality_summary' in inline_charts:
+                        f.write(f"![Data Quality Summary]({inline_charts['data_quality_summary']})\n\n")
+
                     f.write("### Clinical Impact\n\n")
                     f.write("*How filtering prevents medical misinterpretations and improves clinical decision-making.*\n\n")
                     f.write(f"1. **Direction Errors**: Prevented "
@@ -583,6 +763,10 @@ class FilteringAnalysisRunner:
                     f.write(f"2. **Confidence Intervals**: Improved measurement confidence by "
                            f"{agg.get('medical_summary', {}).get('avg_confidence_improvement', 0):.1%} "
                            f"on average (tighter confidence bands mean more reliable measurements)\n\n")
+
+                    # Add PNG visualization for clinical impact
+                    if 'clinical_impact' in inline_charts:
+                        f.write(f"![Clinical Impact]({inline_charts['clinical_impact']})\n\n")
 
                 # Visualizations
                 if 'visualizations' in metrics and metrics['visualizations']:
@@ -818,6 +1002,527 @@ class FilteringAnalysisRunner:
             logger.error(f"Error saving user metrics CSV: {e}")
             return ""
 
+    def generate_executive_summary_chart(self, metrics: Dict[str, Any], output_dir: Path) -> str:
+        """Generate executive summary metrics visualization."""
+        try:
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            if 'aggregate' in metrics:
+                agg = metrics['aggregate']
+
+                # Prepare data
+                labels = ['Total Users\n(count)', 'Avg Removal\nRate (%)',
+                         'Avg Outlier\nRate (%)', 'Avg CI\nImprovement (%)']
+                values = [
+                    agg.get('total_users', 0) / 100,  # Scale for visibility
+                    agg.get('avg_removal_rate', 0) * 100,
+                    agg.get('outlier_summary', {}).get('avg_outlier_rate', 0) * 100,
+                    agg.get('medical_summary', {}).get('avg_confidence_improvement', 0)
+                ]
+                colors = ['#2E86AB', '#A23B72', '#F18F01', '#73AB84']
+
+                # Create bars
+                bars = ax.bar(labels, values, color=colors, alpha=0.8, edgecolor='black', linewidth=1.5)
+
+                # Add value labels on bars
+                for bar, value, label in zip(bars, values, labels):
+                    if 'Total Users' in label:
+                        display_val = f'{int(value * 100)}'
+                    else:
+                        display_val = f'{value:.1f}%'
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                           display_val, ha='center', va='bottom', fontweight='bold')
+
+                ax.set_title('Executive Summary - Key Metrics', fontsize=14, fontweight='bold')
+                ax.set_ylabel('Value', fontsize=12)
+                ax.grid(axis='y', alpha=0.3)
+                ax.set_ylim(0, max(values) * 1.15)
+
+            plt.tight_layout()
+            chart_path = output_dir / 'executive_summary_metrics.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating executive summary chart: {e}")
+            return ""
+
+    def generate_weight_change_chart(self, metrics: Dict[str, Any], output_dir: Path) -> str:
+        """Generate weight change statistics comparison chart."""
+        try:
+            fig, ax = plt.subplots(figsize=(8, 6))
+
+            if 'reporting' in metrics:
+                reporting = metrics['reporting']
+                cohort_dict = reporting.to_dict() if hasattr(reporting, 'to_dict') else {}
+
+                raw_mean = cohort_dict.get('cohort', {}).get('raw_mean', 0)
+                filtered_mean = cohort_dict.get('cohort', {}).get('filtered_mean', 0)
+
+                # Data
+                categories = ['Raw Data', 'Filtered Data']
+                values = [raw_mean, filtered_mean]
+                colors = ['#E74C3C', '#2ECC71']
+
+                # Create bars
+                bars = ax.bar(categories, values, color=colors, alpha=0.8, edgecolor='black', linewidth=1.5)
+
+                # Add value labels
+                for bar, val in zip(bars, values):
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                           f'{val:.2f}%', ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+                # Add improvement indicator
+                difference = filtered_mean - raw_mean
+                ax.axhline(y=0, color='gray', linestyle='-', linewidth=0.5)
+
+                # Improvement annotation
+                if difference != 0:
+                    improvement_text = f'Improvement: {abs(difference):.2f}%'
+                    ax.text(0.5, min(values) - 0.5, improvement_text,
+                           ha='center', transform=ax.transData, fontsize=11,
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.3))
+
+                ax.set_title('Mean Weight Change Comparison', fontsize=14, fontweight='bold')
+                ax.set_ylabel('Weight Change (%)', fontsize=12)
+                ax.grid(axis='y', alpha=0.3)
+                ax.set_ylim(min(values) - 1, max(0, max(values)) + 0.5)
+
+            plt.tight_layout()
+            chart_path = output_dir / 'weight_change_comparison.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating weight change chart: {e}")
+            return ""
+
+    def generate_clinical_success_chart(self, metrics: Dict[str, Any], output_dir: Path) -> str:
+        """Generate clinical success rates comparison chart."""
+        try:
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            if 'reporting' in metrics:
+                reporting = metrics['reporting']
+                cohort_dict = reporting.to_dict() if hasattr(reporting, 'to_dict') else {}
+                success = cohort_dict.get('success_rates', {})
+
+                # Data preparation
+                thresholds = ['5% Weight Loss', '10% Weight Loss']
+                raw_rates = [
+                    success.get('5pct_loss', {}).get('raw', 0),
+                    success.get('10pct_loss', {}).get('raw', 0)
+                ]
+                filtered_rates = [
+                    success.get('5pct_loss', {}).get('filtered', 0),
+                    success.get('10pct_loss', {}).get('filtered', 0)
+                ]
+
+                x = np.arange(len(thresholds))
+                width = 0.35
+
+                # Create bars
+                rects1 = ax.bar(x - width/2, raw_rates, width, label='Raw Data',
+                               color='#E74C3C', alpha=0.8, edgecolor='black', linewidth=1.5)
+                rects2 = ax.bar(x + width/2, filtered_rates, width, label='Filtered Data',
+                               color='#2ECC71', alpha=0.8, edgecolor='black', linewidth=1.5)
+
+                # Add value labels
+                def autolabel(rects):
+                    for rect in rects:
+                        height = rect.get_height()
+                        ax.annotate(f'{height:.1f}%',
+                                   xy=(rect.get_x() + rect.get_width() / 2, height),
+                                   xytext=(0, 3),
+                                   textcoords="offset points",
+                                   ha='center', va='bottom', fontweight='bold')
+
+                autolabel(rects1)
+                autolabel(rects2)
+
+                ax.set_xlabel('Success Threshold', fontsize=12)
+                ax.set_ylabel('Success Rate (%)', fontsize=12)
+                ax.set_title('Clinical Success Rates Comparison', fontsize=14, fontweight='bold')
+                ax.set_xticks(x)
+                ax.set_xticklabels(thresholds)
+                ax.legend(loc='upper right')
+                ax.grid(axis='y', alpha=0.3)
+                ax.set_ylim(0, max(max(raw_rates), max(filtered_rates)) * 1.15)
+
+            plt.tight_layout()
+            chart_path = output_dir / 'clinical_success_rates.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating clinical success chart: {e}")
+            return ""
+
+    def generate_user_inclusion_funnel(self, metrics: Dict[str, Any], output_dir: Path) -> str:
+        """Generate user inclusion funnel visualization."""
+        try:
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            if 'reporting' in metrics:
+                reporting = metrics['reporting']
+                cohort_dict = reporting.to_dict() if hasattr(reporting, 'to_dict') else {}
+                inclusion = cohort_dict.get('inclusion', {})
+
+                # Data
+                baseline_raw = inclusion.get('baseline', {}).get('raw', 0)
+                baseline_filt = inclusion.get('baseline', {}).get('filtered', 0)
+                endpoint_raw = inclusion.get('endpoint', {}).get('raw', 0)
+                endpoint_filt = inclusion.get('endpoint', {}).get('filtered', 0)
+
+                # Create funnel chart
+                stages = ['Baseline', 'Endpoint']
+                raw_values = [baseline_raw, endpoint_raw]
+                filtered_values = [baseline_filt, endpoint_filt]
+
+                x = np.arange(len(stages))
+                width = 0.35
+
+                rects1 = ax.bar(x - width/2, raw_values, width, label='Raw Data',
+                               color='#3498DB', alpha=0.8, edgecolor='black', linewidth=1.5)
+                rects2 = ax.bar(x + width/2, filtered_values, width, label='Filtered Data',
+                               color='#9B59B6', alpha=0.8, edgecolor='black', linewidth=1.5)
+
+                # Add value labels
+                for rect in rects1 + rects2:
+                    height = rect.get_height()
+                    ax.annotate(f'{int(height)}',
+                               xy=(rect.get_x() + rect.get_width() / 2, height),
+                               xytext=(0, 3),
+                               textcoords="offset points",
+                               ha='center', va='bottom', fontweight='bold')
+
+                # Add retention percentage
+                if baseline_raw > 0:
+                    raw_retention = (endpoint_raw / baseline_raw) * 100
+                    filtered_retention = (endpoint_filt / baseline_filt) * 100 if baseline_filt > 0 else 0
+
+                    ax.text(0.5, -0.15, f'Raw Retention: {raw_retention:.1f}%',
+                           transform=ax.transAxes, ha='center', fontsize=10,
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='lightblue', alpha=0.5))
+                    ax.text(0.5, -0.22, f'Filtered Retention: {filtered_retention:.1f}%',
+                           transform=ax.transAxes, ha='center', fontsize=10,
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='lavender', alpha=0.5))
+
+                ax.set_xlabel('Stage', fontsize=12)
+                ax.set_ylabel('Number of Users', fontsize=12)
+                ax.set_title('Data Retention Funnel', fontsize=14, fontweight='bold')
+                ax.set_xticks(x)
+                ax.set_xticklabels(stages)
+                ax.legend(loc='upper right')
+                ax.grid(axis='y', alpha=0.3)
+
+            plt.tight_layout()
+            chart_path = output_dir / 'user_inclusion_funnel.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating user inclusion funnel: {e}")
+            return ""
+
+    def generate_statistical_power_chart(self, metrics: Dict[str, Any], output_dir: Path) -> str:
+        """Generate statistical power improvements visualization."""
+        try:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+            if 'reporting' in metrics:
+                reporting = metrics['reporting']
+                cohort_dict = reporting.to_dict() if hasattr(reporting, 'to_dict') else {}
+                power = cohort_dict.get('power', {})
+
+                var_reduction = power.get('variance_reduction', 0) * 100
+                effect_improvement = power.get('effect_size_improvement', 0)
+
+                # Variance Reduction Chart
+                ax1.barh(['Variance\nReduction'], [var_reduction],
+                        color='#16A085', alpha=0.8, edgecolor='black', linewidth=1.5)
+                ax1.set_xlim(0, 100)
+                ax1.set_xlabel('Reduction (%)', fontsize=11)
+                ax1.set_title('Variance Reduction', fontsize=12, fontweight='bold')
+                ax1.text(var_reduction + 2, 0, f'{var_reduction:.1f}%',
+                        va='center', fontweight='bold')
+                ax1.grid(axis='x', alpha=0.3)
+
+                # Effect Size Improvement Chart
+                ax2.barh(['Effect Size\nImprovement'], [effect_improvement],
+                        color='#E67E22', alpha=0.8, edgecolor='black', linewidth=1.5)
+                ax2.set_xlim(0, max(1.0, effect_improvement * 1.2))
+                ax2.set_xlabel('Effect Size (Cohen\'s d)', fontsize=11)
+                ax2.set_title('Effect Size Improvement', fontsize=12, fontweight='bold')
+                ax2.text(effect_improvement + 0.02, 0, f'{effect_improvement:.3f}',
+                        va='center', fontweight='bold')
+                ax2.grid(axis='x', alpha=0.3)
+
+            plt.suptitle('Statistical Power Improvements', fontsize=14, fontweight='bold')
+            plt.tight_layout()
+            chart_path = output_dir / 'statistical_power_improvements.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating statistical power chart: {e}")
+            return ""
+
+    def generate_quarterly_data_quality_chart(self, quarterly: Dict[str, Any], output_dir: Path) -> str:
+        """Generate quarterly data quality comparison chart."""
+        try:
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            if 'filtered_metrics' in quarterly and quarterly['filtered_metrics']:
+                fm = quarterly['filtered_metrics']
+                rm = quarterly['raw_metrics']
+
+                # Data preparation
+                categories = ['Eligible Users', 'Valid Data (Raw)', 'Valid Data (Filtered)']
+                values = [
+                    rm.eligible_users,
+                    rm.users_with_valid_endpoint,
+                    fm.users_with_valid_endpoint
+                ]
+                colors = ['#3498DB', '#E74C3C', '#2ECC71']
+
+                # Create bars
+                bars = ax.bar(categories, values, color=colors, alpha=0.8,
+                             edgecolor='black', linewidth=1.5)
+
+                # Add value labels
+                for bar, val in zip(bars, values):
+                    percentage = (val / rm.eligible_users * 100) if rm.eligible_users > 0 else 0
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 10,
+                           f'{int(val)}\n({percentage:.1f}%)',
+                           ha='center', va='bottom', fontweight='bold')
+
+                ax.set_title('Quarterly Reporting - Data Quality', fontsize=14, fontweight='bold')
+                ax.set_ylabel('Number of Users', fontsize=12)
+                ax.grid(axis='y', alpha=0.3)
+                ax.set_ylim(0, max(values) * 1.15)
+
+            plt.tight_layout()
+            chart_path = output_dir / 'quarterly_data_quality.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating quarterly data quality chart: {e}")
+            return ""
+
+    def generate_quarterly_success_rates_chart(self, quarterly: Dict[str, Any], output_dir: Path) -> str:
+        """Generate 90+ day clinical success rates visualization."""
+        try:
+            fig, ax = plt.subplots(figsize=(12, 6))
+
+            if 'filtered_metrics' in quarterly and quarterly['filtered_metrics']:
+                fm = quarterly['filtered_metrics']
+                rm = quarterly['raw_metrics']
+
+                # Calculate success rates
+                raw_5pct = rm.users_losing_5pct / rm.users_with_valid_endpoint * 100 if rm.users_with_valid_endpoint > 0 else 0
+                filt_5pct = fm.users_losing_5pct / fm.users_with_valid_endpoint * 100 if fm.users_with_valid_endpoint > 0 else 0
+                raw_10pct = rm.users_losing_10pct / rm.users_with_valid_endpoint * 100 if rm.users_with_valid_endpoint > 0 else 0
+                filt_10pct = fm.users_losing_10pct / fm.users_with_valid_endpoint * 100 if fm.users_with_valid_endpoint > 0 else 0
+                raw_15pct = rm.users_losing_15pct / rm.users_with_valid_endpoint * 100 if rm.users_with_valid_endpoint > 0 else 0
+                filt_15pct = fm.users_losing_15pct / fm.users_with_valid_endpoint * 100 if fm.users_with_valid_endpoint > 0 else 0
+
+                # Data preparation
+                thresholds = ['5% Loss', '10% Loss', '15% Loss']
+                raw_rates = [raw_5pct, raw_10pct, raw_15pct]
+                filtered_rates = [filt_5pct, filt_10pct, filt_15pct]
+                raw_counts = [rm.users_losing_5pct, rm.users_losing_10pct, rm.users_losing_15pct]
+                filt_counts = [fm.users_losing_5pct, fm.users_losing_10pct, fm.users_losing_15pct]
+
+                x = np.arange(len(thresholds))
+                width = 0.35
+
+                # Create bars
+                rects1 = ax.bar(x - width/2, raw_rates, width, label='Raw Data',
+                               color='#E74C3C', alpha=0.8, edgecolor='black', linewidth=1.5)
+                rects2 = ax.bar(x + width/2, filtered_rates, width, label='Filtered Data',
+                               color='#2ECC71', alpha=0.8, edgecolor='black', linewidth=1.5)
+
+                # Add value labels with counts
+                for i, (rect1, rect2) in enumerate(zip(rects1, rects2)):
+                    # Raw data labels
+                    height1 = rect1.get_height()
+                    ax.annotate(f'{height1:.1f}%\n({raw_counts[i]})',
+                               xy=(rect1.get_x() + rect1.get_width() / 2, height1),
+                               xytext=(0, 3),
+                               textcoords="offset points",
+                               ha='center', va='bottom', fontweight='bold', fontsize=10)
+                    # Filtered data labels
+                    height2 = rect2.get_height()
+                    ax.annotate(f'{height2:.1f}%\n({filt_counts[i]})',
+                               xy=(rect2.get_x() + rect2.get_width() / 2, height2),
+                               xytext=(0, 3),
+                               textcoords="offset points",
+                               ha='center', va='bottom', fontweight='bold', fontsize=10)
+
+                ax.set_xlabel('Weight Loss Threshold', fontsize=12)
+                ax.set_ylabel('Success Rate (%)', fontsize=12)
+                ax.set_title('Clinical Success Rates - 90+ Day Users', fontsize=14, fontweight='bold')
+                ax.set_xticks(x)
+                ax.set_xticklabels(thresholds)
+                ax.legend(loc='upper right')
+                ax.grid(axis='y', alpha=0.3)
+
+            plt.tight_layout()
+            chart_path = output_dir / 'quarterly_success_rates.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating quarterly success rates chart: {e}")
+            return ""
+
+    def generate_user_analysis_histograms(self, metrics: Dict[str, Any], raw_data: Dict[str, pd.DataFrame],
+                                         filtered_data: Dict[str, pd.DataFrame], output_dir: Path) -> str:
+        """Generate histograms for user removal and outlier rates."""
+        try:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+            # Calculate removal and outlier rates for all users
+            removal_rates = []
+            outlier_rates = []
+
+            for user_id in raw_data.keys():
+                raw_count = len(raw_data[user_id])
+                filt_count = len(filtered_data.get(user_id, []))
+                removal_rate = ((raw_count - filt_count) / raw_count * 100) if raw_count > 0 else 0
+                removal_rates.append(removal_rate)
+                outlier_rates.append(removal_rate)  # Same as removal rate in this context
+
+            # Removal Rate Histogram
+            ax1.hist(removal_rates, bins=20, color='#E74C3C', alpha=0.7,
+                    edgecolor='black', linewidth=1.2)
+            ax1.axvline(np.mean(removal_rates), color='red', linestyle='dashed',
+                       linewidth=2, label=f'Mean: {np.mean(removal_rates):.1f}%')
+            ax1.set_xlabel('Removal Rate (%)', fontsize=11)
+            ax1.set_ylabel('Number of Users', fontsize=11)
+            ax1.set_title('Distribution of Removal Rates', fontsize=12, fontweight='bold')
+            ax1.legend()
+            ax1.grid(axis='y', alpha=0.3)
+
+            # Outlier Rate Histogram
+            ax2.hist(outlier_rates, bins=20, color='#F39C12', alpha=0.7,
+                    edgecolor='black', linewidth=1.2)
+            ax2.axvline(np.mean(outlier_rates), color='orange', linestyle='dashed',
+                       linewidth=2, label=f'Mean: {np.mean(outlier_rates):.1f}%')
+            ax2.set_xlabel('Outlier Rate (%)', fontsize=11)
+            ax2.set_ylabel('Number of Users', fontsize=11)
+            ax2.set_title('Distribution of Outlier Rates', fontsize=12, fontweight='bold')
+            ax2.legend()
+            ax2.grid(axis='y', alpha=0.3)
+
+            plt.suptitle('User-Level Data Quality Analysis', fontsize=14, fontweight='bold')
+            plt.tight_layout()
+            chart_path = output_dir / 'user_analysis_histograms.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating user analysis histograms: {e}")
+            return ""
+
+    def generate_data_quality_summary_chart(self, metrics: Dict[str, Any], output_dir: Path) -> str:
+        """Generate data quality improvements summary visualization."""
+        try:
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            if 'aggregate' in metrics:
+                agg = metrics['aggregate']
+
+                # Prepare data
+                categories = ['Outliers\nDetected', 'Daily Volatility\nReduction (kg)',
+                             'Impossible\nChanges']
+                values = [
+                    agg.get('outlier_summary', {}).get('total_outliers', 0) / 100,  # Scale for visibility
+                    agg.get('temporal_summary', {}).get('avg_daily_volatility', 0) * 10,  # Scale up
+                    agg.get('temporal_summary', {}).get('total_impossible_changes', 0) / 100  # Scale
+                ]
+                actual_values = [
+                    agg.get('outlier_summary', {}).get('total_outliers', 0),
+                    agg.get('temporal_summary', {}).get('avg_daily_volatility', 0),
+                    agg.get('temporal_summary', {}).get('total_impossible_changes', 0)
+                ]
+                colors = ['#E74C3C', '#3498DB', '#F39C12']
+
+                bars = ax.bar(categories, values, color=colors, alpha=0.8,
+                             edgecolor='black', linewidth=1.5)
+
+                # Add actual value labels
+                for bar, actual_val, cat in zip(bars, actual_values, categories):
+                    if 'Volatility' in cat:
+                        label = f'{actual_val:.2f} kg'
+                    else:
+                        label = f'{int(actual_val)}'
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                           label, ha='center', va='bottom', fontweight='bold')
+
+                ax.set_title('Data Quality Improvements Summary', fontsize=14, fontweight='bold')
+                ax.set_ylabel('Scaled Value', fontsize=12)
+                ax.grid(axis='y', alpha=0.3)
+
+            plt.tight_layout()
+            chart_path = output_dir / 'data_quality_summary.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating data quality summary chart: {e}")
+            return ""
+
+    def generate_clinical_impact_chart(self, metrics: Dict[str, Any], output_dir: Path) -> str:
+        """Generate clinical impact visualization."""
+        try:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+            if 'aggregate' in metrics:
+                agg = metrics['aggregate']
+
+                # Direction Errors Chart
+                direction_errors = agg.get('medical_summary', {}).get('total_direction_errors', 0)
+                ax1.bar(['Direction\nErrors\nPrevented'], [direction_errors],
+                       color='#E74C3C', alpha=0.8, edgecolor='black', linewidth=1.5)
+                ax1.set_ylabel('Count', fontsize=11)
+                ax1.set_title('Weight Change Direction Errors Prevented', fontsize=12, fontweight='bold')
+                ax1.text(0, direction_errors + 0.5, f'{int(direction_errors)}',
+                        ha='center', fontweight='bold', fontsize=14)
+                ax1.grid(axis='y', alpha=0.3)
+
+                # Confidence Improvement Chart
+                ci_improvement = agg.get('medical_summary', {}).get('avg_confidence_improvement', 0)
+                ax2.bar(['Confidence\nInterval\nImprovement'], [ci_improvement],
+                       color='#27AE60', alpha=0.8, edgecolor='black', linewidth=1.5)
+                ax2.set_ylabel('Improvement (%)', fontsize=11)
+                ax2.set_title('Measurement Confidence Improvement', fontsize=12, fontweight='bold')
+                ax2.text(0, ci_improvement + 0.1, f'{ci_improvement:.1f}%',
+                        ha='center', fontweight='bold', fontsize=14)
+                ax2.grid(axis='y', alpha=0.3)
+
+            plt.suptitle('Clinical Impact of Filtering', fontsize=14, fontweight='bold')
+            plt.tight_layout()
+            chart_path = output_dir / 'clinical_impact.png'
+            plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+            plt.close()
+
+            return str(chart_path)
+        except Exception as e:
+            logger.error(f"Error generating clinical impact chart: {e}")
+            return ""
+
 
 def main():
     """Main entry point."""
@@ -1020,8 +1725,8 @@ def main():
     quarterly_metrics = runner.run_quarterly_analysis(raw_data, filtered_data, args.employer, filter_users)
     metrics['quarterly'] = quarterly_metrics
 
-    # Generate outputs
-    report_path = runner.generate_report(metrics)
+    # Generate outputs (pass raw_data and filtered_data for generating visualizations)
+    report_path = runner.generate_report(metrics, raw_data, filtered_data)
     json_path = runner.save_metrics_json(metrics)
     csv_path = runner.save_user_metrics_csv(metrics, raw_data, filtered_data)
 

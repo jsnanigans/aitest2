@@ -194,6 +194,101 @@ class QuarterlyVisualizationGenerator:
         logger.info(f"Saved weight loss distribution comparison to {file_path}")
         return str(file_path)
 
+    def create_weight_loss_progression_chart(
+        self,
+        cohort_results: List[CohortAnalysis]
+    ) -> str:
+        """
+        Create a clean, simple chart showing weight loss progression over time.
+        Perfect for embedding in reports.
+
+        Args:
+            cohort_results: List of cohort analysis results for different time points
+
+        Returns:
+            Path to saved visualization
+        """
+        # Create a single, clean figure
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        # Extract data
+        days = [c.day_checkpoint for c in cohort_results]
+        raw_means = [c.raw_mean_loss_pct for c in cohort_results]
+        filtered_means = [c.filtered_mean_loss_pct for c in cohort_results]
+
+        # Plot lines with markers
+        ax.plot(days, raw_means, 'o-', label='Raw Data',
+                color='#808080', linewidth=2.5, markersize=8, alpha=0.8)
+        ax.plot(days, filtered_means, 's-', label='Filtered Data',
+                color='#1f77b4', linewidth=2.5, markersize=8)
+
+        # Fill area between lines to show improvement
+        ax.fill_between(days, raw_means, filtered_means,
+                       where=[f >= r for f, r in zip(filtered_means, raw_means)],
+                       interpolate=True, alpha=0.2, color='#2ca02c',
+                       label='Improvement')
+
+        # Add data labels at each point
+        for i, (day, raw, filt) in enumerate(zip(days, raw_means, filtered_means)):
+            # Raw data labels
+            ax.annotate(f'{raw:.2f}%', xy=(day, raw),
+                       xytext=(0, -15), textcoords='offset points',
+                       ha='center', fontsize=9, color='#808080')
+            # Filtered data labels
+            ax.annotate(f'{filt:.2f}%', xy=(day, filt),
+                       xytext=(0, 10), textcoords='offset points',
+                       ha='center', fontsize=9, color='#1f77b4')
+            # Improvement labels
+            if i % 2 == 0:  # Show improvement every other point to avoid clutter
+                improvement = filt - raw
+                if improvement > 0:
+                    ax.annotate(f'+{improvement:.2f}%', xy=(day, (raw + filt) / 2),
+                               xytext=(0, 0), textcoords='offset points',
+                               ha='center', fontsize=8, color='#2ca02c',
+                               bbox=dict(boxstyle='round,pad=0.3',
+                                       facecolor='white', edgecolor='#2ca02c', alpha=0.8))
+
+        # Styling
+        ax.set_xlabel('Days in Program', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Average Weight Loss (%)', fontsize=12, fontweight='bold')
+        ax.set_title('Weight Loss Progression: Raw vs Filtered Data',
+                    fontsize=14, fontweight='bold', pad=20)
+
+        # Add horizontal reference lines
+        ax.axhline(y=5, color='green', linestyle='--', alpha=0.3, label='5% Target')
+        ax.axhline(y=10, color='blue', linestyle='--', alpha=0.3, label='10% Target')
+
+        # Grid
+        ax.grid(True, alpha=0.2, linestyle='-', linewidth=0.5)
+        ax.set_axisbelow(True)
+
+        # Set y-axis to start from 0
+        ax.set_ylim(bottom=0)
+
+        # Legend
+        ax.legend(loc='upper left', frameon=True, shadow=True,
+                 fancybox=True, framealpha=0.95)
+
+        # Add a text box with key insights
+        textstr = f'Average Improvement: {np.mean([f-r for f,r in zip(filtered_means, raw_means)]):.2f}%\n'
+        textstr += f'Max Improvement: {max([f-r for f,r in zip(filtered_means, raw_means)]):.2f}% at '
+        max_imp_idx = np.argmax([f-r for f,r in zip(filtered_means, raw_means)])
+        textstr += f'{days[max_imp_idx]} days'
+
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+        ax.text(0.98, 0.05, textstr, transform=ax.transAxes, fontsize=10,
+               verticalalignment='bottom', horizontalalignment='right', bbox=props)
+
+        plt.tight_layout()
+
+        # Save figure
+        file_path = self.output_dir / "weight_loss_progression_chart.png"
+        plt.savefig(file_path, dpi=150, bbox_inches='tight')
+        plt.close()
+
+        logger.info(f"Saved weight loss progression chart to {file_path}")
+        return str(file_path)
+
     def create_cohort_progression_analysis(
         self,
         cohort_results: List[CohortAnalysis]

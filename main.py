@@ -7,19 +7,18 @@ Streams CSV data through Kalman filter with minimal state management
 import argparse
 import csv
 import json
+import math
+import os
 import sys
-import tomllib
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-import math
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import os
+
+import tomllib
 
 from src.database.database import get_state_db
 from src.processing.processor import process_measurement
 from src.processing.validation import DataQualityPreprocessor
-
-from src.viz.visualization import create_weight_timeline
 
 
 def load_config(config_path: str = "config.toml") -> dict:
@@ -208,7 +207,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             print("Replay processing enabled")
             print(f"  Buffer window: {replay_config.get('buffer_hours', 72)} hours")
             print(f"  Trigger mode: {replay_config.get('trigger_mode', 'time_based')}")
-            print(f"  Using BufferFactory for instance management")
+            print("  Using BufferFactory for instance management")
         except ImportError as e:
             print(f"Warning: Could not initialize replay processing: {e}")
             replay_enabled = False
@@ -396,14 +395,14 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             # Skip BSA measurements
             if 'BSA' in source.upper() or 'm2' in unit or 'm²' in unit:
                 continue
-            
+
             # Early unit validation - check against whitelist
             from src.constants import SUPPORTED_WEIGHT_UNITS
             if not unit:
                 stats["unit_rejected"] += 1
                 stats["rejected_units"]["<missing>"] = stats["rejected_units"].get("<missing>", 0) + 1
                 continue
-            
+
             unit_lower = unit.lower().strip()
             if unit_lower not in SUPPORTED_WEIGHT_UNITS:
                 stats["unit_rejected"] += 1
@@ -529,7 +528,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     # Final statistics
     elapsed = (datetime.now() - stats["start_time"]).total_seconds()
 
-    print(f"\nProcessing Complete:")
+    print("\nProcessing Complete:")
     print(f"  Total rows: {stats['total_rows']:,}")
     print(f"  Users processed: {len(processed_users):,}")
     if stats["date_filtered"] > 0:
@@ -543,16 +542,16 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     if stats["accepted"] + stats["rejected"] > 0:
         acceptance_rate = stats['accepted'] / (stats['accepted'] + stats['rejected'])
         print(f"  Acceptance rate: {acceptance_rate:.1%}")
-    
+
     # Report rejected units
     if stats.get("rejected_units"):
-        print(f"\nRejected Units Summary:")
+        print("\nRejected Units Summary:")
         for unit, count in sorted(stats["rejected_units"].items(), key=lambda x: x[1], reverse=True)[:10]:
             print(f"  '{unit}': {count:,} measurements")
 
     # Replay processing statistics
     if replay_enabled and stats.get("replay_processed", 0) > 0:
-        print(f"\nReplay Processing:")
+        print("\nReplay Processing:")
         print(f"  Buffers processed: {stats.get('replay_processed', 0):,}")
         print(f"  Measurements analyzed: {stats.get('replay_measurements_analyzed', 0):,}")
         print(f"  Outliers found: {stats.get('replay_outliers_found', 0):,}")
@@ -743,10 +742,9 @@ def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay
         # Try to use enhanced replay processor if available
         enhanced_mode = False
         try:
-            from src.replay.replay_processor import ReplayProcessor
-
             # Get database instance
             from src.database.database import get_state_db
+            from src.replay.replay_processor import ReplayProcessor
             db = get_state_db()
 
             # Create replay processor with config
