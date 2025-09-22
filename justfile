@@ -11,8 +11,11 @@ run:
 create-filtered:
   uv run python main.py data/2025-09-05_nocon.csv --max-users 0 --no-viz --filtered-output data/2025-09-05_nocon_filtered.csv
 
+create-filtered-all:
+  uv run python main.py data/2025-09-05_all.csv --max-users 0 --no-viz --filtered-output data/2025-09-05_all_filtered.csv
+
 report:
-  cd create-report && uv run python run_analysis.py --employer APPLE_EMPLOYER --limit 0
+  cd create-report && uv run python run.py --employer APPLE_EMPLOYER --visualize
 
 # Run with a specific data file
 run-file file:
