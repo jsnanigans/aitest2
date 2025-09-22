@@ -757,12 +757,13 @@ class FilteringVisualizationGenerator:
         cohort_raw: Dict[str, pd.DataFrame],
         cohort_filtered: Dict[str, pd.DataFrame]
     ) -> Optional[str]:
-        """Create 2D density map of outliers in time-magnitude space."""
+        """Create improved outlier analysis visualization."""
         try:
-            fig, ax = plt.subplots(figsize=(14, 8))
+            fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-            outlier_times = []
-            outlier_magnitudes = []
+            # Collect outlier data
+            outlier_data = []
+            source_outlier_rates = {}
 
             for user_id in cohort_raw:
                 raw_df = cohort_raw[user_id]
@@ -771,70 +772,148 @@ class FilteringVisualizationGenerator:
                 if raw_df.empty:
                     continue
 
-                # Calculate baseline (median of filtered data)
-                if not filtered_df.empty:
-                    baseline = np.median(filtered_df['weight'].values)
-                else:
-                    baseline = np.median(raw_df['weight'].values)
-
                 # Find outliers
                 if not filtered_df.empty:
-                    raw_set = set(zip(raw_df['timestamp'], raw_df['weight']))
-                    filtered_set = set(zip(filtered_df['timestamp'], filtered_df['weight']))
-                    outliers = list(raw_set - filtered_set)
+                    raw_set = set(raw_df['timestamp'])
+                    filtered_set = set(filtered_df['timestamp'])
+                    outlier_timestamps = list(raw_set - filtered_set)
 
-                    for ts, weight in outliers:
-                        # Convert timestamp to days from start
-                        days_from_start = (ts - raw_df['timestamp'].min()).total_seconds() / 86400
-                        magnitude = weight - baseline
+                    for ts in outlier_timestamps:
+                        outlier_row = raw_df[raw_df['timestamp'] == ts].iloc[0]
 
-                        outlier_times.append(days_from_start)
-                        outlier_magnitudes.append(magnitude)
+                        # Calculate deviation from rolling median
+                        window = raw_df[
+                            (raw_df['timestamp'] >= ts - pd.Timedelta(days=7)) &
+                            (raw_df['timestamp'] <= ts + pd.Timedelta(days=7))
+                        ]['weight']
 
-            if outlier_times and outlier_magnitudes:
-                # Create hexbin plot
-                hexbin = ax.hexbin(
-                    outlier_times,
-                    outlier_magnitudes,
-                    gridsize=30,
-                    cmap='YlOrRd',
-                    mincnt=1
-                )
+                        if len(window) > 1:
+                            median_weight = window.median()
+                            deviation = outlier_row['weight'] - median_weight
 
-                cb = plt.colorbar(hexbin, ax=ax)
-                cb.set_label('Outlier Count', rotation=270, labelpad=20)
+                            outlier_data.append({
+                                'user_id': user_id,
+                                'timestamp': ts,
+                                'weight': outlier_row['weight'],
+                                'deviation': deviation,
+                                'source': outlier_row.get('source', 'unknown')
+                            })
 
-                # Add reference lines
-                ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-                ax.axhline(y=10, color='red', linestyle='--', alpha=0.5, label='±10kg threshold')
-                ax.axhline(y=-10, color='red', linestyle='--', alpha=0.5)
+                            # Track source statistics
+                            source = outlier_row.get('source', 'unknown')
+                            if source not in source_outlier_rates:
+                                source_outlier_rates[source] = {'outliers': 0, 'total': 0}
+                            source_outlier_rates[source]['outliers'] += 1
 
-                ax.set_xlabel('Days from Start', fontsize=12)
-                ax.set_ylabel('Deviation from Baseline (kg)', fontsize=12)
-                ax.set_title('Outlier Clustering in Time-Magnitude Space', fontsize=14, fontweight='bold')
-                ax.legend()
-                ax.grid(True, alpha=0.3)
+                # Count total by source
+                if 'source' in raw_df.columns:
+                    for source in raw_df['source'].unique():
+                        if source not in source_outlier_rates:
+                            source_outlier_rates[source] = {'outliers': 0, 'total': 0}
+                        source_outlier_rates[source]['total'] += len(raw_df[raw_df['source'] == source])
 
-                # Add summary statistics
-                stats_text = f"Total Outliers: {len(outlier_times)}\n" \
-                            f"Mean Magnitude: {np.mean(np.abs(outlier_magnitudes)):.1f}kg\n" \
-                            f"Max Deviation: {np.max(np.abs(outlier_magnitudes)):.1f}kg"
+            if not outlier_data:
+                plt.close()
+                return None
 
-                ax.text(0.02, 0.98, stats_text, transform=ax.transAxes,
-                       fontsize=10, verticalalignment='top',
-                       bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+            outlier_df = pd.DataFrame(outlier_data)
 
+            # 1. Distribution of outlier magnitudes
+            ax1 = axes[0, 0]
+            ax1.hist(np.abs(outlier_df['deviation']), bins=30, color=self.colors['outlier'], alpha=0.7, edgecolor='black')
+            ax1.set_xlabel('Absolute Deviation (kg)', fontsize=11)
+            ax1.set_ylabel('Count', fontsize=11)
+            ax1.set_title('Distribution of Outlier Magnitudes', fontsize=12)
+            ax1.axvline(x=5, color='orange', linestyle='--', alpha=0.5, label='5kg threshold')
+            ax1.axvline(x=10, color='red', linestyle='--', alpha=0.5, label='10kg threshold')
+            ax1.legend()
+            ax1.grid(True, alpha=0.3)
+
+            # 2. Outlier rate by data source
+            ax2 = axes[0, 1]
+            if source_outlier_rates:
+                sources = list(source_outlier_rates.keys())
+                rates = [source_outlier_rates[s]['outliers'] / source_outlier_rates[s]['total'] * 100
+                        if source_outlier_rates[s]['total'] > 0 else 0 for s in sources]
+
+                # Sort by rate
+                sorted_pairs = sorted(zip(sources, rates), key=lambda x: x[1], reverse=True)
+                sources, rates = zip(*sorted_pairs) if sorted_pairs else ([], [])
+
+                bars = ax2.barh(range(len(sources)), rates)
+                ax2.set_yticks(range(len(sources)))
+                ax2.set_yticklabels(sources, fontsize=9)
+                ax2.set_xlabel('Outlier Rate (%)', fontsize=11)
+                ax2.set_title('Outlier Rate by Data Source', fontsize=12)
+
+                # Color bars by rate
+                for bar, rate in zip(bars, rates):
+                    if rate > 20:
+                        bar.set_color(self.colors['outlier'])
+                    elif rate > 10:
+                        bar.set_color(self.colors['warning'])
+                    else:
+                        bar.set_color(self.colors['good'])
+
+                # Add value labels
+                for i, (bar, rate) in enumerate(zip(bars, rates)):
+                    ax2.text(rate + 0.5, bar.get_y() + bar.get_height()/2,
+                            f'{rate:.1f}%', va='center', fontsize=9)
+
+            # 3. Temporal distribution of outliers
+            ax3 = axes[1, 0]
+            # Group by week
+            outlier_df['week'] = pd.to_datetime(outlier_df['timestamp']).dt.to_period('W')
+            weekly_counts = outlier_df.groupby('week').size()
+
+            if len(weekly_counts) > 0:
+                ax3.bar(range(len(weekly_counts)), weekly_counts.values,
+                       color=self.colors['outlier'], alpha=0.7)
+                ax3.set_xlabel('Week Number', fontsize=11)
+                ax3.set_ylabel('Outlier Count', fontsize=11)
+                ax3.set_title('Temporal Distribution of Outliers', fontsize=12)
+                ax3.grid(True, alpha=0.3, axis='y')
+
+            # 4. Summary statistics
+            ax4 = axes[1, 1]
+            ax4.axis('off')
+
+            total_measurements = sum(len(df) for df in cohort_raw.values())
+            total_outliers = len(outlier_df)
+            outlier_rate = total_outliers / total_measurements * 100 if total_measurements > 0 else 0
+
+            stats_text = f"""Outlier Analysis Summary
+{'='*30}
+
+Total Measurements: {total_measurements:,}
+Total Outliers: {total_outliers:,}
+Overall Outlier Rate: {outlier_rate:.2f}%
+
+Deviation Statistics:
+Mean Absolute Deviation: {np.abs(outlier_df['deviation']).mean():.2f} kg
+Median Absolute Deviation: {np.abs(outlier_df['deviation']).median():.2f} kg
+Max Deviation: {np.abs(outlier_df['deviation']).max():.2f} kg
+
+Impact:
+Users Affected: {outlier_df['user_id'].nunique()}
+Avg Outliers per Affected User: {total_outliers / outlier_df['user_id'].nunique():.1f}"""
+
+            ax4.text(0.1, 0.9, stats_text, transform=ax4.transAxes,
+                   fontsize=10, verticalalignment='top', fontfamily='monospace',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+            plt.suptitle('Outlier Analysis: Characteristics and Distribution', fontsize=14, fontweight='bold')
             plt.tight_layout()
 
             # Save figure
-            file_path = self.output_dir / "outlier_clustering_map.png"
+            file_path = self.output_dir / "outlier_analysis.png"
             plt.savefig(file_path, dpi=150, bbox_inches='tight')
             plt.close()
 
             return str(file_path)
 
         except Exception as e:
-            logger.error(f"Error creating outlier map: {e}")
+            logger.error(f"Error creating outlier analysis: {e}")
             plt.close()
             return None
 
@@ -942,88 +1021,320 @@ class FilteringVisualizationGenerator:
         cohort_raw: Dict[str, pd.DataFrame],
         cohort_filtered: Dict[str, pd.DataFrame]
     ) -> Optional[str]:
-        """Create trajectory fan plot showing individual and average trajectories."""
+        """Create improved trajectory comparison with focus on key time points."""
         try:
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+            fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
-            # Plot raw trajectories
-            self._plot_trajectories(ax1, cohort_raw, "Raw Data Trajectories", self.colors['raw'])
+            # 1. Side-by-side comparison with limited time range (0-180 days)
+            ax1 = axes[0, 0]
+            self._plot_trajectories_limited(ax1, cohort_raw, cohort_filtered,
+                                          max_days=180, title="0-180 Day Trajectories")
 
-            # Plot filtered trajectories
-            self._plot_trajectories(ax2, cohort_filtered, "Filtered Data Trajectories", self.colors['filtered'])
+            # 2. Difference plot showing filtering impact
+            ax2 = axes[0, 1]
+            self._plot_trajectory_difference(ax2, cohort_raw, cohort_filtered)
 
-            fig.suptitle('Weight Loss Trajectories: Raw vs Filtered', fontsize=16, fontweight='bold')
+            # 3. Success rate over time
+            ax3 = axes[1, 0]
+            self._plot_success_rate_progression(ax3, cohort_raw, cohort_filtered)
+
+            # 4. Distribution at key checkpoints
+            ax4 = axes[1, 1]
+            self._plot_checkpoint_distributions(ax4, cohort_raw, cohort_filtered)
+
+            fig.suptitle('Weight Loss Trajectory Analysis: Impact of Filtering', fontsize=16, fontweight='bold')
             plt.tight_layout()
 
             # Save figure
-            file_path = self.output_dir / "trajectory_fans.png"
+            file_path = self.output_dir / "trajectory_analysis.png"
             plt.savefig(file_path, dpi=150, bbox_inches='tight')
             plt.close()
 
             return str(file_path)
 
         except Exception as e:
-            logger.error(f"Error creating trajectory fans: {e}")
+            logger.error(f"Error creating trajectory analysis: {e}")
             plt.close()
             return None
 
-    def _plot_trajectories(self, ax, cohort_data: Dict[str, pd.DataFrame], title: str, color: str):
-        """Helper to plot trajectories on given axis."""
-        all_trajectories = []
+    def _plot_trajectories_limited(self, ax, cohort_raw: Dict[str, pd.DataFrame],
+                                  cohort_filtered: Dict[str, pd.DataFrame],
+                                  max_days: int = 180, title: str = "Trajectory Comparison"):
+        """Plot trajectories with limited time range for better visibility."""
 
-        for user_id in cohort_data:
-            df = cohort_data[user_id]
-            if df.empty or len(df) < 2:
-                continue
+        # Calculate mean trajectories for both datasets
+        def get_mean_trajectory(cohort_data, color, label_prefix):
+            all_trajectories = []
 
-            sorted_df = df.sort_values('timestamp')
+            for user_id in cohort_data:
+                df = cohort_data[user_id]
+                if df.empty or len(df) < 2:
+                    continue
 
-            # Normalize to percentage change from baseline
-            baseline = sorted_df['weight'].iloc[0]
-            if baseline > 0:
-                days = (sorted_df['timestamp'] - sorted_df['timestamp'].min()).dt.total_seconds() / 86400
-                pct_change = ((sorted_df['weight'] - baseline) / baseline) * 100
+                sorted_df = df.sort_values('timestamp')
+                baseline = sorted_df['weight'].iloc[0]
+                if baseline > 0:
+                    days = (sorted_df['timestamp'] - sorted_df['timestamp'].min()).dt.total_seconds() / 86400
+                    # Limit to max_days
+                    mask = days <= max_days
+                    days = days[mask]
+                    weights = sorted_df['weight'].values[mask]
 
-                # Plot individual trajectory
-                ax.plot(days, pct_change, alpha=0.1, color=color, linewidth=0.5)
+                    if len(days) > 1:
+                        pct_change = ((weights - baseline) / baseline) * 100
+                        all_trajectories.append((days.values, pct_change))
 
-                # Store for average calculation
-                all_trajectories.append((days.values, pct_change.values))
+            if all_trajectories:
+                # Create common time grid
+                time_grid = np.linspace(0, max_days, 50)
+                interpolated = []
 
-        # Calculate and plot average trajectory
-        if all_trajectories:
-            # Create common time grid
-            max_days = max(traj[0][-1] for traj in all_trajectories)
-            time_grid = np.linspace(0, max_days, 100)
+                for days, pct in all_trajectories:
+                    if len(days) > 1:
+                        interp_pct = np.interp(time_grid, days, pct)
+                        interpolated.append(interp_pct)
 
-            # Interpolate all trajectories to common grid
-            interpolated = []
-            for days, pct in all_trajectories:
-                if len(days) > 1:
-                    interp_pct = np.interp(time_grid, days, pct)
-                    interpolated.append(interp_pct)
+                if interpolated:
+                    mean_trajectory = np.mean(interpolated, axis=0)
+                    std_trajectory = np.std(interpolated, axis=0)
+                    sem_trajectory = std_trajectory / np.sqrt(len(interpolated))
 
-            if interpolated:
-                # Calculate mean and confidence interval
-                mean_trajectory = np.mean(interpolated, axis=0)
-                std_trajectory = np.std(interpolated, axis=0)
+                    # Plot mean with SEM (standard error)
+                    ax.plot(time_grid, mean_trajectory, color=color, linewidth=2.5,
+                           label=f'{label_prefix} (n={len(interpolated)})')
+                    ax.fill_between(time_grid,
+                                  mean_trajectory - 1.96 * sem_trajectory,
+                                  mean_trajectory + 1.96 * sem_trajectory,
+                                  color=color, alpha=0.3)
 
-                # Plot mean with confidence band
-                ax.plot(time_grid, mean_trajectory, color=color, linewidth=3,
-                       label=f'Mean (n={len(interpolated)})')
-                ax.fill_between(time_grid,
-                               mean_trajectory - 1.96 * std_trajectory,
-                               mean_trajectory + 1.96 * std_trajectory,
-                               color=color, alpha=0.2, label='95% CI')
+                    return time_grid, mean_trajectory
+            return None, None
+
+        # Plot both trajectories
+        get_mean_trajectory(cohort_raw, self.colors['raw'], 'Raw')
+        get_mean_trajectory(cohort_filtered, self.colors['filtered'], 'Filtered')
 
         ax.set_xlabel('Days from Start', fontsize=12)
         ax.set_ylabel('Weight Change (%)', fontsize=12)
         ax.set_title(title, fontsize=12)
-        ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-        ax.axhline(y=-5, color='green', linestyle='--', alpha=0.5, label='5% loss')
-        ax.axhline(y=-10, color='green', linestyle='--', alpha=0.7, label='10% loss')
-        ax.legend()
+        ax.axhline(y=0, color='black', linestyle='-', alpha=0.5)
+        ax.axhline(y=-5, color='green', linestyle='--', alpha=0.5, label='5% loss target')
+        ax.axhline(y=-10, color='blue', linestyle='--', alpha=0.5, label='10% loss target')
+        ax.legend(loc='best')
         ax.grid(True, alpha=0.3)
+        ax.set_xlim(0, max_days)
+
+    def _plot_trajectory_difference(self, ax, cohort_raw: Dict[str, pd.DataFrame],
+                                   cohort_filtered: Dict[str, pd.DataFrame]):
+        """Plot the difference between raw and filtered trajectories."""
+
+        checkpoints = [30, 60, 90, 120, 150, 180]
+        raw_means = []
+        filtered_means = []
+
+        for checkpoint in checkpoints:
+            raw_values = []
+            filtered_values = []
+
+            for user_id in cohort_raw:
+                if user_id not in cohort_filtered:
+                    continue
+
+                raw_df = cohort_raw[user_id]
+                filtered_df = cohort_filtered[user_id]
+
+                if raw_df.empty or filtered_df.empty:
+                    continue
+
+                # Get weight change at checkpoint for raw data
+                raw_sorted = raw_df.sort_values('timestamp')
+                days = (raw_sorted['timestamp'] - raw_sorted['timestamp'].min()).dt.total_seconds() / 86400
+
+                # Find measurement closest to checkpoint
+                idx = np.argmin(np.abs(days - checkpoint))
+                if abs(days.iloc[idx] - checkpoint) < 15:  # Within 15 days
+                    baseline = raw_sorted['weight'].iloc[0]
+                    if baseline > 0:
+                        pct_change = ((raw_sorted['weight'].iloc[idx] - baseline) / baseline) * 100
+                        raw_values.append(pct_change)
+
+                # Get weight change at checkpoint for filtered data
+                filtered_sorted = filtered_df.sort_values('timestamp')
+                days = (filtered_sorted['timestamp'] - filtered_sorted['timestamp'].min()).dt.total_seconds() / 86400
+
+                if len(days) > 0:
+                    idx = np.argmin(np.abs(days - checkpoint))
+                    if abs(days.iloc[idx] - checkpoint) < 15:
+                        baseline = filtered_sorted['weight'].iloc[0]
+                        if baseline > 0:
+                            pct_change = ((filtered_sorted['weight'].iloc[idx] - baseline) / baseline) * 100
+                            filtered_values.append(pct_change)
+
+            raw_means.append(np.mean(raw_values) if raw_values else 0)
+            filtered_means.append(np.mean(filtered_values) if filtered_values else 0)
+
+        # Plot difference
+        differences = [f - r for r, f in zip(raw_means, filtered_means)]
+
+        bars = ax.bar(checkpoints, differences, width=20,
+                      color=[self.colors['good'] if d < 0 else self.colors['warning'] for d in differences])
+
+        ax.set_xlabel('Days in Program', fontsize=12)
+        ax.set_ylabel('Difference in Mean Weight Loss (%)', fontsize=12)
+        ax.set_title('Filtering Impact on Weight Loss (Filtered - Raw)', fontsize=12)
+        ax.axhline(y=0, color='black', linestyle='-', alpha=0.5)
+        ax.grid(True, alpha=0.3, axis='y')
+
+        # Add value labels
+        for bar, diff in zip(bars, differences):
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                   f'{diff:.1f}%', ha='center', va='bottom' if height > 0 else 'top')
+
+    def _plot_success_rate_progression(self, ax, cohort_raw: Dict[str, pd.DataFrame],
+                                      cohort_filtered: Dict[str, pd.DataFrame]):
+        """Plot success rate progression over time."""
+
+        checkpoints = [30, 60, 90, 120, 150, 180]
+        thresholds = [5, 10]  # 5% and 10% weight loss
+
+        results = {threshold: {'raw': [], 'filtered': []} for threshold in thresholds}
+
+        for checkpoint in checkpoints:
+            for threshold in thresholds:
+                # Count successes for raw data
+                raw_success = 0
+                raw_total = 0
+
+                for user_id in cohort_raw:
+                    raw_df = cohort_raw[user_id]
+                    if raw_df.empty:
+                        continue
+
+                    raw_sorted = raw_df.sort_values('timestamp')
+                    days = (raw_sorted['timestamp'] - raw_sorted['timestamp'].min()).dt.total_seconds() / 86400
+
+                    # Find measurement closest to checkpoint
+                    if len(days) > 0:
+                        idx = np.argmin(np.abs(days - checkpoint))
+                        if abs(days.iloc[idx] - checkpoint) < 15:  # Within 15 days
+                            baseline = raw_sorted['weight'].iloc[0]
+                            if baseline > 0:
+                                pct_change = ((raw_sorted['weight'].iloc[idx] - baseline) / baseline) * 100
+                                raw_total += 1
+                                if pct_change <= -threshold:
+                                    raw_success += 1
+
+                # Count successes for filtered data
+                filtered_success = 0
+                filtered_total = 0
+
+                for user_id in cohort_filtered:
+                    filtered_df = cohort_filtered[user_id]
+                    if filtered_df.empty:
+                        continue
+
+                    filtered_sorted = filtered_df.sort_values('timestamp')
+                    days = (filtered_sorted['timestamp'] - filtered_sorted['timestamp'].min()).dt.total_seconds() / 86400
+
+                    if len(days) > 0:
+                        idx = np.argmin(np.abs(days - checkpoint))
+                        if abs(days.iloc[idx] - checkpoint) < 15:
+                            baseline = filtered_sorted['weight'].iloc[0]
+                            if baseline > 0:
+                                pct_change = ((filtered_sorted['weight'].iloc[idx] - baseline) / baseline) * 100
+                                filtered_total += 1
+                                if pct_change <= -threshold:
+                                    filtered_success += 1
+
+                results[threshold]['raw'].append(
+                    (raw_success / raw_total * 100) if raw_total > 0 else 0
+                )
+                results[threshold]['filtered'].append(
+                    (filtered_success / filtered_total * 100) if filtered_total > 0 else 0
+                )
+
+        # Plot success rates
+        for threshold, color in zip(thresholds, ['green', 'blue']):
+            ax.plot(checkpoints, results[threshold]['raw'], 'o--',
+                   color=color, alpha=0.5, label=f'{threshold}% Loss (Raw)')
+            ax.plot(checkpoints, results[threshold]['filtered'], 's-',
+                   color=color, label=f'{threshold}% Loss (Filtered)')
+
+        ax.set_xlabel('Days in Program', fontsize=12)
+        ax.set_ylabel('Success Rate (%)', fontsize=12)
+        ax.set_title('Clinical Success Rates Over Time', fontsize=12)
+        ax.legend(loc='best')
+        ax.grid(True, alpha=0.3)
+        ax.set_xlim(20, 190)
+
+    def _plot_checkpoint_distributions(self, ax, cohort_raw: Dict[str, pd.DataFrame],
+                                     cohort_filtered: Dict[str, pd.DataFrame]):
+        """Plot weight change distributions at key checkpoints."""
+
+        checkpoint_day = 90  # Focus on 90-day checkpoint
+
+        raw_values = []
+        filtered_values = []
+
+        for user_id in cohort_raw:
+            raw_df = cohort_raw[user_id]
+            if raw_df.empty:
+                continue
+
+            raw_sorted = raw_df.sort_values('timestamp')
+            days = (raw_sorted['timestamp'] - raw_sorted['timestamp'].min()).dt.total_seconds() / 86400
+
+            # Find measurement closest to 90 days
+            if len(days) > 0:
+                idx = np.argmin(np.abs(days - checkpoint_day))
+                if abs(days.iloc[idx] - checkpoint_day) < 15:  # Within 15 days
+                    baseline = raw_sorted['weight'].iloc[0]
+                    if baseline > 0:
+                        pct_change = ((raw_sorted['weight'].iloc[idx] - baseline) / baseline) * 100
+                        raw_values.append(pct_change)
+
+        for user_id in cohort_filtered:
+            filtered_df = cohort_filtered[user_id]
+            if filtered_df.empty:
+                continue
+
+            filtered_sorted = filtered_df.sort_values('timestamp')
+            days = (filtered_sorted['timestamp'] - filtered_sorted['timestamp'].min()).dt.total_seconds() / 86400
+
+            if len(days) > 0:
+                idx = np.argmin(np.abs(days - checkpoint_day))
+                if abs(days.iloc[idx] - checkpoint_day) < 15:
+                    baseline = filtered_sorted['weight'].iloc[0]
+                    if baseline > 0:
+                        pct_change = ((filtered_sorted['weight'].iloc[idx] - baseline) / baseline) * 100
+                        filtered_values.append(pct_change)
+
+        # Create violin plot
+        parts = ax.violinplot([raw_values, filtered_values], positions=[1, 2],
+                             widths=0.6, showmeans=True, showmedians=True)
+
+        # Customize colors
+        colors = [self.colors['raw'], self.colors['filtered']]
+        for pc, color in zip(parts['bodies'], colors):
+            pc.set_facecolor(color)
+            pc.set_alpha(0.7)
+
+        ax.set_xticks([1, 2])
+        ax.set_xticklabels(['Raw', 'Filtered'])
+        ax.set_ylabel('Weight Change (%)', fontsize=12)
+        ax.set_title(f'Weight Change Distribution at Day {checkpoint_day}', fontsize=12)
+        ax.axhline(y=0, color='black', linestyle='-', alpha=0.5)
+        ax.axhline(y=-5, color='green', linestyle='--', alpha=0.5)
+        ax.axhline(y=-10, color='blue', linestyle='--', alpha=0.5)
+        ax.grid(True, alpha=0.3, axis='y')
+
+        # Add statistics
+        if raw_values and filtered_values:
+            stats_text = f"Raw: μ={np.mean(raw_values):.1f}%, σ={np.std(raw_values):.1f}%\n"
+            stats_text += f"Filtered: μ={np.mean(filtered_values):.1f}%, σ={np.std(filtered_values):.1f}%"
+            ax.text(0.02, 0.98, stats_text, transform=ax.transAxes,
+                   verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
     def _create_impact_dashboard(self, cohort_metrics: Dict[str, Any]) -> Optional[str]:
         """Create dashboard showing medical and reporting impact."""

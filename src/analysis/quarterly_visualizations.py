@@ -70,23 +70,27 @@ class QuarterlyVisualizationGenerator:
             results_df['filtered_loss_pct'].dropna()
         ]
 
-        bp = ax1.boxplot(data_to_plot, labels=['Raw', 'Filtered'], patch_artist=True)
+        bp = ax1.boxplot(data_to_plot, labels=['Raw', 'Filtered'], patch_artist=True,
+                        widths=0.6, showfliers=True)
         for patch, color in zip(bp['boxes'], [self.colors['raw'], self.colors['filtered']]):
             patch.set_facecolor(color)
             patch.set_alpha(0.7)
 
-        ax1.set_ylabel('Weight Loss (%)')
-        ax1.set_title('Weight Loss Distribution Comparison (90+ Day Users)')
-        ax1.axhline(y=0, color='gray', linestyle='--', alpha=0.5)
-        ax1.axhline(y=5, color='green', linestyle='--', alpha=0.5, label='5% loss target')
-        ax1.axhline(y=10, color='blue', linestyle='--', alpha=0.5, label='10% loss target')
-        ax1.legend()
+        ax1.set_ylabel('Weight Loss (%)', fontsize=12)
+        ax1.set_title('Weight Loss Distribution (90+ Day Users)', fontsize=13, fontweight='bold')
+        ax1.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
+        ax1.axhline(y=-5, color='green', linestyle='--', alpha=0.5, label='5% loss target')
+        ax1.axhline(y=-10, color='blue', linestyle='--', alpha=0.5, label='10% loss target')
 
         # Add mean values as diamonds
-        ax1.scatter([1], [raw_metrics.mean_weight_loss_pct],
-                   marker='D', s=100, color='darkred', zorder=5, label='Raw Mean')
-        ax1.scatter([2], [filtered_metrics.mean_weight_loss_pct],
-                   marker='D', s=100, color='darkgreen', zorder=5, label='Filtered Mean')
+        ax1.scatter([1], [-raw_metrics.mean_weight_loss_pct],
+                   marker='D', s=150, color='darkred', zorder=5, label='Raw Mean')
+        ax1.scatter([2], [-filtered_metrics.mean_weight_loss_pct],
+                   marker='D', s=150, color='darkgreen', zorder=5, label='Filtered Mean')
+
+        # Invert y-axis so weight loss appears positive
+        ax1.invert_yaxis()
+        ax1.legend(loc='upper right', fontsize=10)
 
         # 2. Violin plot for better distribution visualization
         ax2 = axes[0, 1]
@@ -107,20 +111,29 @@ class QuarterlyVisualizationGenerator:
         ax2.set_title('Weight Loss Distribution Density')
         ax2.axhline(y=0, color='gray', linestyle='--', alpha=0.5)
 
-        # 3. Histogram comparison
+        # 3. Histogram comparison with better binning
         ax3 = axes[1, 0]
-        ax3.hist(results_df['raw_loss_pct'].dropna(), bins=30, alpha=0.5,
-                label='Raw', color=self.colors['raw'], edgecolor='black')
-        ax3.hist(results_df['filtered_loss_pct'].dropna(), bins=30, alpha=0.5,
-                label='Filtered', color=self.colors['filtered'], edgecolor='black')
-        ax3.set_xlabel('Weight Loss (%)')
-        ax3.set_ylabel('Number of Users')
-        ax3.set_title('Weight Loss Distribution Histogram')
-        ax3.legend()
-        ax3.axvline(x=5, color='green', linestyle='--', alpha=0.5)
-        ax3.axvline(x=10, color='blue', linestyle='--', alpha=0.5)
 
-        # 4. Success rate comparison
+        # Create bins that align for both datasets
+        all_data = pd.concat([results_df['raw_loss_pct'].dropna(),
+                              results_df['filtered_loss_pct'].dropna()])
+        bins = np.linspace(all_data.min(), all_data.max(), 25)
+
+        ax3.hist(results_df['raw_loss_pct'].dropna(), bins=bins, alpha=0.5,
+                label=f'Raw (n={len(results_df["raw_loss_pct"].dropna())})',
+                color=self.colors['raw'], edgecolor='black', density=True)
+        ax3.hist(results_df['filtered_loss_pct'].dropna(), bins=bins, alpha=0.5,
+                label=f'Filtered (n={len(results_df["filtered_loss_pct"].dropna())})',
+                color=self.colors['filtered'], edgecolor='black', density=True)
+        ax3.set_xlabel('Weight Loss (%)', fontsize=11)
+        ax3.set_ylabel('Probability Density', fontsize=11)
+        ax3.set_title('Weight Loss Distribution (Normalized)', fontsize=12)
+        ax3.legend()
+        ax3.axvline(x=5, color='green', linestyle='--', alpha=0.5, label='5% target')
+        ax3.axvline(x=10, color='blue', linestyle='--', alpha=0.5, label='10% target')
+        ax3.grid(True, alpha=0.3, axis='y')
+
+        # 4. Success rate comparison with improvement indicators
         ax4 = axes[1, 1]
         success_rates = pd.DataFrame({
             'Raw': [
@@ -135,15 +148,41 @@ class QuarterlyVisualizationGenerator:
             ]
         }, index=['5% Loss', '10% Loss', '15% Loss'])
 
-        success_rates.plot(kind='bar', ax=ax4, color=[self.colors['raw'], self.colors['filtered']])
-        ax4.set_ylabel('Success Rate (%)')
-        ax4.set_title('Clinical Success Rates Comparison')
-        ax4.set_xlabel('Weight Loss Threshold')
-        ax4.set_xticklabels(ax4.get_xticklabels(), rotation=0)
+        x = np.arange(len(success_rates.index))
+        width = 0.35
 
-        # Add value labels on bars
-        for container in ax4.containers:
-            ax4.bar_label(container, fmt='%.1f%%')
+        bars1 = ax4.bar(x - width/2, success_rates['Raw'], width,
+                       label='Raw', color=self.colors['raw'], alpha=0.7)
+        bars2 = ax4.bar(x + width/2, success_rates['Filtered'], width,
+                       label='Filtered', color=self.colors['filtered'], alpha=0.7)
+
+        ax4.set_ylabel('Success Rate (%)', fontsize=11)
+        ax4.set_title('Clinical Success Rates', fontsize=12)
+        ax4.set_xlabel('Weight Loss Threshold', fontsize=11)
+        ax4.set_xticks(x)
+        ax4.set_xticklabels(success_rates.index)
+        ax4.legend()
+        ax4.grid(True, alpha=0.3, axis='y')
+
+        # Add value labels and improvement arrows
+        for bar1, bar2, raw_val, filt_val in zip(bars1, bars2,
+                                                 success_rates['Raw'],
+                                                 success_rates['Filtered']):
+            # Labels
+            ax4.text(bar1.get_x() + bar1.get_width()/2, bar1.get_height() + 1,
+                    f'{raw_val:.1f}%', ha='center', va='bottom', fontsize=9)
+            ax4.text(bar2.get_x() + bar2.get_width()/2, bar2.get_height() + 1,
+                    f'{filt_val:.1f}%', ha='center', va='bottom', fontsize=9)
+
+            # Improvement indicator
+            if filt_val > raw_val:
+                improvement = filt_val - raw_val
+                ax4.annotate('', xy=(bar2.get_x() + bar2.get_width()/2, bar2.get_height() + 5),
+                           xytext=(bar1.get_x() + bar1.get_width()/2, bar1.get_height() + 5),
+                           arrowprops=dict(arrowstyle='->', color='green', lw=1.5))
+                ax4.text((bar1.get_x() + bar2.get_x() + bar2.get_width())/2,
+                        max(bar1.get_height(), bar2.get_height()) + 7,
+                        f'+{improvement:.1f}%', ha='center', fontsize=8, color='green')
 
         plt.tight_layout()
 
@@ -170,6 +209,9 @@ class QuarterlyVisualizationGenerator:
         """
         fig, axes = plt.subplots(2, 3, figsize=(18, 12))
 
+        # Use larger font for better readability
+        plt.rcParams.update({'font.size': 10})
+
         # Extract data for plotting
         days = [c.day_checkpoint for c in cohort_results]
         raw_means = [c.raw_mean_loss_pct for c in cohort_results]
@@ -179,22 +221,38 @@ class QuarterlyVisualizationGenerator:
         raw_10pct = [c.raw_10pct_success_rate for c in cohort_results]
         filtered_10pct = [c.filtered_10pct_success_rate for c in cohort_results]
 
-        # 1. Mean weight loss progression
+        # 1. Mean weight loss progression with improvement highlighting
         ax1 = axes[0, 0]
         ax1.plot(days, raw_means, marker='o', label='Raw',
-                color=self.colors['raw'], linewidth=2, markersize=8)
+                color=self.colors['raw'], linewidth=2.5, markersize=10)
         ax1.plot(days, filtered_means, marker='s', label='Filtered',
-                color=self.colors['filtered'], linewidth=2, markersize=8)
-        ax1.set_xlabel('Days in Program')
-        ax1.set_ylabel('Mean Weight Loss (%)')
-        ax1.set_title('Average Weight Loss Progression Over Time')
-        ax1.legend()
+                color=self.colors['filtered'], linewidth=2.5, markersize=10)
+        ax1.set_xlabel('Days in Program', fontsize=11)
+        ax1.set_ylabel('Mean Weight Loss (%)', fontsize=11)
+        ax1.set_title('Average Weight Loss Progression', fontsize=12, fontweight='bold')
         ax1.grid(True, alpha=0.3)
 
-        # Add difference shading
-        ax1.fill_between(days, raw_means, filtered_means,
-                        where=[f > r for f, r in zip(filtered_means, raw_means)],
-                        color=self.colors['improvement'], alpha=0.2, label='Improvement')
+        # Add difference shading with better visibility
+        for i in range(len(days) - 1):
+            if filtered_means[i] > raw_means[i]:
+                ax1.fill_between([days[i], days[i+1]],
+                               [raw_means[i], raw_means[i+1]],
+                               [filtered_means[i], filtered_means[i+1]],
+                               color=self.colors['improvement'], alpha=0.25)
+
+        # Add value annotations at key points
+        for i, day in enumerate(days):
+            if day in [90, 180]:  # Annotate key checkpoints
+                ax1.annotate(f'{filtered_means[i]:.1f}%',
+                           xy=(day, filtered_means[i]),
+                           xytext=(5, 5), textcoords='offset points',
+                           fontsize=8, color=self.colors['filtered'])
+                ax1.annotate(f'{raw_means[i]:.1f}%',
+                           xy=(day, raw_means[i]),
+                           xytext=(5, -10), textcoords='offset points',
+                           fontsize=8, color=self.colors['raw'])
+
+        ax1.legend(loc='best')
 
         # 2. Success rate progression (5% threshold)
         ax2 = axes[0, 1]
@@ -220,18 +278,26 @@ class QuarterlyVisualizationGenerator:
         ax3.legend()
         ax3.grid(True, alpha=0.3)
 
-        # 4. Difference in mean weight loss
+        # 4. Difference in mean weight loss with value labels
         ax4 = axes[1, 0]
         differences = [c.mean_loss_difference for c in cohort_results]
-        bars = ax4.bar(days, differences, color=[
+        bars = ax4.bar(days, differences, width=15, color=[
             self.colors['improvement'] if d > 0 else self.colors['decline']
             for d in differences
-        ])
-        ax4.set_xlabel('Days in Program')
-        ax4.set_ylabel('Difference in Mean Loss (%)')
-        ax4.set_title('Filtered vs Raw: Mean Weight Loss Difference')
+        ], alpha=0.7, edgecolor='black', linewidth=1)
+        ax4.set_xlabel('Days in Program', fontsize=11)
+        ax4.set_ylabel('Improvement in Mean Loss (%-points)', fontsize=11)
+        ax4.set_title('Data Quality Impact on Weight Loss', fontsize=12)
         ax4.axhline(y=0, color='black', linestyle='-', alpha=0.5)
         ax4.grid(True, alpha=0.3)
+
+        # Add value labels on bars
+        for bar, diff in zip(bars, differences):
+            height = bar.get_height()
+            ax4.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{diff:+.2f}%', ha='center',
+                    va='bottom' if height > 0 else 'top',
+                    fontsize=9, fontweight='bold')
 
         # 5. Data availability comparison
         ax5 = axes[1, 1]
@@ -248,7 +314,7 @@ class QuarterlyVisualizationGenerator:
         ax5.legend()
         ax5.grid(True, alpha=0.3)
 
-        # 6. Standard deviation comparison
+        # 6. Standard deviation comparison with reduction percentages
         ax6 = axes[1, 2]
         raw_stds = [c.raw_std_loss_pct for c in cohort_results]
         filtered_stds = [c.filtered_std_loss_pct for c in cohort_results]
@@ -256,18 +322,26 @@ class QuarterlyVisualizationGenerator:
         x = np.arange(len(days))
         width = 0.35
 
-        ax6.bar(x - width/2, raw_stds, width, label='Raw',
-               color=self.colors['raw'], alpha=0.7)
-        ax6.bar(x + width/2, filtered_stds, width, label='Filtered',
-               color=self.colors['filtered'], alpha=0.7)
+        bars1 = ax6.bar(x - width/2, raw_stds, width, label='Raw',
+                       color=self.colors['raw'], alpha=0.7)
+        bars2 = ax6.bar(x + width/2, filtered_stds, width, label='Filtered',
+                       color=self.colors['filtered'], alpha=0.7)
 
-        ax6.set_xlabel('Days in Program')
-        ax6.set_ylabel('Standard Deviation (%)')
-        ax6.set_title('Weight Loss Variability Over Time')
+        ax6.set_xlabel('Days in Program', fontsize=11)
+        ax6.set_ylabel('Standard Deviation (%)', fontsize=11)
+        ax6.set_title('Measurement Variability Reduction', fontsize=12)
         ax6.set_xticks(x)
         ax6.set_xticklabels(days)
         ax6.legend()
         ax6.grid(True, alpha=0.3)
+
+        # Add reduction percentages
+        for i, (r_std, f_std) in enumerate(zip(raw_stds, filtered_stds)):
+            if r_std > 0:
+                reduction = ((r_std - f_std) / r_std) * 100
+                ax6.text(i, max(r_std, f_std) + 0.5,
+                        f'-{reduction:.0f}%', ha='center',
+                        fontsize=8, color='green' if reduction > 0 else 'red')
 
         plt.tight_layout()
 
@@ -471,10 +545,11 @@ class QuarterlyVisualizationGenerator:
             Path to saved visualization
         """
         fig = plt.figure(figsize=(16, 10))
-        gs = gridspec.GridSpec(3, 3, figure=fig, hspace=0.3, wspace=0.3)
+        gs = gridspec.GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.35)
 
         # Main title
-        fig.suptitle('Quarterly Reporting Impact: Data Filtering Effects', fontsize=16, y=0.98)
+        fig.suptitle('📊 Quarterly Reporting Impact Dashboard: 90+ Day Users',
+                    fontsize=16, y=0.98, fontweight='bold')
 
         # 1. Average weight loss improvement
         ax1 = fig.add_subplot(gs[0, :])

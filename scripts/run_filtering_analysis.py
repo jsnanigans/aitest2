@@ -189,9 +189,15 @@ class FilteringAnalysisRunner:
             if Path(partners_path).exists():
                 logger.info(f"Loading partners data from {partners_path}")
                 df = pd.read_csv(partners_path)
+                # Check for both 'partner' and 'name' columns
                 if 'partner' in df.columns:
                     return df['partner'].tolist()
-            logger.warning(f"Partners file not found or invalid: {partners_path}")
+                elif 'name' in df.columns:
+                    return df['name'].tolist()
+                else:
+                    logger.warning(f"Expected 'partner' or 'name' column not found. Found columns: {df.columns.tolist()}")
+                    return []
+            logger.warning(f"Partners file not found: {partners_path}")
         except Exception as e:
             logger.warning(f"Error loading partners data: {e}")
         return []
@@ -244,23 +250,9 @@ class FilteringAnalysisRunner:
         for user_id, impact_score, removal_rate in top_impacted_users:
             logger.info(f"  User {user_id[:8]}: impact score={impact_score:.3f}, removal rate={removal_rate:.1%}")
 
-        # Individual user visualizations for top impacted users
+        # Skip individual user visualizations - focus on cohort-level insights
         visualization_files = []
-        for user_id, _, _ in top_impacted_users:
-            if user_id in filtered_data:
-                user_metrics = self.analyzer.analyze_user_data(
-                    user_id,
-                    raw_data[user_id],
-                    filtered_data[user_id]
-                )
-
-                files = self.visualizer.generate_user_visualization_suite(
-                    user_id,
-                    raw_data[user_id],
-                    filtered_data[user_id],
-                    user_metrics
-                )
-                visualization_files.extend(files)
+        logger.info("Generating cohort-level visualizations only (per-user graphs disabled)")
 
         # Cohort visualizations
         cohort_files = self.visualizer.generate_cohort_visualization_suite(
@@ -391,6 +383,21 @@ class FilteringAnalysisRunner:
                 f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                 f.write("---\n\n")
 
+                # Analysis Overview
+                f.write("## Analysis Overview\n\n")
+                f.write("This report analyzes the effectiveness of our weight measurement filtering system, which uses "
+                       "Kalman filtering and intelligent outlier detection to improve data quality while preserving "
+                       "clinical validity. The analysis compares raw (unfiltered) weight measurements against filtered "
+                       "data to quantify improvements in data reliability and reporting accuracy.\n\n")
+
+                f.write("### Methodology\n\n")
+                f.write("- **Raw Data**: Original weight measurements from all sources without any filtering\n")
+                f.write("- **Filtered Data**: Measurements processed through our quality pipeline including:\n")
+                f.write("  - Adaptive Kalman filtering for noise reduction\n")
+                f.write("  - Statistical outlier detection (IQR, MAD, temporal consistency)\n")
+                f.write("  - Source-specific reliability weighting\n")
+                f.write("  - Quality score-based acceptance thresholds\n\n")
+
                 # Executive Summary
                 f.write("## Executive Summary\n\n")
 
@@ -405,7 +412,12 @@ class FilteringAnalysisRunner:
                 # Cohort Statistics
                 if 'reporting' in metrics:
                     f.write("## Cohort-Level Impact\n\n")
+
+                    f.write("This section shows how filtering affects cohort-level reporting metrics that are critical "
+                           "for clinical trials and population health studies.\n\n")
+
                     f.write("### Weight Change Statistics\n\n")
+                    f.write("*These metrics show the average weight change across all users in the cohort.*\n\n")
 
                     reporting = metrics['reporting']
                     cohort_dict = reporting.to_dict() if hasattr(reporting, 'to_dict') else {}
@@ -420,6 +432,7 @@ class FilteringAnalysisRunner:
 
                     # Success rates
                     f.write("\n### Clinical Success Rates\n\n")
+                    f.write("*Percentage of users achieving clinically significant weight loss thresholds.*\n\n")
                     f.write("| Threshold | Raw | Filtered | Delta |\n")
                     f.write("|-----------|-----|----------|-------|\n")
 
@@ -436,6 +449,7 @@ class FilteringAnalysisRunner:
 
                     # User inclusion
                     f.write("\n### User Inclusion Impact\n\n")
+                    f.write("*How filtering affects the number of users with valid data for analysis.*\n\n")
                     f.write("| Stage | Raw | Filtered | Change |\n")
                     f.write("|-------|-----|----------|--------|\n")
 
@@ -452,15 +466,20 @@ class FilteringAnalysisRunner:
 
                     # Statistical power
                     f.write("\n### Statistical Power Improvements\n\n")
+                    f.write("*How filtering improves the statistical reliability of analyses.*\n\n")
                     power = cohort_dict.get('power', {})
-                    f.write(f"- **Variance Reduction**: {power.get('variance_reduction', 0):.1%}\n")
-                    f.write(f"- **Effect Size Improvement**: {power.get('effect_size_improvement', 0):.3f}\n")
+                    f.write(f"- **Variance Reduction**: {power.get('variance_reduction', 0):.1%} - Lower variance means more consistent measurements\n")
+                    f.write(f"- **Effect Size Improvement**: {power.get('effect_size_improvement', 0):.3f} - Larger effect sizes are easier to detect statistically\n")
                     f.write("\n")
 
                 # Quarterly Reporting Analysis (90+ Day Users)
                 if 'quarterly' in metrics and metrics['quarterly']:
                     quarterly = metrics['quarterly']
                     f.write("## 📊 QUARTERLY REPORTING ANALYSIS\n\n")
+
+                    f.write("This section analyzes users who have been in the program for 90+ days, which is the standard "
+                           "timeframe for quarterly business reporting and clinical outcome assessment.\n\n")
+
                     f.write("### Key Business Question Answered\n\n")
 
                     if 'filtered_metrics' in quarterly and quarterly['filtered_metrics']:
@@ -485,6 +504,7 @@ class FilteringAnalysisRunner:
 
                         # Data quality impact
                         f.write("### Data Quality Impact\n\n")
+                        f.write("*How many users have usable data for quarterly reporting.*\n\n")
                         f.write(f"- **Eligible Users**: {rm.eligible_users} users with 90+ days in program\n")
                         f.write(f"- **Valid Data (Raw)**: {rm.users_with_valid_endpoint} users ({rm.users_with_valid_endpoint/rm.eligible_users*100:.1f}%)\n")
                         f.write(f"- **Valid Data (Filtered)**: {fm.users_with_valid_endpoint} users ({fm.users_with_valid_endpoint/fm.eligible_users*100:.1f}%)\n")
@@ -563,12 +583,13 @@ class FilteringAnalysisRunner:
                     f.write("\n")
 
                 # Key Findings
-                f.write("## Key Findings\n\n")
+                f.write("## Key Findings & Interpretation\n\n")
 
                 if 'aggregate' in metrics:
                     agg = metrics['aggregate']
 
                     f.write("### Data Quality Improvements\n\n")
+                    f.write("*These metrics show how filtering improves the reliability of weight measurements.*\n\n")
                     f.write(f"1. **Outlier Detection**: Successfully identified and removed "
                            f"{agg.get('outlier_summary', {}).get('total_outliers', 0)} outliers "
                            f"across all users\n")
@@ -579,12 +600,13 @@ class FilteringAnalysisRunner:
                            f"physiologically impossible weight changes\n\n")
 
                     f.write("### Clinical Impact\n\n")
+                    f.write("*How filtering prevents medical misinterpretations and improves clinical decision-making.*\n\n")
                     f.write(f"1. **Direction Errors**: Prevented "
                            f"{agg.get('medical_summary', {}).get('total_direction_errors', 0)} "
-                           f"cases where weight change direction would be misclassified\n")
+                           f"cases where weight change direction would be misclassified (e.g., showing gain instead of loss)\n")
                     f.write(f"2. **Confidence Intervals**: Improved measurement confidence by "
                            f"{agg.get('medical_summary', {}).get('avg_confidence_improvement', 0):.1%} "
-                           f"on average\n\n")
+                           f"on average (tighter confidence bands mean more reliable measurements)\n\n")
 
                 # Visualizations
                 if 'visualizations' in metrics and metrics['visualizations']:
@@ -606,6 +628,12 @@ class FilteringAnalysisRunner:
                 f.write("2. **Source Monitoring**: Pay special attention to data sources with high outlier rates\n")
                 f.write("3. **Threshold Tuning**: Consider adjusting quality thresholds based on source reliability\n")
                 f.write("4. **Regular Validation**: Implement periodic manual review of filtered data\n\n")
+
+                f.write("### How to Interpret These Results\n\n")
+                f.write("- **Higher filtered success rates**: More accurate assessment of true program effectiveness\n")
+                f.write("- **Reduced variance**: More reliable individual measurements and trend detection\n")
+                f.write("- **Improved mean weight loss**: Removal of erroneous measurements reveals true outcomes\n")
+                f.write("- **Better statistical power**: Easier to detect real changes and treatment effects\n\n")
 
                 # Technical Details
                 f.write("## Technical Details\n\n")
@@ -677,6 +705,133 @@ class FilteringAnalysisRunner:
 
         except Exception as e:
             logger.error(f"Error saving metrics JSON: {e}")
+            return ""
+
+    def save_user_metrics_csv(self, metrics: Dict[str, Any], raw_data: Dict[str, pd.DataFrame],
+                             filtered_data: Dict[str, pd.DataFrame]) -> str:
+        """
+        Save per-user analysis results as CSV for further analysis.
+
+        Args:
+            metrics: Analysis metrics
+            raw_data: Raw measurement data by user
+            filtered_data: Filtered measurement data by user
+
+        Returns:
+            Path to saved CSV file
+        """
+        try:
+            # Use configured output directory
+            report_dir = Path(self.config.get('analysis', {}).get('output_dir', 'reports/visualizations'))
+            report_dir.mkdir(parents=True, exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_path = report_dir / f"user_analysis_results_{timestamp}.csv"
+
+            # Build rows for CSV
+            rows = []
+
+            for user_id in raw_data.keys():
+                row = {
+                    'user_id': user_id,
+                    'raw_measurement_count': len(raw_data[user_id]),
+                    'filtered_measurement_count': len(filtered_data.get(user_id, [])),
+                    'removal_rate': 0,
+                    'raw_mean_weight': 0,
+                    'filtered_mean_weight': 0,
+                    'raw_std_weight': 0,
+                    'filtered_std_weight': 0,
+                    'raw_min_weight': 0,
+                    'raw_max_weight': 0,
+                    'filtered_min_weight': 0,
+                    'filtered_max_weight': 0,
+                    'raw_weight_change_pct': 0,
+                    'filtered_weight_change_pct': 0,
+                    'outlier_count': 0,
+                    'outlier_rate': 0,
+                    'data_duration_days': 0,
+                    'raw_daily_volatility': 0,
+                    'filtered_daily_volatility': 0
+                }
+
+                # Calculate metrics for raw data
+                raw_df = raw_data[user_id]
+                if not raw_df.empty:
+                    row['raw_mean_weight'] = raw_df['weight'].mean()
+                    row['raw_std_weight'] = raw_df['weight'].std()
+                    row['raw_min_weight'] = raw_df['weight'].min()
+                    row['raw_max_weight'] = raw_df['weight'].max()
+
+                    # Calculate weight change percentage
+                    if len(raw_df) > 1:
+                        sorted_df = raw_df.sort_values('timestamp')
+                        baseline = sorted_df['weight'].iloc[0]
+                        endpoint = sorted_df['weight'].iloc[-1]
+                        if baseline > 0:
+                            row['raw_weight_change_pct'] = ((endpoint - baseline) / baseline) * 100
+
+                        # Calculate daily volatility
+                        daily_changes = np.diff(sorted_df['weight'].values)
+                        row['raw_daily_volatility'] = np.std(daily_changes) if len(daily_changes) > 0 else 0
+
+                    # Data duration
+                    row['data_duration_days'] = (raw_df['timestamp'].max() - raw_df['timestamp'].min()).days
+
+                # Calculate metrics for filtered data
+                if user_id in filtered_data:
+                    filtered_df = filtered_data[user_id]
+                    if not filtered_df.empty:
+                        row['filtered_mean_weight'] = filtered_df['weight'].mean()
+                        row['filtered_std_weight'] = filtered_df['weight'].std()
+                        row['filtered_min_weight'] = filtered_df['weight'].min()
+                        row['filtered_max_weight'] = filtered_df['weight'].max()
+
+                        # Calculate weight change percentage
+                        if len(filtered_df) > 1:
+                            sorted_df = filtered_df.sort_values('timestamp')
+                            baseline = sorted_df['weight'].iloc[0]
+                            endpoint = sorted_df['weight'].iloc[-1]
+                            if baseline > 0:
+                                row['filtered_weight_change_pct'] = ((endpoint - baseline) / baseline) * 100
+
+                            # Calculate daily volatility
+                            daily_changes = np.diff(sorted_df['weight'].values)
+                            row['filtered_daily_volatility'] = np.std(daily_changes) if len(daily_changes) > 0 else 0
+
+                # Calculate removal metrics
+                row['removal_rate'] = (row['raw_measurement_count'] - row['filtered_measurement_count']) / row['raw_measurement_count'] if row['raw_measurement_count'] > 0 else 0
+                row['outlier_count'] = row['raw_measurement_count'] - row['filtered_measurement_count']
+                row['outlier_rate'] = row['outlier_count'] / row['raw_measurement_count'] if row['raw_measurement_count'] > 0 else 0
+
+                # Add individual user metrics if available
+                if 'users' in metrics:
+                    user_metrics = next((m for m in metrics['users'] if m['user_id'] == user_id), None)
+                    if user_metrics:
+                        # Add additional metrics from the analysis
+                        if 'medical_impact' in user_metrics:
+                            row['direction_errors'] = user_metrics['medical_impact'].get('clinical', {}).get('direction_errors', 0)
+                            row['confidence_improvement'] = user_metrics['medical_impact'].get('confidence', {}).get('ci_reduction', 0)
+
+                        if 'temporal' in user_metrics:
+                            row['impossible_changes'] = user_metrics['temporal'].get('daily_change', {}).get('impossible_count', 0)
+                            row['max_daily_change'] = user_metrics['temporal'].get('daily_change', {}).get('max', 0)
+
+                rows.append(row)
+
+            # Create DataFrame and save to CSV
+            results_df = pd.DataFrame(rows)
+
+            # Sort by removal rate to highlight most impacted users
+            results_df = results_df.sort_values('removal_rate', ascending=False)
+
+            # Save to CSV
+            results_df.to_csv(csv_path, index=False)
+
+            logger.info(f"User metrics CSV saved to {csv_path}")
+            return str(csv_path)
+
+        except Exception as e:
+            logger.error(f"Error saving user metrics CSV: {e}")
             return ""
 
 
@@ -884,11 +1039,13 @@ def main():
     # Generate outputs
     report_path = runner.generate_report(metrics)
     json_path = runner.save_metrics_json(metrics)
+    csv_path = runner.save_user_metrics_csv(metrics, raw_data, filtered_data)
 
     logger.info("=" * 60)
     logger.info("Analysis Complete!")
     logger.info(f"Report: {report_path}")
-    logger.info(f"Metrics: {json_path}")
+    logger.info(f"Metrics (JSON): {json_path}")
+    logger.info(f"User Results (CSV): {csv_path}")
     logger.info(f"Visualizations: {runner.config.get('analysis', {}).get('output_dir', 'reports/visualizations')}")
     logger.info("=" * 60)
 
