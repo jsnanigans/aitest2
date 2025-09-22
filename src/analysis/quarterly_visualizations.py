@@ -548,7 +548,7 @@ class QuarterlyVisualizationGenerator:
         gs = gridspec.GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.35)
 
         # Main title
-        fig.suptitle('📊 Quarterly Reporting Impact Dashboard: 90+ Day Users',
+        fig.suptitle('Quarterly Reporting Impact Dashboard: 90+ Day Users',
                     fontsize=16, y=0.98, fontweight='bold')
 
         # 1. Average weight loss improvement

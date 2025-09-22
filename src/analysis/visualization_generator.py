@@ -759,7 +759,7 @@ class FilteringVisualizationGenerator:
     ) -> Optional[str]:
         """Create improved outlier analysis visualization."""
         try:
-            fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+            fig, axes = plt.subplots(2, 2, figsize=(14, 10), constrained_layout=True)
 
             # Collect outlier data
             outlier_data = []
@@ -903,7 +903,6 @@ Avg Outliers per Affected User: {total_outliers / outlier_df['user_id'].nunique(
                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
             plt.suptitle('Outlier Analysis: Characteristics and Distribution', fontsize=14, fontweight='bold')
-            plt.tight_layout()
 
             # Save figure
             file_path = self.output_dir / "outlier_analysis.png"
@@ -1450,7 +1449,8 @@ Avg Outliers per Affected User: {total_outliers / outlier_df['user_id'].nunique(
 
             if 'reporting' in cohort_metrics:
                 reporting = cohort_metrics['reporting']
-                cohort_stats = cohort_metrics['reporting'].get('cohort', {})
+                reporting_dict = reporting.to_dict() if hasattr(reporting, 'to_dict') else reporting
+                cohort_stats = reporting_dict.get('cohort', {})
 
                 text = f"Cohort Statistics\n" \
                        f"{'='*25}\n" \
@@ -1460,8 +1460,8 @@ Avg Outliers per Affected User: {total_outliers / outlier_df['user_id'].nunique(
                        f"Percent Change: {cohort_stats.get('percent_change', 0):.1f}%\n\n" \
                        f"Statistical Power\n" \
                        f"{'='*25}\n" \
-                       f"Variance Reduction: {reporting.get('power', {}).get('variance_reduction', 0):.1%}\n" \
-                       f"Effect Size Improvement: {reporting.get('power', {}).get('effect_size_improvement', 0):.2f}"
+                       f"Variance Reduction: {reporting_dict.get('power', {}).get('variance_reduction', 0):.1%}\n" \
+                       f"Effect Size Improvement: {reporting_dict.get('power', {}).get('effect_size_improvement', 0):.2f}"
 
                 ax4.text(0.1, 0.9, text, transform=ax4.transAxes,
                         fontsize=11, verticalalignment='top', fontfamily='monospace',

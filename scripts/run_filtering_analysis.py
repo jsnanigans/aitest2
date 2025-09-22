@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
+import numpy as np
 import pandas as pd
 import toml
 
@@ -224,31 +225,6 @@ class FilteringAnalysisRunner:
 
         # Generate visualizations
         logger.info("Generating visualizations...")
-
-        # Find the most impacted users (biggest difference between raw and filtered)
-        user_impacts = []
-        for user_id in raw_data.keys():
-            if user_id in filtered_data:
-                raw_count = len(raw_data[user_id])
-                filtered_count = len(filtered_data[user_id])
-                removal_rate = (raw_count - filtered_count) / raw_count if raw_count > 0 else 0
-
-                # Calculate weight variance reduction as another impact metric
-                raw_std = raw_data[user_id]['weight'].std()
-                filtered_std = filtered_data[user_id]['weight'].std()
-                variance_reduction = (raw_std - filtered_std) / raw_std if raw_std > 0 else 0
-
-                # Combined impact score
-                impact_score = removal_rate + abs(variance_reduction)
-                user_impacts.append((user_id, impact_score, removal_rate))
-
-        # Sort by impact and take top 10
-        user_impacts.sort(key=lambda x: x[1], reverse=True)
-        top_impacted_users = user_impacts[:10]
-
-        logger.info(f"Generating visualizations for top {len(top_impacted_users)} most impacted users")
-        for user_id, impact_score, removal_rate in top_impacted_users:
-            logger.info(f"  User {user_id[:8]}: impact score={impact_score:.3f}, removal rate={removal_rate:.1%}")
 
         # Skip individual user visualizations - focus on cohort-level insights
         visualization_files = []
@@ -737,6 +713,7 @@ class FilteringAnalysisRunner:
                     'raw_measurement_count': len(raw_data[user_id]),
                     'filtered_measurement_count': len(filtered_data.get(user_id, [])),
                     'removal_rate': 0,
+                    'impact_score': 0,
                     'raw_mean_weight': 0,
                     'filtered_mean_weight': 0,
                     'raw_std_weight': 0,
@@ -803,6 +780,13 @@ class FilteringAnalysisRunner:
                 row['outlier_count'] = row['raw_measurement_count'] - row['filtered_measurement_count']
                 row['outlier_rate'] = row['outlier_count'] / row['raw_measurement_count'] if row['raw_measurement_count'] > 0 else 0
 
+                # Calculate impact score (removal rate + variance reduction)
+                if user_id in filtered_data and not filtered_data[user_id].empty:
+                    variance_reduction = (row['raw_std_weight'] - row['filtered_std_weight']) / row['raw_std_weight'] if row['raw_std_weight'] > 0 else 0
+                    row['impact_score'] = row['removal_rate'] + abs(variance_reduction)
+                else:
+                    row['impact_score'] = row['removal_rate']
+
                 # Add individual user metrics if available
                 if 'users' in metrics:
                     user_metrics = next((m for m in metrics['users'] if m['user_id'] == user_id), None)
@@ -821,8 +805,8 @@ class FilteringAnalysisRunner:
             # Create DataFrame and save to CSV
             results_df = pd.DataFrame(rows)
 
-            # Sort by removal rate to highlight most impacted users
-            results_df = results_df.sort_values('removal_rate', ascending=False)
+            # Sort by impact score for easier analysis
+            results_df = results_df.sort_values('impact_score', ascending=False)
 
             # Save to CSV
             results_df.to_csv(csv_path, index=False)
@@ -1021,7 +1005,7 @@ def main():
         filtered_data = {uid: data for uid, data in filtered_data.items() if uid in target_users}
 
         logger.info(f"Filtering to employer {args.filter_employer}: {len(raw_data)} users found")
-        logger.info(f"Will analyze ALL {len(raw_data)} employer users, visualizations for top 10 most impacted")
+        logger.info(f"Will analyze ALL {len(raw_data)} employer users")
 
         if not raw_data:
             logger.error(f"No data available for users from {args.filter_employer}")
