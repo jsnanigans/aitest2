@@ -20,6 +20,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.analysis.filtering_effectiveness import FilteringAnalyzer
 from src.analysis.visualization_generator import FilteringVisualizationGenerator
+from src.analysis.quarterly_reporting import QuarterlyReportingAnalyzer
+from src.analysis.quarterly_visualizations import QuarterlyVisualizationGenerator
 from src.database.database import get_state_db
 
 # Configure logging
@@ -46,6 +48,11 @@ class FilteringAnalysisRunner:
         self.analyzer = FilteringAnalyzer(self.config)
         self.visualizer = FilteringVisualizationGenerator(
             output_dir=self.config.get('analysis', {}).get('output_dir', 'reports/visualizations')
+        )
+        self.quarterly_analyzer = QuarterlyReportingAnalyzer(today_date="2025-09-05")
+        base_dir = self.config.get('analysis', {}).get('output_dir', 'reports/visualizations')
+        self.quarterly_viz = QuarterlyVisualizationGenerator(
+            output_dir=f"{base_dir}/quarterly"
         )
         self.db = get_state_db()
 
@@ -268,6 +275,97 @@ class FilteringAnalysisRunner:
 
         return cohort_metrics
 
+    def run_quarterly_analysis(
+        self,
+        raw_data: Dict[str, pd.DataFrame],
+        filtered_data: Dict[str, pd.DataFrame],
+        employer_csv_path: str = "data/2025-09-17-user-employers.csv",
+        filter_to_users: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Run quarterly reporting analysis for 90+ day users.
+
+        Args:
+            raw_data: Raw measurement data by user
+            filtered_data: Filtered measurement data by user
+            employer_csv_path: Path to employer CSV with start dates
+            filter_to_users: Optional list of user IDs to limit analysis to
+
+        Returns:
+            Quarterly analysis results
+        """
+        logger.info("Running quarterly reporting analysis...")
+
+        # Load program start dates
+        start_dates_df = self.quarterly_analyzer.load_program_start_dates(employer_csv_path)
+
+        if start_dates_df.empty:
+            logger.warning("No start date data available for quarterly analysis")
+            return {}
+
+        # Filter to users we have weight data for
+        users_with_data = set(raw_data.keys())
+        start_dates_df = start_dates_df[start_dates_df['user_id'].isin(users_with_data)]
+
+        # Further filter if specific users provided (e.g., for employer filtering)
+        if filter_to_users:
+            start_dates_df = start_dates_df[start_dates_df['user_id'].isin(filter_to_users)]
+            logger.info(f"Quarterly analysis limited to {len(filter_to_users)} specific users")
+
+        logger.info(f"Analyzing {len(start_dates_df)} users with start dates and weight data")
+
+        # 1. Analyze cohort progression (90-210 days)
+        logger.info("Analyzing cohort progression at different time checkpoints...")
+        cohort_results = self.quarterly_analyzer.analyze_cohort_by_duration(
+            raw_data, filtered_data, start_dates_df
+        )
+
+        # 2. Analyze all 90+ day users
+        logger.info("Analyzing all 90+ day users...")
+        raw_metrics, filtered_metrics, results_df = self.quarterly_analyzer.analyze_all_90plus_users(
+            raw_data, filtered_data, start_dates_df
+        )
+
+        # 3. Generate quarterly visualizations
+        logger.info("Generating quarterly reporting visualizations...")
+        viz_files = []
+
+        # Weight loss distribution comparison
+        viz_file = self.quarterly_viz.create_weight_loss_distribution_comparison(
+            results_df, raw_metrics, filtered_metrics
+        )
+        if viz_file:
+            viz_files.append(viz_file)
+
+        # Cohort progression analysis
+        viz_file = self.quarterly_viz.create_cohort_progression_analysis(cohort_results)
+        if viz_file:
+            viz_files.append(viz_file)
+
+        # Detailed metrics comparison
+        viz_file = self.quarterly_viz.create_detailed_metrics_comparison(
+            raw_metrics, filtered_metrics
+        )
+        if viz_file:
+            viz_files.append(viz_file)
+
+        # Impact summary dashboard
+        viz_file = self.quarterly_viz.create_impact_summary_dashboard(
+            raw_metrics, filtered_metrics, cohort_results
+        )
+        if viz_file:
+            viz_files.append(viz_file)
+
+        logger.info(f"Generated {len(viz_files)} quarterly visualizations")
+
+        return {
+            'cohort_results': cohort_results,
+            'raw_metrics': raw_metrics,
+            'filtered_metrics': filtered_metrics,
+            'results_df': results_df,
+            'visualizations': viz_files
+        }
+
     def generate_report(self, metrics: Dict[str, Any]) -> str:
         """
         Generate comprehensive markdown report.
@@ -280,8 +378,9 @@ class FilteringAnalysisRunner:
         """
         logger.info("Generating analysis report...")
 
-        report_dir = Path("reports")
-        report_dir.mkdir(exist_ok=True)
+        # Use configured output directory
+        report_dir = Path(self.config.get('analysis', {}).get('output_dir', 'reports/visualizations'))
+        report_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_path = report_dir / f"filtering_analysis_{timestamp}.md"
@@ -356,6 +455,88 @@ class FilteringAnalysisRunner:
                     power = cohort_dict.get('power', {})
                     f.write(f"- **Variance Reduction**: {power.get('variance_reduction', 0):.1%}\n")
                     f.write(f"- **Effect Size Improvement**: {power.get('effect_size_improvement', 0):.3f}\n")
+                    f.write("\n")
+
+                # Quarterly Reporting Analysis (90+ Day Users)
+                if 'quarterly' in metrics and metrics['quarterly']:
+                    quarterly = metrics['quarterly']
+                    f.write("## 📊 QUARTERLY REPORTING ANALYSIS\n\n")
+                    f.write("### Key Business Question Answered\n\n")
+
+                    if 'filtered_metrics' in quarterly and quarterly['filtered_metrics']:
+                        fm = quarterly['filtered_metrics']
+                        rm = quarterly['raw_metrics']
+
+                        f.write(f"**\"What is the average weight loss for users in the program for 90+ days?\"**\n\n")
+
+                        # Main answer box
+                        f.write("| Metric | Raw Data | Filtered Data | Improvement |\n")
+                        f.write("|--------|----------|---------------|-------------|\n")
+                        f.write(f"| **Average Weight Loss** | {rm.mean_weight_loss_pct:.2f}% | "
+                               f"{fm.mean_weight_loss_pct:.2f}% | "
+                               f"{fm.mean_weight_loss_pct - rm.mean_weight_loss_pct:+.2f}% |\n")
+                        f.write(f"| Median Weight Loss | {rm.median_weight_loss_pct:.2f}% | "
+                               f"{fm.median_weight_loss_pct:.2f}% | "
+                               f"{fm.median_weight_loss_pct - rm.median_weight_loss_pct:+.2f}% |\n")
+                        f.write(f"| Standard Deviation | {rm.std_weight_loss_pct:.2f}% | "
+                               f"{fm.std_weight_loss_pct:.2f}% | "
+                               f"{abs(rm.std_weight_loss_pct - fm.std_weight_loss_pct):.2f}% reduction |\n")
+                        f.write("\n")
+
+                        # Data quality impact
+                        f.write("### Data Quality Impact\n\n")
+                        f.write(f"- **Eligible Users**: {rm.eligible_users} users with 90+ days in program\n")
+                        f.write(f"- **Valid Data (Raw)**: {rm.users_with_valid_endpoint} users ({rm.users_with_valid_endpoint/rm.eligible_users*100:.1f}%)\n")
+                        f.write(f"- **Valid Data (Filtered)**: {fm.users_with_valid_endpoint} users ({fm.users_with_valid_endpoint/fm.eligible_users*100:.1f}%)\n")
+                        f.write("\n")
+
+                        # Success rates
+                        f.write("### Clinical Success Rates (90+ Day Users)\n\n")
+                        f.write("| Threshold | Raw Success Rate | Filtered Success Rate | Difference |\n")
+                        f.write("|-----------|-----------------|----------------------|------------|\n")
+
+                        raw_5pct = rm.users_losing_5pct / rm.users_with_valid_endpoint * 100 if rm.users_with_valid_endpoint > 0 else 0
+                        filt_5pct = fm.users_losing_5pct / fm.users_with_valid_endpoint * 100 if fm.users_with_valid_endpoint > 0 else 0
+                        f.write(f"| 5% Loss | {raw_5pct:.1f}% ({rm.users_losing_5pct} users) | "
+                               f"{filt_5pct:.1f}% ({fm.users_losing_5pct} users) | "
+                               f"{filt_5pct - raw_5pct:+.1f}% |\n")
+
+                        raw_10pct = rm.users_losing_10pct / rm.users_with_valid_endpoint * 100 if rm.users_with_valid_endpoint > 0 else 0
+                        filt_10pct = fm.users_losing_10pct / fm.users_with_valid_endpoint * 100 if fm.users_with_valid_endpoint > 0 else 0
+                        f.write(f"| 10% Loss | {raw_10pct:.1f}% ({rm.users_losing_10pct} users) | "
+                               f"{filt_10pct:.1f}% ({fm.users_losing_10pct} users) | "
+                               f"{filt_10pct - raw_10pct:+.1f}% |\n")
+
+                        raw_15pct = rm.users_losing_15pct / rm.users_with_valid_endpoint * 100 if rm.users_with_valid_endpoint > 0 else 0
+                        filt_15pct = fm.users_losing_15pct / fm.users_with_valid_endpoint * 100 if fm.users_with_valid_endpoint > 0 else 0
+                        f.write(f"| 15% Loss | {raw_15pct:.1f}% ({rm.users_losing_15pct} users) | "
+                               f"{filt_15pct:.1f}% ({fm.users_losing_15pct} users) | "
+                               f"{filt_15pct - raw_15pct:+.1f}% |\n")
+                        f.write("\n")
+
+                        # Cohort progression
+                        if 'cohort_results' in quarterly and quarterly['cohort_results']:
+                            f.write("### Weight Loss Progression by Program Duration\n\n")
+                            f.write("Average weight loss at different time checkpoints:\n\n")
+                            f.write("| Days in Program | Raw Avg Loss | Filtered Avg Loss | Improvement |\n")
+                            f.write("|-----------------|--------------|-------------------|-------------|\n")
+
+                            for cohort in quarterly['cohort_results']:
+                                f.write(f"| {cohort.day_checkpoint} days | "
+                                       f"{cohort.raw_mean_loss_pct:.2f}% | "
+                                       f"{cohort.filtered_mean_loss_pct:.2f}% | "
+                                       f"{cohort.mean_loss_difference:+.2f}% |\n")
+                            f.write("\n")
+
+                        # Visualizations
+                        if 'visualizations' in quarterly and quarterly['visualizations']:
+                            f.write("### Quarterly Reporting Visualizations\n\n")
+                            f.write("The following visualizations have been generated:\n\n")
+                            for viz_path in quarterly['visualizations']:
+                                viz_name = Path(viz_path).name
+                                f.write(f"- `{viz_path}` - {viz_name}\n")
+                            f.write("\n")
+
                     f.write("\n")
 
                 # Individual User Analysis Summary
@@ -463,8 +644,9 @@ class FilteringAnalysisRunner:
             Path to saved JSON file
         """
         try:
-            report_dir = Path("reports")
-            report_dir.mkdir(exist_ok=True)
+            # Use configured output directory
+            report_dir = Path(self.config.get('analysis', {}).get('output_dir', 'reports/visualizations'))
+            report_dir.mkdir(parents=True, exist_ok=True)
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             json_path = report_dir / f"filtering_metrics_{timestamp}.json"
@@ -564,6 +746,8 @@ def main():
         runner.config.setdefault('analysis', {})['output_dir'] = args.output_dir
         # Recreate visualizer with new output directory
         runner.visualizer = FilteringVisualizationGenerator(output_dir=args.output_dir)
+        # Also update quarterly visualizer
+        runner.quarterly_viz = QuarterlyVisualizationGenerator(output_dir=f"{args.output_dir}/quarterly")
 
     # Determine if we should skip user limit (when filtering by employer)
     skip_limit = bool(args.filter_employer)
@@ -601,7 +785,10 @@ def main():
                 logger.info(f"User {user_id[:8]}: {len(raw_df)} raw -> {len(filtered_df)} filtered "
                           f"({removal_rate:.1%} removed)")
 
-        logger.info(f"Loaded filtered data for {len(filtered_data)} users")
+        if skip_limit:
+            logger.info(f"Loaded filtered data for {len(filtered_data)} users (all users, no limit applied)")
+        else:
+            logger.info(f"Loaded filtered data for {len(filtered_data)} users")
     else:
         logger.warning(f"Filtered data file not found: {args.filtered}")
         logger.info("Processing raw data through filtering pipeline...")
@@ -678,8 +865,8 @@ def main():
         raw_data = {uid: data for uid, data in raw_data.items() if uid in target_users}
         filtered_data = {uid: data for uid, data in filtered_data.items() if uid in target_users}
 
-        logger.info(f"Found {len(raw_data)} users from {args.filter_employer}")
-        logger.info(f"Will analyze ALL {len(raw_data)} users, visualizations for top 10 most impacted")
+        logger.info(f"Filtering to employer {args.filter_employer}: {len(raw_data)} users found")
+        logger.info(f"Will analyze ALL {len(raw_data)} employer users, visualizations for top 10 most impacted")
 
         if not raw_data:
             logger.error(f"No data available for users from {args.filter_employer}")
@@ -687,6 +874,12 @@ def main():
 
     # Run analysis
     metrics = runner.run_analysis(raw_data, filtered_data)
+
+    # Run quarterly analysis
+    # Pass the filtered user list if we're filtering by employer
+    filter_users = list(raw_data.keys()) if args.filter_employer else None
+    quarterly_metrics = runner.run_quarterly_analysis(raw_data, filtered_data, args.employer, filter_users)
+    metrics['quarterly'] = quarterly_metrics
 
     # Generate outputs
     report_path = runner.generate_report(metrics)

@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # LocalStack for full AWS service emulation
+  localstack:
+    image: localstack/localstack:latest
+    container_name: weight-processor-localstack
+    ports:
+      - "4566:4566"  # LocalStack Gateway
+      - "4510-4559:4510-4559"  # External services port range
+    environment:
+      - SERVICES=lambda,apigateway,dynamodb,s3,cloudwatch,logs
+      - DEBUG=1
+      - LAMBDA_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - PERSISTENCE=1
+      - DYNAMODB_SHARE_DB=1
+      - LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT=30
+    volumes:
+      - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init.sh"
+    networks:
+      - weight-processor-net
+
+  # DynamoDB Local (Alternative to LocalStack for just DynamoDB)
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: weight-processor-dynamodb
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data -optimizeDbBeforeStartup"
+    volumes:
+      - "./data/dynamodb:/data"
+    networks:
+      - weight-processor-net
+
+  # DynamoDB Admin UI (Optional - for viewing data)
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: weight-processor-dynamodb-admin
+    ports:
+      - "8001:8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+    depends_on:
+      - dynamodb-local
+    networks:
+      - weight-processor-net
+
+  # Lambda runtime container for testing
+  lambda-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weight-processor-lambda
+    ports:
+      - "9000:8080"  # Lambda Runtime Interface Emulator
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - DB_BACKEND=dynamodb
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - DYNAMODB_TABLE_NAME=weight-processor-state
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - "./src:/var/task/src:ro"
+      - "./config.toml:/var/task/config.toml:ro"
+    networks:
+      - weight-processor-net
+    depends_on:
+      - dynamodb-local
+
+  # Test runner container
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: weight-processor-tests
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - LOCALSTACK_ENDPOINT=http://localstack:4566
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - LAMBDA_ENDPOINT=http://lambda-runtime:8080
+    volumes:
+      - "./src:/app/src:ro"
+      - "./tests:/app/tests:ro"
+      - "./test-results:/app/test-results"
+    networks:
+      - weight-processor-net
+    depends_on:
+      - localstack
+      - dynamodb-local
+      - lambda-runtime
+    profiles:
+      - test
+
+networks:
+  weight-processor-net:
+    driver: bridge
+
+volumes:
+  dynamodb-data:
+  localstack-data:

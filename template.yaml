@@ -1,0 +1,182 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Weight Processor Lambda Service - Local Testing
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 1024
+    Runtime: python3.11
+    Environment:
+      Variables:
+        DB_BACKEND: ${DB_BACKEND}
+        DYNAMODB_TABLE_NAME: ${DYNAMODB_TABLE_NAME}
+        LOG_LEVEL: ${LOG_LEVEL}
+        AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+
+Parameters:
+  Environment:
+    Type: String
+    Default: local
+    AllowedValues:
+      - local
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+Resources:
+  # Lambda Function
+  WeightProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub weight-processor-${Environment}
+      CodeUri: .
+      Handler: src.lambda_handler.handler
+      Description: Process weight measurements
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          DB_BACKEND: !If [IsLocal, "memory", "dynamodb"]
+          DYNAMODB_TABLE_NAME: !Ref StateTable
+      Events:
+        ProcessMeasurements:
+          Type: Api
+          Properties:
+            Path: /api/v1/process/{userId}
+            Method: POST
+            RestApiId: !Ref WeightProcessorApi
+
+        Cleanup:
+          Type: Api
+          Properties:
+            Path: /api/v1/cleanup/{userId}
+            Method: POST
+            RestApiId: !Ref WeightProcessorApi
+
+        Replay:
+          Type: Api
+          Properties:
+            Path: /api/v1/replay/{userId}
+            Method: POST
+            RestApiId: !Ref WeightProcessorApi
+
+        GetState:
+          Type: Api
+          Properties:
+            Path: /api/v1/state/{userId}
+            Method: GET
+            RestApiId: !Ref WeightProcessorApi
+
+        DeleteState:
+          Type: Api
+          Properties:
+            Path: /api/v1/state/{userId}
+            Method: DELETE
+            RestApiId: !Ref WeightProcessorApi
+
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StateTable
+
+  # API Gateway
+  WeightProcessorApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub weight-processor-api-${Environment}
+      StageName: !Ref Environment
+      TracingEnabled: true
+      Cors:
+        AllowMethods: "'GET,POST,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Api-Key,X-Correlation-Id'"
+        AllowOrigin: "'*'"
+      Auth:
+        ApiKeyRequired: false  # Set to true in production
+      DefinitionBody:
+        openapi: 3.0.1
+        info:
+          title: Weight Processor API
+          version: 1.0.0
+        paths:
+          /api/v1/process/{userId}:
+            post:
+              summary: Process weight measurements
+              parameters:
+                - name: userId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        measurements:
+                          type: array
+                          items:
+                            type: object
+              responses:
+                '200':
+                  description: Successful processing
+                '409':
+                  description: Historical conflict
+                '400':
+                  description: Invalid request
+              x-amazon-apigateway-integration:
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WeightProcessorFunction.Arn}/invocations
+                httpMethod: POST
+                type: aws_proxy
+
+  # DynamoDB Table
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub weight-processor-state-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: stateType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: stateType
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: weight-processor
+
+  # Lambda Log Group
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/weight-processor-${Environment}
+      RetentionInDays: 7
+
+Conditions:
+  IsLocal: !Equals [!Ref Environment, "local"]
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${WeightProcessorApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+
+  FunctionArn:
+    Description: Lambda Function ARN
+    Value: !GetAtt WeightProcessorFunction.Arn
+
+  TableName:
+    Description: DynamoDB Table Name
+    Value: !Ref StateTable
