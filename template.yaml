@@ -114,6 +114,8 @@ Resources:
         - CloudWatchLambdaInsightsExecutionRolePolicy
       Layers:
         - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:38
+        # AWS managed layer for numpy/scipy (Python 3.11)
+        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python311:12
 
   # DynamoDB Table for State Storage
   StateTable:
@@ -143,6 +145,17 @@ Resources:
           Value: !Ref Environment
         - Key: Service
           Value: weight-processor
+
+  # API Key for authentication
+  WeightProcessorApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub weight-processor-key-${Environment}
+      Description: API key for Weight Processor Service
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref WeightProcessorApi
+          StageName: !Ref Environment
 
   # CloudWatch Log Group
   ProcessorLogGroup:
@@ -212,7 +225,7 @@ Outputs:
 
   ApiKeyId:
     Description: API Key ID for authentication
-    Value: !Ref WeightProcessorApiApiKey
+    Value: !Ref WeightProcessorApiKey
 
   FunctionArn:
     Description: Lambda function ARN

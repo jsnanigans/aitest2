@@ -5,6 +5,8 @@ import logging
 import os
 from typing import Dict, Any
 
+import numpy as np
+
 from .api.models import ProcessRequest, CleanupRequest, ReplayRequest
 from .services.weight_processor_service import WeightProcessorService, HistoricalConflictError
 from .config.config_manager import ConfigManager
@@ -145,8 +147,6 @@ def handle_get_state(event: Dict[str, Any]) -> Dict[str, Any]:
             return error_response(404, f"State not found for user {user_id}")
 
         # Convert any numpy arrays to lists for JSON serialization
-        import numpy as np
-
         def convert_numpy(obj):
             if isinstance(obj, np.ndarray):
                 return obj.tolist()

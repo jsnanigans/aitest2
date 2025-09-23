@@ -1,0 +1,13 @@
+{
+  "resource": "/api/v1/process/{userId}",
+  "path": "/api/v1/process/user-789",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-api-key": "test-api-key"
+  },
+  "pathParameters": {
+    "userId": "user-789"
+  },
+  "body": "{\"measurements\":[{\"uuid\":\"750e8400-e29b-41d4-a716-446655440000\",\"weight\":70.0,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-10T10:00:00Z\",\"source\":\"patient-device\"}],\"comment\":\"This test simulates a historical conflict. Process a later date first, then run this event to trigger the conflict detection.\"}"
+}

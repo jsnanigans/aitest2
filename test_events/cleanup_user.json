@@ -1,0 +1,13 @@
+{
+  "resource": "/api/v1/cleanup/{userId}",
+  "path": "/api/v1/cleanup/user-456",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-api-key": "test-api-key"
+  },
+  "pathParameters": {
+    "userId": "user-456"
+  },
+  "body": "{\"measurements\":[{\"uuid\":\"650e8400-e29b-41d4-a716-446655440000\",\"weight\":80.0,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-01T00:00:00Z\",\"source\":\"care-team-upload\"},{\"uuid\":\"650e8400-e29b-41d4-a716-446655440001\",\"weight\":79.5,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-02T00:00:00Z\",\"source\":\"patient-device\"},{\"uuid\":\"650e8400-e29b-41d4-a716-446655440002\",\"weight\":79.8,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-03T00:00:00Z\",\"source\":\"patient-device\"},{\"uuid\":\"650e8400-e29b-41d4-a716-446655440003\",\"weight\":500.0,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-04T00:00:00Z\",\"source\":\"iglucose.com\"},{\"uuid\":\"650e8400-e29b-41d4-a716-446655440004\",\"weight\":79.2,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-05T00:00:00Z\",\"source\":\"patient-device\"}],\"options\":{\"reset_state\":true,\"include_quality_scores\":true,\"include_debug_info\":false}}"
+}

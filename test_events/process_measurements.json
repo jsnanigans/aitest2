@@ -1,0 +1,13 @@
+{
+  "resource": "/api/v1/process/{userId}",
+  "path": "/api/v1/process/user-123",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-api-key": "test-api-key"
+  },
+  "pathParameters": {
+    "userId": "user-123"
+  },
+  "body": "{\"measurements\":[{\"uuid\":\"550e8400-e29b-41d4-a716-446655440000\",\"weight\":75.5,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-15T10:30:00Z\",\"source\":\"patient-device\",\"metadata\":{\"device\":\"scale-001\",\"location\":\"home\"}},{\"uuid\":\"550e8400-e29b-41d4-a716-446655440001\",\"weight\":75.8,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-16T10:30:00Z\",\"source\":\"patient-device\"},{\"uuid\":\"550e8400-e29b-41d4-a716-446655440002\",\"weight\":76.2,\"unit\":\"kg\",\"effectiveDateTime\":\"2024-01-17T10:30:00Z\",\"source\":\"care-team-upload\"}],\"options\":{}}"
+}

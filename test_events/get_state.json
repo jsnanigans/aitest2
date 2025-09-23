@@ -1,0 +1,11 @@
+{
+  "resource": "/api/v1/state/{userId}",
+  "path": "/api/v1/state/user-123",
+  "httpMethod": "GET",
+  "headers": {
+    "x-api-key": "test-api-key"
+  },
+  "pathParameters": {
+    "userId": "user-123"
+  }
+}

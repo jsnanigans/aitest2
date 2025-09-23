@@ -243,8 +243,14 @@ class DynamoDBStateStore(StateStore):
         except ClientError as e:
             logger.error(f"Error deleting snapshots: {e}")
 
-    def _serialize_state(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """Serialize state for DynamoDB storage."""
+    def _serialize_state(self, state: Dict[str, Any], depth: int = 0) -> Dict[str, Any]:
+        """Serialize state for DynamoDB storage with depth protection."""
+        MAX_DEPTH = 10  # Prevent infinite recursion
+
+        if depth > MAX_DEPTH:
+            logger.warning(f"Max serialization depth {MAX_DEPTH} reached")
+            return {"__truncated__": "Max depth exceeded"}
+
         serialized = {}
 
         for key, value in state.items():
@@ -261,12 +267,12 @@ class DynamoDBStateStore(StateStore):
                 # Convert float to Decimal for DynamoDB
                 serialized[key] = Decimal(str(value))
             elif isinstance(value, dict):
-                # Recursively serialize nested dicts
-                serialized[key] = self._serialize_state(value)
+                # Recursively serialize nested dicts with depth tracking
+                serialized[key] = self._serialize_state(value, depth + 1)
             elif isinstance(value, list):
-                # Handle lists
+                # Handle lists with depth tracking
                 serialized[key] = [
-                    self._serialize_value(item) for item in value
+                    self._serialize_value(item, depth + 1) for item in value
                 ]
             else:
                 serialized[key] = value
@@ -319,8 +325,14 @@ class DynamoDBStateStore(StateStore):
 
         return deserialized
 
-    def _serialize_value(self, value: Any) -> Any:
-        """Serialize a single value."""
+    def _serialize_value(self, value: Any, depth: int = 0) -> Any:
+        """Serialize a single value with depth protection."""
+        MAX_DEPTH = 10
+
+        if depth > MAX_DEPTH:
+            logger.warning(f"Max serialization depth {MAX_DEPTH} reached in value")
+            return "__truncated__"
+
         if isinstance(value, float):
             return Decimal(str(value))
         elif isinstance(value, datetime):
@@ -328,7 +340,7 @@ class DynamoDBStateStore(StateStore):
         elif isinstance(value, np.ndarray):
             return value.tolist()
         elif isinstance(value, dict):
-            return self._serialize_state(value)
+            return self._serialize_state(value, depth + 1)
         return value
 
     def _deserialize_value(self, value: Any) -> Any:
