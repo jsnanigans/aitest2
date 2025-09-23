@@ -1,0 +1,20 @@
+# Local development requirements
+# Includes all dependencies for local processing and visualization
+
+# Core dependencies
+numpy==1.26.4
+pykalman>=0.10.2
+pydantic>=2.11.9
+
+# Visualization and analysis
+matplotlib>=3.10.6
+plotly>=6.3.0
+pandas>=2.3.2
+
+# Local processing
+tomllib  # Built-in for Python 3.11+
+
+# Development tools (optional)
+pytest>=8.3.4
+black>=24.10.0
+mypy>=1.14.2

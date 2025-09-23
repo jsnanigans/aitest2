@@ -1,0 +1,10 @@
+# Lambda deployment requirements
+# Minimal dependencies for AWS Lambda
+
+# Core dependencies (included from core package)
+numpy==1.26.4
+pydantic==2.11.9
+pykalman>=0.10.2
+
+# AWS SDK is provided by Lambda runtime, so we don't include boto3
+# unless we need a specific version

@@ -118,6 +118,7 @@ clean:
 # Build Lambda package using Docker (no local Python needed)
 docker-build:
 	@echo "🔨 Building Lambda package with Docker (using local template - no auth)..."
+	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
 	sam build --use-container --template template-local.yaml
 
 # Start local API Gateway on port 5448
@@ -131,7 +132,9 @@ docker-run: docker-build
 	@echo "  GET  http://localhost:5448/api/v1/state/{userId}      - Get user state"
 	@echo ""
 	@echo "Press Ctrl+C to stop..."
-	sam local start-api --port 5448 --docker-network bridge --template template-local.yaml
+	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
+	sam local start-api --port 5448 --docker-network bridge --template template-local.yaml \
+	--skip-pull-image --warm-containers EAGER
 
 # Test health endpoint (no auth required locally)
 docker-health:
@@ -157,6 +160,7 @@ docker-test-replay:
 # Invoke Lambda function directly with test event
 docker-invoke:
 	@echo "⚡ Invoking Lambda with test event..."
+	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
 	sam local invoke WeightProcessorFunction \
 		--event test_events/process_measurements.json \
 		--docker-network bridge \
@@ -165,6 +169,7 @@ docker-invoke:
 # Invoke with specific test event
 docker-invoke-file:
 	@echo "⚡ Invoking Lambda with $(EVENT)..."
+	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
 	sam local invoke WeightProcessorFunction \
 		--event $(EVENT) \
 		--docker-network bridge \

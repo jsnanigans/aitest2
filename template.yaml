@@ -119,8 +119,6 @@ Resources:
         - CloudWatchLambdaInsightsExecutionRolePolicy
       Layers:
         - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:38
-        # AWS managed layer for numpy/scipy (Python 3.11)
-        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python311:12
 
   # DynamoDB Table for State Storage
   StateTable:
