@@ -1,31 +1,53 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Weight Processor Lambda Service - Local Testing
-
-Globals:
-  Function:
-    Timeout: 60
-    MemorySize: 1024
-    Runtime: python3.11
-    Environment:
-      Variables:
-        DB_BACKEND: ${DB_BACKEND}
-        DYNAMODB_TABLE_NAME: ${DYNAMODB_TABLE_NAME}
-        LOG_LEVEL: ${LOG_LEVEL}
-        AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+Description: Weight Processor Service - Serverless API
 
 Parameters:
   Environment:
     Type: String
-    Default: local
+    Default: dev
     AllowedValues:
-      - local
       - dev
       - staging
       - prod
     Description: Environment name
 
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 1024
+    Runtime: python3.11
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        DB_BACKEND: dynamodb
+        DYNAMODB_TABLE_NAME: !Ref StateTable
+        AWS_REGION: !Ref AWS::Region
+        ENVIRONMENT: !Ref Environment
+
 Resources:
+  # API Gateway
+  WeightProcessorApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub weight-processor-${Environment}
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET, POST, DELETE, OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          Description: !Sub Usage plan for weight processor ${Environment}
+          Throttle:
+            BurstLimit: 100
+            RateLimit: 50
+          Quota:
+            Limit: 10000
+            Period: DAY
+
   # Lambda Function
   WeightProcessorFunction:
     Type: AWS::Serverless::Function
@@ -33,105 +55,67 @@ Resources:
       FunctionName: !Sub weight-processor-${Environment}
       CodeUri: .
       Handler: src.lambda_handler.handler
-      Description: Process weight measurements
+      Metadata:
+        BuildMethod: python3.11
+        BuildProperties:
+          RequirementsFile: requirements-lambda.txt
+      Description: Process weight measurements with Kalman filtering
       Environment:
         Variables:
-          ENVIRONMENT: !Ref Environment
-          DB_BACKEND: !If [IsLocal, "memory", "dynamodb"]
-          DYNAMODB_TABLE_NAME: !Ref StateTable
+          KALMAN_ENABLED: 'true'
+          KALMAN_ADAPTIVE: 'true'
+          KALMAN_PROCESS_NOISE: '1.0'
+          KALMAN_OBS_NOISE: '4.0'
+          KALMAN_HARD_GAP_DAYS: '30'
+          QUALITY_SCORING_ENABLED: 'true'
+          QS_WEIGHT_KALMAN: '0.4'
+          QS_WEIGHT_TEMPORAL: '0.3'
+          QS_WEIGHT_SOURCE: '0.3'
+          QS_OUTLIER_OVERRIDE: '0.8'
+          OUTLIER_DETECTION_ENABLED: 'true'
+          OUTLIER_IQR_MULTIPLIER: '1.5'
+          REPLAY_ENABLED: 'false'
       Events:
         ProcessMeasurements:
           Type: Api
           Properties:
+            RestApiId: !Ref WeightProcessorApi
             Path: /api/v1/process/{userId}
             Method: POST
-            RestApiId: !Ref WeightProcessorApi
-
-        Cleanup:
+            Auth:
+              ApiKeyRequired: true
+        CleanupUser:
           Type: Api
           Properties:
+            RestApiId: !Ref WeightProcessorApi
             Path: /api/v1/cleanup/{userId}
             Method: POST
-            RestApiId: !Ref WeightProcessorApi
-
-        Replay:
+            Auth:
+              ApiKeyRequired: true
+        GetUserState:
           Type: Api
           Properties:
-            Path: /api/v1/replay/{userId}
-            Method: POST
             RestApiId: !Ref WeightProcessorApi
-
-        GetState:
-          Type: Api
-          Properties:
             Path: /api/v1/state/{userId}
             Method: GET
-            RestApiId: !Ref WeightProcessorApi
-
-        DeleteState:
+            Auth:
+              ApiKeyRequired: true
+        DeleteUserState:
           Type: Api
           Properties:
+            RestApiId: !Ref WeightProcessorApi
             Path: /api/v1/state/{userId}
             Method: DELETE
-            RestApiId: !Ref WeightProcessorApi
-
+            Auth:
+              ApiKeyRequired: true
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref StateTable
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:38
 
-  # API Gateway
-  WeightProcessorApi:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: !Sub weight-processor-api-${Environment}
-      StageName: !Ref Environment
-      TracingEnabled: true
-      Cors:
-        AllowMethods: "'GET,POST,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,X-Api-Key,X-Correlation-Id'"
-        AllowOrigin: "'*'"
-      Auth:
-        ApiKeyRequired: false  # Set to true in production
-      DefinitionBody:
-        openapi: 3.0.1
-        info:
-          title: Weight Processor API
-          version: 1.0.0
-        paths:
-          /api/v1/process/{userId}:
-            post:
-              summary: Process weight measurements
-              parameters:
-                - name: userId
-                  in: path
-                  required: true
-                  schema:
-                    type: string
-              requestBody:
-                required: true
-                content:
-                  application/json:
-                    schema:
-                      type: object
-                      properties:
-                        measurements:
-                          type: array
-                          items:
-                            type: object
-              responses:
-                '200':
-                  description: Successful processing
-                '409':
-                  description: Historical conflict
-                '400':
-                  description: Invalid request
-              x-amazon-apigateway-integration:
-                uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WeightProcessorFunction.Arn}/invocations
-                httpMethod: POST
-                type: aws_proxy
-
-  # DynamoDB Table
+  # DynamoDB Table for State Storage
   StateTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -147,6 +131,8 @@ Resources:
           KeyType: HASH
         - AttributeName: stateType
           KeyType: RANGE
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
@@ -158,25 +144,90 @@ Resources:
         - Key: Service
           Value: weight-processor
 
-  # Lambda Log Group
-  LogGroup:
+  # CloudWatch Log Group
+  ProcessorLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/weight-processor-${Environment}
-      RetentionInDays: 7
+      RetentionInDays: 30
 
-Conditions:
-  IsLocal: !Equals [!Ref Environment, "local"]
+  # CloudWatch Alarms
+  ProcessorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub weight-processor-errors-${Environment}
+      AlarmDescription: Alert when processor function errors exceed threshold
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WeightProcessorFunction
+      TreatMissingData: notBreaching
+
+  ProcessorThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub weight-processor-throttles-${Environment}
+      AlarmDescription: Alert when processor function is throttled
+      MetricName: Throttles
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WeightProcessorFunction
+      TreatMissingData: notBreaching
+
+  DynamoDBThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub weight-processor-db-throttles-${Environment}
+      AlarmDescription: Alert when DynamoDB throttles requests
+      MetricName: ConsumedReadCapacityUnits
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: TableName
+          Value: !Ref StateTable
+      TreatMissingData: notBreaching
 
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL
     Value: !Sub https://${WeightProcessorApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+    Export:
+      Name: !Sub weight-processor-api-${Environment}
+
+  ApiKeyId:
+    Description: API Key ID for authentication
+    Value: !Ref WeightProcessorApiApiKey
 
   FunctionArn:
-    Description: Lambda Function ARN
+    Description: Lambda function ARN
     Value: !GetAtt WeightProcessorFunction.Arn
+    Export:
+      Name: !Sub weight-processor-function-${Environment}
 
-  TableName:
-    Description: DynamoDB Table Name
+  StateTableName:
+    Description: DynamoDB table name
     Value: !Ref StateTable
+    Export:
+      Name: !Sub weight-processor-table-${Environment}
+
+  StateTableArn:
+    Description: DynamoDB table ARN
+    Value: !GetAtt StateTable.Arn
+    Export:
+      Name: !Sub weight-processor-table-arn-${Environment}

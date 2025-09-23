@@ -1,13 +1,52 @@
 import json
 import os
+import csv
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import html
 
+def load_employer_mappings(
+    user_employers_file: str = "data/2025-09-17-user-employers.csv",
+    partners_file: str = "data/partners.csv"
+) -> Dict[str, str]:
+    """
+    Load employer mappings from CSV files.
+    Returns a dictionary mapping user_id -> employer_name
+    """
+    user_to_employer_id = {}
+    employer_id_to_name = {}
+
+    # Load user -> employer_id mapping
+    if Path(user_employers_file).exists():
+        with open(user_employers_file, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                user_to_employer_id[row['user_id']] = row['employer_id']
+
+    # Load employer_id -> name mapping
+    if Path(partners_file).exists():
+        with open(partners_file, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                employer_id_to_name[row['id']] = row['name']
+
+    # Combine mappings: user_id -> employer_name
+    user_to_employer_name = {}
+    for user_id, employer_id in user_to_employer_id.items():
+        if employer_id in employer_id_to_name:
+            user_to_employer_name[user_id] = employer_id_to_name[employer_id]
+        else:
+            user_to_employer_name[user_id] = "Unknown"
+
+    return user_to_employer_name
+
 def extract_user_stats(results_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     user_stats = []
     users = results_data.get("users", {})
+
+    # Load employer mappings
+    employer_mappings = load_employer_mappings()
 
     for user_id, measurements in users.items():
         if not measurements:
@@ -23,6 +62,7 @@ def extract_user_stats(results_data: Dict[str, Any]) -> List[Dict[str, Any]]:
 
         user_stats.append({
             "id": user_id,
+            "employer": employer_mappings.get(user_id, "Unknown"),
             "stats": {
                 "total": total,
                 "accepted": accepted,
@@ -41,8 +81,10 @@ def find_dashboard_files(output_dir: str, user_stats: List[Dict[str, Any]]) -> L
     for user in user_stats:
         user_id = user["id"]
 
+        # Check in timelines subfolder first, then root for backward compatibility
         possible_files = [
-            f"{user_id}_timeline.html",
+            f"timelines/{user_id}_timeline.html",  # New location in subfolder
+            f"{user_id}_timeline.html",            # Legacy location in root
             f"{user_id}.html",
             f"dashboard_enhanced_{user_id}.html",
             f"dashboard_{user_id}.html",
@@ -280,10 +322,24 @@ def generate_css() -> str:
         font-size: 0.85rem;
         font-weight: 500;
         color: #333;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .employer-tag {
+        display: inline-block;
+        font-size: 0.75rem;
+        background: #f0f4f8;
+        color: #4a5568;
+        padding: 0.1rem 0.4rem;
+        border-radius: 8px;
         margin-bottom: 0.5rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        max-width: 100%;
     }
 
     .user-stats {
@@ -446,21 +502,52 @@ def generate_javascript() -> str:
         constructor(data) {
             this.data = data;
             this.currentUser = null;
-            this.sortField = 'id';
-            this.sortDirection = 'asc';
+            this.sortField = 'rejected';
+            this.sortDirection = 'desc';
             this.filteredUsers = [...data.users];
             this.searchTimer = null;
             this.loadingIframe = false;
+            this.selectedEmployer = 'all';
+
+            // Extract unique employers for filter dropdown
+            this.employers = [...new Set(data.users.map(u => u.employer))].sort();
+
             this.init();
         }
 
         init() {
             this.setupEventListeners();
+            this.populateEmployerDropdown();
             this.renderUserList();
             this.showKeyboardHint();
 
             if (this.filteredUsers.length > 0) {
                 this.selectUser(this.filteredUsers[0]);
+            }
+        }
+
+        populateEmployerDropdown() {
+            const select = document.getElementById('employerFilter');
+
+            // Keep "All Employers" as first option
+            select.innerHTML = '<option value="all">All Employers</option>';
+
+            // Add each unique employer
+            this.employers.forEach(employer => {
+                if (employer && employer !== 'Unknown') {
+                    const option = document.createElement('option');
+                    option.value = employer;
+                    option.textContent = employer;
+                    select.appendChild(option);
+                }
+            });
+
+            // Add "Unknown" at the end if there are any unknown employers
+            if (this.employers.includes('Unknown')) {
+                const option = document.createElement('option');
+                option.value = 'Unknown';
+                option.textContent = 'Unknown Employer';
+                select.appendChild(option);
             }
         }
 
@@ -479,6 +566,12 @@ def generate_javascript() -> str:
                 document.getElementById('sortDirection').textContent =
                     this.sortDirection === 'asc' ? '↑' : '↓';
                 this.sortUsers();
+            });
+
+            document.getElementById('employerFilter').addEventListener('change', (e) => {
+                this.selectedEmployer = e.target.value;
+                const searchTerm = document.getElementById('searchBox').value;
+                this.filterUsers(searchTerm);
             });
 
             document.getElementById('searchBox').addEventListener('input', (e) => {
@@ -517,18 +610,36 @@ def generate_javascript() -> str:
         }
 
         filterUsers(searchTerm) {
-            if (!searchTerm) {
-                this.filteredUsers = [...this.data.users];
-            } else {
+            // Start with all users
+            let filtered = [...this.data.users];
+
+            // Filter by employer if selected
+            if (this.selectedEmployer && this.selectedEmployer !== 'all') {
+                filtered = filtered.filter(user => user.employer === this.selectedEmployer);
+            }
+
+            // Filter by search term
+            if (searchTerm) {
                 const term = searchTerm.toLowerCase();
-                this.filteredUsers = this.data.users.filter(user =>
+                filtered = filtered.filter(user =>
                     user.id.toLowerCase().includes(term)
                 );
             }
-            this.sortUsers();
+
+            this.filteredUsers = filtered;
+            this.sortUsers(true); // Pass true to indicate this is from filter
+
+            // Select first user in filtered list and scroll to top
+            if (this.filteredUsers.length > 0) {
+                this.selectUser(this.filteredUsers[0]);
+                this.scrollToTop();
+            } else {
+                this.currentUser = null;
+                this.showNoSelection();
+            }
         }
 
-        sortUsers() {
+        sortUsers(fromFilter = false) {
             this.filteredUsers.sort((a, b) => {
                 let aVal, bVal;
 
@@ -571,9 +682,12 @@ def generate_javascript() -> str:
 
             this.renderUserList();
 
-            if (this.currentUser && !this.filteredUsers.includes(this.currentUser)) {
+            // If not called from filter (which handles selection itself),
+            // select first user when sort changes
+            if (!fromFilter) {
                 if (this.filteredUsers.length > 0) {
                     this.selectUser(this.filteredUsers[0]);
+                    this.scrollToTop();
                 } else {
                     this.currentUser = null;
                     this.showNoSelection();
@@ -614,6 +728,7 @@ def generate_javascript() -> str:
                 
                 item.innerHTML = `
                     <div class="user-id ${highlightClass('id')}" title="${user.id}">${user.id}</div>
+                    ${user.employer && user.employer !== 'Unknown' ? `<div class="employer-tag">${user.employer}</div>` : ''}
                     <div class="user-stats">
                         <div class="user-stat ${highlightClass('total')}">
                             <span class="stat-label">Total:</span>
@@ -790,6 +905,13 @@ def generate_javascript() -> str:
             }
         }
 
+        scrollToTop() {
+            const container = document.getElementById('userList');
+            if (container) {
+                container.scrollTop = 0;
+            }
+        }
+
         handleKeyboard(e) {
             if (e.target.tagName === 'INPUT') return;
 
@@ -901,16 +1023,22 @@ def generate_index_html(
                             <option value="id">User ID</option>
                             <option value="total">Total Measurements</option>
                             <option value="accepted">Accepted Count</option>
-                            <option value="rejected">Rejected Count</option>
+                            <option value="rejected" selected>Rejected Count</option>
                             <option value="rate">Acceptance Rate (%)</option>
                             <option value="first_date">First Date</option>
                             <option value="last_date">Last Date</option>
                         </select>
-                        <button id="sortDirection" class="sort-direction" title="Click to reverse sort">↑</button>
+                        <button id="sortDirection" class="sort-direction" title="Click to reverse sort">↓</button>
+                    </div>
+                    <div class="sort-control">
+                        <span class="sort-label">Employer:</span>
+                        <select id="employerFilter" class="sort-select" style="width: 100%;">
+                            <option value="all">All Employers</option>
+                        </select>
                     </div>
                     <input type="text" id="searchBox" class="search-box" placeholder="Search users...">
                     <div class="quick-sort-buttons">
-                        <button class="quick-sort-btn" data-sort="rejected" data-direction="desc" title="Most rejected first">
+                        <button class="quick-sort-btn active" data-sort="rejected" data-direction="desc" title="Most rejected first">
                             Most Rejected
                         </button>
                         <button class="quick-sort-btn" data-sort="rate" data-direction="asc" title="Lowest acceptance rate first">

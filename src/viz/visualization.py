@@ -435,10 +435,14 @@ def create_weight_timeline(
         title_text="Innovation (kg)", showgrid=True, gridcolor="#E0E0E0", row=3, col=1
     )
 
-    # Save HTML
+    # Save HTML - organize into timelines subfolder
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True, parents=True)
-    html_file = output_path / f"{user_id}_timeline.html"
+
+    # Create timelines subfolder for all user timeline files
+    timelines_path = output_path / "timelines"
+    timelines_path.mkdir(exist_ok=True, parents=True)
+    html_file = timelines_path / f"{user_id}_timeline.html"
 
     config = {
         "displayModeBar": True,
@@ -453,7 +457,13 @@ def create_weight_timeline(
         },
     }
 
-    fig.write_html(str(html_file), config=config)
+    # Use 'directory' mode to create a shared plotly.min.js file
+    # This reduces each HTML from ~5MB to ~100KB by sharing the JS library
+    fig.write_html(
+        str(html_file),
+        config=config,
+        include_plotlyjs='directory'
+    )
 
     return str(html_file)
 

@@ -907,7 +907,7 @@ class UnifiedQualityScorer:
                 weighted_sum += weight / score
                 weight_sum += weight
 
-        if weighted_sum > 0:
+        if weighted_sum > 0 and weight_sum > 0:
             return weight_sum / weighted_sum
         else:
             return 0.0

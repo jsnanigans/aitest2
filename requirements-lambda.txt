@@ -1,0 +1,9 @@
+# Minimal requirements for AWS Lambda deployment
+# Keep this as small as possible to reduce Lambda package size
+
+# Core dependencies
+numpy==1.26.4
+pydantic==2.5.3
+
+# Note: AWS Lambda runtime provides boto3, so we don't include it
+# unless we need a specific version different from the runtime
