@@ -1,59 +1,48 @@
-"""
-Simple in-memory state database for weight processor.
-Stores Kalman filter states without persistence.
-"""
+"""In-memory implementation of StateStore."""
 
-import json
-import numpy as np
-from datetime import datetime
-from typing import Dict, Optional, Any
-import logging
 import copy
+import csv
+import json
+import logging
+from datetime import datetime
+from typing import Dict, Optional, Any, List
+
+import numpy as np
+
+from .base import StateStore
 
 logger = logging.getLogger(__name__)
 
 
-class ProcessorStateDB:
+class InMemoryStateStore(StateStore):
     """
     In-memory state storage for weight processor.
-    Stores and retrieves Kalman state for each user.
+    This is the refactored version of ProcessorStateDB.
     """
 
     def __init__(self, storage_path: Optional[str] = None):
         """Initialize in-memory state database."""
         self.states = {}
-        self._snapshots = {}  # For replay functionality
+        self._snapshots = {}
+        self.storage_path = storage_path  # For future file persistence
 
     def get_state(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieve state for a user.
-
-        Returns:
-            State dictionary or None if user not found
-        """
+        """Retrieve state for a user."""
         if user_id in self.states:
-            # Return a deep copy to prevent external modifications
             return copy.deepcopy(self.states[user_id])
         return None
 
-    def save_state(self, user_id: str, state: Dict[str, Any]) -> None:
-        """
-        Save state for a user.
-
-        Args:
-            user_id: User identifier
-            state: State dictionary to save
-        """
-        # Store a deep copy to prevent external modifications
-        self.states[user_id] = copy.deepcopy(state)
+    def save_state(self, user_id: str, state: Dict[str, Any]) -> bool:
+        """Save state for a user."""
+        try:
+            self.states[user_id] = copy.deepcopy(state)
+            return True
+        except Exception as e:
+            logger.error(f"Error saving state: {e}")
+            return False
 
     def delete_state(self, user_id: str) -> bool:
-        """
-        Delete state for a user.
-
-        Returns:
-            True if deleted, False if user not found
-        """
+        """Delete state for a user."""
         if user_id in self.states:
             del self.states[user_id]
             if user_id in self._snapshots:
@@ -62,12 +51,7 @@ class ProcessorStateDB:
         return False
 
     def create_initial_state(self) -> Dict[str, Any]:
-        """
-        Create an empty initial state.
-
-        Returns:
-            Empty state dictionary with required fields
-        """
+        """Create an empty initial state."""
         return {
             'kalman_params': None,
             'last_state': None,
@@ -78,46 +62,43 @@ class ProcessorStateDB:
             'last_raw_weight': None,
             'measurement_history': [],
             'reset_events': [],
-            'measurements_since_reset': 0
+            'measurements_since_reset': 0,
+            'adaptation_state': {}
         }
 
-    def save_state_snapshot(self, user_id: str, timestamp: datetime) -> None:
-        """
-        Save a snapshot of current state (for replay functionality).
-
-        Args:
-            user_id: User identifier
-            timestamp: Timestamp for the snapshot
-        """
-        if user_id in self.states:
-            self._snapshots[user_id] = {
-                'timestamp': timestamp,
-                'state': copy.deepcopy(self.states[user_id])
-            }
+    def save_state_snapshot(self, user_id: str, timestamp: datetime) -> bool:
+        """Save a snapshot of current state."""
+        try:
+            if user_id in self.states:
+                self._snapshots[user_id] = {
+                    'timestamp': timestamp,
+                    'state': copy.deepcopy(self.states[user_id])
+                }
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error saving snapshot: {e}")
+            return False
 
     def restore_state_snapshot(self, user_id: str) -> bool:
-        """
-        Restore state from snapshot.
-
-        Returns:
-            True if restored, False if no snapshot found
-        """
+        """Restore state from snapshot."""
         if user_id in self._snapshots:
             self.states[user_id] = copy.deepcopy(self._snapshots[user_id]['state'])
             return True
         return False
 
+    def get_snapshot(self, user_id: str, timestamp: datetime) -> Optional[Dict[str, Any]]:
+        """Get the nearest snapshot before the given timestamp."""
+        if user_id in self._snapshots:
+            snapshot = self._snapshots[user_id]
+            # In this simple implementation, we only store one snapshot per user
+            # Return it if it's before the requested timestamp
+            if snapshot.get('timestamp') and snapshot['timestamp'] <= timestamp:
+                return copy.deepcopy(snapshot['state'])
+        return None
+
     def check_and_restore_snapshot(self, user_id: str, buffer_start_time: datetime) -> dict:
-        """
-        Check if a snapshot exists and restore it atomically.
-
-        Args:
-            user_id: User identifier
-            buffer_start_time: Time to check for snapshot (currently unused)
-
-        Returns:
-            Dictionary with success status and snapshot details
-        """
+        """Check if a snapshot exists and restore it atomically."""
         if user_id in self._snapshots:
             snapshot = self._snapshots[user_id]
             # Restore the state
@@ -136,17 +117,7 @@ class ProcessorStateDB:
             }
 
     def export_to_csv(self, filepath: str) -> int:
-        """
-        Export all states to CSV (simplified version).
-
-        Args:
-            filepath: Path to CSV file
-
-        Returns:
-            Number of users exported
-        """
-        import csv
-
+        """Export all states to CSV."""
         users_exported = 0
         with open(filepath, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=[
@@ -188,28 +159,3 @@ class ProcessorStateDB:
                 users_exported += 1
 
         return users_exported
-
-
-# Global instance - now delegating to the new factory
-_db_instance = None
-
-
-def get_state_db() -> ProcessorStateDB:
-    """
-    Get the global state database instance.
-    This is kept for backward compatibility - new code should use
-    the factory from __init__.py
-    """
-    global _db_instance
-    if _db_instance is None:
-        _db_instance = ProcessorStateDB()
-    return _db_instance
-
-
-def reset_db() -> None:
-    """Reset the global database instance (useful for testing)."""
-    global _db_instance
-    _db_instance = None
-    # Also reset the new instance
-    from . import reset_db_instance
-    reset_db_instance()

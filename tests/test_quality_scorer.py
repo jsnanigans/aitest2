@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 import numpy as np
 
-from src.processing.quality_scorer import QualityScorer, QualityScore
+from src.processing.unified_quality_scorer import UnifiedQualityScorer as QualityScorer, QualityScore
 from src.constants import PHYSIOLOGICAL_LIMITS, SOURCE_PROFILES
 
 

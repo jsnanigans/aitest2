@@ -9,7 +9,11 @@ from unittest.mock import patch
 from src.processing.processor import process_measurement
 from src.database.database import ProcessorStateDB
 from src.processing.reset_manager import ResetType
-from src.config_loader import load_config
+# Load config directly from main.py
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from main import load_config
 
 
 def test_adaptive_period_counter_increments_on_rejection():

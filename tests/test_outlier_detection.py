@@ -8,7 +8,6 @@ import numpy as np
 from datetime import datetime, timedelta
 from unittest.mock import Mock, MagicMock, patch
 from src.processing.outlier_detection import OutlierDetector
-from src.feature_manager import FeatureManager
 
 
 @pytest.fixture
@@ -75,7 +74,7 @@ def high_quality_measurements():
 @pytest.fixture
 def mock_feature_manager():
     """Mock feature manager with all features enabled."""
-    manager = Mock(spec=FeatureManager)
+    manager = Mock()
     manager.is_enabled.return_value = True
     return manager
 
@@ -200,7 +199,7 @@ class TestQualityOverrides:
 
     def test_quality_override_disabled(self, basic_config, high_quality_measurements):
         """Test outlier detection when quality override is disabled."""
-        manager = Mock(spec=FeatureManager)
+        manager = Mock()
         manager.is_enabled.side_effect = lambda feature: {
             'outlier_detection': True,
             'quality_override': False,  # Disabled
@@ -222,7 +221,7 @@ class TestQualityOverrides:
 
     def test_quality_threshold_boundary(self, basic_config):
         """Test quality score threshold boundary conditions."""
-        manager = Mock(spec=FeatureManager)
+        manager = Mock()
         manager.is_enabled.return_value = True
 
         config = basic_config.copy()
@@ -377,7 +376,7 @@ class TestIntegration:
 
     def test_and_logic_statistical_and_kalman(self, basic_config, mock_db_with_kalman_state):
         """Test AND logic requiring both statistical and Kalman failures."""
-        manager = Mock(spec=FeatureManager)
+        manager = Mock()
         manager.is_enabled.return_value = True
 
         config = basic_config.copy()
@@ -401,7 +400,7 @@ class TestIntegration:
 
     def test_feature_toggle_controls(self, basic_config):
         """Test that feature toggles control method activation."""
-        manager = Mock(spec=FeatureManager)
+        manager = Mock()
 
         # Configure specific feature states
         manager.is_enabled.side_effect = lambda feature: {
@@ -433,7 +432,7 @@ class TestIntegration:
 
     def test_outlier_detection_completely_disabled(self, basic_config):
         """Test that disabling outlier_detection returns empty set."""
-        manager = Mock(spec=FeatureManager)
+        manager = Mock()
         manager.is_enabled.side_effect = lambda feature: feature != 'outlier_detection'
 
         config = basic_config.copy()

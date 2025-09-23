@@ -15,7 +15,11 @@ from unittest.mock import patch
 
 from src.processing.processor import process_measurement
 from src.database.database import ProcessorStateDB
-from src.config_loader import load_config
+# Load config directly from main.py
+import sys
+import os as os_module
+sys.path.insert(0, os_module.path.dirname(os_module.path.dirname(os_module.path.abspath(__file__))))
+from main import load_config
 
 
 @pytest.fixture
