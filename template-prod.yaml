@@ -1,14 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Weight Processor Service - Serverless API
+Description: Weight Processor Service - Production Lambda Only (No API Gateway)
 
 Parameters:
   Environment:
     Type: String
-    Default: dev
+    Default: prod
     AllowedValues:
-      - dev
-      - staging
       - prod
     Description: Environment name
 
@@ -25,18 +23,7 @@ Globals:
         ENVIRONMENT: !Ref Environment
 
 Resources:
-  # API Gateway
-  WeightProcessorApi:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: !Sub weight-processor-${Environment}
-      StageName: !Ref Environment
-      Cors:
-        AllowMethods: "'GET, POST, DELETE, OPTIONS'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        AllowOrigin: "'*'"
-
-  # Lambda Function
+  # Lambda Function Only - No API Gateway
   WeightProcessorFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -49,6 +36,7 @@ Resources:
       Handler: src.lambda_handler.handler
       Runtime: python3.12
       Description: Process weight measurements with Kalman filtering
+      ReservedConcurrentExecutions: 100  # Limit concurrent executions
       Environment:
         Variables:
           KALMAN_ENABLED: 'true'
@@ -63,64 +51,22 @@ Resources:
           QS_OUTLIER_OVERRIDE: '0.8'
           OUTLIER_DETECTION_ENABLED: 'true'
           OUTLIER_IQR_MULTIPLIER: '1.5'
-          REPLAY_ENABLED: 'false'
-      Events:
-        HealthCheck:
-          Type: Api
-          Properties:
-            RestApiId: !Ref WeightProcessorApi
-            Path: /api/v1/health
-            Method: GET
-            Auth:
-              ApiKeyRequired: false
-        ProcessMeasurements:
-          Type: Api
-          Properties:
-            RestApiId: !Ref WeightProcessorApi
-            Path: /api/v1/process/{userId}
-            Method: POST
-            Auth:
-              ApiKeyRequired: true
-        CleanupUser:
-          Type: Api
-          Properties:
-            RestApiId: !Ref WeightProcessorApi
-            Path: /api/v1/cleanup/{userId}
-            Method: POST
-            Auth:
-              ApiKeyRequired: true
-        ReplayMeasurements:
-          Type: Api
-          Properties:
-            RestApiId: !Ref WeightProcessorApi
-            Path: /api/v1/replay/{userId}
-            Method: POST
-            Auth:
-              ApiKeyRequired: true
-        GetUserState:
-          Type: Api
-          Properties:
-            RestApiId: !Ref WeightProcessorApi
-            Path: /api/v1/state/{userId}
-            Method: GET
-            Auth:
-              ApiKeyRequired: true
-        DeleteUserState:
-          Type: Api
-          Properties:
-            RestApiId: !Ref WeightProcessorApi
-            Path: /api/v1/state/{userId}
-            Method: DELETE
-            Auth:
-              ApiKeyRequired: true
+          REPLAY_ENABLED: 'true'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref StateTable
         - CloudWatchLambdaInsightsExecutionRolePolicy
       Layers:
         - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:38
-        # AWS managed layer for numpy/scipy (Python 3.11)
-        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python311:12
+        # AWS managed layer for numpy/scipy (Python 3.12)
+        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python312:12
+      # Optional: VPC Configuration for private Lambda
+      # VpcConfig:
+      #   SecurityGroupIds:
+      #     - !Ref LambdaSecurityGroup
+      #   SubnetIds:
+      #     - !Ref PrivateSubnet1
+      #     - !Ref PrivateSubnet2
 
   # DynamoDB Table for State Storage
   StateTable:
@@ -150,17 +96,6 @@ Resources:
           Value: !Ref Environment
         - Key: Service
           Value: weight-processor
-
-  # API Key for authentication
-  WeightProcessorApiKey:
-    Type: AWS::ApiGateway::ApiKey
-    Properties:
-      Name: !Sub weight-processor-key-${Environment}
-      Description: API key for Weight Processor Service
-      Enabled: true
-      StageKeys:
-        - RestApiId: !Ref WeightProcessorApi
-          StageName: !Ref Environment
 
   # CloudWatch Log Group
   ProcessorLogGroup:
@@ -222,21 +157,17 @@ Resources:
       TreatMissingData: notBreaching
 
 Outputs:
-  ApiEndpoint:
-    Description: API Gateway endpoint URL
-    Value: !Sub https://${WeightProcessorApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
-    Export:
-      Name: !Sub weight-processor-api-${Environment}
-
-  ApiKeyId:
-    Description: API Key ID for authentication
-    Value: !Ref WeightProcessorApiKey
-
   FunctionArn:
-    Description: Lambda function ARN
+    Description: Lambda function ARN for direct invocation
     Value: !GetAtt WeightProcessorFunction.Arn
     Export:
       Name: !Sub weight-processor-function-${Environment}
+
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref WeightProcessorFunction
+    Export:
+      Name: !Sub weight-processor-function-name-${Environment}
 
   StateTableName:
     Description: DynamoDB table name
@@ -249,3 +180,7 @@ Outputs:
     Value: !GetAtt StateTable.Arn
     Export:
       Name: !Sub weight-processor-table-arn-${Environment}
+
+  InvocationRole:
+    Description: IAM role ARN that can invoke this function
+    Value: !Sub arn:aws:iam::${AWS::AccountId}:role/weight-processor-invoker-${Environment}

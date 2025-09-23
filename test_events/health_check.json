@@ -1,0 +1,27 @@
+{
+  "resource": "/api/v1/health",
+  "path": "/api/v1/health",
+  "httpMethod": "GET",
+  "headers": {
+    "Accept": "application/json",
+    "User-Agent": "health-check/1.0"
+  },
+  "multiValueHeaders": {},
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "requestId": "health-check-test",
+    "path": "/api/v1/health",
+    "httpMethod": "GET",
+    "requestTime": "01/Jan/2024:00:00:00 +0000",
+    "requestTimeEpoch": 1704067200000,
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "health-check/1.0"
+    }
+  },
+  "body": null,
+  "isBase64Encoded": false
+}

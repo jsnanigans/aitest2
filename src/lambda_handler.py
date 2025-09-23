@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Dict, Any
 
 import numpy as np
@@ -42,10 +43,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Extract routing information
         resource = event.get('resource', '')
+        path = event.get('path', '')
         http_method = event.get('httpMethod', '')
 
-        # Route to appropriate handler
-        if resource == '/api/v1/process/{userId}' and http_method == 'POST':
+        # Log the routing info for debugging
+        logger.info(f"Routing - resource: {resource}, path: {path}, method: {http_method}")
+
+        # Route to appropriate handler (check both resource and path for compatibility)
+        if (resource == '/api/v1/health' or path == '/api/v1/health') and http_method == 'GET':
+            return handle_health(event)
+        elif resource == '/api/v1/process/{userId}' and http_method == 'POST':
             return handle_process(event)
         elif resource == '/api/v1/cleanup/{userId}' and http_method == 'POST':
             return handle_cleanup(event)
@@ -61,6 +68,68 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     except Exception as e:
         logger.exception("Unhandled error in Lambda handler")
         return error_response(500, f"Internal server error: {str(e)}")
+
+
+def handle_health(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle health check endpoint."""
+    try:
+        # Check database connectivity
+        db_status = "healthy"
+        db_backend = os.getenv('DB_BACKEND', 'memory')
+
+        try:
+            state_store = get_state_db(db_backend)
+            # Try to get a non-existent state to test DB connection
+            _ = state_store.get_state('health_check_user')
+        except Exception as e:
+            db_status = f"unhealthy: {str(e)}"
+            logger.warning(f"Database health check failed: {e}")
+
+        # Get configuration status
+        config_status = "healthy"
+        try:
+            config = ConfigManager.load_config('env' if os.getenv('AWS_LAMBDA_FUNCTION_NAME') else 'file')
+            config_loaded = bool(config)
+        except Exception as e:
+            config_status = f"unhealthy: {str(e)}"
+            config_loaded = False
+
+        # Build health response
+        health_info = {
+            "status": "healthy" if db_status == "healthy" and config_status == "healthy" else "degraded",
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": "1.0.0",
+            "environment": os.getenv('ENVIRONMENT', 'local'),
+            "components": {
+                "database": {
+                    "status": db_status,
+                    "backend": db_backend
+                },
+                "configuration": {
+                    "status": config_status,
+                    "loaded": config_loaded
+                },
+                "processing": {
+                    "kalman_enabled": os.getenv('KALMAN_ENABLED', 'true') == 'true',
+                    "quality_scoring_enabled": os.getenv('QUALITY_SCORING_ENABLED', 'true') == 'true',
+                    "outlier_detection_enabled": os.getenv('OUTLIER_DETECTION_ENABLED', 'true') == 'true',
+                    "replay_enabled": os.getenv('REPLAY_ENABLED', 'true') == 'true'
+                }
+            },
+            "runtime": {
+                "function_name": os.getenv('AWS_LAMBDA_FUNCTION_NAME', 'local'),
+                "function_version": os.getenv('AWS_LAMBDA_FUNCTION_VERSION', 'local'),
+                "region": os.getenv('AWS_REGION', 'local'),
+                "memory_size": os.getenv('AWS_LAMBDA_FUNCTION_MEMORY_SIZE', 'local'),
+                "log_level": os.getenv('LOG_LEVEL', 'INFO')
+            }
+        }
+
+        return success_response(health_info)
+
+    except Exception as e:
+        logger.exception("Error in health check")
+        return error_response(503, f"Health check failed: {str(e)}")
 
 
 def handle_process(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -125,9 +194,32 @@ def handle_replay(event: Dict[str, Any]) -> Dict[str, Any]:
         # Parse and validate request
         request = ReplayRequest(**body)
 
-        # For now, return not implemented
-        # Replay service would be implemented separately
-        return error_response(501, "Replay not yet implemented")
+        # Import replay service
+        from .services.replay_service import replay_measurements
+
+        # Get service dependencies
+        state_store = get_state_db(os.getenv('DB_BACKEND', 'memory'))
+        config = ConfigManager.load_config('env' if os.getenv('AWS_LAMBDA_FUNCTION_NAME') else 'file')
+
+        # Run replay
+        result = replay_measurements(
+            user_id=user_id,
+            measurements=request.measurements,
+            replay_from=request.replay_from_timestamp,
+            state_store=state_store,
+            config=config
+        )
+
+        if result['success']:
+            return success_response({
+                'status': 'success',
+                'processed_count': result['processed_count'],
+                'accepted_count': result['accepted_count'],
+                'rejected_count': result['rejected_count'],
+                'measurements': result['results']
+            })
+        else:
+            return error_response(500, result.get('error', 'Replay failed'))
 
     except ValueError as e:
         return error_response(400, f"Invalid request: {str(e)}")
