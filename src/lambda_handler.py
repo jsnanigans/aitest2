@@ -25,7 +25,7 @@ def get_service() -> WeightProcessorService:
     """Get or create service instance."""
     global _service
     if _service is None:
-        state_store = get_state_db(os.getenv('DB_BACKEND', 'memory'))
+        state_store = get_state_db()  # No arguments needed - it auto-detects DynamoDB vs memory
         config = ConfigManager.load_config('env' if os.getenv('AWS_LAMBDA_FUNCTION_NAME') else 'file')
         _service = WeightProcessorService(state_store, config)
     return _service
@@ -78,7 +78,7 @@ def handle_health(event: Dict[str, Any]) -> Dict[str, Any]:
         db_backend = os.getenv('DB_BACKEND', 'memory')
 
         try:
-            state_store = get_state_db(db_backend)
+            state_store = get_state_db()
             # Try to get a non-existent state to test DB connection
             _ = state_store.get_state('health_check_user')
         except Exception as e:
@@ -198,7 +198,7 @@ def handle_replay(event: Dict[str, Any]) -> Dict[str, Any]:
         from .services.replay_service import replay_measurements
 
         # Get service dependencies
-        state_store = get_state_db(os.getenv('DB_BACKEND', 'memory'))
+        state_store = get_state_db()
         config = ConfigManager.load_config('env' if os.getenv('AWS_LAMBDA_FUNCTION_NAME') else 'file')
 
         # Run replay
@@ -232,7 +232,7 @@ def handle_get_state(event: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get state endpoint."""
     try:
         user_id = event['pathParameters']['userId']
-        state_store = get_state_db(os.getenv('DB_BACKEND', 'memory'))
+        state_store = get_state_db()
         state = state_store.get_state(user_id)
 
         if state is None:
@@ -260,7 +260,7 @@ def handle_delete_state(event: Dict[str, Any]) -> Dict[str, Any]:
     """Handle delete state endpoint."""
     try:
         user_id = event['pathParameters']['userId']
-        state_store = get_state_db(os.getenv('DB_BACKEND', 'memory'))
+        state_store = get_state_db()
         success = state_store.delete_state(user_id)
 
         if success:
