@@ -1,17 +1,24 @@
-.PHONY: help install test test-v test-replay test-lambda build deploy deploy-staging deploy-prod local clean run run-file benchmark format lint create-filtered create-filtered-all report
+.PHONY: help install test test-v test-replay test-lambda build build-local local local-health local-test deploy deploy-staging deploy-prod clean run run-file benchmark format lint create-filtered create-filtered-all report
 .PHONY: docker-build docker-run docker-test docker-logs docker-invoke docker-stop docker-clean
 
 # Default - show available commands
 help:
-	@echo "🚀 AWS Lambda Local Development Commands (Docker-based):"
+	@echo "🚀 AWS Lambda Local Development Commands:"
 	@echo ""
-	@echo "  === Docker Local Testing (Recommended) ==="
-	@echo "  make docker-build   Build Lambda with Docker (no Python needed)"
-	@echo "  make docker-run     Start local API Gateway (http://localhost:5448)"
-	@echo "  make docker-health  Check API health status"
-	@echo "  make docker-test    Test process endpoint with curl"
-	@echo "  make docker-invoke  Invoke function with test event"
-	@echo "  make docker-logs    View Lambda container logs"
+	@echo "  === Local Testing (Default - No Docker) ==="
+	@echo "  make build-local    Build Lambda locally (no containers)"
+	@echo "  make local          Start local API Gateway (http://localhost:5448)"
+	@echo "  make local-health   Check API health status"
+	@echo "  make local-test     Test process endpoint with curl"
+	@echo "  make local-logs     View Lambda logs"
+	@echo "  make clean          Clean up generated files"
+	@echo ""
+	@echo "  === Docker Local Testing (Alternative) ==="
+	@echo "  make docker-build   Build Lambda with Docker containers"
+	@echo "  make docker-run     Start local API with Docker"
+	@echo "  make docker-health  Check API health (Docker)"
+	@echo "  make docker-test    Test process endpoint (Docker)"
+	@echo "  make docker-logs    View container logs"
 	@echo "  make docker-stop    Stop all SAM containers"
 	@echo "  make docker-clean   Clean Docker resources"
 	@echo ""
@@ -27,7 +34,6 @@ help:
 	@echo "  make test-lambda    Run Lambda handler tests"
 	@echo "  make lint           Lint code"
 	@echo "  make format         Format code with ruff"
-	@echo "  make clean          Clean up generated files"
 
 # Run main processing with test sample data
 run:
@@ -83,14 +89,19 @@ format:
 lint:
 	uv run ruff check .
 
+# Build Lambda package locally (default - no containers)
+build-local:
+	@echo "🔨 Building Lambda package locally (no containers)..."
+	sam build --template template-local.yaml
+
 # Build Lambda package for production (with auth)
 build:
-	sam build --use-container --template template.yaml
+	sam build --template template.yaml
 
 # Build for production deployment (Lambda only, no API Gateway)
 build-prod:
 	@echo "🔨 Building Lambda package for production (Lambda only)..."
-	sam build --use-container --template template-prod.yaml
+	sam build --template template-prod.yaml
 
 # Deploy to AWS (dev) - includes API Gateway for testing
 deploy-dev:
@@ -102,9 +113,37 @@ deploy-prod: build-prod
 	@echo "🚀 Deploying to production (Lambda only, no API Gateway)..."
 	sam deploy --guided --template template-prod.yaml --stack-name weight-processor-prod --parameter-overrides Environment=prod
 
-# Run Lambda locally
-local:
-	./scripts/deploy/test_local.sh
+# Start local API Gateway (no Docker)
+local: build-local
+	@echo "🚀 Starting local API Gateway at http://localhost:5448"
+	@echo "📝 API Endpoints (No Auth Required Locally):"
+	@echo "  GET  http://localhost:5448/api/v1/health              - Health check"
+	@echo "  POST http://localhost:5448/api/v1/process/{userId}    - Process measurements"
+	@echo "  POST http://localhost:5448/api/v1/replay/{userId}     - Replay measurements"
+	@echo "  POST http://localhost:5448/api/v1/cleanup/{userId}    - Cleanup with reset"
+	@echo "  GET  http://localhost:5448/api/v1/state/{userId}      - Get user state"
+	@echo ""
+	@echo "Press Ctrl+C to stop..."
+	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
+	sam local start-api --port 5448 --template .aws-sam/build/template.yaml
+
+# Test health endpoint locally (no Docker)
+local-health:
+	@echo "🏥 Checking API health..."
+	curl -s http://localhost:5448/api/v1/health | python3 -m json.tool
+
+# Test the process endpoint locally with sample data
+local-test:
+	@echo "📋 Testing process endpoint..."
+	@curl -s -X POST http://localhost:5448/api/v1/process/test-user \
+		-H "Content-Type: application/json" \
+		-d '{"measurements": [{"uuid": "550e8400-e29b-41d4-a716-446655440000", "userId": "test-user", "weight": 75.5, "unit": "kg", "timestamp": "2024-01-01T10:00:00Z", "effectiveDateTime": "2024-01-01T10:00:00Z", "source": "patient-device"}]}' \
+		| python3 -m json.tool
+
+# View Lambda logs (local)
+local-logs:
+	@echo "📜 Showing recent Lambda logs..."
+	@tail -50 .aws-sam/local/logs/*.log 2>/dev/null || echo "No logs found. Start the API first with 'make local'"
 
 # Clean up generated files
 clean:
