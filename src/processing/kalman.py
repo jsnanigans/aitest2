@@ -3,6 +3,7 @@ Kalman filter logic for weight processing.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -13,6 +14,17 @@ try:
     from ..constants import KALMAN_DEFAULTS
 except ImportError:
     from src.constants import KALMAN_DEFAULTS
+
+
+def ensure_float_from_decimal(value):
+    """Convert value to float, handling Decimal types from DynamoDB."""
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (list, tuple)):
+        return [ensure_float_from_decimal(v) for v in value]
+    if isinstance(value, dict):
+        return {k: ensure_float_from_decimal(v) for k, v in value.items()}
+    return value
 
 
 class KalmanFilterManager:
@@ -93,17 +105,17 @@ class KalmanFilterManager:
         obs_cov = (
             observation_covariance
             if observation_covariance is not None
-            else kalman_params["observation_covariance"][0][0]
+            else float(kalman_params["observation_covariance"][0][0])  # Ensure float (not Decimal from DB)
         )
 
         kalman = KalmanFilter(
             transition_matrices=np.array([[1, time_delta_days], [0, 1]]),
             observation_matrices=np.array([[1, 0]]),
-            initial_state_mean=np.array(kalman_params["initial_state_mean"]),
+            initial_state_mean=np.array(ensure_float_from_decimal(kalman_params["initial_state_mean"])),
             initial_state_covariance=np.array(
                 kalman_params["initial_state_covariance"]
             ),
-            transition_covariance=np.array(kalman_params["transition_covariance"]),
+            transition_covariance=np.array(ensure_float_from_decimal(kalman_params["transition_covariance"])),
             observation_covariance=np.array([[obs_cov]]),
         )
 
@@ -319,7 +331,7 @@ class KalmanFilterManager:
 
         # Get process noise Q from kalman_params
         kalman_params = state["kalman_params"]
-        Q = np.array(kalman_params["transition_covariance"])
+        Q = np.array(ensure_float_from_decimal(kalman_params["transition_covariance"]))
 
         # Predict state: x_pred = F * x_posterior
         predicted_state = F @ posterior_state
@@ -333,7 +345,7 @@ class KalmanFilterManager:
         # Calculate innovation covariance for the measurement
         # S = H * P_pred * H' + R, where H = [1, 0] for weight observation
         # Since H = [1, 0], this simplifies to P_pred[0,0] + R
-        R = kalman_params["observation_covariance"][0][0]
+        R = float(kalman_params["observation_covariance"][0][0])  # Ensure R is float (not Decimal from DB)
         innovation_covariance = float(predicted_covariance[0, 0] + R)
 
         return predicted_weight, innovation_covariance

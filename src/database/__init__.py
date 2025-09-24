@@ -4,19 +4,15 @@ import os
 from typing import Optional
 
 from .base import StateStore
-from .memory_store import InMemoryStateStore
-from .database import ProcessorStateDB  # For backward compatibility
 
 # Singleton instance
 _db_instance: Optional[StateStore] = None
 
 
-def get_state_db(backend: str = None) -> StateStore:
+def get_state_db() -> StateStore:
     """
     Get or create state database instance.
-
-    Args:
-        backend: 'memory', 'sqlite', 'dynamodb', or None for auto-detection
+    Always uses DynamoDB for consistency between local and production.
 
     Returns:
         StateStore instance
@@ -24,23 +20,17 @@ def get_state_db(backend: str = None) -> StateStore:
     global _db_instance
 
     if _db_instance is None:
-        if backend is None:
-            backend = os.getenv('DB_BACKEND', 'memory')
-
-        if backend == 'dynamodb':
-            # Import only when needed to avoid AWS SDK dependency
-            try:
-                from .dynamodb_store import DynamoDBStateStore
-                _db_instance = DynamoDBStateStore()
-            except ImportError:
-                # Fallback to memory if DynamoDB not available
-                _db_instance = InMemoryStateStore()
-        elif backend == 'sqlite':
-            # Use SQLite for local persistent storage
-            from .sqlite_store import SQLiteStateStore
-            _db_instance = SQLiteStateStore()
-        else:
-            _db_instance = InMemoryStateStore()
+        # Always use DynamoDB for consistency
+        try:
+            from .dynamodb_store import DynamoDBStateStore
+            _db_instance = DynamoDBStateStore()
+        except ImportError as e:
+            import logging
+            logging.error("DynamoDB is required. Please install boto3: pip install boto3")
+            raise ImportError(
+                "boto3 is required for database operations. "
+                "Install it with: pip install boto3 or uv pip install boto3"
+            ) from e
 
     return _db_instance
 
@@ -48,6 +38,9 @@ def get_state_db(backend: str = None) -> StateStore:
 def reset_db_instance():
     """Reset the singleton instance (for testing)."""
     global _db_instance
+    # Clean up existing instance before resetting
+    if _db_instance and hasattr(_db_instance, 'close_connections'):
+        _db_instance.close_connections()
     _db_instance = None
 
 

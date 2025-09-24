@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from pathlib import Path
 
-from .database import ProcessorStateDB
+from . import get_state_db
 
 
 class Database:
@@ -20,10 +20,11 @@ class Database:
         Initialize database wrapper
 
         Args:
-            db_path: Path to database file (optional)
+            db_path: Path to database file (optional - uses default if not provided)
         """
         self.db_path = db_path
-        self.processor_db = ProcessorStateDB(db_path)
+        # Use the factory to get the appropriate database backend
+        self.processor_db = get_state_db()
         self.logger = logging.getLogger(__name__)
 
     def get_user_measurements(self, user_id: str) -> List[Dict]:

@@ -66,7 +66,6 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_DEFAULT_REGION=us-east-1
-      - DB_BACKEND=dynamodb
       - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
       - DYNAMODB_TABLE_NAME=weight-processor-state
       - LOG_LEVEL=DEBUG

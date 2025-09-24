@@ -16,9 +16,20 @@ from pathlib import Path
 
 import tomllib
 
-from src.database.database import get_state_db
+from src.database import get_state_db
 from src.processing.processor import process_measurement
 from src.processing.validation import DataQualityPreprocessor
+
+# Import type conversion utilities
+try:
+    from src.utils.type_conversion import ensure_float
+except ImportError:
+    # Fallback if not available
+    def ensure_float(value):
+        """Convert value to float, handling Decimal types."""
+        if hasattr(value, 'is_finite'):  # Decimal
+            return float(value)
+        return float(value) if value is not None else 0.0
 
 
 def load_config(config_path: str = "config.toml") -> dict:
@@ -179,8 +190,33 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     # Load height data once
     DataQualityPreprocessor.load_height_data()
 
-    # Database for Kalman state
-    db = get_state_db()
+    # Database for Kalman state (always DynamoDB)
+    try:
+        db = get_state_db()
+    except ImportError as e:
+        print(f"Error: {e}")
+        print("\nTo run locally, please:")
+        print("1. Install boto3: uv pip install boto3")
+        print("2. Start DynamoDB Local: docker-compose up -d dynamodb-local")
+        print("3. Run with: ./scripts/run-local.sh <csv_file>")
+        sys.exit(1)
+    except ConnectionError as e:
+        print(f"Error: {e}")
+        print("\nTo fix this:")
+        if os.getenv('DYNAMODB_ENDPOINT'):
+            print("1. Start DynamoDB Local: docker-compose up -d dynamodb-local")
+            print("2. Wait for it to be ready: docker-compose logs dynamodb-local")
+            print("3. Or use the convenience script: ./scripts/run-local.sh <csv_file>")
+        else:
+            print("1. For local development, set DYNAMODB_ENDPOINT=http://localhost:8000")
+            print("2. Start DynamoDB Local: docker-compose up -d dynamodb-local")
+            print("3. Or use the convenience script: ./scripts/run-local.sh <csv_file>")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+        print("\nFor local development, use: ./scripts/run-local.sh <csv_file>")
+        print("This script will automatically start DynamoDB Local for you.")
+        sys.exit(1)
 
     # Initialize replay processing components
     replay_config = config.get("replay", {})
@@ -577,11 +613,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 
     print(f"\nResults saved to {results_file}")
 
-    # Export database if requested
-    if config["data"].get("export_database", True):
-        db_file = output_path / f"db_dump_{timestamp_str}.csv"
-        users_exported = db.export_to_csv(str(db_file))
-        print(f"Database exported to {db_file} ({users_exported} users)")
+    # Export database if requested (disabled for DynamoDB)
+    if config["data"].get("export_database", False):
+        # Database export is disabled when using DynamoDB
+        print("Database export is disabled for DynamoDB backend")
 
     # Generate visualizations if enabled
     if config.get("visualization", {}).get("enabled", True):
@@ -743,7 +778,7 @@ def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay
         enhanced_mode = False
         try:
             # Get database instance
-            from src.database.database import get_state_db
+            from src.database import get_state_db
             from src.replay.replay_processor import ReplayProcessor
             db = get_state_db()
 
@@ -827,12 +862,17 @@ def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay
 
 
 def parse_timestamp(date_str: str) -> datetime:
-    """Parse various timestamp formats."""
+    """Parse various timestamp formats and return timezone-naive datetime."""
     if not date_str:
         return datetime.now()
 
     if "T" in date_str:
-        return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        # Parse ISO format and convert to naive (remove timezone info)
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        # Convert to naive datetime (assuming UTC)
+        if dt.tzinfo is not None:
+            dt = dt.replace(tzinfo=None)
+        return dt
     elif " " in date_str:
         return datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
     else:

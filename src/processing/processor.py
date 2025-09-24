@@ -25,6 +25,21 @@ from ..constants import KALMAN_DEFAULTS, PHYSIOLOGICAL_LIMITS, get_noise_multipl
 
 from .unified_quality_scorer import QualityScore, UnifiedQualityScorer, MeasurementHistory
 
+# Import type conversion utilities
+try:
+    from ..utils.type_conversion import ensure_float, ensure_numeric_types
+except ImportError:
+    # Fallback if not available
+    def ensure_float(value):
+        """Convert value to float, handling Decimal types."""
+        if hasattr(value, 'is_finite'):  # Decimal
+            return float(value)
+        return float(value) if value is not None else 0.0
+
+    def ensure_numeric_types(data):
+        """Ensure all numeric values in data are proper Python types."""
+        return data
+
 
 def process_measurement(
     user_id: str,
@@ -56,6 +71,12 @@ def process_measurement(
     Returns:
         Complete processing result with all metadata
     """
+    # Ensure weight is a float (handle Decimal from DynamoDB)
+    if hasattr(weight, 'is_finite'):  # Check if it's a Decimal
+        weight = float(weight)
+    elif not isinstance(weight, (int, float)):
+        weight = float(weight)
+
     if db is None:
         db = get_state_db()
 
@@ -81,6 +102,9 @@ def process_measurement(
     state = db.get_state(user_id)
     if state is None:
         state = db.create_initial_state()
+    else:
+        # Ensure all numeric values from DynamoDB are proper Python types
+        state = ensure_numeric_types(state)
 
     # Add user height to config for validation
     user_height = DataQualityPreprocessor.get_user_height(user_id)
@@ -177,7 +201,7 @@ def process_measurement(
         if current_weight is not None:
             previous_weight = current_weight
         elif "last_raw_weight" in state:
-            previous_weight = state["last_raw_weight"]
+            previous_weight = ensure_float(state["last_raw_weight"])
 
         # Get time diff
         if "last_timestamp" in state:
@@ -191,7 +215,7 @@ def process_measurement(
     if state and "measurement_history" in state:
         history = state["measurement_history"]
         if isinstance(history, list):
-            recent_weights = [h["weight"] for h in history[-20:] if "weight" in h]
+            recent_weights = [ensure_float(h["weight"]) for h in history[-20:] if "weight" in h]
 
     # Use unified Kalman-centric quality scorer
     # Get Kalman prediction using proper predict step
@@ -217,6 +241,8 @@ def process_measurement(
                     "observation_covariance",
                     [[KALMAN_DEFAULTS["observation_covariance"]]],
                 )[0][0]
+                # Ensure base_obs_cov is float (not Decimal from DB)
+                base_obs_cov = float(base_obs_cov)
                 # innovation_cov = P_pred[0,0] + R
                 # We need: P_pred[0,0] + (R * multiplier)
                 predicted_cov_00 = innovation_covariance - base_obs_cov

@@ -4,7 +4,6 @@ import os
 from typing import Dict, Any, Optional
 
 from ..database.base import StateStore
-from ..database.memory_store import InMemoryStateStore
 from ..config.config_manager import ConfigManager
 from ..services.weight_processor_service import WeightProcessorService
 
@@ -16,41 +15,29 @@ class ComponentFactory:
     _config = None
 
     @classmethod
-    def get_state_store(cls, backend: str = None) -> StateStore:
+    def get_state_store(cls) -> StateStore:
         """
         Get or create state store instance.
-
-        Args:
-            backend: 'memory', 'dynamodb', or None for auto-detection
+        Always uses DynamoDB for consistency.
 
         Returns:
             StateStore instance
         """
-        # Determine backend
-        if backend is None:
-            config = cls.get_config()
-            backend = config.get('database', {}).get('backend', 'memory')
-
-        # Check if instance exists
-        cache_key = f'state_store_{backend}'
+        cache_key = 'state_store_dynamodb'
         if cache_key in cls._instances:
             return cls._instances[cache_key]
 
-        # Create new instance
-        if backend == 'dynamodb':
-            # Import only when needed to avoid AWS SDK dependency
-            try:
-                from ..database.dynamodb_store import DynamoDBStateStore
-                config = cls.get_config()
-                table_name = config.get('database', {}).get('table_name')
-                region = config.get('database', {}).get('region')
-                instance = DynamoDBStateStore(table_name=table_name, region=region)
-            except ImportError:
-                # Fallback to memory if DynamoDB not available
-                print("DynamoDB dependencies not available, using in-memory store")
-                instance = InMemoryStateStore()
-        else:
-            instance = InMemoryStateStore()
+        # Always use DynamoDB
+        try:
+            from ..database.dynamodb_store import DynamoDBStateStore
+            config = cls.get_config()
+            table_name = config.get('database', {}).get('table_name')
+            region = config.get('database', {}).get('region')
+            instance = DynamoDBStateStore(table_name=table_name, region=region)
+        except ImportError as e:
+            raise ImportError(
+                "DynamoDB (boto3) is required. Install with: pip install boto3"
+            ) from e
 
         # Cache and return
         cls._instances[cache_key] = instance

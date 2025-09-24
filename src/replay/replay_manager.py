@@ -19,11 +19,13 @@ import time
 try:
     from ..database.database import ProcessorStateDB
     from ..processing.processor import process_measurement
+    from ..processing.type_conversion import ensure_float, prepare_measurement_for_processing
 except ImportError:
     # For direct import testing
     try:
         from src.database.database import ProcessorStateDB
         from src.processing.processor import process_measurement
+        from src.processing.type_conversion import ensure_float, prepare_measurement_for_processing
     except ImportError:
         # Mock for testing without full processor
         def process_measurement(measurement_data):
@@ -104,7 +106,8 @@ class ReplayManager:
                     restored_weight, _ = KalmanFilterManager.get_current_state_values(restored_state)
 
                     if backup_weight and restored_weight:
-                        weight_jump = abs(backup_weight - restored_weight)
+                        # Ensure both are floats to avoid Decimal/float type errors
+                        weight_jump = abs(float(backup_weight) - float(restored_weight))
                         # If restoration would cause >15kg jump, skip replay processing
                         if weight_jump > 15.0:
                             logger.warning(f"Skipping replay processing for {user_id}: would cause {weight_jump:.1f}kg trajectory jump")
@@ -311,7 +314,8 @@ class ReplayManager:
             Result dictionary with success status
         """
         try:
-            # Sort measurements by timestamp
+            # Ensure all measurements have proper types and sort by timestamp
+            clean_measurements = [prepare_measurement_for_processing(m) for m in clean_measurements]
             sorted_measurements = sorted(clean_measurements, key=lambda x: x['timestamp'])
 
             processed_count = 0
@@ -329,11 +333,14 @@ class ReplayManager:
 
                 # Process measurement through normal pipeline
                 try:
+                    # Prepare measurement with proper types
+                    clean_measurement = prepare_measurement_for_processing(measurement)
+
                     # Extract measurement data
-                    weight = measurement['weight']
-                    timestamp = measurement['timestamp']
-                    source = measurement.get('source', 'replay-replay')
-                    unit = measurement.get('unit', 'kg')
+                    weight = clean_measurement['weight']  # Now guaranteed to be float
+                    timestamp = clean_measurement['timestamp']
+                    source = clean_measurement.get('source', 'replay-replay')
+                    unit = clean_measurement.get('unit', 'kg')
 
                     # Create replay-friendly config with more lenient quality thresholds
                     replay_config = self.config.copy()
@@ -368,7 +375,9 @@ class ReplayManager:
                     processed_count += 1
 
                 except Exception as e:
+                    import traceback
                     logger.error(f"Failed to process measurement during replay: {e}")
+                    logger.error(f"Traceback: {traceback.format_exc()}")
                     return {
                         'success': False,
                         'error': f'Measurement processing failed: {str(e)}',

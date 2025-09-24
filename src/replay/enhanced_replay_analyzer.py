@@ -406,25 +406,39 @@ class EnhancedReplayAnalyzer:
         state_history = user_state.get('state_history', [])
         last_state = user_state.get('last_state')
 
+        # Ensure last_state is a numpy array if it's a list
+        if isinstance(last_state, list):
+            last_state = np.array(last_state)
+
         if last_state is None or (isinstance(last_state, np.ndarray) and last_state.size == 0):
             return [0.0] * len(measurements)
 
         # Extract weight from state (first component)
-        if isinstance(last_state, (list, np.ndarray)) and len(last_state) > 0:
-            # Handle numpy array properly
-            if isinstance(last_state, np.ndarray):
-                # Check if it's a 2D array (multiple states)
-                if last_state.ndim > 1:
-                    # Get the last state row and extract weight
-                    state_row = last_state[-1] if len(last_state) > 0 else last_state[0]
-                    last_weight = float(state_row[0]) if len(state_row) > 0 else 0.0
-                else:
-                    # 1D array - weight is the first element
-                    last_weight = float(last_state[0])
-            else:
-                last_weight = float(last_state[0])
-        else:
-            last_weight = 0.0
+        last_weight = 0.0
+        if isinstance(last_state, (list, tuple, np.ndarray)):
+            try:
+                if isinstance(last_state, np.ndarray):
+                    # Handle numpy array
+                    if last_state.ndim > 1:
+                        # 2D array: extract first element of first row
+                        if last_state.shape[0] > 0 and last_state.shape[1] > 0:
+                            last_weight = float(last_state[0, 0])
+                    else:
+                        # 1D array
+                        if len(last_state) > 0:
+                            last_weight = float(last_state[0])
+                elif isinstance(last_state, (list, tuple)) and len(last_state) > 0:
+                    # Handle list/tuple - check if nested
+                    if isinstance(last_state[0], (list, tuple, np.ndarray)):
+                        # Nested format: [[weight]] or [[weight, velocity]]
+                        if len(last_state[0]) > 0:
+                            last_weight = float(last_state[0][0])
+                    else:
+                        # Flat format: [weight] or [weight, velocity]
+                        last_weight = float(last_state[0])
+            except (TypeError, ValueError, IndexError) as e:
+                logger.warning(f"Could not extract weight from last_state: {last_state}, error: {e}")
+                last_weight = 0.0
 
         # For each measurement, find the best prediction
         for measurement in measurements:
@@ -438,18 +452,27 @@ class EnhancedReplayAnalyzer:
                     snap_time = snapshot.get('timestamp')
                     if snap_time and snap_time < timestamp:
                         snap_state = snapshot.get('state')
-                        if snap_state and len(snap_state) > 0:
-                            if isinstance(snap_state, np.ndarray):
-                                # Check if it's a 2D array (multiple states)
-                                if snap_state.ndim > 1:
-                                    # Get the last state row and extract weight
-                                    state_row = snap_state[-1] if len(snap_state) > 0 else snap_state[0]
-                                    best_prediction = float(state_row[0]) if len(state_row) > 0 else 0.0
-                                else:
-                                    # 1D array - weight is the first element
-                                    best_prediction = float(snap_state[0])
-                            else:
-                                best_prediction = float(snap_state[0])
+                        if snap_state:
+                            try:
+                                if isinstance(snap_state, np.ndarray):
+                                    # Handle numpy array
+                                    if snap_state.ndim > 1:
+                                        if snap_state.shape[0] > 0 and snap_state.shape[1] > 0:
+                                            best_prediction = float(snap_state[0, 0])
+                                    else:
+                                        if len(snap_state) > 0:
+                                            best_prediction = float(snap_state[0])
+                                elif isinstance(snap_state, (list, tuple)) and len(snap_state) > 0:
+                                    # Handle list/tuple - check if nested
+                                    if isinstance(snap_state[0], (list, tuple, np.ndarray)):
+                                        # Nested format
+                                        if len(snap_state[0]) > 0:
+                                            best_prediction = float(snap_state[0][0])
+                                    else:
+                                        # Flat format
+                                        best_prediction = float(snap_state[0])
+                            except (TypeError, ValueError, IndexError) as e:
+                                logger.debug(f"Could not extract weight from snap_state: {e}")
                             break
 
             predictions.append(best_prediction)

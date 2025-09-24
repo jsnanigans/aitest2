@@ -19,7 +19,6 @@ Globals:
     Environment:
       Variables:
         LOG_LEVEL: INFO
-        DB_BACKEND: dynamodb
         DYNAMODB_TABLE_NAME: !Ref StateTable
         AWS_REGION: !Ref AWS::Region
         ENVIRONMENT: !Ref Environment
