@@ -16,7 +16,7 @@ def get_state_db(backend: str = None) -> StateStore:
     Get or create state database instance.
 
     Args:
-        backend: 'memory', 'dynamodb', or None for auto-detection
+        backend: 'memory', 'sqlite', 'dynamodb', or None for auto-detection
 
     Returns:
         StateStore instance
@@ -35,6 +35,10 @@ def get_state_db(backend: str = None) -> StateStore:
             except ImportError:
                 # Fallback to memory if DynamoDB not available
                 _db_instance = InMemoryStateStore()
+        elif backend == 'sqlite':
+            # Use SQLite for local persistent storage
+            from .sqlite_store import SQLiteStateStore
+            _db_instance = SQLiteStateStore()
         else:
             _db_instance = InMemoryStateStore()
 

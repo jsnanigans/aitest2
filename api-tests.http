@@ -1,0 +1,345 @@
+### Weight Processor API Tests
+### Use with VS Code REST Client extension or similar HTTP file tools
+### Update the @baseUrl variable for your environment
+
+@baseUrl = http://localhost:5448
+@apiVersion = api/v1
+@testUserId = user-123
+@contentType = application/json
+
+### ============================================
+### HEALTH CHECK
+### ============================================
+
+### Health Status
+GET {{baseUrl}}/{{apiVersion}}/health
+
+### ============================================
+### PROCESS MEASUREMENTS
+### ============================================
+
+### Process Single Measurement
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440001",
+      "userId": "{{testUserId}}",
+      "weight": 75.5,
+      "unit": "kg",
+      "timestamp": "2024-01-15T10:00:00Z",
+      "effectiveDateTime": "2024-01-15T10:00:00Z",
+      "source": "patient-device"
+    }
+  ]
+}
+
+### Process Multiple Measurements from Different Sources
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440002",
+      "userId": "{{testUserId}}",
+      "weight": 75.2,
+      "unit": "kg",
+      "timestamp": "2024-01-15T08:00:00Z",
+      "effectiveDateTime": "2024-01-15T08:00:00Z",
+      "source": "patient-device"
+    },
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440003",
+      "userId": "{{testUserId}}",
+      "weight": 75.8,
+      "unit": "kg",
+      "timestamp": "2024-01-15T12:00:00Z",
+      "effectiveDateTime": "2024-01-15T12:00:00Z",
+      "source": "patient-upload"
+    },
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440004",
+      "userId": "{{testUserId}}",
+      "weight": 76.0,
+      "unit": "kg",
+      "timestamp": "2024-01-15T18:00:00Z",
+      "effectiveDateTime": "2024-01-15T18:00:00Z",
+      "source": "care-team-upload"
+    }
+  ]
+}
+
+### Process Measurement in Pounds
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440005",
+      "userId": "{{testUserId}}",
+      "weight": 165.5,
+      "unit": "lbs",
+      "timestamp": "2024-01-16T09:00:00Z",
+      "effectiveDateTime": "2024-01-16T09:00:00Z",
+      "source": "questionnaire"
+    }
+  ]
+}
+
+### Process Potential Outlier
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440006",
+      "userId": "{{testUserId}}",
+      "weight": 95.0,
+      "unit": "kg",
+      "timestamp": "2024-01-17T10:00:00Z",
+      "effectiveDateTime": "2024-01-17T10:00:00Z",
+      "source": "patient-device"
+    }
+  ]
+}
+
+### Process from Low Reliability Source (iglucose.com)
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440007",
+      "userId": "{{testUserId}}",
+      "weight": 76.2,
+      "unit": "kg",
+      "timestamp": "2024-01-18T11:00:00Z",
+      "effectiveDateTime": "2024-01-18T11:00:00Z",
+      "source": "iglucose.com"
+    }
+  ]
+}
+
+### Process After Long Gap (Triggers Kalman Reset)
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440008",
+      "userId": "{{testUserId}}",
+      "weight": 78.0,
+      "unit": "kg",
+      "timestamp": "2024-03-01T10:00:00Z",
+      "effectiveDateTime": "2024-03-01T10:00:00Z",
+      "source": "patient-device"
+    }
+  ]
+}
+
+### ============================================
+### REPLAY MEASUREMENTS
+### ============================================
+
+### Replay from Timestamp
+POST {{baseUrl}}/{{apiVersion}}/replay/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "replay_from_timestamp": "2024-01-01T00:00:00Z",
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440010",
+      "userId": "{{testUserId}}",
+      "weight": 74.5,
+      "unit": "kg",
+      "timestamp": "2024-01-10T10:00:00Z",
+      "effectiveDateTime": "2024-01-10T10:00:00Z",
+      "source": "patient-device"
+    },
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440011",
+      "userId": "{{testUserId}}",
+      "weight": 74.8,
+      "unit": "kg",
+      "timestamp": "2024-01-11T10:00:00Z",
+      "effectiveDateTime": "2024-01-11T10:00:00Z",
+      "source": "patient-upload"
+    }
+  ]
+}
+
+### Replay with State Rollback
+POST {{baseUrl}}/{{apiVersion}}/replay/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "replay_from_timestamp": "2024-01-05T00:00:00Z",
+  "rollback_state": true,
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440012",
+      "userId": "{{testUserId}}",
+      "weight": 73.5,
+      "unit": "kg",
+      "timestamp": "2024-01-05T09:00:00Z",
+      "effectiveDateTime": "2024-01-05T09:00:00Z",
+      "source": "care-team-upload"
+    }
+  ]
+}
+
+### ============================================
+### USER STATE MANAGEMENT
+### ============================================
+
+### Get User State
+GET {{baseUrl}}/{{apiVersion}}/state/{{testUserId}}
+
+### Delete User State
+DELETE {{baseUrl}}/{{apiVersion}}/state/{{testUserId}}
+
+### ============================================
+### CLEANUP OPERATIONS
+### ============================================
+
+### Cleanup with Kalman Reset
+POST {{baseUrl}}/{{apiVersion}}/cleanup/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "reset_kalman": true,
+  "reason": "Manual reset requested"
+}
+
+### Cleanup Buffer Only
+POST {{baseUrl}}/{{apiVersion}}/cleanup/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "clear_buffer": true,
+  "reset_kalman": false
+}
+
+### ============================================
+### EDGE CASES & ERROR TESTING
+### ============================================
+
+### Invalid Weight - Too Low (Below 20kg)
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440020",
+      "userId": "{{testUserId}}",
+      "weight": 15.0,
+      "unit": "kg",
+      "timestamp": "2024-01-20T10:00:00Z",
+      "effectiveDateTime": "2024-01-20T10:00:00Z",
+      "source": "patient-device"
+    }
+  ]
+}
+
+### Invalid Weight - Too High (Above 635kg)
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440021",
+      "userId": "{{testUserId}}",
+      "weight": 650.0,
+      "unit": "kg",
+      "timestamp": "2024-01-20T11:00:00Z",
+      "effectiveDateTime": "2024-01-20T11:00:00Z",
+      "source": "patient-device"
+    }
+  ]
+}
+
+### BMI Value Detection (10-50 range)
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440022",
+      "userId": "{{testUserId}}",
+      "weight": 25.5,
+      "unit": "kg",
+      "timestamp": "2024-01-20T12:00:00Z",
+      "effectiveDateTime": "2024-01-20T12:00:00Z",
+      "source": "patient-device"
+    }
+  ]
+}
+
+### Missing Required Fields
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "userId": "{{testUserId}}",
+      "weight": 75.0,
+      "source": "patient-device"
+    }
+  ]
+}
+
+### Invalid UUID Format
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {
+      "uuid": "not-a-valid-uuid",
+      "userId": "{{testUserId}}",
+      "weight": 75.0,
+      "unit": "kg",
+      "timestamp": "2024-01-20T13:00:00Z",
+      "effectiveDateTime": "2024-01-20T13:00:00Z",
+      "source": "patient-device"
+    }
+  ]
+}
+
+### Empty Measurements Array
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": []
+}
+
+### ============================================
+### PERFORMANCE TESTING
+### ============================================
+
+### Small Batch (5 measurements)
+POST {{baseUrl}}/{{apiVersion}}/process/{{testUserId}}
+Content-Type: {{contentType}}
+
+{
+  "measurements": [
+    {"uuid": "b50e8400-e29b-41d4-a716-446655440001", "userId": "{{testUserId}}", "weight": 75.0, "unit": "kg", "timestamp": "2024-01-01T00:00:00Z", "effectiveDateTime": "2024-01-01T00:00:00Z", "source": "patient-device"},
+    {"uuid": "b50e8400-e29b-41d4-a716-446655440002", "userId": "{{testUserId}}", "weight": 75.1, "unit": "kg", "timestamp": "2024-01-01T01:00:00Z", "effectiveDateTime": "2024-01-01T01:00:00Z", "source": "patient-device"},
+    {"uuid": "b50e8400-e29b-41d4-a716-446655440003", "userId": "{{testUserId}}", "weight": 75.2, "unit": "kg", "timestamp": "2024-01-01T02:00:00Z", "effectiveDateTime": "2024-01-01T02:00:00Z", "source": "patient-upload"},
+    {"uuid": "b50e8400-e29b-41d4-a716-446655440004", "userId": "{{testUserId}}", "weight": 75.0, "unit": "kg", "timestamp": "2024-01-01T03:00:00Z", "effectiveDateTime": "2024-01-01T03:00:00Z", "source": "care-team-upload"},
+    {"uuid": "b50e8400-e29b-41d4-a716-446655440005", "userId": "{{testUserId}}", "weight": 74.9, "unit": "kg", "timestamp": "2024-01-01T04:00:00Z", "effectiveDateTime": "2024-01-01T04:00:00Z", "source": "questionnaire"}
+  ]
+}

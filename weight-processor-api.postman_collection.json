@@ -1,0 +1,516 @@
+{
+  "info": {
+    "name": "Weight Processor API",
+    "description": "Collection for testing the Weight Processor Lambda API locally and in AWS. Import this collection into Postman to test all endpoints with sample data.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5448",
+      "type": "string",
+      "description": "Base URL for local development. Change to your AWS API Gateway URL for cloud testing."
+    },
+    {
+      "key": "api_version",
+      "value": "api/v1",
+      "type": "string"
+    },
+    {
+      "key": "test_user_id",
+      "value": "user-123",
+      "type": "string",
+      "description": "Default test user ID"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "health"]
+            },
+            "description": "Check the health status of the Lambda function and all its components"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Process Measurements",
+      "item": [
+        {
+          "name": "Process Single Measurement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440001\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 75.5,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-15T10:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-15T10:00:00Z\",\n      \"source\": \"patient-device\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Process a single weight measurement from a patient device"
+          }
+        },
+        {
+          "name": "Process Multiple Measurements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440002\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 75.2,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-15T08:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-15T08:00:00Z\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440003\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 75.8,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-15T12:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-15T12:00:00Z\",\n      \"source\": \"patient-upload\"\n    },\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440004\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 76.0,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-15T18:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-15T18:00:00Z\",\n      \"source\": \"care-team-upload\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Process multiple weight measurements from different sources"
+          }
+        },
+        {
+          "name": "Process Measurement in Pounds",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440005\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 165.5,\n      \"unit\": \"lbs\",\n      \"timestamp\": \"2024-01-16T09:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-16T09:00:00Z\",\n      \"source\": \"questionnaire\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Process a weight measurement in pounds (will be converted to kg)"
+          }
+        },
+        {
+          "name": "Process with Outlier Detection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440006\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 95.0,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-17T10:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-17T10:00:00Z\",\n      \"source\": \"patient-device\",\n      \"comment\": \"Potential outlier - significant weight change\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Process a measurement that might be detected as an outlier"
+          }
+        },
+        {
+          "name": "Process Low Reliability Source",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440007\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 76.2,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-18T11:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-18T11:00:00Z\",\n      \"source\": \"iglucose.com\",\n      \"comment\": \"Low reliability source - higher noise multiplier\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Process measurement from a low-reliability source (iglucose.com)"
+          }
+        },
+        {
+          "name": "Process After Long Gap (Trigger Reset)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440008\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 78.0,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-03-01T10:00:00Z\",\n      \"effectiveDateTime\": \"2024-03-01T10:00:00Z\",\n      \"source\": \"patient-device\",\n      \"comment\": \"Measurement after 30+ day gap should trigger Kalman reset\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Process measurement after a long gap (>30 days) which triggers a Kalman filter reset"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay Measurements",
+      "item": [
+        {
+          "name": "Replay from Timestamp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"replay_from_timestamp\": \"2024-01-01T00:00:00Z\",\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440010\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 74.5,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-10T10:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-10T10:00:00Z\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440011\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 74.8,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-11T10:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-11T10:00:00Z\",\n      \"source\": \"patient-upload\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/replay/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "replay", "{{test_user_id}}"]
+            },
+            "description": "Replay measurements from a specific timestamp, useful for reprocessing historical data"
+          }
+        },
+        {
+          "name": "Replay with State Rollback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"replay_from_timestamp\": \"2024-01-05T00:00:00Z\",\n  \"rollback_state\": true,\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440012\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 73.5,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-05T09:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-05T09:00:00Z\",\n      \"source\": \"care-team-upload\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/replay/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "replay", "{{test_user_id}}"]
+            },
+            "description": "Replay with state rollback to correct processing errors"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User State Management",
+      "item": [
+        {
+          "name": "Get User State",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/state/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "state", "{{test_user_id}}"]
+            },
+            "description": "Get the current Kalman filter state and processing history for a user"
+          }
+        },
+        {
+          "name": "Delete User State",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/state/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "state", "{{test_user_id}}"]
+            },
+            "description": "Delete all state data for a user (useful for testing or GDPR compliance)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cleanup Operations",
+      "item": [
+        {
+          "name": "Cleanup with Kalman Reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reset_kalman\": true,\n  \"reason\": \"Manual reset requested by user\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/cleanup/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "cleanup", "{{test_user_id}}"]
+            },
+            "description": "Cleanup user data with a Kalman filter reset"
+          }
+        },
+        {
+          "name": "Cleanup Buffer Only",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clear_buffer\": true,\n  \"reset_kalman\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/cleanup/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "cleanup", "{{test_user_id}}"]
+            },
+            "description": "Clear the measurement buffer without resetting Kalman state"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Edge Cases & Error Testing",
+      "item": [
+        {
+          "name": "Invalid Weight (Too Low)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440020\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 15.0,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-20T10:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-20T10:00:00Z\",\n      \"source\": \"patient-device\",\n      \"comment\": \"Weight below physiological minimum (20kg)\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Test with weight below physiological minimum (should be rejected)"
+          }
+        },
+        {
+          "name": "Invalid Weight (Too High)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440021\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 650.0,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-20T11:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-20T11:00:00Z\",\n      \"source\": \"patient-device\",\n      \"comment\": \"Weight above physiological maximum (635kg)\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Test with weight above physiological maximum (should be rejected)"
+          }
+        },
+        {
+          "name": "BMI Value Detection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"550e8400-e29b-41d4-a716-446655440022\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 25.5,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-20T12:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-20T12:00:00Z\",\n      \"source\": \"patient-device\",\n      \"comment\": \"Likely BMI value (10-50 range), should be rejected\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Test BMI detection (value in 10-50 range should be identified as BMI, not weight)"
+          }
+        },
+        {
+          "name": "Missing Required Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 75.0,\n      \"source\": \"patient-device\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Test with missing required fields (uuid, unit, timestamps)"
+          }
+        },
+        {
+          "name": "Invalid UUID Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"not-a-valid-uuid\",\n      \"userId\": \"{{test_user_id}}\",\n      \"weight\": 75.0,\n      \"unit\": \"kg\",\n      \"timestamp\": \"2024-01-20T13:00:00Z\",\n      \"effectiveDateTime\": \"2024-01-20T13:00:00Z\",\n      \"source\": \"patient-device\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Test with invalid UUID format"
+          }
+        },
+        {
+          "name": "Empty Measurements Array",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Test with empty measurements array"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Performance Testing",
+      "item": [
+        {
+          "name": "Batch Process 100 Measurements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\"uuid\": \"a50e8400-e29b-41d4-a716-446655440001\", \"userId\": \"{{test_user_id}}\", \"weight\": 75.0, \"unit\": \"kg\", \"timestamp\": \"2024-01-01T00:00:00Z\", \"effectiveDateTime\": \"2024-01-01T00:00:00Z\", \"source\": \"patient-device\"},\n    {\"uuid\": \"a50e8400-e29b-41d4-a716-446655440002\", \"userId\": \"{{test_user_id}}\", \"weight\": 75.1, \"unit\": \"kg\", \"timestamp\": \"2024-01-01T01:00:00Z\", \"effectiveDateTime\": \"2024-01-01T01:00:00Z\", \"source\": \"patient-device\"},\n    {\"uuid\": \"a50e8400-e29b-41d4-a716-446655440003\", \"userId\": \"{{test_user_id}}\", \"weight\": 75.2, \"unit\": \"kg\", \"timestamp\": \"2024-01-01T02:00:00Z\", \"effectiveDateTime\": \"2024-01-01T02:00:00Z\", \"source\": \"patient-device\"},\n    {\"uuid\": \"a50e8400-e29b-41d4-a716-446655440004\", \"userId\": \"{{test_user_id}}\", \"weight\": 75.0, \"unit\": \"kg\", \"timestamp\": \"2024-01-01T03:00:00Z\", \"effectiveDateTime\": \"2024-01-01T03:00:00Z\", \"source\": \"patient-upload\"},\n    {\"uuid\": \"a50e8400-e29b-41d4-a716-446655440005\", \"userId\": \"{{test_user_id}}\", \"weight\": 74.9, \"unit\": \"kg\", \"timestamp\": \"2024-01-01T04:00:00Z\", \"effectiveDateTime\": \"2024-01-01T04:00:00Z\", \"source\": \"care-team-upload\"}\n  ],\n  \"comment\": \"This is a simplified batch. In practice, generate 100 measurements programmatically for performance testing.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_version}}/process/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_version}}", "process", "{{test_user_id}}"]
+            },
+            "description": "Performance test with batch processing. Generate 100 measurements programmatically for actual testing."
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set dynamic timestamps for testing",
+          "const now = new Date();",
+          "const oneHourAgo = new Date(now - 3600000);",
+          "const oneDayAgo = new Date(now - 86400000);",
+          "",
+          "pm.environment.set('current_timestamp', now.toISOString());",
+          "pm.environment.set('one_hour_ago', oneHourAgo.toISOString());",
+          "pm.environment.set('one_day_ago', oneDayAgo.toISOString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Common test scripts",
+          "pm.test('Status code is 200', function () {",
+          "    pm.response.to.have.status(200);",
+          "});",
+          "",
+          "pm.test('Response time is less than 500ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(500);",
+          "});",
+          "",
+          "pm.test('Response is JSON', function () {",
+          "    pm.response.to.be.json;",
+          "});"
+        ]
+      }
+    }
+  ]
+}

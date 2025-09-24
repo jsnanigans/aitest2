@@ -15,7 +15,8 @@ Globals:
     Environment:
       Variables:
         LOG_LEVEL: DEBUG
-        DB_BACKEND: memory
+        DB_BACKEND: sqlite
+        DB_PATH: /tmp/weight-processor-local.db
         ENVIRONMENT: local
 
 Resources:
