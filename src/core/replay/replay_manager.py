@@ -23,9 +23,9 @@ try:
 except ImportError:
     # For direct import testing
     try:
-        from src.database.database import ProcessorStateDB
-        from src.processing.processor import process_measurement
-        from src.processing.type_conversion import ensure_float, prepare_measurement_for_processing
+        from src.core.database.database import ProcessorStateDB
+        from src.core.processing.processor import process_measurement
+        from src.core.processing.type_conversion import ensure_float, prepare_measurement_for_processing
     except ImportError:
         # Mock for testing without full processor
         def process_measurement(measurement_data):

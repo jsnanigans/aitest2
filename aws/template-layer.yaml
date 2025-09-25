@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda Layer for Weight Processor Dependencies
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+
+Resources:
+  # Lambda Layer for NumPy and other dependencies
+  WeightProcessorDependenciesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub weight-processor-deps-${Environment}
+      Description: NumPy, PyKalman, and Pydantic for Weight Processor
+      Content:
+        S3Bucket: !Sub weight-processor-layers-${AWS::Region}
+        S3Key: !Sub ${Environment}/numpy-layer.zip
+      CompatibleRuntimes:
+        - python3.12
+      CompatibleArchitectures:
+        - x86_64
+        - arm64
+
+  # Permission for Lambda functions to use this layer
+  LayerPermission:
+    Type: AWS::Lambda::LayerVersionPermission
+    Properties:
+      Action: lambda:GetLayerVersion
+      LayerVersionArn: !Ref WeightProcessorDependenciesLayer
+      Principal: !Ref AWS::AccountId
+
+Outputs:
+  LayerArn:
+    Description: ARN of the Lambda Layer
+    Value: !Ref WeightProcessorDependenciesLayer
+    Export:
+      Name: !Sub weight-processor-layer-${Environment}
+
+  LayerVersion:
+    Description: Version of the Lambda Layer
+    Value: !GetAtt WeightProcessorDependenciesLayer.Version

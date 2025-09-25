@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
-from ..database.database import get_state_db
+from ..database import get_state_db
 from .circuit_breaker import CircuitBreaker, CircuitOpenError
 from .kalman import (
     KalmanFilterManager,

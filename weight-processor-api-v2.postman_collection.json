@@ -1,0 +1,403 @@
+{
+  "info": {
+    "_postman_id": "weight-processor-v2",
+    "name": "Weight Processor API v2",
+    "description": "API collection for Weight Processor Service with Docker SAM support",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
+  },
+  "item": [
+    {
+      "name": "Local Development (Docker SAM)",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/health",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Process Measurements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"{{$isoTimestamp}}\",\n      \"source\": \"patient-device\",\n      \"metadata\": {\n        \"device\": \"scale-001\",\n        \"location\": \"home\"\n      }\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75.8,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"{{$isoTimestamp}}\",\n      \"source\": \"care-team-upload\"\n    }\n  ],\n  \"options\": {\n    \"force_replay\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/process/{{userId}}",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "process", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User State",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/state/{{userId}}",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "state", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Replay Measurements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"replay_from\": \"2024-01-01T00:00:00Z\",\n  \"measurements\": [\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 74.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-01T10:00:00Z\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 74.8,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-02T10:00:00Z\",\n      \"source\": \"patient-device\"\n    }\n  ],\n  \"options\": {\n    \"validate_order\": true,\n    \"stop_on_error\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/replay/{{userId}}",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "replay", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cleanup User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cleanup_type\": \"reset_adaptive\",\n  \"options\": {\n    \"preserve_buffer\": false,\n    \"preserve_kalman\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/cleanup/{{userId}}",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "cleanup", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User State",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/state/{{userId}}",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "state", "{{userId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AWS Development",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key_dev}}",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{aws_dev_url}}/api/v1/health",
+              "host": ["{{aws_dev_url}}"],
+              "path": ["api", "v1", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Process Measurements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key_dev}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"{{$isoTimestamp}}\",\n      \"source\": \"patient-device\",\n      \"metadata\": {\n        \"device\": \"scale-001\"\n      }\n    }\n  ],\n  \"options\": {}\n}"
+            },
+            "url": {
+              "raw": "{{aws_dev_url}}/api/v1/process/{{userId}}",
+              "host": ["{{aws_dev_url}}"],
+              "path": ["api", "v1", "process", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User State",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key_dev}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{aws_dev_url}}/api/v1/state/{{userId}}",
+              "host": ["{{aws_dev_url}}"],
+              "path": ["api", "v1", "state", "{{userId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AWS Production",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key_prod}}",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{aws_prod_url}}/api/v1/health",
+              "host": ["{{aws_prod_url}}"],
+              "path": ["api", "v1", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Process Measurements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key_prod}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"{{$isoTimestamp}}\",\n      \"source\": \"patient-device\"\n    }\n  ],\n  \"options\": {}\n}"
+            },
+            "url": {
+              "raw": "{{aws_prod_url}}/api/v1/process/{{userId}}",
+              "host": ["{{aws_prod_url}}"],
+              "path": ["api", "v1", "process", "{{userId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Test Scenarios",
+      "item": [
+        {
+          "name": "Test Weight Units",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 165,\n      \"unit\": \"lbs\",\n      \"effectiveDateTime\": \"{{$isoTimestamp}}\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75000,\n      \"unit\": \"g\",\n      \"effectiveDateTime\": \"{{$isoTimestamp}}\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 11.8,\n      \"unit\": \"st\",\n      \"effectiveDateTime\": \"{{$isoTimestamp}}\",\n      \"source\": \"patient-device\"\n    }\n  ],\n  \"options\": {}\n}"
+            },
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/process/test-units",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "process", "test-units"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Test Outlier Detection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-01T10:00:00Z\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 150.0,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-02T10:00:00Z\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75.8,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-03T10:00:00Z\",\n      \"source\": \"patient-device\"\n    }\n  ],\n  \"options\": {}\n}"
+            },
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/process/test-outlier",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "process", "test-outlier"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Test Gap Handling",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-01T10:00:00Z\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 80.0,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-03-01T10:00:00Z\",\n      \"source\": \"patient-device\"\n    }\n  ],\n  \"options\": {}\n}"
+            },
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/process/test-gap",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "process", "test-gap"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Test Source Reliability",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"measurements\": [\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 75.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-01T10:00:00Z\",\n      \"source\": \"care-team-upload\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 76.0,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-02T10:00:00Z\",\n      \"source\": \"patient-upload\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 76.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-03T10:00:00Z\",\n      \"source\": \"questionnaire\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 77.0,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-04T10:00:00Z\",\n      \"source\": \"patient-device\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 77.5,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-05T10:00:00Z\",\n      \"source\": \"connectivehealth.io\"\n    },\n    {\n      \"uuid\": \"{{$guid}}\",\n      \"weight\": 78.0,\n      \"unit\": \"kg\",\n      \"effectiveDateTime\": \"2024-01-06T10:00:00Z\",\n      \"source\": \"iglucose.com\"\n    }\n  ],\n  \"options\": {}\n}"
+            },
+            "url": {
+              "raw": "{{docker_base_url}}/api/v1/process/test-sources",
+              "host": ["{{docker_base_url}}"],
+              "path": ["api", "v1", "process", "test-sources"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Generate a random user ID if not set",
+          "if (!pm.variables.get('userId')) {",
+          "    pm.variables.set('userId', 'test-user-' + Date.now());",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Common test scripts",
+          "pm.test('Status code is 200', function () {",
+          "    pm.response.to.have.status(200);",
+          "});",
+          "",
+          "pm.test('Response has JSON body', function () {",
+          "    pm.response.to.be.json;",
+          "});",
+          "",
+          "pm.test('Response time is less than 2000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "docker_base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "aws_dev_url",
+      "value": "https://your-api-id.execute-api.us-east-1.amazonaws.com/dev",
+      "type": "string"
+    },
+    {
+      "key": "aws_prod_url",
+      "value": "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod",
+      "type": "string"
+    },
+    {
+      "key": "api_key_dev",
+      "value": "your-dev-api-key",
+      "type": "string"
+    },
+    {
+      "key": "api_key_prod",
+      "value": "your-prod-api-key",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "test-user-001",
+      "type": "string"
+    }
+  ]
+}

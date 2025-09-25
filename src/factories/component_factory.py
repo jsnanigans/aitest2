@@ -3,9 +3,9 @@
 import os
 from typing import Dict, Any, Optional
 
-from ..database.base import StateStore
-from ..config.config_manager import ConfigManager
-from ..services.weight_processor_service import WeightProcessorService
+from src.core.database.base import StateStore
+from src.aws.config.config_manager import ConfigManager
+from src.aws.services.weight_processor_service import WeightProcessorService
 
 
 class ComponentFactory:
@@ -29,7 +29,7 @@ class ComponentFactory:
 
         # Always use DynamoDB
         try:
-            from ..database.dynamodb_store import DynamoDBStateStore
+            from src.core.database.dynamodb_store import DynamoDBStateStore
             config = cls.get_config()
             table_name = config.get('database', {}).get('table_name')
             region = config.get('database', {}).get('region')
@@ -110,7 +110,7 @@ class ComponentFactory:
         Returns:
             Configured Kalman filter
         """
-        from ..processing.kalman import AdaptiveKalmanFilter
+        from src.core.processing.kalman import AdaptiveKalmanFilter
 
         if config is None:
             config = cls.get_config()
@@ -133,7 +133,7 @@ class ComponentFactory:
         Returns:
             Configured quality scorer
         """
-        from ..processing.unified_quality_scorer import UnifiedQualityScorer
+        from src.core.processing.unified_quality_scorer import UnifiedQualityScorer
 
         if config is None:
             config = cls.get_config()
@@ -151,7 +151,7 @@ class ComponentFactory:
         Returns:
             Configured outlier detector
         """
-        from ..processing.outlier_detection import OutlierDetector
+        from src.core.processing.outlier_detection import OutlierDetector
 
         if config is None:
             config = cls.get_config()

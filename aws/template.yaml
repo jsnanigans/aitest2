@@ -42,6 +42,15 @@ Resources:
       BuildMethod: python3.12
       BuildProperties:
         RequirementsFile: requirements-lambda.txt
+        # Exclude unnecessary files from Lambda package
+        ExcludeFiles:
+          - "*.md"
+          - "tests/**"
+          - "docs/**"
+          - "scripts/**"
+          - "data/**"
+          - "local/**"
+          - "src/local/**"
     Properties:
       FunctionName: !Sub weight-processor-${Environment}
       CodeUri: ../
