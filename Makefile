@@ -17,7 +17,7 @@ run: db-start
 	export AWS_ACCESS_KEY_ID=local && \
 	export AWS_SECRET_ACCESS_KEY=local && \
 	uv run python scripts/init-dynamodb.py && \
-	uv run python main.py
+	uv run python src/local/main.py
 
 # Run with a specific data file (starts DynamoDB Local automatically)
 run-file: db-start
@@ -38,15 +38,15 @@ run-file: db-start
 	export AWS_ACCESS_KEY_ID=local && \
 	export AWS_SECRET_ACCESS_KEY=local && \
 	uv run python scripts/init-dynamodb.py && \
-	uv run python main.py $(FILE)
+	uv run python src/local/main.py $(FILE)
 
 # Create filtered output for nocon data
 create-filtered:
-	uv run python main.py data/2025-09-05_nocon.csv --max-users 0 --no-viz --filtered-output data/2025-09-05_nocon_filtered.csv
+	uv run python src/local/main.py data/2025-09-05_nocon.csv --max-users 0 --no-viz --filtered-output data/2025-09-05_nocon_filtered.csv
 
 # Create filtered output for all data
 create-filtered-all:
-	uv run python main.py data/2025-09-05_all.csv --max-users 0 --no-viz --filtered-output data/2025-09-05_all_filtered.csv
+	uv run python src/local/main.py data/2025-09-05_all.csv --max-users 0 --no-viz --filtered-output data/2025-09-05_all_filtered.csv
 
 # Run report generation
 report:
@@ -92,39 +92,39 @@ install-boto3:
 
 # Build Lambda package locally (default - no containers)
 local-build:
-	sam build --template template-local.yaml
+	cd aws && sam build --template template-local.yaml
 
 # Build Lambda package for production (with auth)
-# build:
-# 	sam build --template template.yaml
+build:
+	cd aws && sam build --template template.yaml
 
 # Build for production deployment (Lambda only, no API Gateway)
-# build-prod:
-# 	@echo "🔨 Building Lambda package for production (Lambda only)..."
-# 	sam build --template template-prod.yaml
+build-prod:
+	@echo "🔨 Building Lambda package for production (Lambda only)..."
+	cd aws && sam build --template template-prod.yaml
 
 # Deploy to AWS (dev) - includes API Gateway for testing
-# deploy-dev:
-# 	@echo "📦 Deploying to dev with API Gateway..."
-# 	sam deploy --guided --template template.yaml --stack-name weight-processor-dev --parameter-overrides Environment=dev
+deploy-dev:
+	@echo "📦 Deploying to dev with API Gateway..."
+	cd aws && sam deploy --config-env default
 
 # Deploy to production - Lambda only, no API Gateway
-# deploy-prod: build-prod
-# 	@echo "🚀 Deploying to production (Lambda only, no API Gateway)..."
-# 	sam deploy --guided --template template-prod.yaml --stack-name weight-processor-prod --parameter-overrides Environment=prod
+deploy-prod: build-prod
+	@echo "🚀 Deploying to production (Lambda only, no API Gateway)..."
+	cd aws && sam deploy --config-env prod
 
 # Start local API Gateway (no Docker)
 local-run:
 	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
-	sam local start-api --port 5448 --template .aws-sam/build/template.yaml
+	cd aws && sam local start-api --port 5448 --template .aws-sam/build/template.yaml
 
 # View Lambda logs (local)
 local-logs:
-	@tail -50 .aws-sam/local/logs/*.log 2>/dev/null || echo "No logs found. Start the API first with 'make local'"
+	@tail -50 aws/.aws-sam/local/logs/*.log 2>/dev/null || echo "No logs found. Start the API first with 'make local-run'"
 
 # Clean up generated files
 clean:
-	rm -rf .aws-sam
+	rm -rf aws/.aws-sam
 	rm -rf __pycache__ .pytest_cache
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete

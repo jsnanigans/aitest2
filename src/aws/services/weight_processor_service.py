@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from ..api.models import (
+from src.aws.api.models import (
     Measurement,
     MeasurementResult,
     ProcessResponse,
@@ -14,9 +14,9 @@ from ..api.models import (
     HistoricalConflictDetails,
     HistoricalConflictResponse
 )
-from ..database.base import StateStore
-from ..processing.processor import process_measurement
-from ..config.config_manager import ConfigManager
+from src.core.database.base import StateStore
+from src.core.processing.processor import process_measurement
+from src.aws.config.config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 

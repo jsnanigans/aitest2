@@ -4,8 +4,8 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any
 
-from ..api.models import Measurement
-from ..processing.processor import process_measurement
+from src.aws.api.models import Measurement
+from src.core.processing.processor import process_measurement
 
 logger = logging.getLogger(__name__)
 

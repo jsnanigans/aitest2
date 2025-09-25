@@ -44,8 +44,8 @@ Resources:
         RequirementsFile: requirements-lambda.txt
     Properties:
       FunctionName: !Sub weight-processor-${Environment}
-      CodeUri: .
-      Handler: src.lambda_handler.handler
+      CodeUri: ../
+      Handler: src.aws.lambda_handler.handler
       Runtime: python3.12
       Description: Process weight measurements with Kalman filtering
       Environment:

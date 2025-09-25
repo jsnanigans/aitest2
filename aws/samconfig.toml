@@ -11,6 +11,11 @@ confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = "Environment=dev"
 
+[default.build]
+[default.build.parameters]
+cached = true
+parallel = true
+
 [staging]
 [staging.deploy]
 [staging.deploy.parameters]
@@ -32,3 +37,11 @@ region = "us-east-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = "Environment=prod"
+
+[local]
+[local.start-api]
+[local.start-api.parameters]
+warm_containers = "EAGER"
+port = 3000
+host = "127.0.0.1"
+parameter_overrides = "Environment=dev"

@@ -1,226 +1,142 @@
 # Weight Stream Processor
 
-A high-performance, production-ready weight measurement processing system with Kalman filtering and intelligent outlier detection. Available as both a CLI tool and AWS Lambda service.
+A robust weight measurement processing system with adaptive Kalman filtering and intelligent outlier detection.
 
-## Performance
+## Project Structure
 
-- **Processing Speed**: 0.21ms per measurement (14x faster than requirements)
-- **Code Size**: 3,472 lines (40% reduction from original)
-- **Architecture**: Clean, linear processing pipeline
-- **Lambda Support**: Full AWS Lambda integration with API Gateway
-
-## Features
-
-- **Kalman Filtering**: Adaptive noise-based filtering for smooth weight tracking
-- **Source-Specific Processing**: Intelligent handling based on data source reliability
-- **BMI Detection**: Automatic detection and conversion of BMI values
-- **Physiological Validation**: Comprehensive validation against human limits
-- **Gap Detection**: Automatic reset after extended measurement gaps
-- **Structured Logging**: Production-ready logging and metrics
-- **AWS Lambda API**: RESTful API for cloud deployment
-- **Replay System**: Reprocess historical data with state rollback
-
-## Installation
-
-```bash
-# Install dependencies
-uv pip install -r requirements.txt
-
-# For Lambda development
-uv pip install -r requirements-lambda.txt
+```
+strem_process_anchor/
+├── src/                    # Source code
+│   ├── core/              # Core business logic (shared)
+│   │   ├── processing/    # Kalman filter, validation, quality scoring
+│   │   ├── replay/        # Replay system for historical data
+│   │   ├── database/      # Database interfaces and state management
+│   │   ├── constants.py   # Physical constants and limits
+│   │   ├── exceptions.py  # Custom exceptions
+│   │   └── utils.py       # Utility functions
+│   │
+│   ├── aws/               # AWS Lambda specific code
+│   │   ├── lambda_handler.py    # Lambda entry point
+│   │   ├── api/                  # API models and interfaces
+│   │   ├── config/               # Configuration management
+│   │   └── services/             # AWS-specific services
+│   │
+│   └── local/             # Local-only code
+│       ├── main.py               # Local CLI entry point
+│       ├── analysis/             # Data analysis scripts
+│       └── viz/                  # Visualization tools
+│
+├── aws/                   # AWS deployment configurations
+│   ├── template.yaml             # SAM template for deployment
+│   ├── template-prod.yaml        # Production SAM template
+│   ├── template-local.yaml       # Local testing template
+│   └── samconfig.toml            # SAM configuration
+│
+├── config/                # Configuration files
+│   ├── local/            # Local development configs
+│   └── aws/              # AWS deployment configs
+│
+├── tests/                 # Test suite
+├── docs/                  # Documentation
+├── scripts/               # Build and utility scripts
+└── data/                  # Sample and test data
 ```
 
 ## Usage
 
-### Basic Processing
+### Local Development
+
+Run the processor locally with CSV data:
 
 ```bash
 # Process a CSV file
-uv run python main.py data/weights.csv
+uv run python src/local/main.py data/weights.csv
 
-# With configuration
-uv run python main.py data/weights.csv --config config.toml
+# With custom configuration
+uv run python src/local/main.py data/weights.csv --config config/local/config.toml
 
 # Generate visualizations
-uv run python main.py data/weights.csv --visualize
+uv run python src/local/main.py data/weights.csv --visualize
 ```
 
-### AWS Lambda Local Development
+### AWS Deployment
+
+Deploy to AWS using SAM:
 
 ```bash
-# Quick start - build and run locally (no Docker required)
-make local
+# Build the Lambda package
+cd aws
+sam build
 
-# Test the API endpoints
-make local-health    # Check health status
-make local-test      # Test with sample data
+# Deploy to development
+sam deploy --guided
 
-# Individual commands
-make build-local     # Build Lambda package locally
-make clean          # Clean build artifacts
+# Deploy to production
+sam deploy --config-env prod
 ```
 
-#### API Endpoints (Local)
+### Testing
 
-All endpoints are available at `http://localhost:5448` with no authentication required for local testing:
-
-- `GET  /api/v1/health` - Health check
-- `POST /api/v1/process/{userId}` - Process weight measurements
-- `POST /api/v1/replay/{userId}` - Replay measurements from timestamp
-- `POST /api/v1/cleanup/{userId}` - Cleanup with Kalman reset
-- `GET  /api/v1/state/{userId}` - Get user's Kalman state
-- `DELETE /api/v1/state/{userId}` - Delete user state
-
-#### Example API Request
+Run the test suite:
 
 ```bash
-curl -X POST http://localhost:5448/api/v1/process/user-123 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "measurements": [{
-      "uuid": "550e8400-e29b-41d4-a716-446655440000",
-      "userId": "user-123",
-      "weight": 75.5,
-      "unit": "kg",
-      "timestamp": "2024-01-01T10:00:00Z",
-      "effectiveDateTime": "2024-01-01T10:00:00Z",
-      "source": "patient-device"
-    }]
-  }'
-```
-
-### Docker Alternative (Optional)
-
-If you prefer using Docker containers:
-
-```bash
-make docker-build    # Build with Docker
-make docker-run      # Start API with Docker
-make docker-test     # Test with Docker
-```
-
-### Performance Testing
-
-```bash
-# Run performance benchmark
-uv run python scripts/measure_performance.py
-```
-
-### Running Tests
-
-```bash
-# Run all tests
+# All tests
 uv run python -m pytest tests/
 
-# Run specific test
-uv run python tests/test_processor.py
+# Specific test file
+uv run python -m pytest tests/test_processor.py -xvs
 
-# Run Lambda handler tests
-make test-lambda
+# With coverage
+uv run python -m pytest tests/ --cov=src
 ```
 
 ## Architecture
 
-```
-main.py                     # CLI entry point and CSV processing
-├── src/
-│   ├── processing/         # Core processing modules
-│   │   ├── processor.py    # Main processing pipeline
-│   │   ├── kalman.py       # Adaptive Kalman filter
-│   │   ├── validation.py   # Data validation
-│   │   ├── outlier_detection.py  # Statistical outlier detection
-│   │   └── unified_quality_scorer.py  # Quality scoring system
-│   ├── replay/             # Replay system
-│   │   ├── replay_manager.py  # Orchestrates replay operations
-│   │   ├── replay_buffer.py   # Measurement buffering
-│   │   └── replay_processor.py  # Enhanced replay logic
-│   ├── services/           # Lambda service layer
-│   │   ├── weight_processor_service.py  # Business logic
-│   │   └── replay_service.py  # Replay service
-│   ├── lambda_handler.py  # AWS Lambda entry point
-│   ├── database.py        # State persistence
-│   ├── constants.py       # Safety limits & constants
-│   └── visualization.py   # Data visualization
-├── tests/                  # Comprehensive test suite
-└── template-local.yaml     # SAM template for local development
-```
+### Core Processing Pipeline
+
+The system uses an adaptive Kalman filter with intelligent outlier detection:
+
+1. **Data Validation**: Input validation and unit conversion
+2. **Kalman Filtering**: Adaptive noise parameters based on source reliability
+3. **Quality Scoring**: Multi-factor quality assessment
+4. **Outlier Detection**: Statistical methods with quality override
+5. **State Management**: Persistent state storage (SQLite local, DynamoDB AWS)
+
+### Key Features
+
+- **Adaptive Kalman Filter**: Adjusts to gaps in data and source reliability
+- **Source-Based Reliability**: Different noise profiles for different data sources
+- **Quality Override System**: High-quality measurements can override outlier detection
+- **Replay System**: Process historical data with proper temporal ordering
+- **Circuit Breaker**: Protects against cascading failures
 
 ## Configuration
 
-The system uses a combination of hard-coded safety limits (in `constants.py`) and configurable parameters (in `config.toml`).
+Configuration is managed through TOML files with sections for:
+- Kalman filter parameters
+- Quality scoring weights
+- Outlier detection thresholds
+- Source reliability mappings
+- Replay processing settings
 
-### Key Parameters
-
-- **Kalman Filter**: Optimized parameters for weight tracking
-- **Source Profiles**: Reliability and noise characteristics per source
-- **Physiological Limits**: Safety boundaries for human weight
-- **Processing Thresholds**: Adaptive thresholds based on time gaps
-
-## Data Sources
-
-The system intelligently handles different data sources with varying reliability:
-
-- `patient-upload`: Most reliable (noise multiplier: 0.7)
-- `care-team-upload`: Excellent reliability (noise multiplier: 0.5)
-- `questionnaire`: Good reliability (noise multiplier: 0.8)
-- `patient-device`: Moderate reliability (noise multiplier: 1.0)
-- `connectivehealth.io`: Lower reliability (noise multiplier: 1.5)
-- `iglucose.com`: Requires extra validation (noise multiplier: 3.0)
-
-## Performance Metrics
-
-Current performance (100 measurements test):
-- Average: 0.21ms
-- Median: 0.21ms
-- Min: 0.20ms
-- Max: 0.25ms
-- Target: <3ms ✅
+See `config/local/config.toml` for the default configuration.
 
 ## Development
 
-### Code Style
-- Python 3.11+
-- Type hints optional (pyright mode: off)
-- No comments unless critical
-- Single-purpose functions
-- Clear module boundaries
+This project uses:
+- Python 3.12+
+- uv for dependency management
+- AWS SAM for serverless deployment
+- pytest for testing
 
-### Testing
-- Unit tests for each module
-- Integration tests for full pipeline
-- Performance benchmarks
-- Golden dataset regression tests
-
-## AWS Deployment
-
-### Prerequisites
-
-- AWS CLI configured with appropriate credentials
-- SAM CLI installed (`brew install aws-sam-cli`)
-- Python 3.12 runtime
-
-### Deploy to AWS
+Install dependencies:
 
 ```bash
-# Deploy to development environment (includes API Gateway)
-make deploy-dev
-
-# Deploy to production (Lambda only, no API Gateway)
-make deploy-prod
+uv pip sync requirements.txt
 ```
 
-### Environment Variables
+For AWS Lambda deployment:
 
-The Lambda function uses these environment variables (configured in SAM templates):
-
-- `KALMAN_ENABLED`: Enable/disable Kalman filtering
-- `KALMAN_ADAPTIVE`: Enable adaptive noise parameters
-- `QUALITY_SCORING_ENABLED`: Enable quality scoring system
-- `OUTLIER_DETECTION_ENABLED`: Enable outlier detection
-- `REPLAY_ENABLED`: Enable replay functionality
-- `DB_BACKEND`: Database backend (`memory` for local, `sqlite` for production)
-- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
-
-## License
-
-[Your License Here]
+```bash
+uv pip sync requirements-lambda.txt
+```
