@@ -459,11 +459,7 @@ def create_weight_timeline(
 
     # Use 'directory' mode to create a shared plotly.min.js file
     # This reduces each HTML from ~5MB to ~100KB by sharing the JS library
-    fig.write_html(
-        str(html_file),
-        config=config,
-        include_plotlyjs='directory'
-    )
+    fig.write_html(str(html_file), config=config, include_plotlyjs="directory")
 
     return str(html_file)
 
@@ -882,7 +878,6 @@ def _create_rejected_hover(result: Dict[str, Any], data_point: Dict[str, Any]) -
         f"<b>Reason:</b> {data_point.get('reason', 'Unknown')}",
         f"<b>Severity:</b> {data_point.get('severity', 'Unknown')}",
     ]
-
 
     if data_point.get("quality_score") is not None:
         lines.extend(

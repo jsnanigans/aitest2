@@ -10,14 +10,15 @@ from datetime import datetime
 from decimal import Decimal
 
 # Set up environment for local testing
-os.environ['DYNAMODB_ENDPOINT'] = 'http://localhost:8000'
-os.environ['AWS_ACCESS_KEY_ID'] = 'local'
-os.environ['AWS_SECRET_ACCESS_KEY'] = 'local'
+os.environ["DYNAMODB_ENDPOINT"] = "http://localhost:8000"
+os.environ["AWS_ACCESS_KEY_ID"] = "local"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "local"
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.database.dynamodb_store import DynamoDBStateStore
+
 
 def test_serialization():
     """Test that various data types are properly serialized."""
@@ -25,27 +26,24 @@ def test_serialization():
     print("Testing DynamoDB serialization...")
 
     # Create store
-    store = DynamoDBStateStore(table_name='test-weight-processor')
+    store = DynamoDBStateStore(table_name="test-weight-processor")
 
     # Test data with various types
     test_state = {
-        'float_value': 123.456,
-        'np_float32': np.float32(789.012),
-        'np_float64': np.float64(345.678),
-        'int_value': 42,
-        'np_int32': np.int32(100),
-        'np_int64': np.int64(200),
-        'np_array': np.array([1.1, 2.2, 3.3]),
-        'np_matrix': np.array([[1.0, 2.0], [3.0, 4.0]]),
-        'nested_dict': {
-            'inner_float': 99.99,
-            'inner_array': np.array([5.5, 6.6])
-        },
-        'list_with_floats': [1.1, 2.2, 3.3],
-        'datetime_value': datetime.now(),
-        'none_value': None,
-        'nan_value': np.nan,  # Should become None
-        'inf_value': np.inf,  # Should become None
+        "float_value": 123.456,
+        "np_float32": np.float32(789.012),
+        "np_float64": np.float64(345.678),
+        "int_value": 42,
+        "np_int32": np.int32(100),
+        "np_int64": np.int64(200),
+        "np_array": np.array([1.1, 2.2, 3.3]),
+        "np_matrix": np.array([[1.0, 2.0], [3.0, 4.0]]),
+        "nested_dict": {"inner_float": 99.99, "inner_array": np.array([5.5, 6.6])},
+        "list_with_floats": [1.1, 2.2, 3.3],
+        "datetime_value": datetime.now(),
+        "none_value": None,
+        "nan_value": np.nan,  # Should become None
+        "inf_value": np.inf,  # Should become None
     }
 
     print("\nOriginal state:")
@@ -89,7 +87,7 @@ def test_serialization():
 
     # Test save and retrieve
     print("\nTesting save and retrieve...")
-    user_id = 'test-user-123'
+    user_id = "test-user-123"
 
     try:
         # Save state
@@ -107,7 +105,7 @@ def test_serialization():
 
             # Check deserialization
             print("\nRetrieved state types:")
-            for key in ['float_value', 'np_float32', 'np_float64']:
+            for key in ["float_value", "np_float32", "np_float64"]:
                 if key in retrieved:
                     value = retrieved[key]
                     print(f"  {key}: {value} ({type(value).__name__})")
@@ -122,11 +120,13 @@ def test_serialization():
     except Exception as e:
         print(f"\n❌ Error during save/retrieve: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
     print("\n✓ All tests passed!")
     return True
+
 
 if __name__ == "__main__":
     success = test_serialization()

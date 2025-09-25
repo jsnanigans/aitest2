@@ -15,7 +15,7 @@ def replay_measurements(
     measurements: List[Measurement],
     replay_from: datetime,
     state_store,
-    config: Dict[str, Any]
+    config: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
     Simple replay: restore state and reprocess measurements.
@@ -45,8 +45,7 @@ def replay_measurements(
 
         # Step 2: Filter and sort measurements
         replay_measurements = [
-            m for m in measurements
-            if m.effective_date_time >= replay_from
+            m for m in measurements if m.effective_date_time >= replay_from
         ]
         replay_measurements.sort(key=lambda m: m.effective_date_time)
 
@@ -63,17 +62,19 @@ def replay_measurements(
                 source=measurement.source,
                 unit=measurement.unit,
                 config=config,
-                db=state_store
+                db=state_store,
             )
 
-            results.append({
-                'uuid': str(measurement.uuid),
-                'accepted': result.get('accepted', False),
-                'quality_score': result.get('quality_score'),
-                'kalman_estimate': result.get('kalman_estimate')
-            })
+            results.append(
+                {
+                    "uuid": str(measurement.uuid),
+                    "accepted": result.get("accepted", False),
+                    "quality_score": result.get("quality_score"),
+                    "kalman_estimate": result.get("kalman_estimate"),
+                }
+            )
 
-            if result.get('accepted'):
+            if result.get("accepted"):
                 accepted_count += 1
             else:
                 rejected_count += 1
@@ -82,16 +83,13 @@ def replay_measurements(
         state_store.save_state_snapshot(user_id, datetime.utcnow())
 
         return {
-            'success': True,
-            'processed_count': len(replay_measurements),
-            'accepted_count': accepted_count,
-            'rejected_count': rejected_count,
-            'results': results
+            "success": True,
+            "processed_count": len(replay_measurements),
+            "accepted_count": accepted_count,
+            "rejected_count": rejected_count,
+            "results": results,
         }
 
     except Exception as e:
         logger.exception(f"Replay failed for user {user_id}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {"success": False, "error": str(e)}

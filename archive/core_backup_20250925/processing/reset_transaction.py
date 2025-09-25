@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class ResetOperation(Enum):
     """Types of operations in a reset transaction"""
+
     KALMAN_RESET = "kalman_reset"
     STATE_UPDATE = "state_update"
     BUFFER_UPDATE = "buffer_update"
@@ -25,6 +26,7 @@ class ResetOperation(Enum):
 @dataclass
 class TransactionCheckpoint:
     """Snapshot of state at a point in transaction"""
+
     operation: ResetOperation
     timestamp: float
     state_snapshot: Dict[str, Any]
@@ -97,7 +99,7 @@ class ResetTransaction:
             operation=operation,
             timestamp=time.time(),
             state_snapshot=copy.deepcopy(state),
-            validation_passed=False
+            validation_passed=False,
         )
         self.checkpoints.append(checkpoint)
         logger.debug(f"Checkpoint saved for {operation.value}")
@@ -124,6 +126,7 @@ class ResetTransaction:
             # Import here to avoid circular dependencies
             if validator is None:
                 from .state_validator import StateValidator
+
                 validator = StateValidator()
 
             is_valid = validator.validate(checkpoint.state_snapshot, operation)
@@ -159,11 +162,15 @@ class ResetTransaction:
         Args:
             reason: Reason for rollback (for logging)
         """
-        logger.warning(f"Rolling back reset transaction for user {self.user_id}: {reason}")
+        logger.warning(
+            f"Rolling back reset transaction for user {self.user_id}: {reason}"
+        )
 
         # Return original states to caller
         # Actual state restoration happens in the processor
-        logger.info(f"Rollback complete - {len(self.completed_operations)} operations rolled back")
+        logger.info(
+            f"Rollback complete - {len(self.completed_operations)} operations rolled back"
+        )
 
         # Clear transaction state
         self.checkpoints.clear()
@@ -171,7 +178,9 @@ class ResetTransaction:
 
     def commit(self):
         """Commit all operations - make permanent"""
-        logger.info(f"Committing reset transaction for user {self.user_id} - {len(self.completed_operations)} operations")
+        logger.info(
+            f"Committing reset transaction for user {self.user_id} - {len(self.completed_operations)} operations"
+        )
         # States are already updated in place, just log success
 
     def get_original_state(self, operation: ResetOperation) -> Optional[Any]:
@@ -186,7 +195,9 @@ class ResetTransaction:
         """
         return self.original_states.get(operation)
 
-    def _get_last_checkpoint(self, operation: ResetOperation) -> Optional[TransactionCheckpoint]:
+    def _get_last_checkpoint(
+        self, operation: ResetOperation
+    ) -> Optional[TransactionCheckpoint]:
         """
         Get the most recent checkpoint for an operation.
 

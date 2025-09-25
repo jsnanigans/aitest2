@@ -14,6 +14,7 @@ from enum import Enum
 # Logging Utilities
 # ============================================================================
 
+
 class LogLevel(Enum):
     ERROR = "ERROR"
     WARNING = "WARNING"
@@ -38,7 +39,7 @@ class StructuredLogger:
             "level": level.value,
             "logger": self.name,
             "message": message,
-            **kwargs
+            **kwargs,
         }
 
         if level == LogLevel.ERROR:
@@ -60,8 +61,13 @@ class StructuredLogger:
 
     def metric(self, metric_name: str, value: float, **tags):
         """Log a metric."""
-        self._log(LogLevel.METRIC, f"Metric: {metric_name}",
-                 metric=metric_name, value=value, tags=tags)
+        self._log(
+            LogLevel.METRIC,
+            f"Metric: {metric_name}",
+            metric=metric_name,
+            value=value,
+            tags=tags,
+        )
 
 
 class PerformanceTimer:
@@ -79,8 +85,9 @@ class PerformanceTimer:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.start_time:
             duration_ms = (datetime.now() - self.start_time).total_seconds() * 1000
-            self.logger.metric(f"{self.operation}_duration_ms", duration_ms,
-                             operation=self.operation)
+            self.logger.metric(
+                f"{self.operation}_duration_ms", duration_ms, operation=self.operation
+            )
 
 
 # Global logger instances
@@ -92,6 +99,7 @@ kalman_logger = StructuredLogger("kalman")
 # ============================================================================
 # Core Utility Functions
 # ============================================================================
+
 
 def validate_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
     """Validate configuration structure and required fields.

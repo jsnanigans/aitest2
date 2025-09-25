@@ -7,7 +7,10 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 import numpy as np
 
-from src.processing.unified_quality_scorer import UnifiedQualityScorer as QualityScorer, QualityScore
+from src.processing.unified_quality_scorer import (
+    UnifiedQualityScorer as QualityScorer,
+    QualityScore,
+)
 from src.constants import PHYSIOLOGICAL_LIMITS, SOURCE_PROFILES
 
 
@@ -17,7 +20,7 @@ class TestQualityScorer:
     @pytest.fixture
     def scorer(self):
         """Create a QualityScorer instance for testing."""
-        config = {'feature_manager': MagicMock()}
+        config = {"feature_manager": MagicMock()}
         return QualityScorer(config)
 
     @pytest.fixture
@@ -29,14 +32,17 @@ class TestQualityScorer:
 
     # ============= Safety Score Tests (Critical) =============
 
-    @pytest.mark.parametrize("weight,expected_score", [
-        (25, 0.0),      # Below absolute minimum
-        (450, 0.0),     # Above absolute maximum
-        (70, 1.0),      # Safe range
-        (150, 1.0),     # Safe range (higher)
-        (35, 0.1),      # Suspicious - very low
-        (350, 0.1),     # Suspicious - very high
-    ])
+    @pytest.mark.parametrize(
+        "weight,expected_score",
+        [
+            (25, 0.0),  # Below absolute minimum
+            (450, 0.0),  # Above absolute maximum
+            (70, 1.0),  # Safe range
+            (150, 1.0),  # Safe range (higher)
+            (35, 0.1),  # Suspicious - very low
+            (350, 0.1),  # Suspicious - very high
+        ],
+    )
     def test_safety_score_boundaries(self, scorer, weight, expected_score):
         """Test safety score at critical weight boundaries."""
         score = scorer._calculate_safety(weight, height_m=1.7)
@@ -61,28 +67,24 @@ class TestQualityScorer:
         assert scorer._calculate_safety(0, height_m=1.7) == 0.0
 
         # Infinity weight
-        assert scorer._calculate_safety(float('inf'), height_m=1.7) == 0.0
+        assert scorer._calculate_safety(float("inf"), height_m=1.7) == 0.0
 
         # NaN weight - implementation returns 1.0 due to comparison behavior
-        assert scorer._calculate_safety(float('nan'), height_m=1.7) == 1.0
+        assert scorer._calculate_safety(float("nan"), height_m=1.7) == 1.0
 
     # ============= Plausibility Score Tests =============
 
     def test_plausibility_no_history(self, scorer):
         """Test plausibility score with no historical data."""
         score = scorer._calculate_plausibility(
-            weight=70,
-            previous_weight=None,
-            recent_weights=None
+            weight=70, previous_weight=None, recent_weights=None
         )
         assert score == 0.8  # Default for no history
 
     def test_plausibility_with_previous_only(self, scorer):
         """Test plausibility with only previous weight."""
         score = scorer._calculate_plausibility(
-            weight=71,
-            previous_weight=70,
-            recent_weights=None
+            weight=71, previous_weight=70, recent_weights=None
         )
         # Small change (1.4%) should be plausible
         assert score > 0.9
@@ -93,9 +95,7 @@ class TestQualityScorer:
 
         # Test normal variation
         score_normal = scorer._calculate_plausibility(
-            weight=71.5,
-            previous_weight=71.2,
-            recent_weights=recent_weights
+            weight=71.5, previous_weight=71.2, recent_weights=recent_weights
         )
         assert score_normal > 0.8
 
@@ -103,7 +103,7 @@ class TestQualityScorer:
         score_outlier = scorer._calculate_plausibility(
             weight=80,  # Big jump from ~71
             previous_weight=71.2,
-            recent_weights=recent_weights
+            recent_weights=recent_weights,
         )
         assert score_outlier < 0.5
 
@@ -115,7 +115,7 @@ class TestQualityScorer:
         score = scorer._calculate_plausibility(
             weight=75,  # Continues trend
             previous_weight=74,
-            recent_weights=recent_weights
+            recent_weights=recent_weights,
         )
         assert score > 0.8  # Should be plausible
 
@@ -124,25 +124,26 @@ class TestQualityScorer:
     def test_consistency_no_previous(self, scorer):
         """Test consistency score with no previous weight."""
         score = scorer._calculate_consistency(
-            weight=70,
-            previous_weight=None,
-            time_diff_hours=None
+            weight=70, previous_weight=None, time_diff_hours=None
         )
         assert score == 0.8  # Default for no history
 
-    @pytest.mark.parametrize("time_diff,weight_change,expected_min", [
-        (2, 1.0, 0.9),   # 1kg in 2 hours - acceptable
-        (2, 4.0, 0.3),   # 4kg in 2 hours - suspicious
-        (24, 2.0, 0.8),  # 2kg in 24 hours - borderline
-        (24, 5.0, 0.3),  # 5kg in 24 hours - very suspicious
-        (168, 3.0, 0.9), # 3kg in a week - normal
-    ])
-    def test_consistency_change_rates(self, scorer, time_diff, weight_change, expected_min):
+    @pytest.mark.parametrize(
+        "time_diff,weight_change,expected_min",
+        [
+            (2, 1.0, 0.9),  # 1kg in 2 hours - acceptable
+            (2, 4.0, 0.3),  # 4kg in 2 hours - suspicious
+            (24, 2.0, 0.8),  # 2kg in 24 hours - borderline
+            (24, 5.0, 0.3),  # 5kg in 24 hours - very suspicious
+            (168, 3.0, 0.9),  # 3kg in a week - normal
+        ],
+    )
+    def test_consistency_change_rates(
+        self, scorer, time_diff, weight_change, expected_min
+    ):
         """Test consistency score with various change rates."""
         score = scorer._calculate_consistency(
-            weight=70 + weight_change,
-            previous_weight=70,
-            time_diff_hours=time_diff
+            weight=70 + weight_change, previous_weight=70, time_diff_hours=time_diff
         )
         assert score >= expected_min
 
@@ -152,18 +153,21 @@ class TestQualityScorer:
         score = scorer._calculate_consistency(
             weight=77,  # 10% increase from 70
             previous_weight=70,
-            time_diff_hours=24
+            time_diff_hours=24,
         )
         assert score < 0.7  # Should be penalized
 
     # ============= Reliability Score Tests =============
 
-    @pytest.mark.parametrize("source,expected_score", [
-        ('care-team-upload', 1.0),         # excellent, low outlier rate
-        ('patient-device', 0.765),         # good * 0.9 (outlier rate ~20)
-        ('https://api.iglucose.com', 0.4), # poor * 0.8 (high outlier rate)
-        ('unknown-source', 0.54),          # unknown * 0.9
-    ])
+    @pytest.mark.parametrize(
+        "source,expected_score",
+        [
+            ("care-team-upload", 1.0),  # excellent, low outlier rate
+            ("patient-device", 0.765),  # good * 0.9 (outlier rate ~20)
+            ("https://api.iglucose.com", 0.4),  # poor * 0.8 (high outlier rate)
+            ("unknown-source", 0.54),  # unknown * 0.9
+        ],
+    )
     def test_reliability_by_source(self, scorer, source, expected_score):
         """Test reliability scores for different sources."""
         score = scorer._calculate_reliability(source)
@@ -175,27 +179,29 @@ class TestQualityScorer:
         """Test overall quality score calculation."""
         result = scorer.calculate_quality_score(
             weight=71,
-            source='patient-device',
+            source="patient-device",
             previous_weight=70,
             time_diff_hours=24,
             recent_weights=[70, 70.5, 70.8],
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         assert isinstance(result, QualityScore)
         assert 0 <= result.overall <= 1
         assert all(0 <= v <= 1 for v in result.components.values())
-        assert len(result.components) == 4  # safety, plausibility, consistency, reliability
+        assert (
+            len(result.components) == 4
+        )  # safety, plausibility, consistency, reliability
 
     def test_acceptance_threshold(self, scorer):
         """Test acceptance logic with threshold."""
         # Good measurement
         good_result = scorer.calculate_quality_score(
             weight=70,
-            source='care-team-upload',
+            source="care-team-upload",
             previous_weight=69.5,
             time_diff_hours=24,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
         assert good_result.accepted
         assert good_result.rejection_reason is None
@@ -203,24 +209,24 @@ class TestQualityScorer:
         # Bad measurement (extreme weight)
         bad_result = scorer.calculate_quality_score(
             weight=500,  # Impossible weight
-            source='patient-device',
-            user_height_m=1.75
+            source="patient-device",
+            user_height_m=1.75,
         )
         assert not bad_result.accepted
         assert bad_result.rejection_reason is not None
-        assert 'safety' in bad_result.rejection_reason.lower()
+        assert "safety" in bad_result.rejection_reason.lower()
 
     def test_safety_critical_override(self, scorer):
         """Test that low safety score forces rejection."""
         result = scorer.calculate_quality_score(
             weight=25,  # Dangerously low
-            source='care-team-upload',  # Even with reliable source
-            user_height_m=1.75
+            source="care-team-upload",  # Even with reliable source
+            user_height_m=1.75,
         )
 
         assert not result.accepted
-        assert result.components['safety'] == 0.0  # Below absolute minimum
-        assert 'safety' in result.rejection_reason.lower()  # Rejection mentions safety
+        assert result.components["safety"] == 0.0  # Below absolute minimum
+        assert "safety" in result.rejection_reason.lower()  # Rejection mentions safety
 
     def test_harmonic_mean_calculation(self, scorer):
         """Test harmonic mean penalizes low component scores."""
@@ -228,11 +234,15 @@ class TestQualityScorer:
         scorer.use_harmonic_mean = True
 
         # Mock component scores with one very low
-        with patch.object(scorer, '_calculate_safety', return_value=0.1):
-            with patch.object(scorer, '_calculate_plausibility', return_value=0.9):
-                with patch.object(scorer, '_calculate_consistency', return_value=0.9):
-                    with patch.object(scorer, '_calculate_reliability', return_value=0.9):
-                        result = scorer.calculate_quality_score(70, 'test', user_height_m=1.75)
+        with patch.object(scorer, "_calculate_safety", return_value=0.1):
+            with patch.object(scorer, "_calculate_plausibility", return_value=0.9):
+                with patch.object(scorer, "_calculate_consistency", return_value=0.9):
+                    with patch.object(
+                        scorer, "_calculate_reliability", return_value=0.9
+                    ):
+                        result = scorer.calculate_quality_score(
+                            70, "test", user_height_m=1.75
+                        )
 
                         # Harmonic mean should be much lower than arithmetic
                         assert result.overall < 0.4  # Dominated by low safety score
@@ -241,18 +251,18 @@ class TestQualityScorer:
         """Test that disabled features return 1.0."""
         # Create mock feature manager
         feature_manager = MagicMock()
-        feature_manager.is_enabled.side_effect = lambda x: x != 'quality_safety'
+        feature_manager.is_enabled.side_effect = lambda x: x != "quality_safety"
 
-        config = {'feature_manager': feature_manager}
+        config = {"feature_manager": feature_manager}
         scorer = QualityScorer(config)
 
         result = scorer.calculate_quality_score(
             weight=25,  # Would normally fail safety
-            source='patient-device',
-            user_height_m=1.75
+            source="patient-device",
+            user_height_m=1.75,
         )
 
-        assert result.components['safety'] == 1.0  # Disabled feature returns 1.0
+        assert result.components["safety"] == 1.0  # Disabled feature returns 1.0
         assert result.accepted  # Should pass despite dangerous weight
 
     # ============= Real-World Scenarios =============
@@ -260,41 +270,39 @@ class TestQualityScorer:
     def test_scenario_first_measurement(self, scorer):
         """Test handling of first measurement with no history."""
         result = scorer.calculate_quality_score(
-            weight=75,
-            source='patient-device',
-            user_height_m=1.75
+            weight=75, source="patient-device", user_height_m=1.75
         )
 
         assert result.accepted  # Reasonable weight should be accepted
-        assert result.components['plausibility'] == 0.8  # Default for no history
-        assert result.components['consistency'] == 0.8  # Default for no history
+        assert result.components["plausibility"] == 0.8  # Default for no history
+        assert result.components["consistency"] == 0.8  # Default for no history
 
     def test_scenario_after_long_gap(self, scorer):
         """Test measurement after 30+ day gap."""
         result = scorer.calculate_quality_score(
             weight=68,  # Some weight loss
-            source='care-team-upload',
+            source="care-team-upload",
             previous_weight=75,
             time_diff_hours=30 * 24,  # 30 days
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         assert result.accepted  # Should accept reasonable change over long period
-        assert result.components['consistency'] > 0.7
+        assert result.components["consistency"] > 0.7
 
     def test_scenario_data_entry_error(self, scorer):
         """Test detection of likely data entry error."""
         result = scorer.calculate_quality_score(
             weight=700,  # Likely meant 70.0
-            source='patient-device',
+            source="patient-device",
             previous_weight=70,
             time_diff_hours=1,
             recent_weights=[69, 70, 71, 70],
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         assert not result.accepted
-        assert result.components['safety'] == 0.0  # Impossible weight
+        assert result.components["safety"] == 0.0  # Impossible weight
         # When safety is critically low, other components aren't calculated
         assert result.overall == 0.0
-        assert 'safety' in result.rejection_reason.lower()
+        assert "safety" in result.rejection_reason.lower()

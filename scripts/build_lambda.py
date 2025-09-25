@@ -47,9 +47,19 @@ def build_lambda():
     requirements_file = build_dir / "requirements.txt"
     if requirements_file.exists():
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-r", str(requirements_file), "-t", str(build_dir), "--quiet"],
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "-r",
+                str(requirements_file),
+                "-t",
+                str(build_dir),
+                "--quiet",
+            ],
             capture_output=True,
-            text=True
+            text=True,
         )
         if result.returncode != 0:
             print(f"❌ Error installing dependencies: {result.stderr}")

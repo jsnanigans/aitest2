@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 def run_employer_analysis():
     """Run analysis for largest employer to demonstrate functionality."""
 
@@ -27,9 +28,14 @@ def run_employer_analysis():
     print("-" * 70)
 
     cmd = [
-        "uv", "run", "python", "scripts/run_filtering_analysis.py",
-        "--filter-employer", employer_id,
-        "--output-dir", "reports/test_employer_analysis"
+        "uv",
+        "run",
+        "python",
+        "scripts/run_filtering_analysis.py",
+        "--filter-employer",
+        employer_id,
+        "--output-dir",
+        "reports/test_employer_analysis",
     ]
 
     print(f"Command: {' '.join(cmd)}")
@@ -39,20 +45,23 @@ def run_employer_analysis():
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     # Extract key information from output
-    lines = result.stderr.split('\n') if result.stderr else []
+    lines = result.stderr.split("\n") if result.stderr else []
 
     for line in lines:
-        if any(keyword in line for keyword in [
-            "Loading raw data",
-            "Loading filtered data",
-            "Found",
-            "Will analyze",
-            "Generating visualizations for",
-            "User.*impact",
-            "Analysis Complete",
-            "Report:",
-            "Metrics:"
-        ]):
+        if any(
+            keyword in line
+            for keyword in [
+                "Loading raw data",
+                "Loading filtered data",
+                "Found",
+                "Will analyze",
+                "Generating visualizations for",
+                "User.*impact",
+                "Analysis Complete",
+                "Report:",
+                "Metrics:",
+            ]
+        ):
             print(line)
 
     if result.returncode == 0:
@@ -67,7 +76,7 @@ def run_employer_analysis():
             print(f"\n📊 Latest Report: {latest_report}")
 
             # Read summary from report
-            with open(latest_report, 'r') as f:
+            with open(latest_report, "r") as f:
                 lines = f.readlines()
                 in_summary = False
                 for line in lines[:20]:
@@ -90,6 +99,7 @@ def run_employer_analysis():
         return 1
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(run_employer_analysis())

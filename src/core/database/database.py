@@ -69,16 +69,16 @@ class ProcessorStateDB:
             Empty state dictionary with required fields
         """
         return {
-            'kalman_params': None,
-            'last_state': None,
-            'last_covariance': None,
-            'last_timestamp': None,
-            'last_accepted_timestamp': None,
-            'last_source': None,
-            'last_raw_weight': None,
-            'measurement_history': [],
-            'reset_events': [],
-            'measurements_since_reset': 0
+            "kalman_params": None,
+            "last_state": None,
+            "last_covariance": None,
+            "last_timestamp": None,
+            "last_accepted_timestamp": None,
+            "last_source": None,
+            "last_raw_weight": None,
+            "measurement_history": [],
+            "reset_events": [],
+            "measurements_since_reset": 0,
         }
 
     def save_state_snapshot(self, user_id: str, timestamp: datetime) -> None:
@@ -91,8 +91,8 @@ class ProcessorStateDB:
         """
         if user_id in self.states:
             self._snapshots[user_id] = {
-                'timestamp': timestamp,
-                'state': copy.deepcopy(self.states[user_id])
+                "timestamp": timestamp,
+                "state": copy.deepcopy(self.states[user_id]),
             }
 
     def restore_state_snapshot(self, user_id: str) -> bool:
@@ -103,11 +103,13 @@ class ProcessorStateDB:
             True if restored, False if no snapshot found
         """
         if user_id in self._snapshots:
-            self.states[user_id] = copy.deepcopy(self._snapshots[user_id]['state'])
+            self.states[user_id] = copy.deepcopy(self._snapshots[user_id]["state"])
             return True
         return False
 
-    def check_and_restore_snapshot(self, user_id: str, buffer_start_time: datetime) -> dict:
+    def check_and_restore_snapshot(
+        self, user_id: str, buffer_start_time: datetime
+    ) -> dict:
         """
         Check if a snapshot exists and restore it atomically.
 
@@ -121,18 +123,18 @@ class ProcessorStateDB:
         if user_id in self._snapshots:
             snapshot = self._snapshots[user_id]
             # Restore the state
-            self.states[user_id] = copy.deepcopy(snapshot['state'])
+            self.states[user_id] = copy.deepcopy(snapshot["state"])
             return {
-                'success': True,
-                'snapshot': snapshot,
-                'snapshot_timestamp': snapshot.get('timestamp', buffer_start_time),
-                'user_id': user_id
+                "success": True,
+                "snapshot": snapshot,
+                "snapshot_timestamp": snapshot.get("timestamp", buffer_start_time),
+                "user_id": user_id,
             }
         else:
             return {
-                'success': False,
-                'error': f'No snapshot found for user {user_id}',
-                'user_id': user_id
+                "success": False,
+                "error": f"No snapshot found for user {user_id}",
+                "user_id": user_id,
             }
 
     def export_to_csv(self, filepath: str) -> int:
@@ -148,41 +150,50 @@ class ProcessorStateDB:
         import csv
 
         users_exported = 0
-        with open(filepath, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                'user_id', 'last_weight', 'last_trend', 'last_timestamp',
-                'measurements_since_reset', 'last_source'
-            ])
+        with open(filepath, "w", newline="") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "user_id",
+                    "last_weight",
+                    "last_trend",
+                    "last_timestamp",
+                    "measurements_since_reset",
+                    "last_source",
+                ],
+            )
             writer.writeheader()
 
             for user_id, state in self.states.items():
                 row = {
-                    'user_id': user_id,
-                    'last_weight': None,
-                    'last_trend': None,
-                    'last_timestamp': state.get('last_timestamp'),
-                    'measurements_since_reset': state.get('measurements_since_reset', 0),
-                    'last_source': state.get('last_source')
+                    "user_id": user_id,
+                    "last_weight": None,
+                    "last_trend": None,
+                    "last_timestamp": state.get("last_timestamp"),
+                    "measurements_since_reset": state.get(
+                        "measurements_since_reset", 0
+                    ),
+                    "last_source": state.get("last_source"),
                 }
 
                 # Extract weight and trend from last_state if available
-                last_state = state.get('last_state')
+                last_state = state.get("last_state")
                 if last_state is not None:
                     if isinstance(last_state, np.ndarray):
                         if last_state.ndim == 1 and last_state.size >= 2:
-                            row['last_weight'] = float(last_state[0])
-                            row['last_trend'] = float(last_state[1])
+                            row["last_weight"] = float(last_state[0])
+                            row["last_trend"] = float(last_state[1])
                         elif last_state.ndim == 2:
-                            row['last_weight'] = float(last_state[-1][0])
-                            row['last_trend'] = float(last_state[-1][1])
+                            row["last_weight"] = float(last_state[-1][0])
+                            row["last_trend"] = float(last_state[-1][1])
                     elif isinstance(last_state, list) and len(last_state) >= 2:
                         # Handle list format [[weight], [trend]]
                         if isinstance(last_state[0], list):
-                            row['last_weight'] = float(last_state[0][0])
-                            row['last_trend'] = float(last_state[1][0])
+                            row["last_weight"] = float(last_state[0][0])
+                            row["last_trend"] = float(last_state[1][0])
                         else:
-                            row['last_weight'] = float(last_state[0])
-                            row['last_trend'] = float(last_state[1])
+                            row["last_weight"] = float(last_state[0])
+                            row["last_trend"] = float(last_state[1])
 
                 writer.writerow(row)
                 users_exported += 1
@@ -212,4 +223,5 @@ def reset_db() -> None:
     _db_instance = None
     # Also reset the new instance
     from . import reset_db_instance
+
     reset_db_instance()

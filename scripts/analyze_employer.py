@@ -16,7 +16,7 @@ def list_available_employers(employer_file: str, top_n: int = 10):
     """List available employers with user counts."""
     try:
         df = pd.read_csv(employer_file)
-        employer_counts = df['employer_id'].value_counts()
+        employer_counts = df["employer_id"].value_counts()
 
         print("\n" + "=" * 70)
         print("AVAILABLE EMPLOYERS")
@@ -36,15 +36,21 @@ def list_available_employers(employer_file: str, top_n: int = 10):
         return None
 
 
-def run_employer_analysis(employer_id: str, output_dir: str = None, verbose: bool = False):
+def run_employer_analysis(
+    employer_id: str, output_dir: str = None, verbose: bool = False
+):
     """Run filtering analysis for a specific employer."""
 
     print(f"\nAnalyzing employer: {employer_id}")
     print("-" * 70)
 
     cmd = [
-        "uv", "run", "python", "scripts/run_filtering_analysis.py",
-        "--filter-employer", employer_id
+        "uv",
+        "run",
+        "python",
+        "scripts/run_filtering_analysis.py",
+        "--filter-employer",
+        employer_id,
     ]
 
     if output_dir:
@@ -59,11 +65,19 @@ def run_employer_analysis(employer_id: str, output_dir: str = None, verbose: boo
 
     # Extract key information
     if result.stderr:
-        for line in result.stderr.split('\n'):
-            if any(keyword in line for keyword in [
-                "Found", "Will analyze", "Generating visualizations for",
-                "User.*impact", "Analysis Complete", "Report:", "Metrics:"
-            ]):
+        for line in result.stderr.split("\n"):
+            if any(
+                keyword in line
+                for keyword in [
+                    "Found",
+                    "Will analyze",
+                    "Generating visualizations for",
+                    "User.*impact",
+                    "Analysis Complete",
+                    "Report:",
+                    "Metrics:",
+                ]
+            ):
                 print(line.replace("INFO - ", ""))
 
     return result.returncode == 0
@@ -76,23 +90,14 @@ def main():
     )
     parser.add_argument(
         "employer_id",
-        nargs='?',
-        help="Employer ID to analyze (shows list if not provided)"
+        nargs="?",
+        help="Employer ID to analyze (shows list if not provided)",
     )
+    parser.add_argument("--list", action="store_true", help="List available employers")
     parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List available employers"
+        "--output-dir", help="Output directory for reports and visualizations"
     )
-    parser.add_argument(
-        "--output-dir",
-        help="Output directory for reports and visualizations"
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose output"
-    )
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
 
     args = parser.parse_args()
 
@@ -119,11 +124,7 @@ def main():
         args.output_dir = f"reports/employer_{employer_short}_{timestamp}"
 
     # Run analysis
-    success = run_employer_analysis(
-        args.employer_id,
-        args.output_dir,
-        args.verbose
-    )
+    success = run_employer_analysis(args.employer_id, args.output_dir, args.verbose)
 
     if success:
         print("\n" + "=" * 70)

@@ -23,16 +23,17 @@ class ComponentFactory:
         Returns:
             StateStore instance
         """
-        cache_key = 'state_store_dynamodb'
+        cache_key = "state_store_dynamodb"
         if cache_key in cls._instances:
             return cls._instances[cache_key]
 
         # Always use DynamoDB
         try:
             from src.core.database.dynamodb_store import DynamoDBStateStore
+
             config = cls.get_config()
-            table_name = config.get('database', {}).get('table_name')
-            region = config.get('database', {}).get('region')
+            table_name = config.get("database", {}).get("table_name")
+            region = config.get("database", {}).get("region")
             instance = DynamoDBStateStore(table_name=table_name, region=region)
         except ImportError as e:
             raise ImportError(
@@ -44,7 +45,9 @@ class ComponentFactory:
         return instance
 
     @classmethod
-    def get_config(cls, source: str = 'auto', config_path: str = None) -> Dict[str, Any]:
+    def get_config(
+        cls, source: str = "auto", config_path: str = None
+    ) -> Dict[str, Any]:
         """
         Get configuration.
 
@@ -60,8 +63,9 @@ class ComponentFactory:
         return cls._config
 
     @classmethod
-    def get_weight_processor_service(cls, state_store: StateStore = None,
-                                    config: Dict[str, Any] = None) -> WeightProcessorService:
+    def get_weight_processor_service(
+        cls, state_store: StateStore = None, config: Dict[str, Any] = None
+    ) -> WeightProcessorService:
         """
         Get or create weight processor service.
 
@@ -72,7 +76,7 @@ class ComponentFactory:
         Returns:
             WeightProcessorService instance
         """
-        cache_key = 'weight_processor_service'
+        cache_key = "weight_processor_service"
 
         # Return cached instance if available
         if cache_key in cls._instances and state_store is None and config is None:
@@ -115,11 +119,11 @@ class ComponentFactory:
         if config is None:
             config = cls.get_config()
 
-        kalman_config = config.get('kalman', {})
+        kalman_config = config.get("kalman", {})
         return AdaptiveKalmanFilter(
-            process_noise=kalman_config.get('process_noise', 1.0),
-            observation_noise=kalman_config.get('observation_noise', 4.0),
-            adaptive=kalman_config.get('adaptive', True)
+            process_noise=kalman_config.get("process_noise", 1.0),
+            observation_noise=kalman_config.get("observation_noise", 4.0),
+            adaptive=kalman_config.get("adaptive", True),
         )
 
     @classmethod
@@ -156,5 +160,5 @@ class ComponentFactory:
         if config is None:
             config = cls.get_config()
 
-        outlier_config = config.get('outlier_detection', {})
+        outlier_config = config.get("outlier_detection", {})
         return OutlierDetector(outlier_config)

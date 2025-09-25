@@ -33,20 +33,27 @@ class OutlierDetector:
         self.config = config or {}
         self.db = db
 
-
         # Default thresholds (can be overridden by config)
-        self.iqr_multiplier = self.config.get('iqr_multiplier', 1.5)
-        self.z_score_threshold = self.config.get('z_score_threshold', 3.0)
-        self.temporal_max_change_percent = self.config.get('temporal_max_change_percent', 0.30)
-        self.min_measurements_for_analysis = self.config.get('min_measurements_for_analysis', 5)
+        self.iqr_multiplier = self.config.get("iqr_multiplier", 1.5)
+        self.z_score_threshold = self.config.get("z_score_threshold", 3.0)
+        self.temporal_max_change_percent = self.config.get(
+            "temporal_max_change_percent", 0.30
+        )
+        self.min_measurements_for_analysis = self.config.get(
+            "min_measurements_for_analysis", 5
+        )
 
         # Quality score threshold - measurements with quality > this are never outliers
-        self.quality_score_threshold = self.config.get('quality_score_threshold', 0.7)
+        self.quality_score_threshold = self.config.get("quality_score_threshold", 0.7)
 
         # Kalman prediction deviation threshold (as percentage)
-        self.kalman_deviation_threshold = self.config.get('kalman_deviation_threshold', 0.15)
+        self.kalman_deviation_threshold = self.config.get(
+            "kalman_deviation_threshold", 0.15
+        )
 
-    def detect_outliers(self, measurements: List[Dict[str, Any]], user_id: Optional[str] = None) -> Set[int]:
+    def detect_outliers(
+        self, measurements: List[Dict[str, Any]], user_id: Optional[str] = None
+    ) -> Set[int]:
         """
         Detect outliers in a batch of measurements using multiple methods.
         Respects quality scores and uses Kalman prediction deviation.
@@ -62,23 +69,26 @@ class OutlierDetector:
             return set()
 
         # Extract weights and sort by timestamp
-        sorted_measurements = sorted(measurements, key=lambda x: x['timestamp'])
-        weights = [m['weight'] for m in sorted_measurements]
+        sorted_measurements = sorted(measurements, key=lambda x: x["timestamp"])
+        weights = [m["weight"] for m in sorted_measurements]
 
         # First, identify high-quality measurements that should never be marked as outliers
         protected_indices = set()
 
         # Apply quality override
         for i, measurement in enumerate(sorted_measurements):
-            metadata = measurement.get('metadata', {})
+            metadata = measurement.get("metadata", {})
 
             # Check if measurement has quality score
-            quality_score = metadata.get('quality_score')
-            if quality_score is not None and quality_score > self.quality_score_threshold:
+            quality_score = metadata.get("quality_score")
+            if (
+                quality_score is not None
+                and quality_score > self.quality_score_threshold
+            ):
                 protected_indices.add(i)
 
             # Also protect measurements that were explicitly accepted
-            if metadata.get('accepted', False):
+            if metadata.get("accepted", False):
                 protected_indices.add(i)
 
         # Collect potential outliers from statistical methods
@@ -185,7 +195,9 @@ class OutlierDetector:
 
         return outliers
 
-    def _detect_temporal_outliers(self, sorted_measurements: List[Dict[str, Any]]) -> Set[int]:
+    def _detect_temporal_outliers(
+        self, sorted_measurements: List[Dict[str, Any]]
+    ) -> Set[int]:
         """
         Detect outliers based on temporal consistency (rate of change).
         Identifies measurements with impossible rate of change.
@@ -202,18 +214,18 @@ class OutlierDetector:
         outliers = set()
 
         for i in range(1, len(sorted_measurements)):
-            prev_measurement = sorted_measurements[i-1]
+            prev_measurement = sorted_measurements[i - 1]
             curr_measurement = sorted_measurements[i]
 
-            weight_diff = abs(curr_measurement['weight'] - prev_measurement['weight'])
-            time_diff = curr_measurement['timestamp'] - prev_measurement['timestamp']
+            weight_diff = abs(curr_measurement["weight"] - prev_measurement["weight"])
+            time_diff = curr_measurement["timestamp"] - prev_measurement["timestamp"]
 
             # Skip if measurements are very close in time (< 1 hour)
             if time_diff.total_seconds() < 3600:
                 continue
 
             # Calculate percentage change
-            prev_weight = prev_measurement['weight']
+            prev_weight = prev_measurement["weight"]
             if prev_weight > 0:
                 percent_change = weight_diff / prev_weight
 
@@ -223,7 +235,9 @@ class OutlierDetector:
 
         return outliers
 
-    def _detect_kalman_outliers(self, sorted_measurements: List[Dict[str, Any]], user_id: str) -> Set[int]:
+    def _detect_kalman_outliers(
+        self, sorted_measurements: List[Dict[str, Any]], user_id: str
+    ) -> Set[int]:
         """
         Detect outliers based on deviation from Kalman filter predictions.
 
@@ -245,17 +259,17 @@ class OutlierDetector:
             # No user state available
             return set()
 
-        last_state = user_state.get('last_state')
+        last_state = user_state.get("last_state")
         if last_state is None:
             # No Kalman state available, can't do prediction-based detection
             return set()
 
         # Get state history if available for more accurate predictions
-        state_history = user_state.get('state_history', [])
+        state_history = user_state.get("state_history", [])
 
         for i, measurement in enumerate(sorted_measurements):
-            weight = measurement['weight']
-            timestamp = measurement['timestamp']
+            weight = measurement["weight"]
+            timestamp = measurement["timestamp"]
 
             # Find the closest state snapshot before this measurement
             predicted_weight = None
@@ -263,21 +277,27 @@ class OutlierDetector:
             if state_history:
                 # Look for state snapshot just before this measurement
                 for snapshot in reversed(state_history):
-                    snapshot_ts = snapshot.get('timestamp')
+                    snapshot_ts = snapshot.get("timestamp")
                     if snapshot_ts is not None:
                         # Handle numpy arrays and datetime comparison properly
                         try:
-                            if hasattr(snapshot_ts, 'item'):
+                            if hasattr(snapshot_ts, "item"):
                                 snapshot_ts = snapshot_ts.item()
-                            if hasattr(timestamp, 'item'):
+                            if hasattr(timestamp, "item"):
                                 timestamp_val = timestamp.item()
                             else:
                                 timestamp_val = timestamp
 
                             if snapshot_ts < timestamp_val:
-                                if snapshot.get('state'):
+                                if snapshot.get("state"):
                                     # Use the weight component of the state (first element)
-                                    predicted_weight = snapshot['state'][0] if isinstance(snapshot['state'], (list, np.ndarray)) else None
+                                    predicted_weight = (
+                                        snapshot["state"][0]
+                                        if isinstance(
+                                            snapshot["state"], (list, np.ndarray)
+                                        )
+                                        else None
+                                    )
                                     break
                         except (AttributeError, TypeError):
                             # If comparison fails, skip this snapshot
@@ -305,7 +325,9 @@ class OutlierDetector:
 
         return outliers
 
-    def analyze_outliers(self, measurements: List[Dict[str, Any]], outlier_indices: Set[int]) -> Dict[str, Any]:
+    def analyze_outliers(
+        self, measurements: List[Dict[str, Any]], outlier_indices: Set[int]
+    ) -> Dict[str, Any]:
         """
         Analyze detected outliers and provide detailed information.
 
@@ -318,48 +340,54 @@ class OutlierDetector:
         """
         if not outlier_indices or not measurements:
             return {
-                'total_measurements': len(measurements),
-                'outlier_count': 0,
-                'outlier_percentage': 0.0,
-                'outlier_details': []
+                "total_measurements": len(measurements),
+                "outlier_count": 0,
+                "outlier_percentage": 0.0,
+                "outlier_details": [],
             }
 
-        sorted_measurements = sorted(measurements, key=lambda x: x['timestamp'])
-        weights = [m['weight'] for m in sorted_measurements]
+        sorted_measurements = sorted(measurements, key=lambda x: x["timestamp"])
+        weights = [m["weight"] for m in sorted_measurements]
 
         outlier_details = []
         for idx in sorted(outlier_indices):
             if idx < len(sorted_measurements):
                 measurement = sorted_measurements[idx]
-                weight = measurement['weight']
+                weight = measurement["weight"]
 
                 detail = {
-                    'index': idx,
-                    'timestamp': measurement['timestamp'],
-                    'weight': weight,
-                    'deviation_from_median': weight - np.median(weights),
-                    'source': measurement.get('source', 'unknown')
+                    "index": idx,
+                    "timestamp": measurement["timestamp"],
+                    "weight": weight,
+                    "deviation_from_median": weight - np.median(weights),
+                    "source": measurement.get("source", "unknown"),
                 }
 
                 # Add context from neighboring measurements
                 if idx > 0:
-                    prev_weight = sorted_measurements[idx-1]['weight']
-                    detail['change_from_previous'] = weight - prev_weight
-                    detail['percent_change_from_previous'] = abs(weight - prev_weight) / prev_weight if prev_weight > 0 else 0
+                    prev_weight = sorted_measurements[idx - 1]["weight"]
+                    detail["change_from_previous"] = weight - prev_weight
+                    detail["percent_change_from_previous"] = (
+                        abs(weight - prev_weight) / prev_weight
+                        if prev_weight > 0
+                        else 0
+                    )
 
                 outlier_details.append(detail)
 
         return {
-            'total_measurements': len(measurements),
-            'outlier_count': len(outlier_indices),
-            'outlier_percentage': (len(outlier_indices) / len(measurements)) * 100,
-            'outlier_details': outlier_details,
-            'median_weight': np.median(weights),
-            'weight_std': np.std(weights),
-            'weight_range': (min(weights), max(weights))
+            "total_measurements": len(measurements),
+            "outlier_count": len(outlier_indices),
+            "outlier_percentage": (len(outlier_indices) / len(measurements)) * 100,
+            "outlier_details": outlier_details,
+            "median_weight": np.median(weights),
+            "weight_std": np.std(weights),
+            "weight_range": (min(weights), max(weights)),
         }
 
-    def get_clean_measurements(self, measurements: List[Dict[str, Any]], user_id: Optional[str] = None) -> Tuple[List[Dict[str, Any]], Set[int]]:
+    def get_clean_measurements(
+        self, measurements: List[Dict[str, Any]], user_id: Optional[str] = None
+    ) -> Tuple[List[Dict[str, Any]], Set[int]]:
         """
         Get measurements with outliers removed.
 
@@ -376,7 +404,7 @@ class OutlierDetector:
             return measurements.copy(), set()
 
         # Sort by timestamp to maintain chronological order
-        sorted_measurements = sorted(measurements, key=lambda x: x['timestamp'])
+        sorted_measurements = sorted(measurements, key=lambda x: x["timestamp"])
 
         clean_measurements = []
         for i, measurement in enumerate(sorted_measurements):
@@ -395,10 +423,16 @@ class OutlierDetector:
         self.config.update(new_config)
 
         # Update thresholds
-        self.iqr_multiplier = self.config.get('iqr_multiplier', self.iqr_multiplier)
-        self.z_score_threshold = self.config.get('z_score_threshold', self.z_score_threshold)
-        self.temporal_max_change_percent = self.config.get('temporal_max_change_percent', self.temporal_max_change_percent)
-        self.min_measurements_for_analysis = self.config.get('min_measurements_for_analysis', self.min_measurements_for_analysis)
+        self.iqr_multiplier = self.config.get("iqr_multiplier", self.iqr_multiplier)
+        self.z_score_threshold = self.config.get(
+            "z_score_threshold", self.z_score_threshold
+        )
+        self.temporal_max_change_percent = self.config.get(
+            "temporal_max_change_percent", self.temporal_max_change_percent
+        )
+        self.min_measurements_for_analysis = self.config.get(
+            "min_measurements_for_analysis", self.min_measurements_for_analysis
+        )
 
     def get_config(self) -> Dict[str, Any]:
         """
@@ -408,8 +442,8 @@ class OutlierDetector:
             Current configuration dictionary
         """
         return {
-            'iqr_multiplier': self.iqr_multiplier,
-            'z_score_threshold': self.z_score_threshold,
-            'temporal_max_change_percent': self.temporal_max_change_percent,
-            'min_measurements_for_analysis': self.min_measurements_for_analysis
+            "iqr_multiplier": self.iqr_multiplier,
+            "z_score_threshold": self.z_score_threshold,
+            "temporal_max_change_percent": self.temporal_max_change_percent,
+            "min_measurements_for_analysis": self.min_measurements_for_analysis,
         }

@@ -10,13 +10,14 @@ import time
 import boto3
 from botocore.exceptions import ClientError
 
+
 def create_table():
     """Create the DynamoDB table if it doesn't exist."""
 
     # Configuration
-    table_name = os.getenv('DYNAMODB_TABLE_NAME', 'weight-processor-state')
-    endpoint_url = os.getenv('DYNAMODB_ENDPOINT', 'http://localhost:8000')
-    region = os.getenv('AWS_REGION', 'us-east-1')
+    table_name = os.getenv("DYNAMODB_TABLE_NAME", "weight-processor-state")
+    endpoint_url = os.getenv("DYNAMODB_ENDPOINT", "http://localhost:8000")
+    region = os.getenv("AWS_REGION", "us-east-1")
 
     print(f"Initializing DynamoDB table '{table_name}'...")
 
@@ -24,15 +25,15 @@ def create_table():
     if endpoint_url:
         print(f"Using DynamoDB Local at {endpoint_url}")
         dynamodb = boto3.resource(
-            'dynamodb',
+            "dynamodb",
             region_name=region,
             endpoint_url=endpoint_url,
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID', 'dummy'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY', 'dummy')
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", "dummy"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", "dummy"),
         )
     else:
         print(f"Using AWS DynamoDB in region {region}")
-        dynamodb = boto3.resource('dynamodb', region_name=region)
+        dynamodb = boto3.resource("dynamodb", region_name=region)
 
     try:
         # Check if table exists
@@ -44,7 +45,7 @@ def create_table():
         return True
 
     except ClientError as e:
-        if e.response['Error']['Code'] == 'ResourceNotFoundException':
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
             # Table doesn't exist, create it
             print(f"Creating table '{table_name}'...")
 
@@ -52,14 +53,14 @@ def create_table():
                 table = dynamodb.create_table(
                     TableName=table_name,
                     KeySchema=[
-                        {'AttributeName': 'userId', 'KeyType': 'HASH'},
-                        {'AttributeName': 'stateType', 'KeyType': 'RANGE'}
+                        {"AttributeName": "userId", "KeyType": "HASH"},
+                        {"AttributeName": "stateType", "KeyType": "RANGE"},
                     ],
                     AttributeDefinitions=[
-                        {'AttributeName': 'userId', 'AttributeType': 'S'},
-                        {'AttributeName': 'stateType', 'AttributeType': 'S'}
+                        {"AttributeName": "userId", "AttributeType": "S"},
+                        {"AttributeName": "stateType", "AttributeType": "S"},
                     ],
-                    BillingMode='PAY_PER_REQUEST'
+                    BillingMode="PAY_PER_REQUEST",
                 )
 
                 # Wait for table to be created
@@ -71,7 +72,7 @@ def create_table():
 
                 # Verify table is active
                 table.reload()
-                if table.table_status == 'ACTIVE':
+                if table.table_status == "ACTIVE":
                     print(f"✓ Table '{table_name}' created successfully")
                     return True
                 else:
@@ -87,7 +88,11 @@ def create_table():
 
     except Exception as e:
         # Check if it's a connection error
-        if 'Connection' in str(e) or 'reach' in str(e) or 'Failed to establish' in str(e):
+        if (
+            "Connection" in str(e)
+            or "reach" in str(e)
+            or "Failed to establish" in str(e)
+        ):
             print(f"✗ Cannot connect to DynamoDB")
             if endpoint_url:
                 print(f"  Make sure DynamoDB Local is running at {endpoint_url}")
@@ -99,12 +104,13 @@ def create_table():
             print(f"✗ Unexpected error: {e}")
             return False
 
+
 if __name__ == "__main__":
     # Set up environment for local development if not already set
-    if not os.getenv('DYNAMODB_ENDPOINT') and not os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
-        os.environ['DYNAMODB_ENDPOINT'] = 'http://localhost:8000'
-        os.environ['AWS_ACCESS_KEY_ID'] = 'local'
-        os.environ['AWS_SECRET_ACCESS_KEY'] = 'local'
+    if not os.getenv("DYNAMODB_ENDPOINT") and not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+        os.environ["DYNAMODB_ENDPOINT"] = "http://localhost:8000"
+        os.environ["AWS_ACCESS_KEY_ID"] = "local"
+        os.environ["AWS_SECRET_ACCESS_KEY"] = "local"
 
     success = create_table()
     sys.exit(0 if success else 1)

@@ -35,16 +35,20 @@ class SlidingWindowProcessor:
         self.config = config or {}
 
         # Window configuration
-        self.window_size = config.get('window_size', 10)  # Number of measurements
-        self.slide_interval = config.get('slide_interval', 3)  # Slide every N measurements
-        self.min_window_size = config.get('min_window_size', 5)  # Minimum for analysis
-        self.immediate_trigger_threshold = config.get('immediate_trigger_threshold', 0.2)  # Score for immediate action
+        self.window_size = config.get("window_size", 10)  # Number of measurements
+        self.slide_interval = config.get(
+            "slide_interval", 3
+        )  # Slide every N measurements
+        self.min_window_size = config.get("min_window_size", 5)  # Minimum for analysis
+        self.immediate_trigger_threshold = config.get(
+            "immediate_trigger_threshold", 0.2
+        )  # Score for immediate action
 
         # User windows - maintains sliding windows per user
         self.user_windows: Dict[str, Deque[Dict[str, Any]]] = {}
 
         # Analyzer
-        self.analyzer = EnhancedReplayAnalyzer(db, config.get('analysis', {}))
+        self.analyzer = EnhancedReplayAnalyzer(db, config.get("analysis", {}))
 
         # Thread safety
         self._lock = threading.RLock()
@@ -55,9 +59,7 @@ class SlidingWindowProcessor:
         self.immediate_triggers = 0
 
     def add_measurement(
-        self,
-        user_id: str,
-        measurement: Dict[str, Any]
+        self, user_id: str, measurement: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
         """
         Add a measurement and check if window analysis should trigger.
@@ -111,19 +113,22 @@ class SlidingWindowProcessor:
 
         # Check for large jumps
         for i in range(1, len(window)):
-            prev_weight = window[i-1].get('weight', 0)
-            curr_weight = window[i].get('weight', 0)
+            prev_weight = window[i - 1].get("weight", 0)
+            curr_weight = window[i].get("weight", 0)
 
             if prev_weight > 0:
                 change = abs(curr_weight - prev_weight) / prev_weight
                 if change > 0.2:  # 20% change
-                    logger.info(f"Immediate trigger: {change:.1%} weight change detected")
+                    logger.info(
+                        f"Immediate trigger: {change:.1%} weight change detected"
+                    )
                     return True
 
         # Check for multiple rejections
         rejected_count = sum(
-            1 for m in window[-3:]  # Last 3 measurements
-            if m.get('metadata', {}).get('accepted') == False
+            1
+            for m in window[-3:]  # Last 3 measurements
+            if m.get("metadata", {}).get("accepted") == False
         )
         if rejected_count >= 2:
             logger.info(f"Immediate trigger: {rejected_count} recent rejections")
@@ -132,8 +137,8 @@ class SlidingWindowProcessor:
         # Check for potential bad reset
         # If first measurement has very different weight from rest
         if len(window) >= 3:
-            first_weight = window[0].get('weight', 0)
-            avg_rest = sum(m.get('weight', 0) for m in window[1:]) / (len(window) - 1)
+            first_weight = window[0].get("weight", 0)
+            avg_rest = sum(m.get("weight", 0) for m in window[1:]) / (len(window) - 1)
 
             if first_weight > 0 and avg_rest > 0:
                 deviation = abs(first_weight - avg_rest) / first_weight
@@ -144,10 +149,7 @@ class SlidingWindowProcessor:
         return False
 
     def _analyze_window(
-        self,
-        user_id: str,
-        window: List[Dict[str, Any]],
-        immediate: bool
+        self, user_id: str, window: List[Dict[str, Any]], immediate: bool
     ) -> Dict[str, Any]:
         """
         Analyze a window of measurements.
@@ -164,35 +166,35 @@ class SlidingWindowProcessor:
 
         try:
             # Get window time bounds
-            window_start = min(m['timestamp'] for m in window)
-            window_end = max(m['timestamp'] for m in window)
+            window_start = min(m["timestamp"] for m in window)
+            window_end = max(m["timestamp"] for m in window)
 
             # Run enhanced analysis
-            clean_measurements, analysis = self.analyzer.analyze_measurements_with_reset_context(
-                window,
-                user_id,
-                window_start
+            clean_measurements, analysis = (
+                self.analyzer.analyze_measurements_with_reset_context(
+                    window, user_id, window_start
+                )
             )
 
             # Create result
             result = {
-                'user_id': user_id,
-                'window_size': len(window),
-                'window_start': window_start,
-                'window_end': window_end,
-                'immediate_trigger': immediate,
-                'analysis': analysis,
-                'action_needed': self._determine_action(analysis, immediate)
+                "user_id": user_id,
+                "window_size": len(window),
+                "window_start": window_start,
+                "window_end": window_end,
+                "immediate_trigger": immediate,
+                "analysis": analysis,
+                "action_needed": self._determine_action(analysis, immediate),
             }
 
             # Log significant findings
-            if analysis.get('outliers_found', 0) > 0:
+            if analysis.get("outliers_found", 0) > 0:
                 logger.info(
                     f"Window analysis for {user_id}: "
                     f"{analysis['outliers_found']} outliers in {len(window)} measurements"
                 )
 
-            if analysis.get('reset_changes'):
+            if analysis.get("reset_changes"):
                 logger.warning(
                     f"Reset change recommended for {user_id}: "
                     f"{analysis['reset_changes'].get('reason', 'unknown')}"
@@ -202,42 +204,34 @@ class SlidingWindowProcessor:
 
         except Exception as e:
             logger.error(f"Error analyzing window for {user_id}: {e}")
-            return {
-                'user_id': user_id,
-                'error': str(e),
-                'window_size': len(window)
-            }
+            return {"user_id": user_id, "error": str(e), "window_size": len(window)}
 
-    def _determine_action(
-        self,
-        analysis: Dict[str, Any],
-        immediate: bool
-    ) -> str:
+    def _determine_action(self, analysis: Dict[str, Any], immediate: bool) -> str:
         """
         Determine what action to take based on analysis.
 
         Returns:
             Action recommendation string
         """
-        if analysis.get('reset_changes', {}).get('should_change'):
-            return 'reset_correction_needed'
+        if analysis.get("reset_changes", {}).get("should_change"):
+            return "reset_correction_needed"
 
-        outliers = analysis.get('outliers_found', 0)
-        total = analysis.get('total_measurements', 1)
+        outliers = analysis.get("outliers_found", 0)
+        total = analysis.get("total_measurements", 1)
 
         if outliers == 0:
-            return 'no_action'
+            return "no_action"
 
         outlier_rate = outliers / total if total > 0 else 0
 
         if immediate and outlier_rate > 0.3:
-            return 'immediate_replay_recommended'
+            return "immediate_replay_recommended"
         elif outlier_rate > 0.5:
-            return 'replay_recommended'
+            return "replay_recommended"
         elif outlier_rate > 0.2:
-            return 'monitor_closely'
+            return "monitor_closely"
         else:
-            return 'minor_correction'
+            return "minor_correction"
 
     def get_window_stats(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -256,22 +250,18 @@ class SlidingWindowProcessor:
             window = self.user_windows[user_id]
 
             if not window:
-                return {
-                    'user_id': user_id,
-                    'window_size': 0,
-                    'measurements': []
-                }
+                return {"user_id": user_id, "window_size": 0, "measurements": []}
 
             measurements = list(window)
-            weights = [m.get('weight', 0) for m in measurements]
+            weights = [m.get("weight", 0) for m in measurements]
 
             return {
-                'user_id': user_id,
-                'window_size': len(window),
-                'oldest_timestamp': measurements[0].get('timestamp'),
-                'newest_timestamp': measurements[-1].get('timestamp'),
-                'weight_range': (min(weights), max(weights)) if weights else (0, 0),
-                'weight_mean': sum(weights) / len(weights) if weights else 0
+                "user_id": user_id,
+                "window_size": len(window),
+                "oldest_timestamp": measurements[0].get("timestamp"),
+                "newest_timestamp": measurements[-1].get("timestamp"),
+                "weight_range": (min(weights), max(weights)) if weights else (0, 0),
+                "weight_mean": sum(weights) / len(weights) if weights else 0,
             }
 
     def clear_window(self, user_id: str) -> bool:
@@ -299,8 +289,7 @@ class SlidingWindowProcessor:
         """
         with self._lock:
             active_windows = sum(
-                1 for window in self.user_windows.values()
-                if len(window) > 0
+                1 for window in self.user_windows.values() if len(window) > 0
             )
 
             total_measurements = sum(
@@ -308,14 +297,15 @@ class SlidingWindowProcessor:
             )
 
             return {
-                'measurements_processed': self.measurements_processed,
-                'windows_analyzed': self.windows_analyzed,
-                'immediate_triggers': self.immediate_triggers,
-                'active_windows': active_windows,
-                'total_users': len(self.user_windows),
-                'total_measurements_in_windows': total_measurements,
-                'trigger_rate': (
+                "measurements_processed": self.measurements_processed,
+                "windows_analyzed": self.windows_analyzed,
+                "immediate_triggers": self.immediate_triggers,
+                "active_windows": active_windows,
+                "total_users": len(self.user_windows),
+                "total_measurements_in_windows": total_measurements,
+                "trigger_rate": (
                     self.immediate_triggers / self.windows_analyzed
-                    if self.windows_analyzed > 0 else 0
-                )
+                    if self.windows_analyzed > 0
+                    else 0
+                ),
             }

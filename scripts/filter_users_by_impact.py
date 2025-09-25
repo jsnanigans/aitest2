@@ -11,7 +11,9 @@ import csv
 from pathlib import Path
 
 
-def filter_users_by_impact(input_file: str, output_file: str, threshold: float = 0.1) -> int:
+def filter_users_by_impact(
+    input_file: str, output_file: str, threshold: float = 0.1
+) -> int:
     """
     Filter users from analysis results based on impact score.
 
@@ -26,7 +28,7 @@ def filter_users_by_impact(input_file: str, output_file: str, threshold: float =
     users_written = 0
 
     # Read input CSV
-    with open(input_file, 'r') as infile:
+    with open(input_file, "r") as infile:
         reader = csv.DictReader(infile)
 
         # Collect filtered users
@@ -34,41 +36,43 @@ def filter_users_by_impact(input_file: str, output_file: str, threshold: float =
 
         for row in reader:
             try:
-                impact_score = float(row.get('impact_score', 0))
+                impact_score = float(row.get("impact_score", 0))
 
                 # Check if impact score meets threshold
                 if impact_score > threshold:
-                    user_id = row.get('user_id', '').strip()
+                    user_id = row.get("user_id", "").strip()
 
                     # Calculate removed_count from the data
                     # removed_count = raw_measurement_count - filtered_measurement_count
-                    raw_count = int(row.get('raw_measurement_count', 0))
-                    filtered_count = int(row.get('filtered_measurement_count', 0))
+                    raw_count = int(row.get("raw_measurement_count", 0))
+                    filtered_count = int(row.get("filtered_measurement_count", 0))
                     removed_count = raw_count - filtered_count
 
                     if user_id:
-                        filtered_users.append({
-                            'user_id': user_id,
-                            'removed_count': removed_count,
-                            'impact_score': impact_score  # Keep for reporting
-                        })
+                        filtered_users.append(
+                            {
+                                "user_id": user_id,
+                                "removed_count": removed_count,
+                                "impact_score": impact_score,  # Keep for reporting
+                            }
+                        )
             except (ValueError, TypeError) as e:
                 print(f"Warning: Skipping row due to error: {e}")
                 continue
 
         # Sort by impact score (descending) for better visibility
-        filtered_users.sort(key=lambda x: x['impact_score'], reverse=True)
+        filtered_users.sort(key=lambda x: x["impact_score"], reverse=True)
 
         # Write output CSV in the format expected by main.py
-        with open(output_file, 'w', newline='') as outfile:
+        with open(output_file, "w", newline="") as outfile:
             writer = csv.writer(outfile)
 
             # Write header
-            writer.writerow(['user_id', 'removed_count'])
+            writer.writerow(["user_id", "removed_count"])
 
             # Write user data
             for user in filtered_users:
-                writer.writerow([user['user_id'], user['removed_count']])
+                writer.writerow([user["user_id"], user["removed_count"]])
                 users_written += 1
 
         # Report summary
@@ -81,14 +85,16 @@ def filter_users_by_impact(input_file: str, output_file: str, threshold: float =
         if users_written > 0:
             print(f"\nTop 5 users by impact score:")
             for i, user in enumerate(filtered_users[:5], 1):
-                print(f"  {i}. {user['user_id'][:8]}... - Impact: {user['impact_score']:.3f}, Removed: {user['removed_count']}")
+                print(
+                    f"  {i}. {user['user_id'][:8]}... - Impact: {user['impact_score']:.3f}, Removed: {user['removed_count']}"
+                )
 
     return users_written
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Filter users by impact score from analysis results',
+        description="Filter users by impact score from analysis results",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Example usage:
@@ -105,22 +111,18 @@ Example usage:
 
   # Then use with main.py:
   uv run python main.py data/weights.csv --filtered-users-csv filtered_users.csv
-        """
+        """,
     )
 
+    parser.add_argument("input_file", help="Path to user_analysis_results CSV file")
     parser.add_argument(
-        'input_file',
-        help='Path to user_analysis_results CSV file'
+        "output_file", help="Path to output CSV file (will be created/overwritten)"
     )
     parser.add_argument(
-        'output_file',
-        help='Path to output CSV file (will be created/overwritten)'
-    )
-    parser.add_argument(
-        '--threshold',
+        "--threshold",
         type=float,
         default=0.1,
-        help='Minimum impact score threshold (default: 0.1)'
+        help="Minimum impact score threshold (default: 0.1)",
     )
 
     args = parser.parse_args()
@@ -136,9 +138,7 @@ Example usage:
 
     # Process the file
     users_count = filter_users_by_impact(
-        args.input_file,
-        args.output_file,
-        args.threshold
+        args.input_file, args.output_file, args.threshold
     )
 
     if users_count == 0:
@@ -148,5 +148,5 @@ Example usage:
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     exit(main())

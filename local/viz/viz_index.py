@@ -6,9 +6,10 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 import html
 
+
 def load_employer_mappings(
     user_employers_file: str = "data/2025-09-17-user-employers.csv",
-    partners_file: str = "data/partners.csv"
+    partners_file: str = "data/partners.csv",
 ) -> Dict[str, str]:
     """
     Load employer mappings from CSV files.
@@ -19,17 +20,17 @@ def load_employer_mappings(
 
     # Load user -> employer_id mapping
     if Path(user_employers_file).exists():
-        with open(user_employers_file, 'r') as f:
+        with open(user_employers_file, "r") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                user_to_employer_id[row['user_id']] = row['employer_id']
+                user_to_employer_id[row["user_id"]] = row["employer_id"]
 
     # Load employer_id -> name mapping
     if Path(partners_file).exists():
-        with open(partners_file, 'r') as f:
+        with open(partners_file, "r") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                employer_id_to_name[row['id']] = row['name']
+                employer_id_to_name[row["id"]] = row["name"]
 
     # Combine mappings: user_id -> employer_name
     user_to_employer_name = {}
@@ -40,6 +41,7 @@ def load_employer_mappings(
             user_to_employer_name[user_id] = "Unknown"
 
     return user_to_employer_name
+
 
 def extract_user_stats(results_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     user_stats = []
@@ -60,22 +62,27 @@ def extract_user_stats(results_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         first_date = min(dates) if dates else None
         last_date = max(dates) if dates else None
 
-        user_stats.append({
-            "id": user_id,
-            "employer": employer_mappings.get(user_id, "Unknown"),
-            "stats": {
-                "total": total,
-                "accepted": accepted,
-                "rejected": rejected,
-                "first_date": str(first_date) if first_date else None,
-                "last_date": str(last_date) if last_date else None,
-                "acceptance_rate": accepted / total if total > 0 else 0
+        user_stats.append(
+            {
+                "id": user_id,
+                "employer": employer_mappings.get(user_id, "Unknown"),
+                "stats": {
+                    "total": total,
+                    "accepted": accepted,
+                    "rejected": rejected,
+                    "first_date": str(first_date) if first_date else None,
+                    "last_date": str(last_date) if last_date else None,
+                    "acceptance_rate": accepted / total if total > 0 else 0,
+                },
             }
-        })
+        )
 
     return user_stats
 
-def find_dashboard_files(output_dir: str, user_stats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+def find_dashboard_files(
+    output_dir: str, user_stats: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     output_path = Path(output_dir)
 
     for user in user_stats:
@@ -84,11 +91,11 @@ def find_dashboard_files(output_dir: str, user_stats: List[Dict[str, Any]]) -> L
         # Check in timelines subfolder first, then root for backward compatibility
         possible_files = [
             f"timelines/{user_id}_timeline.html",  # New location in subfolder
-            f"{user_id}_timeline.html",            # Legacy location in root
+            f"{user_id}_timeline.html",  # Legacy location in root
             f"{user_id}.html",
             f"dashboard_enhanced_{user_id}.html",
             f"dashboard_{user_id}.html",
-            f"viz_{user_id}.html"
+            f"viz_{user_id}.html",
         ]
 
         dashboard_file = None
@@ -101,6 +108,7 @@ def find_dashboard_files(output_dir: str, user_stats: List[Dict[str, Any]]) -> L
 
     return user_stats
 
+
 def generate_summary_stats(user_stats: List[Dict[str, Any]]) -> Dict[str, Any]:
     total_users = len(user_stats)
     total_measurements = sum(u["stats"]["total"] for u in user_stats)
@@ -111,8 +119,11 @@ def generate_summary_stats(user_stats: List[Dict[str, Any]]) -> Dict[str, Any]:
         "total_measurements": total_measurements,
         "total_accepted": total_accepted,
         "total_rejected": total_measurements - total_accepted,
-        "overall_acceptance_rate": total_accepted / total_measurements if total_measurements > 0 else 0
+        "overall_acceptance_rate": total_accepted / total_measurements
+        if total_measurements > 0
+        else 0,
     }
+
 
 def generate_css() -> str:
     return """
@@ -495,6 +506,7 @@ def generate_css() -> str:
         100% { transform: rotate(360deg); }
     }
     """
+
 
 def generate_javascript() -> str:
     return """
@@ -958,13 +970,13 @@ def generate_javascript() -> str:
     });
     """
 
+
 def generate_index_html(
     user_stats: List[Dict[str, Any]],
     summary: Dict[str, Any],
     output_dir: str,
-    generated_time: Optional[str] = None
+    generated_time: Optional[str] = None,
 ) -> str:
-
     if not generated_time:
         generated_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -972,7 +984,7 @@ def generate_index_html(
         "generated": generated_time,
         "output_dir": os.path.basename(output_dir),
         "users": user_stats,
-        "summary": summary
+        "summary": summary,
     }
 
     html_content = f"""<!DOCTYPE html>
@@ -993,23 +1005,23 @@ def generate_index_html(
             <div class="summary-stats">
                 <div class="stat-item">
                     <span>Users:</span>
-                    <span class="stat-value">{summary['total_users']:,}</span>
+                    <span class="stat-value">{summary["total_users"]:,}</span>
                 </div>
                 <div class="stat-item">
                     <span>Measurements:</span>
-                    <span class="stat-value">{summary['total_measurements']:,}</span>
+                    <span class="stat-value">{summary["total_measurements"]:,}</span>
                 </div>
                 <div class="stat-item">
                     <span>Accepted:</span>
-                    <span class="stat-value" style="color: #28a745;">{summary['total_accepted']:,}</span>
+                    <span class="stat-value" style="color: #28a745;">{summary["total_accepted"]:,}</span>
                 </div>
                 <div class="stat-item">
                     <span>Rejected:</span>
-                    <span class="stat-value" style="color: #dc3545;">{summary['total_rejected']:,}</span>
+                    <span class="stat-value" style="color: #dc3545;">{summary["total_rejected"]:,}</span>
                 </div>
                 <div class="stat-item">
                     <span>Acceptance Rate:</span>
-                    <span class="stat-value">{summary['overall_acceptance_rate']:.1%}</span>
+                    <span class="stat-value">{summary["overall_acceptance_rate"]:.1%}</span>
                 </div>
             </div>
         </div>
@@ -1076,23 +1088,20 @@ def generate_index_html(
 
     return html_content
 
+
 def create_index_from_results(
     all_results: Dict[str, List[Dict[str, Any]]],
     output_dir: str,
-    output_filename: str = "index.html"
+    output_filename: str = "index.html",
 ) -> str:
     user_stats = extract_user_stats({"users": all_results})
     user_stats = find_dashboard_files(output_dir, user_stats)
     summary = generate_summary_stats(user_stats)
 
-    html_content = generate_index_html(
-        user_stats,
-        summary,
-        output_dir
-    )
+    html_content = generate_index_html(user_stats, summary, output_dir)
 
     output_path = Path(output_dir) / output_filename
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     return str(output_path)

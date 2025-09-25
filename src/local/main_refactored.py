@@ -13,79 +13,61 @@ from src.factories.component_factory import ComponentFactory
 
 def load_config(config_path: str = "config.toml") -> dict:
     """Load configuration from file."""
-    return ComponentFactory.get_config('file', config_path)
+    return ComponentFactory.get_config("file", config_path)
 
 
 def main():
     """Main entry point for batch processing."""
-    parser = argparse.ArgumentParser(
-        description="Process weight measurements from CSV"
-    )
+    parser = argparse.ArgumentParser(description="Process weight measurements from CSV")
+    parser.add_argument("csv_path", help="Path to input CSV file")
     parser.add_argument(
-        "csv_path",
-        help="Path to input CSV file"
-    )
-    parser.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         default="output",
-        help="Directory for outputs (default: output)"
+        help="Directory for outputs (default: output)",
     )
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         default="config.toml",
-        help="Configuration file path (default: config.toml)"
+        help="Configuration file path (default: config.toml)",
     )
     parser.add_argument(
-        "--filtered-output", "-f",
-        help="Path to write filtered CSV with accepted measurements"
+        "--filtered-output",
+        "-f",
+        help="Path to write filtered CSV with accepted measurements",
     )
     parser.add_argument(
-        "--visualize",
-        action="store_true",
-        help="Generate visualizations"
+        "--visualize", action="store_true", help="Generate visualizations"
     )
     parser.add_argument(
-        "--test-users",
-        help="Test user IDs (comma-separated) to process exclusively"
+        "--test-users", help="Test user IDs (comma-separated) to process exclusively"
     )
     parser.add_argument(
-        "--test-users-file",
-        help="File containing test user IDs (one per line)"
+        "--test-users-file", help="File containing test user IDs (one per line)"
     )
     parser.add_argument(
         "--filtered-users-csv",
-        help="CSV file containing user IDs to process (from create-report output)"
+        help="CSV file containing user IDs to process (from create-report output)",
     )
+    parser.add_argument("--min-date", help="Minimum date for measurements (ISO format)")
+    parser.add_argument("--max-date", help="Maximum date for measurements (ISO format)")
     parser.add_argument(
-        "--min-date",
-        help="Minimum date for measurements (ISO format)"
-    )
-    parser.add_argument(
-        "--max-date",
-        help="Maximum date for measurements (ISO format)"
-    )
-    parser.add_argument(
-        "--max-users",
-        type=int,
-        help="Maximum number of users to process"
+        "--max-users", type=int, help="Maximum number of users to process"
     )
     parser.add_argument(
         "--user-offset",
         type=int,
         default=0,
-        help="Skip first N eligible users (default: 0)"
+        help="Skip first N eligible users (default: 0)",
     )
     parser.add_argument(
         "--min-readings",
         type=int,
         default=0,
-        help="Minimum readings required per user (default: 0)"
+        help="Minimum readings required per user (default: 0)",
     )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Enable debug output"
-    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug output")
 
     args = parser.parse_args()
 
@@ -101,7 +83,7 @@ def main():
     except Exception as e:
         print(f"Error loading config: {e}")
         print("Using default configuration")
-        config = ComponentFactory.get_config('auto')
+        config = ComponentFactory.get_config("auto")
 
     # Override config with command-line arguments
     if args.test_users:
@@ -133,7 +115,7 @@ def main():
             output_dir=args.output_dir,
             config=config,
             filtered_output=args.filtered_output,
-            debug=args.debug
+            debug=args.debug,
         )
 
         # Print final summary
@@ -144,12 +126,13 @@ def main():
         print(f"Measurements accepted: {stats['accepted']:,}")
         print(f"Measurements rejected: {stats['rejected']:,}")
 
-        if stats.get('unit_rejected'):
+        if stats.get("unit_rejected"):
             print(f"\nUnit validation failures: {stats['unit_rejected']:,}")
-            if stats.get('rejected_units'):
+            if stats.get("rejected_units"):
                 print("Rejected units:")
-                for unit, count in sorted(stats['rejected_units'].items(),
-                                         key=lambda x: x[1], reverse=True)[:10]:
+                for unit, count in sorted(
+                    stats["rejected_units"].items(), key=lambda x: x[1], reverse=True
+                )[:10]:
                     print(f"  {unit}: {count:,}")
 
     except KeyboardInterrupt:
@@ -159,6 +142,7 @@ def main():
         print(f"\nError during processing: {e}")
         if args.debug:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 

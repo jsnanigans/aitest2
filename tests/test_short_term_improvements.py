@@ -22,7 +22,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(seconds=3)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score == 0.0
         assert metadata.get("rejected_reason") == "duplicate_measurement"
@@ -33,7 +33,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(seconds=3)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.0
         assert metadata.get("rapid_but_different") == True
@@ -46,7 +46,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=1)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.5  # Should be accepted with minor penalty
 
@@ -56,7 +56,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=1)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.5  # Should still be accepted
 
@@ -66,7 +66,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=1)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score == 0.0  # Should be rejected
         assert metadata.get("rejected_reason") == "rapid_impossible_change"
@@ -79,7 +79,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=5)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.6  # Should be accepted
 
@@ -89,7 +89,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=5)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.5  # Should be accepted
 
@@ -99,7 +99,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=5)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.0  # Should be accepted with penalty
         assert score < 0.5  # But with significant penalty
@@ -112,7 +112,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(hours=2)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.5  # Should be accepted
 
@@ -122,7 +122,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(hours=2)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.0  # Should be accepted with penalty
         assert metadata.get("excess_ratio", 0) > 0  # Shows it exceeded threshold
@@ -137,7 +137,8 @@ class TestShortTermMeasurementImprovements:
         for i in range(6):
             recent_weights.append(100.0 + i * 0.1)
             recent_timestamps.append(
-                self.base_time - timedelta(minutes=28-i*4)  # All within 30 min window
+                self.base_time
+                - timedelta(minutes=28 - i * 4)  # All within 30 min window
             )
 
         # 7th measurement should trigger burst detection (threshold is 5)
@@ -146,7 +147,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
 
         # Should detect burst but not reject completely
@@ -167,7 +168,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=1)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
 
         self.scorer.current_source = "manual-entry"
@@ -178,7 +179,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=1)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
 
         # Device measurements should have higher score (more lenient)
@@ -202,7 +203,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
 
         # Should accept with reasonable score
@@ -217,7 +218,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(hours=3)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.0  # Should not be completely rejected
 
@@ -227,7 +228,7 @@ class TestShortTermMeasurementImprovements:
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(days=7)],
             user_height_m=1.70,
-            current_timestamp=self.base_time
+            current_timestamp=self.base_time,
         )
         assert score > 0.0  # Should be accepted for weekly change
 
@@ -247,7 +248,7 @@ class TestShortTermMeasurementImprovements:
             time_diff_hours=0.0167,  # 1 minute
             recent_weights=[100.0],
             recent_timestamps=[self.base_time - timedelta(minutes=1)],
-            user_height_m=1.70
+            user_height_m=1.70,
         )
 
         # Should be accepted

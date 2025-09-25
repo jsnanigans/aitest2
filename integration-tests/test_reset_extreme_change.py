@@ -6,6 +6,7 @@ Tests that quality scoring correctly rejects impossible changes even after reset
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime
@@ -13,6 +14,7 @@ from src.processing.processor import process_measurement
 from src.database.database import get_state_db
 import tempfile
 import json
+
 
 def test_extreme_change_after_reset():
     """Test that extreme weight changes are rejected even after resets."""
@@ -23,23 +25,23 @@ def test_extreme_change_after_reset():
 
         # Configuration similar to main.py
         config = {
-            'quality_scoring': {
-                'enabled': True,
-                'threshold': 0.6,
-                'use_harmonic_mean': False,
-                'component_weights': {
-                    'kalman_fit': 0.40,
-                    'temporal_consistency': 0.20,
-                    'anomaly_detection': 0.20,
-                    'source_reliability': 0.10,
-                    'trend_alignment': 0.10,
-                }
+            "quality_scoring": {
+                "enabled": True,
+                "threshold": 0.6,
+                "use_harmonic_mean": False,
+                "component_weights": {
+                    "kalman_fit": 0.40,
+                    "temporal_consistency": 0.20,
+                    "anomaly_detection": 0.20,
+                    "source_reliability": 0.10,
+                    "trend_alignment": 0.10,
+                },
             },
-            'kalman': {
-                'initial_variance': 1.0,
-                'transition_covariance_weight': 0.1,
-                'observation_covariance': 1.0,
-            }
+            "kalman": {
+                "initial_variance": 1.0,
+                "transition_covariance_weight": 0.1,
+                "observation_covariance": 1.0,
+            },
         }
 
         user_id = "test-user-d3f6d8e5"
@@ -56,15 +58,15 @@ def test_extreme_change_after_reset():
             source="internal-questionnaire",
             config=config,
             unit="kg",
-            db=db
+            db=db,
         )
 
         print(f"   Weight: 116.57kg")
         print(f"   Accepted: {result1.get('accepted', False)}")
         print(f"   Was reset: {result1.get('was_reset', False)}")
         print(f"   Quality score: {result1.get('quality_score', 'N/A'):.4f}")
-        if 'quality_components' in result1:
-            components = result1['quality_components']
+        if "quality_components" in result1:
+            components = result1["quality_components"]
             print(f"   Components:")
             for comp, score in components.items():
                 print(f"     - {comp}: {score:.4f}")
@@ -78,34 +80,42 @@ def test_extreme_change_after_reset():
             source="patient-device",
             config=config,
             unit="kg",
-            db=db
+            db=db,
         )
 
         weight_drop = 116.57 - 50.16
-        print(f"   Weight: 50.16kg (drop of {weight_drop:.1f}kg = {weight_drop/116.57*100:.1f}%)")
+        print(
+            f"   Weight: 50.16kg (drop of {weight_drop:.1f}kg = {weight_drop / 116.57 * 100:.1f}%)"
+        )
         print(f"   Accepted: {result2.get('accepted', False)}")
         print(f"   Quality score: {result2.get('quality_score', 'N/A'):.4f}")
 
-        if 'quality_components' in result2:
-            components = result2['quality_components']
+        if "quality_components" in result2:
+            components = result2["quality_components"]
             print(f"   Components:")
             for comp, score in components.items():
                 print(f"     - {comp}: {score:.4f}")
 
-        if not result2.get('accepted'):
+        if not result2.get("accepted"):
             print(f"   Rejection reason: {result2.get('reason', 'N/A')}")
 
         # Verify the result
         print("\n" + "=" * 60)
-        if result2.get('accepted'):
+        if result2.get("accepted"):
             # Check anomaly detection score specifically
-            anomaly_score = result2.get('quality_components', {}).get('anomaly_detection', 0)
+            anomaly_score = result2.get("quality_components", {}).get(
+                "anomaly_detection", 0
+            )
             if anomaly_score > 0.1:
-                print(f"❌ FAILURE: Anomaly detection score {anomaly_score:.4f} is too high!")
+                print(
+                    f"❌ FAILURE: Anomaly detection score {anomaly_score:.4f} is too high!"
+                )
                 print("   A 66kg drop in 13 days should be detected as impossible.")
                 return False
             else:
-                print(f"⚠️  WARNING: Measurement was accepted but anomaly score is low ({anomaly_score:.4f})")
+                print(
+                    f"⚠️  WARNING: Measurement was accepted but anomaly score is low ({anomaly_score:.4f})"
+                )
                 print("   The overall quality score should have rejected this.")
                 return False
         else:
@@ -115,6 +125,7 @@ def test_extreme_change_after_reset():
     finally:
         # Clean up test user from database if needed
         pass  # State DB handles its own cleanup
+
 
 if __name__ == "__main__":
     success = test_extreme_change_after_reset()

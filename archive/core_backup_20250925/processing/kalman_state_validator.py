@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class KalmanStateShape:
     """Expected shapes for Kalman filter state components."""
+
     x: Tuple[int, int] = (1, 1)  # State mean
     P: Tuple[int, int] = (1, 1)  # State covariance
     F: Tuple[int, int] = (1, 1)  # State transition
@@ -39,17 +40,18 @@ class KalmanStateValidator:
         """Initialize the validator with expected shapes and statistics tracking."""
         self.expected_shapes = KalmanStateShape()
         self.validation_stats = {
-            'total': 0,
-            'passed': 0,
-            'recovered': 0,
-            'failed': 0,
-            'shape_mismatches': {},
-            'value_errors': {},
-            'recovery_types': {}
+            "total": 0,
+            "passed": 0,
+            "recovered": 0,
+            "failed": 0,
+            "shape_mismatches": {},
+            "value_errors": {},
+            "recovery_types": {},
         }
 
-    def validate_shape(self, array: np.ndarray, expected: Tuple[int, int],
-                      component_name: str) -> bool:
+    def validate_shape(
+        self, array: np.ndarray, expected: Tuple[int, int], component_name: str
+    ) -> bool:
         """
         Validate array shape matches expected dimensions.
 
@@ -67,8 +69,9 @@ class KalmanStateValidator:
                 f"expected {expected}, got {array.shape}"
             )
             # Track shape mismatches for monitoring
-            self.validation_stats['shape_mismatches'][component_name] = \
-                self.validation_stats['shape_mismatches'].get(component_name, 0) + 1
+            self.validation_stats["shape_mismatches"][component_name] = (
+                self.validation_stats["shape_mismatches"].get(component_name, 0) + 1
+            )
             return False
         return True
 
@@ -85,28 +88,37 @@ class KalmanStateValidator:
         """
         if np.any(np.isnan(array)):
             logger.error(f"NaN detected in {component_name}")
-            self.validation_stats['value_errors'][f"{component_name}_nan"] = \
-                self.validation_stats['value_errors'].get(f"{component_name}_nan", 0) + 1
+            self.validation_stats["value_errors"][f"{component_name}_nan"] = (
+                self.validation_stats["value_errors"].get(f"{component_name}_nan", 0)
+                + 1
+            )
             return False
 
         if np.any(np.isinf(array)):
             logger.error(f"Inf detected in {component_name}")
-            self.validation_stats['value_errors'][f"{component_name}_inf"] = \
-                self.validation_stats['value_errors'].get(f"{component_name}_inf", 0) + 1
+            self.validation_stats["value_errors"][f"{component_name}_inf"] = (
+                self.validation_stats["value_errors"].get(f"{component_name}_inf", 0)
+                + 1
+            )
             return False
 
         # Additional validation for specific components
-        if component_name in ['P', 'Q', 'R']:  # Covariance matrices
+        if component_name in ["P", "Q", "R"]:  # Covariance matrices
             if np.any(array < 0):
                 logger.error(f"Negative values in covariance matrix {component_name}")
-                self.validation_stats['value_errors'][f"{component_name}_negative"] = \
-                    self.validation_stats['value_errors'].get(f"{component_name}_negative", 0) + 1
+                self.validation_stats["value_errors"][f"{component_name}_negative"] = (
+                    self.validation_stats["value_errors"].get(
+                        f"{component_name}_negative", 0
+                    )
+                    + 1
+                )
                 return False
 
         return True
 
-    def attempt_recovery(self, data: Any, expected_shape: Tuple[int, int],
-                        component_name: str) -> Optional[np.ndarray]:
+    def attempt_recovery(
+        self, data: Any, expected_shape: Tuple[int, int], component_name: str
+    ) -> Optional[np.ndarray]:
         """
         Attempt to recover from common corruption scenarios.
 
@@ -133,32 +145,43 @@ class KalmanStateValidator:
             # Case 1: Scalar value (0-dimensional)
             if data.ndim == 0:
                 logger.info(f"Converting scalar {component_name} to array")
-                self.validation_stats['recovery_types']['scalar_conversion'] = \
-                    self.validation_stats['recovery_types'].get('scalar_conversion', 0) + 1
+                self.validation_stats["recovery_types"]["scalar_conversion"] = (
+                    self.validation_stats["recovery_types"].get("scalar_conversion", 0)
+                    + 1
+                )
                 return np.array([[data.item()]])
 
             # Case 2: Flattened array that should be 2D
             if data.ndim == 1 and expected_shape == (1, 1) and data.size == 1:
                 logger.info(f"Recovering {component_name} from 1D to 2D")
-                self.validation_stats['recovery_types']['flatten_recovery'] = \
-                    self.validation_stats['recovery_types'].get('flatten_recovery', 0) + 1
+                self.validation_stats["recovery_types"]["flatten_recovery"] = (
+                    self.validation_stats["recovery_types"].get("flatten_recovery", 0)
+                    + 1
+                )
                 return data.reshape(1, 1)
 
             # Case 3: Wrong 2D shape but correct number of elements
             if data.size == np.prod(expected_shape):
-                logger.info(f"Reshaping {component_name} from {original_shape} to {expected_shape}")
-                self.validation_stats['recovery_types']['reshape'] = \
-                    self.validation_stats['recovery_types'].get('reshape', 0) + 1
+                logger.info(
+                    f"Reshaping {component_name} from {original_shape} to {expected_shape}"
+                )
+                self.validation_stats["recovery_types"]["reshape"] = (
+                    self.validation_stats["recovery_types"].get("reshape", 0) + 1
+                )
                 return data.reshape(expected_shape)
 
             # Case 4: Nested lists/arrays (e.g., [[[value]]])
             if data.size == 1:
                 logger.info(f"Extracting single value from nested {component_name}")
-                self.validation_stats['recovery_types']['nested_extraction'] = \
-                    self.validation_stats['recovery_types'].get('nested_extraction', 0) + 1
+                self.validation_stats["recovery_types"]["nested_extraction"] = (
+                    self.validation_stats["recovery_types"].get("nested_extraction", 0)
+                    + 1
+                )
                 return np.array([[data.flat[0]]])
 
-            logger.error(f"Cannot recover {component_name} with shape {original_shape} and size {data.size}")
+            logger.error(
+                f"Cannot recover {component_name} with shape {original_shape} and size {data.size}"
+            )
             return None
 
         except Exception as e:
@@ -178,13 +201,13 @@ class KalmanStateValidator:
         Raises:
             StateValidationError: If critical validation fails
         """
-        self.validation_stats['total'] += 1
+        self.validation_stats["total"] += 1
         validated_state = {}
         all_valid = True
         recovery_performed = False
 
         # Check for required components
-        required_components = ['x', 'P', 'F', 'H', 'Q', 'R']
+        required_components = ["x", "P", "F", "H", "Q", "R"]
         missing_components = []
 
         for component_name in required_components:
@@ -194,8 +217,10 @@ class KalmanStateValidator:
                 all_valid = False
 
         if missing_components:
-            self.validation_stats['failed'] += 1
-            raise StateValidationError(f"Missing required components: {missing_components}")
+            self.validation_stats["failed"] += 1
+            raise StateValidationError(
+                f"Missing required components: {missing_components}"
+            )
 
         # Validate and potentially recover each component
         for component_name, expected_shape in vars(self.expected_shapes).items():
@@ -217,15 +242,18 @@ class KalmanStateValidator:
                 continue
 
             # First try validation
-            if self.validate_shape(array, expected_shape, component_name) and \
-               self.validate_values(array, component_name):
+            if self.validate_shape(
+                array, expected_shape, component_name
+            ) and self.validate_values(array, component_name):
                 validated_state[component_name] = array
                 continue
 
             # Try recovery if validation failed
             recovered = self.attempt_recovery(data, expected_shape, component_name)
 
-            if recovered is not None and self.validate_values(recovered, component_name):
+            if recovered is not None and self.validate_values(
+                recovered, component_name
+            ):
                 validated_state[component_name] = recovered
                 recovery_performed = True
                 logger.info(f"Successfully recovered {component_name}")
@@ -236,12 +264,12 @@ class KalmanStateValidator:
         # Update statistics
         if all_valid:
             if recovery_performed:
-                self.validation_stats['recovered'] += 1
+                self.validation_stats["recovered"] += 1
             else:
-                self.validation_stats['passed'] += 1
+                self.validation_stats["passed"] += 1
             return validated_state
         else:
-            self.validation_stats['failed'] += 1
+            self.validation_stats["failed"] += 1
             return None
 
     def get_validation_metrics(self) -> Dict:
@@ -251,32 +279,34 @@ class KalmanStateValidator:
         Returns:
             Dictionary containing validation statistics
         """
-        total = self.validation_stats['total']
+        total = self.validation_stats["total"]
         if total == 0:
             success_rate = 1.0
         else:
-            successful = self.validation_stats['passed'] + self.validation_stats['recovered']
+            successful = (
+                self.validation_stats["passed"] + self.validation_stats["recovered"]
+            )
             success_rate = successful / total
 
         return {
-            'total_validations': total,
-            'passed': self.validation_stats['passed'],
-            'recovered': self.validation_stats['recovered'],
-            'failed': self.validation_stats['failed'],
-            'success_rate': success_rate,
-            'shape_mismatches': dict(self.validation_stats['shape_mismatches']),
-            'value_errors': dict(self.validation_stats['value_errors']),
-            'recovery_types': dict(self.validation_stats['recovery_types'])
+            "total_validations": total,
+            "passed": self.validation_stats["passed"],
+            "recovered": self.validation_stats["recovered"],
+            "failed": self.validation_stats["failed"],
+            "success_rate": success_rate,
+            "shape_mismatches": dict(self.validation_stats["shape_mismatches"]),
+            "value_errors": dict(self.validation_stats["value_errors"]),
+            "recovery_types": dict(self.validation_stats["recovery_types"]),
         }
 
     def reset_stats(self):
         """Reset validation statistics for fresh monitoring period."""
         self.validation_stats = {
-            'total': 0,
-            'passed': 0,
-            'recovered': 0,
-            'failed': 0,
-            'shape_mismatches': {},
-            'value_errors': {},
-            'recovery_types': {}
+            "total": 0,
+            "passed": 0,
+            "recovered": 0,
+            "failed": 0,
+            "shape_mismatches": {},
+            "value_errors": {},
+            "recovery_types": {},
         }

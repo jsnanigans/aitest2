@@ -33,9 +33,7 @@ class BufferFactory:
         self._instance_refs: Dict[str, int] = {}  # Reference counting
 
     def create_buffer(
-        self,
-        name: str = 'default',
-        config: Optional[Dict[str, Any]] = None
+        self, name: str = "default", config: Optional[Dict[str, Any]] = None
     ) -> ReplayBuffer:
         """
         Create or retrieve a named buffer instance.
@@ -75,7 +73,7 @@ class BufferFactory:
             self._instance_refs[name] += 1
             return self._instances[name]
 
-    def get_buffer(self, name: str = 'default') -> Optional[ReplayBuffer]:
+    def get_buffer(self, name: str = "default") -> Optional[ReplayBuffer]:
         """
         Get an existing buffer instance without creating it.
 
@@ -112,7 +110,7 @@ class BufferFactory:
 
             # Clean up the buffer
             buffer = self._instances[name]
-            if hasattr(buffer, 'cleanup'):
+            if hasattr(buffer, "cleanup"):
                 try:
                     buffer.cleanup()
                 except Exception as e:
@@ -126,9 +124,7 @@ class BufferFactory:
 
     @contextmanager
     def managed_buffer(
-        self,
-        name: str = 'default',
-        config: Optional[Dict[str, Any]] = None
+        self, name: str = "default", config: Optional[Dict[str, Any]] = None
     ):
         """
         Context manager for buffer lifecycle management.
@@ -152,7 +148,7 @@ class BufferFactory:
                     self._instance_refs[name] -= 1
 
                     # Auto-remove if no references and not default
-                    if self._instance_refs[name] == 0 and name != 'default':
+                    if self._instance_refs[name] == 0 and name != "default":
                         self.remove_buffer(name)
 
     def list_buffers(self) -> Set[str]:
@@ -176,8 +172,7 @@ class BufferFactory:
             if not force:
                 # Check for active references
                 active_refs = [
-                    name for name, count in self._instance_refs.items()
-                    if count > 0
+                    name for name, count in self._instance_refs.items() if count > 0
                 ]
                 if active_refs:
                     raise RuntimeError(
@@ -186,7 +181,7 @@ class BufferFactory:
 
             # Clean up all buffers
             for name, buffer in self._instances.items():
-                if hasattr(buffer, 'cleanup'):
+                if hasattr(buffer, "cleanup"):
                     try:
                         buffer.cleanup()
                     except Exception as e:
@@ -215,10 +210,10 @@ class BufferFactory:
         """
         with self._lock:
             return {
-                'total_instances': len(self._instances),
-                'instances': list(self._instances.keys()),
-                'references': dict(self._instance_refs),
-                'has_default_config': self._default_config is not None
+                "total_instances": len(self._instances),
+                "instances": list(self._instances.keys()),
+                "references": dict(self._instance_refs),
+                "has_default_config": self._default_config is not None,
             }
 
 
@@ -234,6 +229,7 @@ def get_factory() -> BufferFactory:
 
 # Backward compatibility wrapper
 _deprecation_shown = False
+
 
 def get_replay_buffer(config: Optional[Dict[str, Any]] = None) -> ReplayBuffer:
     """
@@ -255,22 +251,21 @@ def get_replay_buffer(config: Optional[Dict[str, Any]] = None) -> ReplayBuffer:
             "get_replay_buffer() is deprecated and will be removed in v2.0. "
             "Use BufferFactory.create_buffer() instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         _deprecation_shown = True
         logger.warning(
-            "Using deprecated get_replay_buffer(). "
-            "Please migrate to BufferFactory."
+            "Using deprecated get_replay_buffer(). Please migrate to BufferFactory."
         )
 
     factory = get_factory()
     if config:
         factory.set_default_config(config)
-    return factory.create_buffer('default', config)
+    return factory.create_buffer("default", config)
 
 
 # Migration helper decorator
-def with_buffer(name: str = 'default', config: Optional[Dict[str, Any]] = None):
+def with_buffer(name: str = "default", config: Optional[Dict[str, Any]] = None):
     """
     Decorator for injecting buffer instances into functions.
 
@@ -283,12 +278,15 @@ def with_buffer(name: str = 'default', config: Optional[Dict[str, Any]] = None):
         name: Buffer instance name
         config: Buffer configuration
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             factory = get_factory()
             with factory.managed_buffer(name, config) as buffer:
                 return func(buffer, *args, **kwargs)
+
         wrapper.__name__ = func.__name__
         wrapper.__doc__ = func.__doc__
         return wrapper
+
     return decorator

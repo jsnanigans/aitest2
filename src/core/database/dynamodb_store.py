@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 try:
     import boto3
     from botocore.exceptions import ClientError
+
     BOTO3_AVAILABLE = True
 except ImportError:
     BOTO3_AVAILABLE = False
@@ -35,32 +36,36 @@ class DynamoDBStateStore(StateStore):
             region: AWS region
         """
         if not BOTO3_AVAILABLE:
-            raise ImportError("boto3 is required for DynamoDB store. Install with: pip install boto3")
+            raise ImportError(
+                "boto3 is required for DynamoDB store. Install with: pip install boto3"
+            )
 
-        self.table_name = table_name or os.getenv('DYNAMODB_TABLE_NAME', 'weight-processor-state')
-        self.region = region or os.getenv('AWS_REGION', 'us-east-1')
+        self.table_name = table_name or os.getenv(
+            "DYNAMODB_TABLE_NAME", "weight-processor-state"
+        )
+        self.region = region or os.getenv("AWS_REGION", "us-east-1")
 
         # Check if we're running against DynamoDB Local
-        endpoint_url = os.getenv('DYNAMODB_ENDPOINT')
+        endpoint_url = os.getenv("DYNAMODB_ENDPOINT")
 
         # Initialize DynamoDB client
         if endpoint_url:
             # Local development with DynamoDB Local
             logger.info(f"Connecting to DynamoDB Local at {endpoint_url}")
             # Use environment credentials if set, otherwise use dummy for local
-            access_key = os.getenv('AWS_ACCESS_KEY_ID', 'dummy')
-            secret_key = os.getenv('AWS_SECRET_ACCESS_KEY', 'dummy')
+            access_key = os.getenv("AWS_ACCESS_KEY_ID", "dummy")
+            secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "dummy")
             self.dynamodb = boto3.resource(
-                'dynamodb',
+                "dynamodb",
                 region_name=self.region,
                 endpoint_url=endpoint_url,
                 aws_access_key_id=access_key,
-                aws_secret_access_key=secret_key
+                aws_secret_access_key=secret_key,
             )
         else:
             # Production AWS DynamoDB
             logger.info(f"Connecting to AWS DynamoDB in region {self.region}")
-            self.dynamodb = boto3.resource('dynamodb', region_name=self.region)
+            self.dynamodb = boto3.resource("dynamodb", region_name=self.region)
 
         # Initialize table reference (create if necessary on first operation)
         self.table = self.dynamodb.Table(self.table_name)
@@ -91,23 +96,22 @@ class DynamoDBStateStore(StateStore):
         """Retrieve state for a user from DynamoDB."""
         try:
             response = self.table.get_item(
-                Key={
-                    'userId': user_id,
-                    'stateType': 'current'
-                }
+                Key={"userId": user_id, "stateType": "current"}
             )
 
-            if 'Item' not in response:
+            if "Item" not in response:
                 return None
 
             # Deserialize the state
-            state = self._deserialize_state(response['Item'])
+            state = self._deserialize_state(response["Item"])
             return state
 
         except ClientError as e:
-            if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 # Table doesn't exist yet, try to create it
-                logger.warning(f"Table '{self.table_name}' not found, attempting to create...")
+                logger.warning(
+                    f"Table '{self.table_name}' not found, attempting to create..."
+                )
                 try:
                     self._init_table()
                     # Try again after creating table
@@ -127,21 +131,25 @@ class DynamoDBStateStore(StateStore):
         try:
             # Serialize the state
             item = self._serialize_state(state)
-            item.update({
-                'userId': user_id,
-                'stateType': 'current',
-                'updatedAt': datetime.utcnow().isoformat(),
-                'version': state.get('version', 0) + 1
-            })
+            item.update(
+                {
+                    "userId": user_id,
+                    "stateType": "current",
+                    "updatedAt": datetime.utcnow().isoformat(),
+                    "version": state.get("version", 0) + 1,
+                }
+            )
 
             # Save to DynamoDB
             self.table.put_item(Item=item)
             return True
 
         except ClientError as e:
-            if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 # Table doesn't exist yet, try to create it
-                logger.warning(f"Table '{self.table_name}' not found, attempting to create...")
+                logger.warning(
+                    f"Table '{self.table_name}' not found, attempting to create..."
+                )
                 try:
                     self._init_table()
                     # Recreate table reference
@@ -163,12 +171,7 @@ class DynamoDBStateStore(StateStore):
         """Delete state from DynamoDB."""
         try:
             # Delete current state
-            self.table.delete_item(
-                Key={
-                    'userId': user_id,
-                    'stateType': 'current'
-                }
-            )
+            self.table.delete_item(Key={"userId": user_id, "stateType": "current"})
 
             # Delete all snapshots
             self._delete_user_snapshots(user_id)
@@ -181,18 +184,18 @@ class DynamoDBStateStore(StateStore):
     def create_initial_state(self) -> Dict[str, Any]:
         """Create an empty initial state."""
         return {
-            'kalman_params': None,
-            'last_state': None,
-            'last_covariance': None,
-            'last_timestamp': None,
-            'last_accepted_timestamp': None,
-            'last_source': None,
-            'last_raw_weight': None,
-            'measurement_history': [],
-            'reset_events': [],
-            'measurements_since_reset': 0,
-            'adaptation_state': {},
-            'version': 0
+            "kalman_params": None,
+            "last_state": None,
+            "last_covariance": None,
+            "last_timestamp": None,
+            "last_accepted_timestamp": None,
+            "last_source": None,
+            "last_raw_weight": None,
+            "measurement_history": [],
+            "reset_events": [],
+            "measurements_since_reset": 0,
+            "adaptation_state": {},
+            "version": 0,
         }
 
     def save_state_snapshot(self, user_id: str, timestamp: datetime) -> bool:
@@ -206,21 +209,27 @@ class DynamoDBStateStore(StateStore):
 
             # Create snapshot item
             snapshot = self._serialize_state(current_state)
-            snapshot.update({
-                'userId': user_id,
-                'stateType': f'snapshot_{timestamp.isoformat()}',
-                'snapshotTime': timestamp.isoformat(),
-                'ttl': int((timestamp + timedelta(days=7)).timestamp())  # 7-day retention
-            })
+            snapshot.update(
+                {
+                    "userId": user_id,
+                    "stateType": f"snapshot_{timestamp.isoformat()}",
+                    "snapshotTime": timestamp.isoformat(),
+                    "ttl": int(
+                        (timestamp + timedelta(days=7)).timestamp()
+                    ),  # 7-day retention
+                }
+            )
 
             # Save to DynamoDB
             self.table.put_item(Item=snapshot)
             return True
 
         except ClientError as e:
-            if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 # Table doesn't exist yet, try to create it
-                logger.warning(f"Table '{self.table_name}' not found, attempting to create...")
+                logger.warning(
+                    f"Table '{self.table_name}' not found, attempting to create..."
+                )
                 try:
                     self._init_table()
                     # Recreate table reference
@@ -242,19 +251,16 @@ class DynamoDBStateStore(StateStore):
         try:
             # Query for the latest snapshot
             response = self.table.query(
-                KeyConditionExpression='userId = :uid AND begins_with(stateType, :st)',
-                ExpressionAttributeValues={
-                    ':uid': user_id,
-                    ':st': 'snapshot_'
-                },
+                KeyConditionExpression="userId = :uid AND begins_with(stateType, :st)",
+                ExpressionAttributeValues={":uid": user_id, ":st": "snapshot_"},
                 ScanIndexForward=False,  # Descending order
-                Limit=1
+                Limit=1,
             )
 
-            if not response.get('Items'):
+            if not response.get("Items"):
                 return False
 
-            snapshot_item = response['Items'][0]
+            snapshot_item = response["Items"][0]
             # Restore the snapshot as current state
             state = self._deserialize_state(snapshot_item)
             return self.save_state(user_id, state)
@@ -263,46 +269,52 @@ class DynamoDBStateStore(StateStore):
             logger.error(f"Error restoring snapshot from DynamoDB: {e}")
             return False
 
-    def get_snapshot(self, user_id: str, timestamp: datetime) -> Optional[Dict[str, Any]]:
+    def get_snapshot(
+        self, user_id: str, timestamp: datetime
+    ) -> Optional[Dict[str, Any]]:
         """Get the nearest snapshot before the given timestamp."""
         try:
             # Query snapshots
             response = self.table.query(
-                KeyConditionExpression='userId = :uid AND stateType < :st',
+                KeyConditionExpression="userId = :uid AND stateType < :st",
                 ExpressionAttributeValues={
-                    ':uid': user_id,
-                    ':st': f'snapshot_{timestamp.isoformat()}'
+                    ":uid": user_id,
+                    ":st": f"snapshot_{timestamp.isoformat()}",
                 },
                 ScanIndexForward=False,  # Descending order
-                Limit=1
+                Limit=1,
             )
 
-            if not response.get('Items'):
+            if not response.get("Items"):
                 return None
 
-            return self._deserialize_state(response['Items'][0])
+            return self._deserialize_state(response["Items"][0])
 
         except ClientError as e:
             logger.error(f"Error getting snapshot from DynamoDB: {e}")
             return None
 
-    def check_and_restore_snapshot(self, user_id: str, buffer_start_time: datetime) -> dict:
+    def check_and_restore_snapshot(
+        self, user_id: str, buffer_start_time: datetime
+    ) -> dict:
         """Check if a snapshot exists and restore it atomically."""
         snapshot = self.get_snapshot(user_id, buffer_start_time)
         if snapshot:
             # Restore the snapshot as current state
             if self.save_state(user_id, snapshot):
                 return {
-                    'success': True,
-                    'snapshot': snapshot,
-                    'snapshot_timestamp': snapshot.get('last_timestamp', buffer_start_time),
-                    'user_id': user_id
+                    "success": True,
+                    "snapshot": snapshot,
+                    "snapshot_timestamp": snapshot.get(
+                        "last_timestamp", buffer_start_time
+                    ),
+                    "user_id": user_id,
                 }
 
         return {
-            'success': False,
-            'error': f'No snapshot found for user {user_id}',
-            'user_id': user_id
+            "success": False,
+            "error": f"No snapshot found for user {user_id}",
+            "user_id": user_id,
         }
 
     def _init_table(self):
@@ -313,29 +325,34 @@ class DynamoDBStateStore(StateStore):
             logger.info(f"DynamoDB table '{self.table_name}' exists")
             return  # Table exists, we're done
         except ClientError as e:
-            if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 # Table doesn't exist, create it
                 logger.info(f"Creating DynamoDB table '{self.table_name}'...")
                 try:
                     table = self.dynamodb.create_table(
                         TableName=self.table_name,
                         KeySchema=[
-                            {'AttributeName': 'userId', 'KeyType': 'HASH'},
-                            {'AttributeName': 'stateType', 'KeyType': 'RANGE'}
+                            {"AttributeName": "userId", "KeyType": "HASH"},
+                            {"AttributeName": "stateType", "KeyType": "RANGE"},
                         ],
                         AttributeDefinitions=[
-                            {'AttributeName': 'userId', 'AttributeType': 'S'},
-                            {'AttributeName': 'stateType', 'AttributeType': 'S'}
+                            {"AttributeName": "userId", "AttributeType": "S"},
+                            {"AttributeName": "stateType", "AttributeType": "S"},
                         ],
-                        BillingMode='PAY_PER_REQUEST'  # On-demand billing
+                        BillingMode="PAY_PER_REQUEST",  # On-demand billing
                     )
                     # Wait for table to be created and active
-                    logger.info(f"Waiting for table '{self.table_name}' to be active...")
+                    logger.info(
+                        f"Waiting for table '{self.table_name}' to be active..."
+                    )
                     table.wait_until_exists()
                     # Give it a moment to be fully ready
                     import time
+
                     time.sleep(1)
-                    logger.info(f"DynamoDB table '{self.table_name}' created successfully")
+                    logger.info(
+                        f"DynamoDB table '{self.table_name}' created successfully"
+                    )
                 except ClientError as create_error:
                     logger.error(f"Failed to create DynamoDB table: {create_error}")
                     raise
@@ -344,8 +361,13 @@ class DynamoDBStateStore(StateStore):
                 raise
         except Exception as e:
             # Check if it's a connection error
-            if 'Connection' in str(e) or 'reach' in str(e) or 'Failed to establish' in str(e) or 'Could not connect' in str(e):
-                endpoint_url = os.getenv('DYNAMODB_ENDPOINT')
+            if (
+                "Connection" in str(e)
+                or "reach" in str(e)
+                or "Failed to establish" in str(e)
+                or "Could not connect" in str(e)
+            ):
+                endpoint_url = os.getenv("DYNAMODB_ENDPOINT")
                 if endpoint_url:
                     raise ConnectionError(
                         f"Cannot connect to DynamoDB Local at {endpoint_url}. "
@@ -367,31 +389,38 @@ class DynamoDBStateStore(StateStore):
         try:
             # Scan for all current states
             response = self.table.scan(
-                FilterExpression='stateType = :st',
-                ExpressionAttributeValues={':st': 'current'}
+                FilterExpression="stateType = :st",
+                ExpressionAttributeValues={":st": "current"},
             )
 
             users_exported = 0
-            with open(filepath, 'w', newline='') as f:
+            with open(filepath, "w", newline="") as f:
                 writer = csv.writer(f)
-                writer.writerow(['user_id', 'last_weight', 'last_timestamp', 'last_updated'])
+                writer.writerow(
+                    ["user_id", "last_weight", "last_timestamp", "last_updated"]
+                )
 
-                for item in response.get('Items', []):
+                for item in response.get("Items", []):
                     state = self._deserialize_state(item)
                     last_weight = None
-                    if state.get('last_state'):
+                    if state.get("last_state"):
                         try:
-                            if isinstance(state['last_state'], list) and len(state['last_state']) > 0:
-                                last_weight = float(state['last_state'][0])
+                            if (
+                                isinstance(state["last_state"], list)
+                                and len(state["last_state"]) > 0
+                            ):
+                                last_weight = float(state["last_state"][0])
                         except (TypeError, ValueError, IndexError):
                             pass
 
-                    writer.writerow([
-                        item['userId'],
-                        last_weight,
-                        state.get('last_timestamp'),
-                        item.get('updatedAt', '')
-                    ])
+                    writer.writerow(
+                        [
+                            item["userId"],
+                            last_weight,
+                            state.get("last_timestamp"),
+                            item.get("updatedAt", ""),
+                        ]
+                    )
                     users_exported += 1
 
             logger.info(f"Exported {users_exported} users to {filepath}")
@@ -406,20 +435,14 @@ class DynamoDBStateStore(StateStore):
         try:
             # Query all snapshots
             response = self.table.query(
-                KeyConditionExpression='userId = :uid AND begins_with(stateType, :st)',
-                ExpressionAttributeValues={
-                    ':uid': user_id,
-                    ':st': 'snapshot_'
-                }
+                KeyConditionExpression="userId = :uid AND begins_with(stateType, :st)",
+                ExpressionAttributeValues={":uid": user_id, ":st": "snapshot_"},
             )
 
             # Delete each snapshot
-            for item in response.get('Items', []):
+            for item in response.get("Items", []):
                 self.table.delete_item(
-                    Key={
-                        'userId': user_id,
-                        'stateType': item['stateType']
-                    }
+                    Key={"userId": user_id, "stateType": item["stateType"]}
                 )
 
         except ClientError as e:
@@ -474,22 +497,22 @@ class DynamoDBStateStore(StateStore):
         state = {}
 
         for key, value in item.items():
-            if key in ['userId', 'stateType', 'ttl', 'updatedAt', 'version']:
+            if key in ["userId", "stateType", "ttl", "updatedAt", "version"]:
                 continue  # Skip DynamoDB metadata
 
-            if key in ['last_timestamp', 'last_accepted_timestamp']:
+            if key in ["last_timestamp", "last_accepted_timestamp"]:
                 # Convert ISO strings back to datetime
                 if isinstance(value, str):
                     state[key] = datetime.fromisoformat(value)
                 else:
                     state[key] = value
-            elif key in ['last_state', 'last_covariance'] and value is not None:
+            elif key in ["last_state", "last_covariance"] and value is not None:
                 # Convert lists back to numpy arrays for Kalman state
                 if isinstance(value, list):
                     state[key] = np.array(self._convert_decimals_to_float(value))
                 else:
                     state[key] = value
-            elif key == 'kalman_params' and value:
+            elif key == "kalman_params" and value:
                 # Handle Kalman parameters
                 state[key] = self._deserialize_kalman_params(value)
             elif isinstance(value, Decimal):
@@ -511,7 +534,7 @@ class DynamoDBStateStore(StateStore):
         deserialized = {}
 
         for key, value in params.items():
-            if key in ['x', 'P'] and isinstance(value, list):
+            if key in ["x", "P"] and isinstance(value, list):
                 # Convert lists back to numpy arrays, handling Decimals
                 deserialized[key] = np.array(self._convert_decimals_to_float(value))
             elif isinstance(value, Decimal):
@@ -534,7 +557,10 @@ class DynamoDBStateStore(StateStore):
         elif isinstance(obj, tuple):
             return [self._convert_floats_to_decimal(item) for item in obj]
         elif isinstance(obj, dict):
-            return {key: self._convert_floats_to_decimal(value) for key, value in obj.items()}
+            return {
+                key: self._convert_floats_to_decimal(value)
+                for key, value in obj.items()
+            }
         return obj
 
     def _serialize_value(self, value: Any, depth: int = 0) -> Any:
@@ -570,7 +596,10 @@ class DynamoDBStateStore(StateStore):
         elif isinstance(obj, list):
             return [self._convert_decimals_to_float(item) for item in obj]
         elif isinstance(obj, dict):
-            return {key: self._convert_decimals_to_float(value) for key, value in obj.items()}
+            return {
+                key: self._convert_decimals_to_float(value)
+                for key, value in obj.items()
+            }
         return obj
 
     def _deserialize_value(self, value: Any) -> Any:

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class Measurement(BaseModel):
     """Weight measurement model."""
+
     uuid: UUID
     weight: float = Field(gt=0, le=1000, description="Weight value")
     unit: str = Field(pattern="^(kg|lbs?|g|oz)$", description="Unit of measurement")
@@ -19,19 +20,19 @@ class Measurement(BaseModel):
     class Config:
         populate_by_name = True  # Allow both snake_case and camelCase
 
-    @field_validator('weight')
+    @field_validator("weight")
     @classmethod
     def validate_weight(cls, v: float, info) -> float:
         """Validate weight is within physiological bounds."""
-        unit = info.data.get('unit', 'kg')
+        unit = info.data.get("unit", "kg")
 
         # Convert to kg for validation
         weight_kg = v
-        if unit in ['lb', 'lbs']:
+        if unit in ["lb", "lbs"]:
             weight_kg = v * 0.453592
-        elif unit == 'g':
+        elif unit == "g":
             weight_kg = v / 1000
-        elif unit == 'oz':
+        elif unit == "oz":
             weight_kg = v * 0.0283495
 
         if weight_kg < 10 or weight_kg > 500:
@@ -42,6 +43,7 @@ class Measurement(BaseModel):
 
 class UserProfile(BaseModel):
     """User profile for validation."""
+
     height: Optional[float] = None
     height_unit: Optional[str] = "cm"
     date_of_birth: Optional[str] = None
@@ -50,17 +52,20 @@ class UserProfile(BaseModel):
 
 class ProcessOptions(BaseModel):
     """Options for processing."""
+
     fail_on_historical_conflict: bool = True
 
 
 class ProcessRequest(BaseModel):
     """Request to process measurements."""
+
     measurements: List[Measurement]
     options: Optional[ProcessOptions] = ProcessOptions()
 
 
 class CleanupOptions(BaseModel):
     """Options for cleanup operation."""
+
     reset_state: bool = True
     include_quality_scores: bool = True
     include_debug_info: bool = False
@@ -68,6 +73,7 @@ class CleanupOptions(BaseModel):
 
 class CleanupRequest(BaseModel):
     """Request for cleanup operation."""
+
     measurements: List[Measurement]
     user_profile: Optional[UserProfile] = None
     options: Optional[CleanupOptions] = CleanupOptions()
@@ -75,12 +81,14 @@ class CleanupRequest(BaseModel):
 
 class ReplayOptions(BaseModel):
     """Options for replay operation."""
+
     use_snapshot: bool = True
     create_new_snapshot: bool = True
 
 
 class ReplayRequest(BaseModel):
     """Request for replay operation."""
+
     replay_from_timestamp: datetime
     measurements: List[Measurement]
     options: Optional[ReplayOptions] = ReplayOptions()
@@ -88,6 +96,7 @@ class ReplayRequest(BaseModel):
 
 class MeasurementResult(BaseModel):
     """Result of processing a single measurement."""
+
     uuid: UUID
     accepted: bool
     quality_score: Optional[float] = Field(None, ge=0, le=1)
@@ -101,6 +110,7 @@ class MeasurementResult(BaseModel):
 
 class StateUpdate(BaseModel):
     """State update information."""
+
     previous_weight: Optional[float] = None
     current_weight: Optional[float] = None
     last_processed_timestamp: datetime
@@ -108,6 +118,7 @@ class StateUpdate(BaseModel):
 
 class ProcessResponse(BaseModel):
     """Response from processing measurements."""
+
     status: str
     processed_count: int = Field(ge=0)
     accepted_count: int = Field(ge=0)
@@ -118,6 +129,7 @@ class ProcessResponse(BaseModel):
 
 class FinalState(BaseModel):
     """Final state after processing."""
+
     current_weight: float
     uncertainty: float
     last_processed_timestamp: datetime
@@ -127,6 +139,7 @@ class FinalState(BaseModel):
 
 class CleanupResponse(BaseModel):
     """Response from cleanup operation."""
+
     user_id: str
     processed_count: int
     accepted_count: int
@@ -137,6 +150,7 @@ class CleanupResponse(BaseModel):
 
 class HistoricalConflictDetails(BaseModel):
     """Details about historical conflict."""
+
     earliest_measurement_timestamp: datetime
     last_processed_timestamp: datetime
     replay_required: bool = True
@@ -147,6 +161,7 @@ class HistoricalConflictDetails(BaseModel):
 
 class HistoricalConflictResponse(BaseModel):
     """Response when historical conflict is detected."""
+
     status: str = "historical_conflict"
     error: str
     details: HistoricalConflictDetails

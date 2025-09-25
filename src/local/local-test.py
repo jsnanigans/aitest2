@@ -18,9 +18,9 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Set up test environment
-os.environ['DB_BACKEND'] = 'memory'  # Use in-memory database for testing
-os.environ['LOG_LEVEL'] = 'DEBUG'
-os.environ['AWS_REGION'] = 'us-east-1'
+os.environ["DB_BACKEND"] = "memory"  # Use in-memory database for testing
+os.environ["LOG_LEVEL"] = "DEBUG"
+os.environ["AWS_REGION"] = "us-east-1"
 
 
 class LambdaTester:
@@ -52,18 +52,18 @@ class LambdaTester:
             self.dynamodb_mock.start()
 
             # Create mock table
-            dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+            dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
             table = dynamodb.create_table(
-                TableName='weight-processor-state',
+                TableName="weight-processor-state",
                 KeySchema=[
-                    {'AttributeName': 'userId', 'KeyType': 'HASH'},
-                    {'AttributeName': 'stateType', 'KeyType': 'RANGE'}
+                    {"AttributeName": "userId", "KeyType": "HASH"},
+                    {"AttributeName": "stateType", "KeyType": "RANGE"},
                 ],
                 AttributeDefinitions=[
-                    {'AttributeName': 'userId', 'AttributeType': 'S'},
-                    {'AttributeName': 'stateType', 'AttributeType': 'S'}
+                    {"AttributeName": "userId", "AttributeType": "S"},
+                    {"AttributeName": "stateType", "AttributeType": "S"},
                 ],
-                BillingMode='PAY_PER_REQUEST'
+                BillingMode="PAY_PER_REQUEST",
             )
 
             print(f"✓ Created mock DynamoDB table: {table.table_name}")
@@ -76,6 +76,7 @@ class LambdaTester:
         """Load the Lambda handler."""
         try:
             from src.lambda_handler import handler
+
             self.handler = handler
             print("✓ Lambda handler loaded successfully")
         except ImportError as e:
@@ -87,7 +88,9 @@ class LambdaTester:
         self.mock_context = MagicMock()
         self.mock_context.function_name = "weight-processor-test"
         self.mock_context.function_version = "$LATEST"
-        self.mock_context.invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test"
+        self.mock_context.invoked_function_arn = (
+            "arn:aws:lambda:us-east-1:123456789012:function:test"
+        )
         self.mock_context.memory_limit_in_mb = "1024"
         self.mock_context.aws_request_id = "test-request-id"
         self.mock_context.log_group_name = "/aws/lambda/test"
@@ -109,22 +112,22 @@ class LambdaTester:
         Returns:
             Response from handler
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Testing: {description}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Extract request info
-        method = event.get('httpMethod', 'GET')
-        path = event.get('path', '/')
-        user_id = event.get('pathParameters', {}).get('userId', 'unknown')
+        method = event.get("httpMethod", "GET")
+        path = event.get("path", "/")
+        user_id = event.get("pathParameters", {}).get("userId", "unknown")
 
         print(f"Request: {method} {path}")
         print(f"User ID: {user_id}")
 
-        if event.get('body'):
+        if event.get("body"):
             try:
-                body = json.loads(event['body'])
-                if 'measurements' in body:
+                body = json.loads(event["body"])
+                if "measurements" in body:
                     print(f"Measurements: {len(body['measurements'])}")
             except:
                 print("Body: <invalid JSON>")
@@ -136,8 +139,8 @@ class LambdaTester:
             duration = (datetime.now() - start_time).total_seconds() * 1000
 
             # Parse response
-            status_code = response.get('statusCode', 0)
-            body = response.get('body', '')
+            status_code = response.get("statusCode", 0)
+            body = response.get("body", "")
 
             # Print results
             print(f"\nResponse Status: {status_code}")
@@ -150,16 +153,18 @@ class LambdaTester:
                     print(f"Response Body:")
 
                     # Pretty print based on content
-                    if 'error' in body_data:
+                    if "error" in body_data:
                         print(f"  ❌ Error: {body_data['error']}")
-                    elif 'measurements' in body_data:
-                        accepted = body_data.get('acceptedCount', 0)
-                        rejected = body_data.get('rejectedCount', 0)
+                    elif "measurements" in body_data:
+                        accepted = body_data.get("acceptedCount", 0)
+                        rejected = body_data.get("rejectedCount", 0)
                         print(f"  ✓ Accepted: {accepted}")
                         print(f"  ✗ Rejected: {rejected}")
-                        if 'stateUpdate' in body_data:
-                            update = body_data['stateUpdate']
-                            print(f"  State: {update.get('previousWeight')} → {update.get('currentWeight')}")
+                        if "stateUpdate" in body_data:
+                            update = body_data["stateUpdate"]
+                            print(
+                                f"  State: {update.get('previousWeight')} → {update.get('currentWeight')}"
+                            )
                     else:
                         # Generic pretty print
                         for key, value in body_data.items():
@@ -199,7 +204,7 @@ class LambdaTester:
             get_state_event,
             get_delete_state_event,
             get_invalid_weight_event,
-            get_process_event_historical_conflict
+            get_process_event_historical_conflict,
         )
 
         tests = [
@@ -209,24 +214,23 @@ class LambdaTester:
             (get_state_event(), "Get user state"),
             (get_delete_state_event(), "Delete user state"),
             (get_invalid_weight_event(), "Invalid weight (error test)"),
-            (get_process_event_historical_conflict(), "Historical conflict test")
+            (get_process_event_historical_conflict(), "Historical conflict test"),
         ]
 
-        results = {
-            "passed": 0,
-            "failed": 0,
-            "errors": 0
-        }
+        results = {"passed": 0, "failed": 0, "errors": 0}
 
         for event, description in tests:
             response = self.test_endpoint(event, description)
-            status = response.get('statusCode', 500)
+            status = response.get("statusCode", 500)
 
             if status < 300:
                 results["passed"] += 1
             elif status < 500:
                 # Client errors might be expected
-                if "error test" in description.lower() or "conflict" in description.lower():
+                if (
+                    "error test" in description.lower()
+                    or "conflict" in description.lower()
+                ):
                     results["passed"] += 1
                 else:
                     results["failed"] += 1
@@ -234,9 +238,9 @@ class LambdaTester:
                 results["errors"] += 1
 
         # Summary
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Test Summary")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"✅ Passed: {results['passed']}")
         print(f"❌ Failed: {results['failed']}")
         print(f"💥 Errors: {results['errors']}")
@@ -267,39 +271,41 @@ class LambdaTester:
             get_process_event_single,
             get_process_event_batch,
             get_cleanup_event,
-            get_state_event
+            get_state_event,
         )
 
         while True:
             choice = input("\nSelect option: ").strip()
 
-            if choice == '1':
+            if choice == "1":
                 self.test_endpoint(get_process_event_single(), "Process single")
-            elif choice == '2':
+            elif choice == "2":
                 self.test_endpoint(get_process_event_batch(), "Process batch")
-            elif choice == '3':
+            elif choice == "3":
                 self.test_endpoint(get_cleanup_event(), "Cleanup")
-            elif choice == '4':
-                user_id = input("Enter user ID [test-user-001]: ").strip() or "test-user-001"
+            elif choice == "4":
+                user_id = (
+                    input("Enter user ID [test-user-001]: ").strip() or "test-user-001"
+                )
                 event = get_state_event()
-                event['pathParameters']['userId'] = user_id
+                event["pathParameters"]["userId"] = user_id
                 self.test_endpoint(event, f"Get state for {user_id}")
-            elif choice == '5':
+            elif choice == "5":
                 self.run_all_tests()
-            elif choice == '6':
+            elif choice == "6":
                 filepath = input("Enter event file path: ").strip()
                 if Path(filepath).exists():
                     self.test_custom_event(filepath)
                 else:
                     print(f"File not found: {filepath}")
-            elif choice.lower() == 'q':
+            elif choice.lower() == "q":
                 break
             else:
                 print("Invalid option")
 
     def cleanup(self):
         """Clean up mocks."""
-        if self.use_mock_dynamodb and hasattr(self, 'dynamodb_mock'):
+        if self.use_mock_dynamodb and hasattr(self, "dynamodb_mock"):
             self.dynamodb_mock.stop()
             print("✓ Cleaned up DynamoDB mock")
 
@@ -307,48 +313,37 @@ class LambdaTester:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Test Lambda functions locally")
+    parser.add_argument("--event", help="Path to custom event JSON file")
     parser.add_argument(
-        "--event",
-        help="Path to custom event JSON file"
+        "--interactive", "-i", action="store_true", help="Run in interactive mode"
     )
     parser.add_argument(
-        "--interactive", "-i",
-        action="store_true",
-        help="Run in interactive mode"
-    )
-    parser.add_argument(
-        "--no-mock",
-        action="store_true",
-        help="Don't use mocked AWS services"
+        "--no-mock", action="store_true", help="Don't use mocked AWS services"
     )
     parser.add_argument(
         "--dynamodb",
         choices=["memory", "local", "mock"],
         default="memory",
-        help="DynamoDB backend (memory, local, or mock)"
+        help="DynamoDB backend (memory, local, or mock)",
     )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
     # Configure environment
     if args.dynamodb == "memory":
-        os.environ['DB_BACKEND'] = 'memory'
+        os.environ["DB_BACKEND"] = "memory"
         use_mock = False
     elif args.dynamodb == "local":
-        os.environ['DB_BACKEND'] = 'dynamodb'
-        os.environ['DYNAMODB_ENDPOINT'] = 'http://localhost:8000'
+        os.environ["DB_BACKEND"] = "dynamodb"
+        os.environ["DYNAMODB_ENDPOINT"] = "http://localhost:8000"
         use_mock = False
     else:
-        os.environ['DB_BACKEND'] = 'dynamodb'
+        os.environ["DB_BACKEND"] = "dynamodb"
         use_mock = True
 
     if args.verbose:
-        os.environ['LOG_LEVEL'] = 'DEBUG'
+        os.environ["LOG_LEVEL"] = "DEBUG"
 
     # Create tester
     tester = LambdaTester(use_mock_dynamodb=use_mock and not args.no_mock)

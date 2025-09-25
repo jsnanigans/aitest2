@@ -64,29 +64,55 @@ report:
 
 # Run all tests
 test:
-	uv run python -m pytest tests/ -q
+	uv run pytest tests/ -q
 
 # Run tests with verbose output
 test-v:
-	uv run python -m pytest tests/ -xvs
+	uv run pytest tests/ -xvs
+
+# Run specific test file
+test-file:
+	uv run pytest $(FILE) -xvs
+
+# Run integration tests
+test-integration:
+	uv run pytest tests/integration/ -q
+
+# Run tests with coverage report
+test-coverage:
+	uv run pytest tests/ --cov=src --cov-report=html --cov-report=term
 
 # Run replay tests specifically
 test-replay:
-	uv run python -m pytest tests/test_replay*.py -q
+	uv run pytest tests/test_replay*.py -q
 
 # Run Lambda handler tests
 test-lambda:
-	uv run python -m pytest tests/test_lambda_handler.py -xvs
+	uv run pytest tests/test_lambda_handler.py -xvs
+
+# Run tests against deployed service
+test-deployed:
+	@echo "Running integration tests against deployed $(ENV) environment..."
+	cd integration-tests && uv run pytest test_deployed.py --env=$(ENV)
 
 # Run performance benchmark
 benchmark:
 	uv run python scripts/measure_performance.py
+
+# Install/update dependencies and dev tools
+setup:
+	uv venv
+	uv pip install -r requirements.txt
+	uv pip install -r requirements-lambda.txt
+	uv pip install -r requirements-dev.txt
+	@echo "✓ Setup complete. Run 'source .venv/bin/activate' to activate the virtual environment"
 
 # Install/update dependencies
 install:
 	uv sync
 	uv pip install -r requirements.txt
 	uv pip install -r requirements-lambda.txt
+	uv pip install -r requirements-dev.txt
 
 # Format code with ruff
 format:
@@ -95,6 +121,10 @@ format:
 # Lint code
 lint:
 	uv run ruff check .
+
+# Type check with mypy
+type-check:
+	uv run mypy src/ --ignore-missing-imports
 
 # Install boto3 if not already installed
 install-boto3:
@@ -162,3 +192,20 @@ db-clear:
 	docker-compose down
 	docker-compose up -d dynamodb-local dynamodb-admin
 	@echo "DynamoDB data cleared"
+
+# Reset database and tables
+db-reset: db-stop db-start
+	@echo "Waiting for DynamoDB Local to be ready..."
+	@sleep 3
+	@export DYNAMODB_ENDPOINT=http://localhost:8000 && \
+	export DYNAMODB_TABLE_NAME=weight-processor-state && \
+	export AWS_ACCESS_KEY_ID=local && \
+	export AWS_SECRET_ACCESS_KEY=local && \
+	uv run python scripts/init-dynamodb.py
+	@echo "✓ Database reset complete"
+
+# Start local API with SAM
+sam-local: local-build
+	@echo "Starting local API with SAM..."
+	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
+	cd aws && sam local start-api --port 3000 --template .aws-sam/build/template.yaml

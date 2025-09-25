@@ -53,8 +53,15 @@ def ensure_numeric_types(data: Union[Dict, List, Any]) -> Union[Dict, List, Any]
     if isinstance(data, dict):
         result = {}
         for key, value in data.items():
-            if key in ['weight', 'filtered_weight', 'raw_weight', 'quality_score',
-                       'kalman_deviation', 'temporal_consistency', 'source_reliability']:
+            if key in [
+                "weight",
+                "filtered_weight",
+                "raw_weight",
+                "quality_score",
+                "kalman_deviation",
+                "temporal_consistency",
+                "source_reliability",
+            ]:
                 # These are numeric fields that should be floats
                 result[key] = ensure_float(value)
             elif isinstance(value, (dict, list)):
@@ -107,20 +114,28 @@ def prepare_measurement_for_processing(measurement: Dict[str, Any]) -> Dict[str,
     clean_measurement = measurement.copy()
 
     # Ensure weight is float
-    if 'weight' in clean_measurement:
-        clean_measurement['weight'] = ensure_float(clean_measurement['weight'])
+    if "weight" in clean_measurement:
+        clean_measurement["weight"] = ensure_float(clean_measurement["weight"])
 
-    if 'raw_weight' in clean_measurement:
-        clean_measurement['raw_weight'] = ensure_float(clean_measurement['raw_weight'])
+    if "raw_weight" in clean_measurement:
+        clean_measurement["raw_weight"] = ensure_float(clean_measurement["raw_weight"])
 
-    if 'filtered_weight' in clean_measurement:
-        clean_measurement['filtered_weight'] = ensure_float(clean_measurement['filtered_weight'])
+    if "filtered_weight" in clean_measurement:
+        clean_measurement["filtered_weight"] = ensure_float(
+            clean_measurement["filtered_weight"]
+        )
 
-    if 'quality_score' in clean_measurement:
-        clean_measurement['quality_score'] = ensure_float(clean_measurement['quality_score'])
+    if "quality_score" in clean_measurement:
+        clean_measurement["quality_score"] = ensure_float(
+            clean_measurement["quality_score"]
+        )
 
     # Handle nested metadata
-    if 'metadata' in clean_measurement and isinstance(clean_measurement['metadata'], dict):
-        clean_measurement['metadata'] = ensure_numeric_types(clean_measurement['metadata'])
+    if "metadata" in clean_measurement and isinstance(
+        clean_measurement["metadata"], dict
+    ):
+        clean_measurement["metadata"] = ensure_numeric_types(
+            clean_measurement["metadata"]
+        )
 
     return clean_measurement

@@ -10,17 +10,21 @@ def create_api_gateway_event(
     method: str,
     path_parameters: dict = None,
     body: dict = None,
-    headers: dict = None
+    headers: dict = None,
 ) -> dict:
     """Create a mock API Gateway event."""
     event = {
         "resource": path,
-        "path": path.replace("{userId}", path_parameters.get("userId", "test") if path_parameters else "test"),
+        "path": path.replace(
+            "{userId}",
+            path_parameters.get("userId", "test") if path_parameters else "test",
+        ),
         "httpMethod": method,
-        "headers": headers or {
+        "headers": headers
+        or {
             "Content-Type": "application/json",
             "X-Api-Key": "test-api-key",
-            "X-Correlation-Id": str(uuid4())
+            "X-Correlation-Id": str(uuid4()),
         },
         "multiValueHeaders": None,
         "queryStringParameters": None,
@@ -37,13 +41,10 @@ def create_api_gateway_event(
             "requestId": str(uuid4()),
             "requestTime": datetime.utcnow().isoformat(),
             "requestTimeEpoch": int(datetime.utcnow().timestamp() * 1000),
-            "identity": {
-                "sourceIp": "127.0.0.1",
-                "userAgent": "PostmanRuntime/7.28.4"
-            }
+            "identity": {"sourceIp": "127.0.0.1", "userAgent": "PostmanRuntime/7.28.4"},
         },
         "body": json.dumps(body) if body else None,
-        "isBase64Encoded": False
+        "isBase64Encoded": False,
     }
     return event
 
@@ -63,13 +64,10 @@ def get_process_event_single():
                     "unit": "kg",
                     "effectiveDateTime": datetime.utcnow().isoformat() + "Z",
                     "source": "patient-device",
-                    "metadata": {
-                        "deviceId": "scale-001",
-                        "location": "home"
-                    }
+                    "metadata": {"deviceId": "scale-001", "location": "home"},
                 }
             ]
-        }
+        },
     )
 
 
@@ -87,24 +85,26 @@ def get_process_event_batch():
                     "weight": 75.5,
                     "unit": "kg",
                     "effectiveDateTime": base_time.isoformat() + "Z",
-                    "source": "patient-device"
+                    "source": "patient-device",
                 },
                 {
                     "uuid": str(uuid4()),
                     "weight": 75.3,
                     "unit": "kg",
-                    "effectiveDateTime": (base_time + timedelta(hours=1)).isoformat() + "Z",
-                    "source": "care-team-upload"
+                    "effectiveDateTime": (base_time + timedelta(hours=1)).isoformat()
+                    + "Z",
+                    "source": "care-team-upload",
                 },
                 {
                     "uuid": str(uuid4()),
                     "weight": 75.8,
                     "unit": "kg",
-                    "effectiveDateTime": (base_time + timedelta(hours=2)).isoformat() + "Z",
-                    "source": "patient-upload"
-                }
+                    "effectiveDateTime": (base_time + timedelta(hours=2)).isoformat()
+                    + "Z",
+                    "source": "patient-upload",
+                },
             ]
-        }
+        },
     )
 
 
@@ -121,10 +121,10 @@ def get_process_event_historical_conflict():
                     "weight": 74.0,
                     "unit": "kg",
                     "effectiveDateTime": "2023-01-01T10:00:00Z",  # Old date
-                    "source": "patient-device"
+                    "source": "patient-device",
                 }
             ]
-        }
+        },
     )
 
 
@@ -136,15 +136,19 @@ def get_cleanup_event():
 
     # Generate 100 measurements over 30 days
     for i in range(100):
-        timestamp = base_date + timedelta(days=i/3.3, hours=i%24)
+        timestamp = base_date + timedelta(days=i / 3.3, hours=i % 24)
         weight = 75.0 + (i % 10) * 0.2 - 1.0  # Vary between 74-76
-        measurements.append({
-            "uuid": str(uuid4()),
-            "weight": weight,
-            "unit": "kg",
-            "effectiveDateTime": timestamp.isoformat() + "Z",
-            "source": ["patient-device", "care-team-upload", "patient-upload"][i % 3]
-        })
+        measurements.append(
+            {
+                "uuid": str(uuid4()),
+                "weight": weight,
+                "unit": "kg",
+                "effectiveDateTime": timestamp.isoformat() + "Z",
+                "source": ["patient-device", "care-team-upload", "patient-upload"][
+                    i % 3
+                ],
+            }
+        )
 
     return create_api_gateway_event(
         path="/api/v1/cleanup/{userId}",
@@ -156,13 +160,10 @@ def get_cleanup_event():
                 "height": 175,
                 "heightUnit": "cm",
                 "dateOfBirth": "1990-01-01",
-                "gender": "M"
+                "gender": "M",
             },
-            "options": {
-                "resetState": True,
-                "includeQualityScores": True
-            }
-        }
+            "options": {"resetState": True, "includeQualityScores": True},
+        },
     )
 
 
@@ -173,14 +174,16 @@ def get_replay_event():
     measurements = []
 
     for i in range(10):
-        timestamp = base_time + timedelta(hours=i*6)
-        measurements.append({
-            "uuid": str(uuid4()),
-            "weight": 75.0 + i * 0.1,
-            "unit": "kg",
-            "effectiveDateTime": timestamp.isoformat() + "Z",
-            "source": "patient-device"
-        })
+        timestamp = base_time + timedelta(hours=i * 6)
+        measurements.append(
+            {
+                "uuid": str(uuid4()),
+                "weight": 75.0 + i * 0.1,
+                "unit": "kg",
+                "effectiveDateTime": timestamp.isoformat() + "Z",
+                "source": "patient-device",
+            }
+        )
 
     return create_api_gateway_event(
         path="/api/v1/replay/{userId}",
@@ -189,11 +192,8 @@ def get_replay_event():
         body={
             "replayFromTimestamp": base_time.isoformat() + "Z",
             "measurements": measurements,
-            "options": {
-                "useSnapshot": True,
-                "createNewSnapshot": True
-            }
-        }
+            "options": {"useSnapshot": True, "createNewSnapshot": True},
+        },
     )
 
 
@@ -203,7 +203,7 @@ def get_state_event():
     return create_api_gateway_event(
         path="/api/v1/state/{userId}",
         method="GET",
-        path_parameters={"userId": "test-user-001"}
+        path_parameters={"userId": "test-user-001"},
     )
 
 
@@ -212,7 +212,7 @@ def get_delete_state_event():
     return create_api_gateway_event(
         path="/api/v1/state/{userId}",
         method="DELETE",
-        path_parameters={"userId": "test-user-001"}
+        path_parameters={"userId": "test-user-001"},
     )
 
 
@@ -230,10 +230,10 @@ def get_invalid_weight_event():
                     "weight": -10,  # Invalid negative weight
                     "unit": "kg",
                     "effectiveDateTime": datetime.utcnow().isoformat() + "Z",
-                    "source": "patient-device"
+                    "source": "patient-device",
                 }
             ]
-        }
+        },
     )
 
 
@@ -250,10 +250,10 @@ def get_missing_required_field_event():
                     # Missing weight
                     "unit": "kg",
                     "effectiveDateTime": datetime.utcnow().isoformat() + "Z",
-                    "source": "patient-device"
+                    "source": "patient-device",
                 }
             ]
-        }
+        },
     )
 
 
@@ -263,7 +263,7 @@ def get_malformed_json_event():
         path="/api/v1/process/{userId}",
         method="POST",
         path_parameters={"userId": "test-user"},
-        body=None
+        body=None,
     )
     event["body"] = '{"measurements": [}}'  # Invalid JSON
     return event
@@ -282,7 +282,7 @@ def get_all_test_events():
         "delete_state": get_delete_state_event(),
         "invalid_weight": get_invalid_weight_event(),
         "missing_field": get_missing_required_field_event(),
-        "malformed_json": get_malformed_json_event()
+        "malformed_json": get_malformed_json_event(),
     }
 
 

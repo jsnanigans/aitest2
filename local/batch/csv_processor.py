@@ -31,8 +31,14 @@ class CSVBatchProcessor:
         self.service = service or ComponentFactory.get_weight_processor_service()
         self.state_store = self.service.state_store
 
-    def process_file(self, csv_path: str, output_dir: str, config: Dict[str, Any],
-                    filtered_output: str = None, debug: bool = False) -> Dict[str, Any]:
+    def process_file(
+        self,
+        csv_path: str,
+        output_dir: str,
+        config: Dict[str, Any],
+        filtered_output: str = None,
+        debug: bool = False,
+    ) -> Dict[str, Any]:
         """
         Process CSV file containing weight measurements.
 
@@ -90,12 +96,17 @@ class CSVBatchProcessor:
             # Process rows
             for row in reader:
                 result = self._process_row(
-                    row, processing_config, eligible_users_set,
-                    stats, user_results, config, replay_components
+                    row,
+                    processing_config,
+                    eligible_users_set,
+                    stats,
+                    user_results,
+                    config,
+                    replay_components,
                 )
 
                 # Write to filtered CSV if accepted
-                if result and result.get('accepted') and filtered_csv_writer:
+                if result and result.get("accepted") and filtered_csv_writer:
                     self._write_filtered_row(row, result, filtered_csv_writer)
 
         # Close filtered CSV
@@ -113,14 +124,9 @@ class CSVBatchProcessor:
 
     def _set_verbosity(self, config: Dict[str, Any]):
         """Set verbosity level from configuration."""
-        viz_config = config.get('visualization', {})
-        verbosity_str = viz_config.get('verbosity', 'normal')
-        verbosity_map = {
-            'silent': 0,
-            'minimal': 1,
-            'normal': 2,
-            'verbose': 3
-        }
+        viz_config = config.get("visualization", {})
+        verbosity_str = viz_config.get("verbosity", "normal")
+        verbosity_map = {"silent": 0, "minimal": 1, "normal": 2, "verbose": 3}
         verbosity_level = verbosity_map.get(verbosity_str, 2)
         set_verbosity(verbosity_level)
 
@@ -140,15 +146,13 @@ class CSVBatchProcessor:
             # Create buffer using factory
             buffer_factory = get_factory()
             buffer_factory.set_default_config(replay_config)
-            replay_buffer = buffer_factory.create_buffer('default', replay_config)
+            replay_buffer = buffer_factory.create_buffer("default", replay_config)
 
             outlier_detector = OutlierDetector(
-                replay_config.get("outlier_detection", {}),
-                db=self.state_store
+                replay_config.get("outlier_detection", {}), db=self.state_store
             )
             replay_manager = ReplayManager(
-                self.state_store,
-                replay_config.get("safety", {})
+                self.state_store, replay_config.get("safety", {})
             )
 
             print("Replay processing enabled")
@@ -156,10 +160,10 @@ class CSVBatchProcessor:
             print(f"  Trigger mode: {replay_config.get('trigger_mode', 'time_based')}")
 
             return {
-                'enabled': True,
-                'buffer': replay_buffer,
-                'outlier_detector': outlier_detector,
-                'replay_manager': replay_manager
+                "enabled": True,
+                "buffer": replay_buffer,
+                "outlier_detector": outlier_detector,
+                "replay_manager": replay_manager,
             }
         except ImportError as e:
             print(f"Warning: Could not initialize replay processing: {e}")
@@ -173,13 +177,13 @@ class CSVBatchProcessor:
         test_users = self._load_test_users(data_config)
 
         return {
-            'max_users': data_config.get("max_users", 0),
-            'user_offset': data_config.get("user_offset", 0),
-            'min_readings': data_config.get("min_readings", 0),
-            'test_users': test_users,
-            'test_mode': bool(test_users),
-            'min_date': self._parse_date(data_config.get("min_date", "")),
-            'max_date': self._parse_date(data_config.get("max_date", ""))
+            "max_users": data_config.get("max_users", 0),
+            "user_offset": data_config.get("user_offset", 0),
+            "min_readings": data_config.get("min_readings", 0),
+            "test_users": test_users,
+            "test_mode": bool(test_users),
+            "min_date": self._parse_date(data_config.get("min_date", "")),
+            "max_date": self._parse_date(data_config.get("max_date", "")),
         }
 
     def _load_test_users(self, data_config: Dict[str, Any]) -> List[str]:
@@ -187,7 +191,11 @@ class CSVBatchProcessor:
         # Priority: test_users from config > filtered_users_csv > test_users_file
         test_users_config = data_config.get("test_users", [])
         if test_users_config:
-            return test_users_config if isinstance(test_users_config, list) else [test_users_config]
+            return (
+                test_users_config
+                if isinstance(test_users_config, list)
+                else [test_users_config]
+            )
 
         filtered_users_csv = data_config.get("filtered_users_csv", "")
         if filtered_users_csv:
@@ -210,7 +218,7 @@ class CSVBatchProcessor:
         with open(filepath) as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith('#'):
+                if line and not line.startswith("#"):
                     users.append(line)
         return users
 
@@ -222,10 +230,10 @@ class CSVBatchProcessor:
 
         users = []
         try:
-            with open(filepath, 'r') as f:
+            with open(filepath, "r") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    user_id = row.get('user_id', '').strip()
+                    user_id = row.get("user_id", "").strip()
                     if user_id:
                         users.append(user_id)
             print(f"Loaded {len(users)} users from filtered CSV: {filepath}")
@@ -262,32 +270,37 @@ class CSVBatchProcessor:
             "start_time": datetime.now(),
             "processing_errors": 0,
             "parse_errors": 0,
-            "invalid_weight": 0
+            "invalid_weight": 0,
         }
 
     def _print_config(self, config: Dict[str, Any]):
         """Print processing configuration."""
-        if config['test_mode']:
+        if config["test_mode"]:
             print(f"Test mode: Processing {len(config['test_users'])} specific users")
         else:
-            if config['max_users'] > 0:
+            if config["max_users"] > 0:
                 print(f"  Processing up to {config['max_users']} users")
-            if config['min_date'] or config['max_date']:
-                date_range = f"{config['min_date'] or 'start'} to {config['max_date'] or 'end'}"
+            if config["min_date"] or config["max_date"]:
+                date_range = (
+                    f"{config['min_date'] or 'start'} to {config['max_date'] or 'end'}"
+                )
                 print(f"  Date filter: {date_range}")
         print()
 
-    def _determine_eligible_users(self, csv_path: str, config: Dict[str, Any],
-                                 stats: Dict[str, Any]) -> set:
+    def _determine_eligible_users(
+        self, csv_path: str, config: Dict[str, Any], stats: Dict[str, Any]
+    ) -> set:
         """Determine which users are eligible for processing."""
-        if config['test_mode']:
-            return set(config['test_users'])
+        if config["test_mode"]:
+            return set(config["test_users"])
 
         # Count readings per user
         user_reading_counts = {}
         eligible_users = []
 
-        print(f"Analyzing user data (min_readings={config['min_readings']}, max_users={config['max_users']})...")
+        print(
+            f"Analyzing user data (min_readings={config['min_readings']}, max_users={config['max_users']})..."
+        )
 
         with open(csv_path) as f:
             reader = csv.DictReader(f)
@@ -302,13 +315,13 @@ class CSVBatchProcessor:
                     continue
 
                 # Date check
-                if config['min_date'] or config['max_date']:
+                if config["min_date"] or config["max_date"]:
                     date_str = row.get("effectiveDateTime")
                     try:
                         timestamp = self._parse_date(date_str)
-                        if config['min_date'] and timestamp < config['min_date']:
+                        if config["min_date"] and timestamp < config["min_date"]:
                             continue
-                        if config['max_date'] and timestamp > config['max_date']:
+                        if config["max_date"] and timestamp > config["max_date"]:
                             continue
                     except:
                         continue
@@ -317,39 +330,51 @@ class CSVBatchProcessor:
 
         # Determine eligible users based on min_readings
         for user_id, count in sorted(user_reading_counts.items()):
-            if count >= config['min_readings']:
+            if count >= config["min_readings"]:
                 eligible_users.append(user_id)
 
         # Apply user_offset and max_users
-        if config['user_offset'] > 0:
-            eligible_users = eligible_users[config['user_offset']:]
+        if config["user_offset"] > 0:
+            eligible_users = eligible_users[config["user_offset"] :]
 
-        if config['max_users'] > 0 and len(eligible_users) > config['max_users']:
-            eligible_users = eligible_users[:config['max_users']]
+        if config["max_users"] > 0 and len(eligible_users) > config["max_users"]:
+            eligible_users = eligible_users[: config["max_users"]]
 
         print(f"  Found {len(user_reading_counts)} total users")
-        print(f"  Processing {len(eligible_users)} users (after offset={config['user_offset']}, max={config['max_users']})")
+        print(
+            f"  Processing {len(eligible_users)} users (after offset={config['user_offset']}, max={config['max_users']})"
+        )
 
         return set(eligible_users)
 
     def _setup_filtered_csv(self, filepath: str, fieldnames: list) -> Tuple:
         """Setup filtered CSV writer."""
         print(f"Will write filtered data to: {filepath}")
-        file = open(filepath, 'w', newline='')
-        extended_fieldnames = list(fieldnames) + ['quality_score']
+        file = open(filepath, "w", newline="")
+        extended_fieldnames = list(fieldnames) + ["quality_score"]
         writer = csv.DictWriter(file, fieldnames=extended_fieldnames)
         writer.writeheader()
         return file, writer
 
-    def _process_row(self, row: Dict[str, Any], config: Dict[str, Any],
-                     eligible_users: set, stats: Dict[str, Any],
-                     user_results: Dict[str, Any], full_config: Dict[str, Any],
-                     replay_components: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _process_row(
+        self,
+        row: Dict[str, Any],
+        config: Dict[str, Any],
+        eligible_users: set,
+        stats: Dict[str, Any],
+        user_results: Dict[str, Any],
+        full_config: Dict[str, Any],
+        replay_components: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
         """Process a single CSV row."""
         stats["total_rows"] += 1
 
         # Progress update
-        if stats["total_rows"] % full_config.get("logging", {}).get("progress_interval", 10000) == 0:
+        if (
+            stats["total_rows"]
+            % full_config.get("logging", {}).get("progress_interval", 10000)
+            == 0
+        ):
             self._print_progress(stats)
 
         # Parse and validate row
@@ -377,14 +402,15 @@ class CSVBatchProcessor:
         unit = row.get("unit", "").strip()
 
         # Skip BSA measurements
-        if 'BSA' in source.upper() or 'm2' in unit or 'm²' in unit:
+        if "BSA" in source.upper() or "m2" in unit or "m²" in unit:
             return None
 
         # Validate unit
         if not unit or unit.lower().strip() not in SUPPORTED_WEIGHT_UNITS:
             stats["unit_rejected"] += 1
-            stats["rejected_units"][unit or "<missing>"] = \
+            stats["rejected_units"][unit or "<missing>"] = (
                 stats["rejected_units"].get(unit or "<missing>", 0) + 1
+            )
             return None
 
         # Parse timestamp
@@ -394,10 +420,10 @@ class CSVBatchProcessor:
             timestamp = datetime.now()
 
         # Apply date filters
-        if config['min_date'] and timestamp < config['min_date']:
+        if config["min_date"] and timestamp < config["min_date"]:
             stats["date_filtered"] += 1
             return None
-        if config['max_date'] and timestamp > config['max_date']:
+        if config["max_date"] and timestamp > config["max_date"]:
             stats["date_filtered"] += 1
             return None
 
@@ -410,12 +436,12 @@ class CSVBatchProcessor:
                 source=source,
                 config=full_config,
                 unit=unit,
-                db=self.state_store
+                db=self.state_store,
             )
 
             # Track results
             if result:
-                if result.get('accepted'):
+                if result.get("accepted"):
                     stats["accepted"] += 1
                 else:
                     stats["rejected"] += 1
@@ -433,23 +459,27 @@ class CSVBatchProcessor:
                 print(f"Error processing {user_id}: {e}")
             return None
 
-    def _write_filtered_row(self, row: Dict[str, Any], result: Dict[str, Any],
-                           writer: csv.DictWriter):
+    def _write_filtered_row(
+        self, row: Dict[str, Any], result: Dict[str, Any], writer: csv.DictWriter
+    ):
         """Write accepted row to filtered CSV."""
         filtered_row = row.copy()
-        filtered_row['quality_score'] = result.get('quality_score', '')
+        filtered_row["quality_score"] = result.get("quality_score", "")
         writer.writerow(filtered_row)
 
     def _print_progress(self, stats: Dict[str, Any]):
         """Print processing progress."""
         elapsed = (datetime.now() - stats["start_time"]).total_seconds()
         rate = stats["total_rows"] / elapsed if elapsed > 0 else 0
-        print(f"  Row {stats['total_rows']:,} | "
-              f"Accepted: {stats['accepted']:,} | "
-              f"Rate: {rate:.0f} rows/sec")
+        print(
+            f"  Row {stats['total_rows']:,} | "
+            f"Accepted: {stats['accepted']:,} | "
+            f"Rate: {rate:.0f} rows/sec"
+        )
 
-    def _generate_visualizations(self, user_results: Dict[str, Any],
-                                output_dir: Path, config: Dict[str, Any]):
+    def _generate_visualizations(
+        self, user_results: Dict[str, Any], output_dir: Path, config: Dict[str, Any]
+    ):
         """Generate visualizations for processed users."""
         viz_dir = output_dir / "visualizations"
         viz_dir.mkdir(exist_ok=True)
@@ -482,7 +512,9 @@ class CSVBatchProcessor:
                 else:
                     failed += 1
                     if config.get("logging", {}).get("verbose", False):
-                        print(f"  Failed to generate visualization for {user_id}: {error_msg}")
+                        print(
+                            f"  Failed to generate visualization for {user_id}: {error_msg}"
+                        )
 
         print(f"Visualizations complete: {successful} successful, {failed} failed")
 
@@ -504,11 +536,11 @@ class CSVBatchProcessor:
 
     def _get_optimal_thread_count(self, num_users: int, config: Dict[str, Any]) -> int:
         """Calculate optimal number of threads for visualization."""
-        viz_threading = config.get('visualization', {}).get('threading', {})
-        if not viz_threading.get('enabled', True):
+        viz_threading = config.get("visualization", {}).get("threading", {})
+        if not viz_threading.get("enabled", True):
             return 1
 
-        max_workers_config = viz_threading.get('max_workers', None)
+        max_workers_config = viz_threading.get("max_workers", None)
 
         # Calculate based on CPU cores
         cpu_count = os.cpu_count() or 4
@@ -520,8 +552,9 @@ class CSVBatchProcessor:
         # Don't use more threads than users
         return max(1, min(max_workers, num_users))
 
-    def _write_summary(self, stats: Dict[str, Any], output_dir: Path,
-                      user_results: Dict[str, Any]):
+    def _write_summary(
+        self, stats: Dict[str, Any], output_dir: Path, user_results: Dict[str, Any]
+    ):
         """Write processing summary."""
         elapsed = (datetime.now() - stats["start_time"]).total_seconds()
 
@@ -536,11 +569,11 @@ class CSVBatchProcessor:
             "users_processed": len(user_results),
             "processing_errors": stats.get("processing_errors", 0),
             "parse_errors": stats.get("parse_errors", 0),
-            "invalid_weight": stats.get("invalid_weight", 0)
+            "invalid_weight": stats.get("invalid_weight", 0),
         }
 
         summary_path = output_dir / "processing_summary.json"
-        with open(summary_path, 'w') as f:
+        with open(summary_path, "w") as f:
             json.dump(summary, f, indent=2, default=str)
 
         print(f"\nProcessing complete in {elapsed:.1f} seconds")

@@ -16,25 +16,19 @@ class PersistenceValidator:
     """Validates state before persistence operations."""
 
     # Required fields that must be present in every state
-    REQUIRED_FIELDS = {
-        'last_state',
-        'kalman_params',
-        'last_timestamp'
-    }
+    REQUIRED_FIELDS = {"last_state", "kalman_params", "last_timestamp"}
 
     # Fields that should be numeric if present
-    NUMERIC_FIELDS = {
-        'measurements_since_reset',
-        'last_raw_weight'
-    }
+    NUMERIC_FIELDS = {"measurements_since_reset", "last_raw_weight"}
 
     # Maximum reasonable weight in kg
     MAX_WEIGHT_KG = 500
     MIN_WEIGHT_KG = 10
 
     @classmethod
-    def validate_state(cls, state: Dict[str, Any], user_id: str,
-                      reason: str = "unknown") -> Tuple[bool, Optional[str]]:
+    def validate_state(
+        cls, state: Dict[str, Any], user_id: str, reason: str = "unknown"
+    ) -> Tuple[bool, Optional[str]]:
         """
         Validate state before persistence.
 
@@ -55,17 +49,17 @@ class PersistenceValidator:
             return False, f"Missing required fields: {missing_fields}"
 
         # Validate Kalman state structure
-        kalman_state = state.get('last_state')
+        kalman_state = state.get("last_state")
         if not cls._validate_kalman_state(kalman_state):
             return False, "Invalid Kalman state structure"
 
         # Validate Kalman parameters
-        kalman_params = state.get('kalman_params')
+        kalman_params = state.get("kalman_params")
         if not cls._validate_kalman_params(kalman_params):
             return False, "Invalid Kalman parameters"
 
         # Validate timestamp
-        last_timestamp = state.get('last_timestamp')
+        last_timestamp = state.get("last_timestamp")
         if not cls._validate_timestamp(last_timestamp):
             return False, "Invalid last_timestamp"
 
@@ -77,17 +71,23 @@ class PersistenceValidator:
                     return False, f"Field '{field}' must be numeric, got {type(value)}"
 
                 # Special validation for weight
-                if field == 'last_raw_weight':
+                if field == "last_raw_weight":
                     if not cls.MIN_WEIGHT_KG <= value <= cls.MAX_WEIGHT_KG:
-                        return False, f"Weight {value} outside valid range [{cls.MIN_WEIGHT_KG}, {cls.MAX_WEIGHT_KG}]"
+                        return (
+                            False,
+                            f"Weight {value} outside valid range [{cls.MIN_WEIGHT_KG}, {cls.MAX_WEIGHT_KG}]",
+                        )
 
         # Check for consistency between related fields
-        if 'last_accepted_timestamp' in state and 'last_timestamp' in state:
-            last_ts = state['last_timestamp']
-            accepted_ts = state['last_accepted_timestamp']
+        if "last_accepted_timestamp" in state and "last_timestamp" in state:
+            last_ts = state["last_timestamp"]
+            accepted_ts = state["last_accepted_timestamp"]
             if isinstance(accepted_ts, datetime) and isinstance(last_ts, datetime):
                 if accepted_ts > last_ts:
-                    return False, "last_accepted_timestamp cannot be after last_timestamp"
+                    return (
+                        False,
+                        "last_accepted_timestamp cannot be after last_timestamp",
+                    )
 
         # Log successful validation with audit trail
         logger.debug(f"State validation passed for user {user_id}, reason: {reason}")
@@ -120,7 +120,11 @@ class PersistenceValidator:
                     if kalman_state.shape[0] == 0:
                         return True  # Empty is OK
                     # Get the last state
-                    weight = float(kalman_state[-1][0] if kalman_state.shape[1] >= 1 else kalman_state[-1])
+                    weight = float(
+                        kalman_state[-1][0]
+                        if kalman_state.shape[1] >= 1
+                        else kalman_state[-1]
+                    )
                 else:
                     return False
             elif isinstance(kalman_state, list):
@@ -155,12 +159,12 @@ class PersistenceValidator:
             return False
 
         # Check required parameter fields
-        required_params = {'transition_covariance', 'observation_covariance'}
+        required_params = {"transition_covariance", "observation_covariance"}
         if not all(param in kalman_params for param in required_params):
             return False
 
         # Validate transition covariance (2x2 matrix)
-        trans_cov = kalman_params['transition_covariance']
+        trans_cov = kalman_params["transition_covariance"]
         if not isinstance(trans_cov, list) or len(trans_cov) != 2:
             return False
         for row in trans_cov:
@@ -171,9 +175,13 @@ class PersistenceValidator:
                     return False
 
         # Validate observation covariance (scalar or 1x1 matrix)
-        obs_cov = kalman_params['observation_covariance']
+        obs_cov = kalman_params["observation_covariance"]
         if isinstance(obs_cov, list):
-            if len(obs_cov) != 1 or not isinstance(obs_cov[0], list) or len(obs_cov[0]) != 1:
+            if (
+                len(obs_cov) != 1
+                or not isinstance(obs_cov[0], list)
+                or len(obs_cov[0]) != 1
+            ):
                 return False
             if not isinstance(obs_cov[0][0], (int, float)) or obs_cov[0][0] < 0:
                 return False
@@ -194,7 +202,7 @@ class PersistenceValidator:
 
         if isinstance(timestamp, str):
             try:
-                datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                 return True
             except (ValueError, AttributeError):
                 return False
@@ -202,8 +210,13 @@ class PersistenceValidator:
         return False
 
     @classmethod
-    def should_persist(cls, state: Dict[str, Any], previous_state: Optional[Dict[str, Any]],
-                       user_id: str, reason: str = "processing") -> Tuple[bool, str]:
+    def should_persist(
+        cls,
+        state: Dict[str, Any],
+        previous_state: Optional[Dict[str, Any]],
+        user_id: str,
+        reason: str = "processing",
+    ) -> Tuple[bool, str]:
         """
         Determine if state should be persisted based on changes and validity.
 
@@ -225,7 +238,9 @@ class PersistenceValidator:
 
         # If no previous state, we should persist
         if previous_state is None:
-            audit_msg = f"Initial state persistence for user {user_id}, reason: {reason}"
+            audit_msg = (
+                f"Initial state persistence for user {user_id}, reason: {reason}"
+            )
             logger.info(audit_msg)
             return True, audit_msg
 
@@ -233,17 +248,22 @@ class PersistenceValidator:
         has_changes = cls._has_meaningful_changes(state, previous_state)
 
         if has_changes:
-            audit_msg = f"State has meaningful changes for user {user_id}, reason: {reason}"
+            audit_msg = (
+                f"State has meaningful changes for user {user_id}, reason: {reason}"
+            )
             logger.debug(audit_msg)
             return True, audit_msg
         else:
-            audit_msg = f"No meaningful state changes for user {user_id}, skipping persistence"
+            audit_msg = (
+                f"No meaningful state changes for user {user_id}, skipping persistence"
+            )
             logger.debug(audit_msg)
             return False, audit_msg
 
     @classmethod
-    def _has_meaningful_changes(cls, state: Dict[str, Any],
-                                previous_state: Dict[str, Any]) -> bool:
+    def _has_meaningful_changes(
+        cls, state: Dict[str, Any], previous_state: Dict[str, Any]
+    ) -> bool:
         """
         Check if there are meaningful changes between states.
 
@@ -251,12 +271,12 @@ class PersistenceValidator:
         """
         # Fields that indicate meaningful changes
         significant_fields = {
-            'last_state',
-            'last_accepted_timestamp',
-            'last_raw_weight',
-            'measurements_since_reset',
-            'reset_type',
-            'last_source'
+            "last_state",
+            "last_accepted_timestamp",
+            "last_raw_weight",
+            "measurements_since_reset",
+            "reset_type",
+            "last_source",
         }
 
         for field in significant_fields:
@@ -271,10 +291,15 @@ class PersistenceValidator:
             prev_val = previous_state.get(field)
 
             # Special handling for Kalman state (check for significant weight change)
-            if field == 'last_state' and current_val is not None and prev_val is not None:
+            if (
+                field == "last_state"
+                and current_val is not None
+                and prev_val is not None
+            ):
                 try:
                     # Handle numpy arrays and lists
                     import numpy as np
+
                     if isinstance(current_val, np.ndarray):
                         if len(current_val.shape) == 1:
                             current_weight = current_val[0]
@@ -302,8 +327,15 @@ class PersistenceValidator:
         return False
 
     @classmethod
-    def create_audit_log(cls, user_id: str, action: str, state: Dict[str, Any],
-                        success: bool, reason: str, error: Optional[str] = None) -> Dict[str, Any]:
+    def create_audit_log(
+        cls,
+        user_id: str,
+        action: str,
+        state: Dict[str, Any],
+        success: bool,
+        reason: str,
+        error: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Create an audit log entry for persistence operations.
 
@@ -319,29 +351,30 @@ class PersistenceValidator:
             Audit log entry dictionary
         """
         audit_entry = {
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'user_id': user_id,
-            'action': action,
-            'success': success,
-            'reason': reason
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "user_id": user_id,
+            "action": action,
+            "success": success,
+            "reason": reason,
         }
 
         if error:
-            audit_entry['error'] = error
+            audit_entry["error"] = error
 
         # Add state summary (avoid logging full state for privacy)
         if state:
-            audit_entry['state_summary'] = {
-                'has_kalman_state': 'last_state' in state,
-                'has_timestamp': 'last_timestamp' in state,
-                'measurements_count': state.get('measurements_since_reset', 0)
+            audit_entry["state_summary"] = {
+                "has_kalman_state": "last_state" in state,
+                "has_timestamp": "last_timestamp" in state,
+                "measurements_count": state.get("measurements_since_reset", 0),
             }
 
             # Add weight if present (useful for debugging)
-            if 'last_state' in state:
+            if "last_state" in state:
                 try:
                     import numpy as np
-                    last_state = state['last_state']
+
+                    last_state = state["last_state"]
                     if isinstance(last_state, np.ndarray):
                         if len(last_state.shape) == 1:
                             weight = last_state[0]
@@ -349,7 +382,7 @@ class PersistenceValidator:
                             weight = last_state[-1][0]
                     else:
                         weight = last_state[0][0]
-                    audit_entry['state_summary']['current_weight'] = round(weight, 2)
+                    audit_entry["state_summary"]["current_weight"] = round(weight, 2)
                 except (IndexError, TypeError):
                     pass
 

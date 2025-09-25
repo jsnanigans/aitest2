@@ -9,7 +9,6 @@ from src.constants import PHYSIOLOGICAL_LIMITS
 
 
 class TestPhysiologicalValidator:
-
     def test_validate_absolute_limits_valid_weight(self):
         """Test normal weight passes absolute limits."""
         valid, reason = PhysiologicalValidator.validate_absolute_limits(70.0)
@@ -48,9 +47,7 @@ class TestPhysiologicalValidator:
     def test_validate_rate_of_change_normal(self):
         """Test normal weight change rate passes validation."""
         valid, reason, rate = PhysiologicalValidator.validate_rate_of_change(
-            current_weight=70.0,
-            previous_weight=69.5,
-            time_diff_hours=24
+            current_weight=70.0, previous_weight=69.5, time_diff_hours=24
         )
         assert valid is True
         assert reason is None
@@ -61,7 +58,7 @@ class TestPhysiologicalValidator:
         valid, reason, rate = PhysiologicalValidator.validate_rate_of_change(
             current_weight=75.0,
             previous_weight=70.0,
-            time_diff_hours=12  # 5kg in 12 hours = 10kg/day
+            time_diff_hours=12,  # 5kg in 12 hours = 10kg/day
         )
         assert valid is False
         assert "exceeds max rate" in reason
@@ -70,9 +67,7 @@ class TestPhysiologicalValidator:
     def test_validate_rate_of_change_zero_time(self):
         """Test zero time difference is handled gracefully."""
         valid, reason, rate = PhysiologicalValidator.validate_rate_of_change(
-            current_weight=70.0,
-            previous_weight=69.0,
-            time_diff_hours=0
+            current_weight=70.0, previous_weight=69.0, time_diff_hours=0
         )
         assert valid is True
         assert reason is None
@@ -82,7 +77,7 @@ class TestPhysiologicalValidator:
         """Test pattern analysis with insufficient data."""
         measurements = [(datetime.now(), 70.0)]
         result = PhysiologicalValidator.check_measurement_pattern(measurements)
-        assert result['sufficient_data'] is False
+        assert result["sufficient_data"] is False
 
     def test_check_measurement_pattern_normal(self):
         """Test pattern analysis with normal variations."""
@@ -90,13 +85,13 @@ class TestPhysiologicalValidator:
         measurements = [
             (now - timedelta(hours=12), 69.5),
             (now - timedelta(hours=6), 69.8),
-            (now, 70.0)
+            (now, 70.0),
         ]
         result = PhysiologicalValidator.check_measurement_pattern(measurements)
-        assert result['sufficient_data'] is True
-        assert 'mean' in result
-        assert 'std' in result
-        assert result['suspicious_pattern'] == False
+        assert result["sufficient_data"] is True
+        assert "mean" in result
+        assert "std" in result
+        assert result["suspicious_pattern"] == False
 
     def test_check_measurement_pattern_high_variation(self):
         """Test pattern analysis detects suspicious variations."""
@@ -104,11 +99,13 @@ class TestPhysiologicalValidator:
         measurements = [
             (now - timedelta(hours=12), 65.0),
             (now - timedelta(hours=6), 75.0),
-            (now, 68.0)
+            (now, 68.0),
         ]
-        result = PhysiologicalValidator.check_measurement_pattern(measurements, window_hours=24)
-        assert result['sufficient_data'] is True
-        assert result['suspicious_pattern'] == True
+        result = PhysiologicalValidator.check_measurement_pattern(
+            measurements, window_hours=24
+        )
+        assert result["sufficient_data"] is True
+        assert result["suspicious_pattern"] == True
 
     def test_validate_comprehensive_valid_measurement(self):
         """Test comprehensive validation passes for valid measurement."""
@@ -116,29 +113,27 @@ class TestPhysiologicalValidator:
             weight=70.0,
             previous_weight=69.5,
             time_diff_hours=24,
-            source='patient-upload'
+            source="patient-upload",
         )
-        assert result['valid'] is True
-        assert result['rejection_reason'] is None
-        assert 'absolute_limits' in result['checks']
-        assert 'rate_of_change' in result['checks']
+        assert result["valid"] is True
+        assert result["rejection_reason"] is None
+        assert "absolute_limits" in result["checks"]
+        assert "rate_of_change" in result["checks"]
 
     def test_validate_comprehensive_invalid_weight(self):
         """Test comprehensive validation rejects invalid weight."""
-        result = PhysiologicalValidator.validate_comprehensive(
-            weight=5.0
-        )
-        assert result['valid'] is False
-        assert result['rejection_reason'] is not None
-        assert "below absolute minimum" in result['rejection_reason']
+        result = PhysiologicalValidator.validate_comprehensive(weight=5.0)
+        assert result["valid"] is False
+        assert result["rejection_reason"] is not None
+        assert "below absolute minimum" in result["rejection_reason"]
 
     def test_validate_comprehensive_excessive_rate(self):
         """Test comprehensive validation rejects excessive rate of change."""
         result = PhysiologicalValidator.validate_comprehensive(
             weight=80.0,
             previous_weight=70.0,
-            time_diff_hours=12  # 10kg in 12 hours
+            time_diff_hours=12,  # 10kg in 12 hours
         )
-        assert result['valid'] is False
-        assert "exceeds max rate" in result['rejection_reason']
-        assert result['daily_change_rate'] == 20.0
+        assert result["valid"] is False
+        assert "exceeds max rate" in result["rejection_reason"]
+        assert result["daily_change_rate"] == 20.0

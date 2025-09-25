@@ -23,7 +23,11 @@ from .validation import DataQualityPreprocessor
 logger = logging.getLogger(__name__)
 from ..constants import KALMAN_DEFAULTS, PHYSIOLOGICAL_LIMITS, get_noise_multiplier
 
-from .unified_quality_scorer import QualityScore, UnifiedQualityScorer, MeasurementHistory
+from .unified_quality_scorer import (
+    QualityScore,
+    UnifiedQualityScorer,
+    MeasurementHistory,
+)
 
 # Import type conversion utilities
 try:
@@ -32,7 +36,7 @@ except ImportError:
     # Fallback if not available
     def ensure_float(value):
         """Convert value to float, handling Decimal types."""
-        if hasattr(value, 'is_finite'):  # Decimal
+        if hasattr(value, "is_finite"):  # Decimal
             return float(value)
         return float(value) if value is not None else 0.0
 
@@ -72,7 +76,7 @@ def process_measurement(
         Complete processing result with all metadata
     """
     # Ensure weight is a float (handle Decimal from DynamoDB)
-    if hasattr(weight, 'is_finite'):  # Check if it's a Decimal
+    if hasattr(weight, "is_finite"):  # Check if it's a Decimal
         weight = float(weight)
     elif not isinstance(weight, (int, float)):
         weight = float(weight)
@@ -215,7 +219,9 @@ def process_measurement(
     if state and "measurement_history" in state:
         history = state["measurement_history"]
         if isinstance(history, list):
-            recent_weights = [ensure_float(h["weight"]) for h in history[-20:] if "weight" in h]
+            recent_weights = [
+                ensure_float(h["weight"]) for h in history[-20:] if "weight" in h
+            ]
 
     # Use unified Kalman-centric quality scorer
     # Get Kalman prediction using proper predict step
@@ -246,7 +252,9 @@ def process_measurement(
                 # innovation_cov = P_pred[0,0] + R
                 # We need: P_pred[0,0] + (R * multiplier)
                 predicted_cov_00 = innovation_covariance - base_obs_cov
-                innovation_covariance = predicted_cov_00 + (base_obs_cov * noise_multiplier)
+                innovation_covariance = predicted_cov_00 + (
+                    base_obs_cov * noise_multiplier
+                )
 
     # Get recent timestamps if available
     recent_timestamps = []

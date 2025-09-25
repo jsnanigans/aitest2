@@ -6,6 +6,7 @@ List available employers in the dataset.
 import pandas as pd
 import sys
 
+
 def list_employers():
     """List unique employer IDs and their user counts."""
 
@@ -15,7 +16,7 @@ def list_employers():
         df = pd.read_csv(employer_file)
 
         # Count users per employer
-        employer_counts = df['employer_id'].value_counts()
+        employer_counts = df["employer_id"].value_counts()
 
         print(f"Found {len(employer_counts)} unique employers")
         print(f"Total users with employer data: {len(df)}\n")
@@ -35,6 +36,7 @@ def list_employers():
     except Exception as e:
         print(f"Error: {e}")
         return None
+
 
 if __name__ == "__main__":
     list_employers()

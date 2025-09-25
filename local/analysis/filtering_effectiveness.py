@@ -60,7 +60,7 @@ class DistributionMetrics:
             "kurtosis": self.kurtosis,
             "min": self.min_val,
             "max": self.max_val,
-            "range": self.range_val
+            "range": self.range_val,
         }
 
 
@@ -93,14 +93,18 @@ class OutlierMetrics:
                 "iqr": self.iqr_outliers,
                 "z_score": self.z_score_outliers,
                 "mad": self.mad_outliers,
-                "temporal": self.temporal_outliers
+                "temporal": self.temporal_outliers,
             },
             "magnitude_stats": {
-                "mean": np.mean(self.outlier_magnitudes) if self.outlier_magnitudes else 0,
-                "std": np.std(self.outlier_magnitudes) if self.outlier_magnitudes else 0,
-                "max": max(self.outlier_magnitudes) if self.outlier_magnitudes else 0
+                "mean": np.mean(self.outlier_magnitudes)
+                if self.outlier_magnitudes
+                else 0,
+                "std": np.std(self.outlier_magnitudes)
+                if self.outlier_magnitudes
+                else 0,
+                "max": max(self.outlier_magnitudes) if self.outlier_magnitudes else 0,
             },
-            "source_distribution": self.outlier_sources
+            "source_distribution": self.outlier_sources,
         }
 
 
@@ -129,18 +133,18 @@ class TemporalMetrics:
             "daily_change": {
                 "max": self.max_daily_change,
                 "impossible_count": self.impossible_changes,
-                "volatility": self.daily_volatility
+                "volatility": self.daily_volatility,
             },
             "trend": {
                 "correlation": self.trend_correlation,
                 "smoothness": self.smoothness_score,
-                "inflection_points": self.inflection_points
+                "inflection_points": self.inflection_points,
             },
             "gaps": {
                 "count": self.gap_count,
                 "avg_duration_days": self.avg_gap_duration,
-                "max_duration_days": self.max_gap_duration
-            }
+                "max_duration_days": self.max_gap_duration,
+            },
         }
 
 
@@ -171,20 +175,18 @@ class MedicalImpactMetrics:
             "accuracy": {
                 "start_variance": self.start_point_variance,
                 "end_variance": self.end_point_variance,
-                "change_delta": self.total_change_delta
+                "change_delta": self.total_change_delta,
             },
             "clinical": {
                 "misclassification_rate": self.misclassification_rate,
-                "direction_errors": self.direction_errors
+                "direction_errors": self.direction_errors,
             },
             "magnitude_errors": {
                 "minor": self.minor_errors,
                 "moderate": self.moderate_errors,
-                "severe": self.severe_errors
+                "severe": self.severe_errors,
             },
-            "confidence": {
-                "ci_reduction": self.confidence_interval_reduction
-            }
+            "confidence": {"ci_reduction": self.confidence_interval_reduction},
         }
 
 
@@ -221,32 +223,32 @@ class ReportingMetrics:
                 "raw_mean": self.raw_cohort_mean,
                 "filtered_mean": self.filtered_cohort_mean,
                 "difference": self.mean_difference,
-                "percent_change": self.mean_percent_change
+                "percent_change": self.mean_percent_change,
             },
             "success_rates": {
                 "5pct_loss": {
                     "raw": self.pct_losing_5pct_raw,
-                    "filtered": self.pct_losing_5pct_filtered
+                    "filtered": self.pct_losing_5pct_filtered,
                 },
                 "10pct_loss": {
                     "raw": self.pct_losing_10pct_raw,
-                    "filtered": self.pct_losing_10pct_filtered
-                }
+                    "filtered": self.pct_losing_10pct_filtered,
+                },
             },
             "inclusion": {
                 "baseline": {
                     "raw": self.valid_baseline_raw,
-                    "filtered": self.valid_baseline_filtered
+                    "filtered": self.valid_baseline_filtered,
                 },
                 "endpoint": {
                     "raw": self.valid_endpoint_raw,
-                    "filtered": self.valid_endpoint_filtered
-                }
+                    "filtered": self.valid_endpoint_filtered,
+                },
             },
             "power": {
                 "variance_reduction": self.variance_reduction,
-                "effect_size_improvement": self.effect_size_improvement
-            }
+                "effect_size_improvement": self.effect_size_improvement,
+            },
         }
 
 
@@ -268,10 +270,7 @@ class FilteringAnalyzer:
         self.outlier_detector = OutlierDetector(config)
 
     def analyze_user_data(
-        self,
-        user_id: str,
-        raw_data: pd.DataFrame,
-        filtered_data: pd.DataFrame
+        self, user_id: str, raw_data: pd.DataFrame, filtered_data: pd.DataFrame
     ) -> Dict[str, Any]:
         """
         Analyze filtering effectiveness for a single user.
@@ -287,18 +286,23 @@ class FilteringAnalyzer:
         results = {
             "user_id": user_id,
             "timestamp": datetime.now().isoformat(),
-            "data_summary": self._get_data_summary(raw_data, filtered_data)
+            "data_summary": self._get_data_summary(raw_data, filtered_data),
         }
 
         # Calculate all metric categories
-        distribution_metrics = self._calculate_distribution_metrics(raw_data, filtered_data)
+        distribution_metrics = self._calculate_distribution_metrics(
+            raw_data, filtered_data
+        )
         outlier_metrics = self._calculate_outlier_metrics(raw_data, filtered_data)
         temporal_metrics = self._calculate_temporal_metrics(raw_data, filtered_data)
         medical_impact_metrics = self._calculate_medical_impact(raw_data, filtered_data)
         source_analysis = self._analyze_by_source(raw_data, filtered_data)
 
         # Convert to dictionaries for JSON serialization
-        results["distribution"] = {k: v.to_dict() if hasattr(v, 'to_dict') else v for k, v in distribution_metrics.items()}
+        results["distribution"] = {
+            k: v.to_dict() if hasattr(v, "to_dict") else v
+            for k, v in distribution_metrics.items()
+        }
         results["outliers"] = outlier_metrics.to_dict()
         results["temporal"] = temporal_metrics.to_dict()
         results["medical_impact"] = medical_impact_metrics.to_dict()
@@ -309,7 +313,7 @@ class FilteringAnalyzer:
     def analyze_cohort_data(
         self,
         cohort_raw: Dict[str, pd.DataFrame],
-        cohort_filtered: Dict[str, pd.DataFrame]
+        cohort_filtered: Dict[str, pd.DataFrame],
     ) -> Dict[str, Any]:
         """
         Analyze filtering effectiveness for a cohort of users.
@@ -324,49 +328,59 @@ class FilteringAnalyzer:
         results = {
             "timestamp": datetime.now().isoformat(),
             "cohort_size": len(cohort_raw),
-            "users": []
+            "users": [],
         }
 
         # Analyze each user
         for user_id in cohort_raw:
             if user_id in cohort_filtered:
                 user_metrics = self.analyze_user_data(
-                    user_id,
-                    cohort_raw[user_id],
-                    cohort_filtered[user_id]
+                    user_id, cohort_raw[user_id], cohort_filtered[user_id]
                 )
                 results["users"].append(user_metrics)
 
         # Calculate cohort-level metrics
-        results["reporting"] = self._calculate_reporting_metrics(cohort_raw, cohort_filtered)
+        results["reporting"] = self._calculate_reporting_metrics(
+            cohort_raw, cohort_filtered
+        )
         results["aggregate"] = self._aggregate_user_metrics(results["users"])
 
         return results
 
-    def _get_data_summary(self, raw_df: pd.DataFrame, filtered_df: pd.DataFrame) -> Dict:
+    def _get_data_summary(
+        self, raw_df: pd.DataFrame, filtered_df: pd.DataFrame
+    ) -> Dict:
         """Get basic data summary statistics."""
         return {
             "raw": {
                 "count": len(raw_df),
                 "date_range": {
-                    "start": raw_df['timestamp'].min().isoformat() if not raw_df.empty else None,
-                    "end": raw_df['timestamp'].max().isoformat() if not raw_df.empty else None
-                }
+                    "start": raw_df["timestamp"].min().isoformat()
+                    if not raw_df.empty
+                    else None,
+                    "end": raw_df["timestamp"].max().isoformat()
+                    if not raw_df.empty
+                    else None,
+                },
             },
             "filtered": {
                 "count": len(filtered_df),
                 "date_range": {
-                    "start": filtered_df['timestamp'].min().isoformat() if not filtered_df.empty else None,
-                    "end": filtered_df['timestamp'].max().isoformat() if not filtered_df.empty else None
-                }
+                    "start": filtered_df["timestamp"].min().isoformat()
+                    if not filtered_df.empty
+                    else None,
+                    "end": filtered_df["timestamp"].max().isoformat()
+                    if not filtered_df.empty
+                    else None,
+                },
             },
-            "removal_rate": 1 - (len(filtered_df) / len(raw_df)) if len(raw_df) > 0 else 0
+            "removal_rate": 1 - (len(filtered_df) / len(raw_df))
+            if len(raw_df) > 0
+            else 0,
         }
 
     def _calculate_distribution_metrics(
-        self,
-        raw_df: pd.DataFrame,
-        filtered_df: pd.DataFrame
+        self, raw_df: pd.DataFrame, filtered_df: pd.DataFrame
     ) -> Dict[str, DistributionMetrics]:
         """Calculate distribution metrics for raw and filtered data."""
         metrics = {}
@@ -375,11 +389,11 @@ class FilteringAnalyzer:
             if df.empty:
                 continue
 
-            weights = df['weight'].values
+            weights = df["weight"].values
 
             # Calculate mode (most frequent value)
             mode_result = stats.mode(weights, keepdims=False)
-            mode_val = mode_result.mode if hasattr(mode_result, 'mode') else None
+            mode_val = mode_result.mode if hasattr(mode_result, "mode") else None
 
             # Calculate IQR
             q1, q3 = np.percentile(weights, [25, 75])
@@ -405,26 +419,38 @@ class FilteringAnalyzer:
                 kurtosis=kurtosis(weights),
                 min_val=np.min(weights),
                 max_val=np.max(weights),
-                range_val=np.max(weights) - np.min(weights)
+                range_val=np.max(weights) - np.min(weights),
             )
 
         # Calculate improvements
         if "raw" in metrics and "filtered" in metrics:
             metrics["improvement"] = {
-                "std_reduction": (metrics["raw"].std - metrics["filtered"].std) / metrics["raw"].std if metrics["raw"].std > 0 else 0,
-                "iqr_compression": (metrics["raw"].iqr - metrics["filtered"].iqr) / metrics["raw"].iqr if metrics["raw"].iqr > 0 else 0,
-                "mad_improvement": (metrics["raw"].mad - metrics["filtered"].mad) / metrics["raw"].mad if metrics["raw"].mad > 0 else 0,
-                "cv_reduction": (metrics["raw"].cv - metrics["filtered"].cv) / metrics["raw"].cv if metrics["raw"].cv > 0 else 0,
-                "skewness_correction": abs(metrics["filtered"].skewness) - abs(metrics["raw"].skewness),
-                "kurtosis_normalization": abs(metrics["filtered"].kurtosis - 3) - abs(metrics["raw"].kurtosis - 3)
+                "std_reduction": (metrics["raw"].std - metrics["filtered"].std)
+                / metrics["raw"].std
+                if metrics["raw"].std > 0
+                else 0,
+                "iqr_compression": (metrics["raw"].iqr - metrics["filtered"].iqr)
+                / metrics["raw"].iqr
+                if metrics["raw"].iqr > 0
+                else 0,
+                "mad_improvement": (metrics["raw"].mad - metrics["filtered"].mad)
+                / metrics["raw"].mad
+                if metrics["raw"].mad > 0
+                else 0,
+                "cv_reduction": (metrics["raw"].cv - metrics["filtered"].cv)
+                / metrics["raw"].cv
+                if metrics["raw"].cv > 0
+                else 0,
+                "skewness_correction": abs(metrics["filtered"].skewness)
+                - abs(metrics["raw"].skewness),
+                "kurtosis_normalization": abs(metrics["filtered"].kurtosis - 3)
+                - abs(metrics["raw"].kurtosis - 3),
             }
 
         return metrics
 
     def _calculate_outlier_metrics(
-        self,
-        raw_df: pd.DataFrame,
-        filtered_df: pd.DataFrame
+        self, raw_df: pd.DataFrame, filtered_df: pd.DataFrame
     ) -> OutlierMetrics:
         """Calculate outlier detection metrics."""
         if raw_df.empty:
@@ -435,22 +461,22 @@ class FilteringAnalyzer:
                 iqr_outliers=0,
                 z_score_outliers=0,
                 mad_outliers=0,
-                temporal_outliers=0
+                temporal_outliers=0,
             )
 
         # Identify removed points
         if not filtered_df.empty:
             # Find measurements that were removed
-            raw_set = set(zip(raw_df['timestamp'], raw_df['weight']))
-            filtered_set = set(zip(filtered_df['timestamp'], filtered_df['weight']))
+            raw_set = set(zip(raw_df["timestamp"], raw_df["weight"]))
+            filtered_set = set(zip(filtered_df["timestamp"], filtered_df["weight"]))
             removed = raw_set - filtered_set
         else:
-            removed = set(zip(raw_df['timestamp'], raw_df['weight']))
+            removed = set(zip(raw_df["timestamp"], raw_df["weight"]))
 
         outliers_removed = len(removed)
 
         # Analyze outliers by different methods
-        weights = raw_df['weight'].values
+        weights = raw_df["weight"].values
 
         # IQR method
         q1, q3 = np.percentile(weights, [25, 75])
@@ -471,9 +497,11 @@ class FilteringAnalyzer:
 
         # Temporal outliers (large day-to-day changes)
         if len(raw_df) > 1:
-            raw_sorted = raw_df.sort_values('timestamp')
-            daily_changes = np.abs(np.diff(raw_sorted['weight'].values))
-            temporal_outliers = np.sum(daily_changes > PHYSIOLOGICAL_LIMITS['MAX_DAILY_CHANGE_KG'])
+            raw_sorted = raw_df.sort_values("timestamp")
+            daily_changes = np.abs(np.diff(raw_sorted["weight"].values))
+            temporal_outliers = np.sum(
+                daily_changes > PHYSIOLOGICAL_LIMITS["MAX_DAILY_CHANGE_KG"]
+            )
         else:
             temporal_outliers = 0
 
@@ -483,14 +511,14 @@ class FilteringAnalyzer:
         outlier_sources = {}
 
         if not filtered_df.empty and outliers_removed > 0:
-            median_weight = np.median(filtered_df['weight'].values)
+            median_weight = np.median(filtered_df["weight"].values)
             for ts, w in removed:
                 # Find the original row
-                row = raw_df[(raw_df['timestamp'] == ts) & (raw_df['weight'] == w)]
+                row = raw_df[(raw_df["timestamp"] == ts) & (raw_df["weight"] == w)]
                 if not row.empty:
                     outlier_magnitudes.append(abs(w - median_weight))
                     outlier_timestamps.append(ts)
-                    source = row.iloc[0].get('source', 'unknown')
+                    source = row.iloc[0].get("source", "unknown")
                     outlier_sources[source] = outlier_sources.get(source, 0) + 1
 
         return OutlierMetrics(
@@ -503,13 +531,11 @@ class FilteringAnalyzer:
             temporal_outliers=int(temporal_outliers),
             outlier_magnitudes=outlier_magnitudes,
             outlier_timestamps=outlier_timestamps,
-            outlier_sources=outlier_sources
+            outlier_sources=outlier_sources,
         )
 
     def _calculate_temporal_metrics(
-        self,
-        raw_df: pd.DataFrame,
-        filtered_df: pd.DataFrame
+        self, raw_df: pd.DataFrame, filtered_df: pd.DataFrame
     ) -> TemporalMetrics:
         """Calculate temporal consistency metrics."""
         # Initialize with defaults
@@ -522,24 +548,31 @@ class FilteringAnalyzer:
             inflection_points=0,
             gap_count=0,
             avg_gap_duration=0,
-            max_gap_duration=0
+            max_gap_duration=0,
         )
 
         # Calculate daily changes for raw data
         if len(raw_df) > 1:
-            raw_sorted = raw_df.sort_values('timestamp')
-            time_diffs = np.diff(raw_sorted['timestamp'].values) / np.timedelta64(1, 'D')
-            weight_diffs = np.abs(np.diff(raw_sorted['weight'].values))
+            raw_sorted = raw_df.sort_values("timestamp")
+            time_diffs = np.diff(raw_sorted["timestamp"].values) / np.timedelta64(
+                1, "D"
+            )
+            weight_diffs = np.abs(np.diff(raw_sorted["weight"].values))
 
             # Daily change metrics
             if len(time_diffs) > 0:
                 daily_changes = weight_diffs / np.maximum(time_diffs, 1)
                 metrics.max_daily_change = np.max(daily_changes)
-                metrics.impossible_changes = np.sum(daily_changes > PHYSIOLOGICAL_LIMITS['MAX_DAILY_CHANGE_KG'])
+                metrics.impossible_changes = np.sum(
+                    daily_changes > PHYSIOLOGICAL_LIMITS["MAX_DAILY_CHANGE_KG"]
+                )
 
                 # Rolling volatility (7-day window)
                 if len(daily_changes) >= 7:
-                    volatilities = [np.std(daily_changes[i:i+7]) for i in range(len(daily_changes)-6)]
+                    volatilities = [
+                        np.std(daily_changes[i : i + 7])
+                        for i in range(len(daily_changes) - 6)
+                    ]
                     metrics.daily_volatility = np.mean(volatilities)
                 else:
                     metrics.daily_volatility = np.std(daily_changes)
@@ -547,15 +580,19 @@ class FilteringAnalyzer:
         # Trend correlation between raw and filtered
         if len(raw_df) > 1 and len(filtered_df) > 1:
             # Align timestamps for correlation
-            common_timestamps = sorted(set(raw_df['timestamp']) & set(filtered_df['timestamp']))
+            common_timestamps = sorted(
+                set(raw_df["timestamp"]) & set(filtered_df["timestamp"])
+            )
             if len(common_timestamps) > 1:
                 # Get unique values for each timestamp (handle duplicates)
                 raw_weights = []
                 filtered_weights = []
 
                 for ts in common_timestamps:
-                    raw_at_ts = raw_df[raw_df['timestamp'] == ts]['weight'].values
-                    filtered_at_ts = filtered_df[filtered_df['timestamp'] == ts]['weight'].values
+                    raw_at_ts = raw_df[raw_df["timestamp"] == ts]["weight"].values
+                    filtered_at_ts = filtered_df[filtered_df["timestamp"] == ts][
+                        "weight"
+                    ].values
 
                     # Take mean if multiple values at same timestamp
                     if len(raw_at_ts) > 0 and len(filtered_at_ts) > 0:
@@ -572,8 +609,8 @@ class FilteringAnalyzer:
 
         # Smoothness score (second derivative)
         if len(filtered_df) > 2:
-            filtered_sorted = filtered_df.sort_values('timestamp')
-            weights = filtered_sorted['weight'].values
+            filtered_sorted = filtered_df.sort_values("timestamp")
+            weights = filtered_sorted["weight"].values
             second_derivative = np.diff(weights, n=2)
             metrics.smoothness_score = 1 / (1 + np.std(second_derivative))
 
@@ -584,8 +621,8 @@ class FilteringAnalyzer:
 
         # Gap analysis
         if len(raw_df) > 1:
-            raw_sorted = raw_df.sort_values('timestamp')
-            time_gaps = np.diff(raw_sorted['timestamp'].values) / np.timedelta64(1, 'D')
+            raw_sorted = raw_df.sort_values("timestamp")
+            time_gaps = np.diff(raw_sorted["timestamp"].values) / np.timedelta64(1, "D")
 
             # Consider gaps > 3 days as significant
             significant_gaps = time_gaps[time_gaps > 3]
@@ -598,9 +635,7 @@ class FilteringAnalyzer:
         return metrics
 
     def _calculate_medical_impact(
-        self,
-        raw_df: pd.DataFrame,
-        filtered_df: pd.DataFrame
+        self, raw_df: pd.DataFrame, filtered_df: pd.DataFrame
     ) -> MedicalImpactMetrics:
         """Calculate medical decision impact metrics."""
         metrics = MedicalImpactMetrics(
@@ -612,7 +647,7 @@ class FilteringAnalyzer:
             minor_errors=0,
             moderate_errors=0,
             severe_errors=0,
-            confidence_interval_reduction=0
+            confidence_interval_reduction=0,
         )
 
         if raw_df.empty or filtered_df.empty:
@@ -620,15 +655,17 @@ class FilteringAnalyzer:
 
         # Calculate start/end point selection variance
         # Use first 14 days for start, last 14 days for end
-        raw_sorted = raw_df.sort_values('timestamp')
-        filtered_sorted = filtered_df.sort_values('timestamp')
+        raw_sorted = raw_df.sort_values("timestamp")
+        filtered_sorted = filtered_df.sort_values("timestamp")
 
         # Start point analysis (first 14 days)
-        start_date = raw_sorted['timestamp'].min()
+        start_date = raw_sorted["timestamp"].min()
         start_window = start_date + timedelta(days=14)
 
-        raw_start = raw_sorted[raw_sorted['timestamp'] <= start_window]['weight']
-        filtered_start = filtered_sorted[filtered_sorted['timestamp'] <= start_window]['weight']
+        raw_start = raw_sorted[raw_sorted["timestamp"] <= start_window]["weight"]
+        filtered_start = filtered_sorted[filtered_sorted["timestamp"] <= start_window][
+            "weight"
+        ]
 
         if len(raw_start) > 0 and len(filtered_start) > 0:
             raw_start_weight = np.mean(raw_start)
@@ -636,11 +673,13 @@ class FilteringAnalyzer:
             metrics.start_point_variance = abs(raw_start_weight - filtered_start_weight)
 
         # End point analysis (last 14 days)
-        end_date = raw_sorted['timestamp'].max()
+        end_date = raw_sorted["timestamp"].max()
         end_window = end_date - timedelta(days=14)
 
-        raw_end = raw_sorted[raw_sorted['timestamp'] >= end_window]['weight']
-        filtered_end = filtered_sorted[filtered_sorted['timestamp'] >= end_window]['weight']
+        raw_end = raw_sorted[raw_sorted["timestamp"] >= end_window]["weight"]
+        filtered_end = filtered_sorted[filtered_sorted["timestamp"] >= end_window][
+            "weight"
+        ]
 
         if len(raw_end) > 0 and len(filtered_end) > 0:
             raw_end_weight = np.mean(raw_end)
@@ -648,7 +687,12 @@ class FilteringAnalyzer:
             metrics.end_point_variance = abs(raw_end_weight - filtered_end_weight)
 
         # Total change calculation
-        if len(raw_start) > 0 and len(raw_end) > 0 and len(filtered_start) > 0 and len(filtered_end) > 0:
+        if (
+            len(raw_start) > 0
+            and len(raw_end) > 0
+            and len(filtered_start) > 0
+            and len(filtered_end) > 0
+        ):
             raw_change = raw_end_weight - raw_start_weight
             filtered_change = filtered_end_weight - filtered_start_weight
             metrics.total_change_delta = abs(raw_change - filtered_change)
@@ -680,49 +724,61 @@ class FilteringAnalyzer:
 
         # Confidence interval reduction
         if len(raw_df) > 1 and len(filtered_df) > 1:
-            raw_std = np.std(raw_df['weight'])
-            filtered_std = np.std(filtered_df['weight'])
+            raw_std = np.std(raw_df["weight"])
+            filtered_std = np.std(filtered_df["weight"])
 
             # CI width is proportional to standard error
             raw_ci_width = 1.96 * raw_std / np.sqrt(len(raw_df))
             filtered_ci_width = 1.96 * filtered_std / np.sqrt(len(filtered_df))
 
             if raw_ci_width > 0:
-                metrics.confidence_interval_reduction = (raw_ci_width - filtered_ci_width) / raw_ci_width
+                metrics.confidence_interval_reduction = (
+                    raw_ci_width - filtered_ci_width
+                ) / raw_ci_width
 
         return metrics
 
     def _analyze_by_source(
-        self,
-        raw_df: pd.DataFrame,
-        filtered_df: pd.DataFrame
+        self, raw_df: pd.DataFrame, filtered_df: pd.DataFrame
     ) -> Dict[str, Dict]:
         """Analyze filtering effectiveness by data source."""
         results = {}
 
-        if 'source' not in raw_df.columns:
+        if "source" not in raw_df.columns:
             return results
 
-        sources = raw_df['source'].unique()
+        sources = raw_df["source"].unique()
 
         for source in sources:
-            raw_source = raw_df[raw_df['source'] == source]
-            filtered_source = filtered_df[filtered_df['source'] == source] if not filtered_df.empty else pd.DataFrame()
+            raw_source = raw_df[raw_df["source"] == source]
+            filtered_source = (
+                filtered_df[filtered_df["source"] == source]
+                if not filtered_df.empty
+                else pd.DataFrame()
+            )
 
             source_metrics = {
                 "total_measurements": len(raw_source),
                 "filtered_measurements": len(filtered_source),
-                "removal_rate": 1 - (len(filtered_source) / len(raw_source)) if len(raw_source) > 0 else 0,
-                "expected_reliability": SOURCE_PROFILES.get(source, {}).get("reliability", "unknown"),
-                "expected_outlier_rate": SOURCE_PROFILES.get(source, {}).get("outlier_rate", 0)
+                "removal_rate": 1 - (len(filtered_source) / len(raw_source))
+                if len(raw_source) > 0
+                else 0,
+                "expected_reliability": SOURCE_PROFILES.get(source, {}).get(
+                    "reliability", "unknown"
+                ),
+                "expected_outlier_rate": SOURCE_PROFILES.get(source, {}).get(
+                    "outlier_rate", 0
+                ),
             }
 
             # Calculate actual outlier rate
             if len(raw_source) > 1:
-                weights = raw_source['weight'].values
+                weights = raw_source["weight"].values
                 q1, q3 = np.percentile(weights, [25, 75])
                 iqr = q3 - q1
-                outliers = np.sum((weights < q1 - 1.5 * iqr) | (weights > q3 + 1.5 * iqr))
+                outliers = np.sum(
+                    (weights < q1 - 1.5 * iqr) | (weights > q3 + 1.5 * iqr)
+                )
                 source_metrics["actual_outlier_rate"] = outliers / len(raw_source)
 
             results[source] = source_metrics
@@ -732,7 +788,7 @@ class FilteringAnalyzer:
     def _calculate_reporting_metrics(
         self,
         cohort_raw: Dict[str, pd.DataFrame],
-        cohort_filtered: Dict[str, pd.DataFrame]
+        cohort_filtered: Dict[str, pd.DataFrame],
     ) -> ReportingMetrics:
         """Calculate quarterly reporting impact metrics."""
         # Initialize tracking variables
@@ -752,44 +808,48 @@ class FilteringAnalyzer:
                 continue
 
             # Calculate weight changes for raw data
-            raw_sorted = raw_df.sort_values('timestamp')
-            start_date = raw_sorted['timestamp'].min()
-            end_date = raw_sorted['timestamp'].max()
+            raw_sorted = raw_df.sort_values("timestamp")
+            start_date = raw_sorted["timestamp"].min()
+            end_date = raw_sorted["timestamp"].max()
 
             # Check baseline validity (measurements in first 14 days)
             baseline_window = start_date + timedelta(days=14)
-            raw_baseline = raw_sorted[raw_sorted['timestamp'] <= baseline_window]
+            raw_baseline = raw_sorted[raw_sorted["timestamp"] <= baseline_window]
 
             if len(raw_baseline) >= 2:  # At least 2 measurements in baseline
                 valid_baseline_raw += 1
 
                 # Check endpoint validity (measurements in last 14 days)
                 endpoint_window = end_date - timedelta(days=14)
-                raw_endpoint = raw_sorted[raw_sorted['timestamp'] >= endpoint_window]
+                raw_endpoint = raw_sorted[raw_sorted["timestamp"] >= endpoint_window]
 
                 if len(raw_endpoint) >= 2:
                     valid_endpoint_raw += 1
 
                     # Calculate weight change
-                    start_weight = np.mean(raw_baseline['weight'])
-                    end_weight = np.mean(raw_endpoint['weight'])
+                    start_weight = np.mean(raw_baseline["weight"])
+                    end_weight = np.mean(raw_endpoint["weight"])
                     pct_change = ((end_weight - start_weight) / start_weight) * 100
                     raw_changes.append(pct_change)
 
             # Same for filtered data
             if not filtered_df.empty:
-                filtered_sorted = filtered_df.sort_values('timestamp')
+                filtered_sorted = filtered_df.sort_values("timestamp")
 
-                filtered_baseline = filtered_sorted[filtered_sorted['timestamp'] <= baseline_window]
+                filtered_baseline = filtered_sorted[
+                    filtered_sorted["timestamp"] <= baseline_window
+                ]
                 if len(filtered_baseline) >= 2:
                     valid_baseline_filtered += 1
 
-                    filtered_endpoint = filtered_sorted[filtered_sorted['timestamp'] >= endpoint_window]
+                    filtered_endpoint = filtered_sorted[
+                        filtered_sorted["timestamp"] >= endpoint_window
+                    ]
                     if len(filtered_endpoint) >= 2:
                         valid_endpoint_filtered += 1
 
-                        start_weight = np.mean(filtered_baseline['weight'])
-                        end_weight = np.mean(filtered_endpoint['weight'])
+                        start_weight = np.mean(filtered_baseline["weight"])
+                        end_weight = np.mean(filtered_endpoint["weight"])
                         pct_change = ((end_weight - start_weight) / start_weight) * 100
                         filtered_changes.append(pct_change)
 
@@ -798,10 +858,26 @@ class FilteringAnalyzer:
         filtered_mean_change = np.mean(filtered_changes) if filtered_changes else 0
 
         # Success rates
-        pct_5_raw = np.sum(np.array(raw_changes) <= -5) / len(raw_changes) * 100 if raw_changes else 0
-        pct_5_filtered = np.sum(np.array(filtered_changes) <= -5) / len(filtered_changes) * 100 if filtered_changes else 0
-        pct_10_raw = np.sum(np.array(raw_changes) <= -10) / len(raw_changes) * 100 if raw_changes else 0
-        pct_10_filtered = np.sum(np.array(filtered_changes) <= -10) / len(filtered_changes) * 100 if filtered_changes else 0
+        pct_5_raw = (
+            np.sum(np.array(raw_changes) <= -5) / len(raw_changes) * 100
+            if raw_changes
+            else 0
+        )
+        pct_5_filtered = (
+            np.sum(np.array(filtered_changes) <= -5) / len(filtered_changes) * 100
+            if filtered_changes
+            else 0
+        )
+        pct_10_raw = (
+            np.sum(np.array(raw_changes) <= -10) / len(raw_changes) * 100
+            if raw_changes
+            else 0
+        )
+        pct_10_filtered = (
+            np.sum(np.array(filtered_changes) <= -10) / len(filtered_changes) * 100
+            if filtered_changes
+            else 0
+        )
 
         # Statistical power metrics
         raw_var = np.var(raw_changes) if raw_changes else 0
@@ -809,14 +885,24 @@ class FilteringAnalyzer:
         variance_reduction = (raw_var - filtered_var) / raw_var if raw_var > 0 else 0
 
         # Cohen's d effect size
-        pooled_std = np.sqrt((raw_var + filtered_var) / 2) if raw_var > 0 or filtered_var > 0 else 1
-        effect_size_improvement = abs(filtered_mean_change) / pooled_std if pooled_std > 0 else 0
+        pooled_std = (
+            np.sqrt((raw_var + filtered_var) / 2)
+            if raw_var > 0 or filtered_var > 0
+            else 1
+        )
+        effect_size_improvement = (
+            abs(filtered_mean_change) / pooled_std if pooled_std > 0 else 0
+        )
 
         return ReportingMetrics(
             raw_cohort_mean=raw_mean_change,
             filtered_cohort_mean=filtered_mean_change,
             mean_difference=filtered_mean_change - raw_mean_change,
-            mean_percent_change=(filtered_mean_change - raw_mean_change) / abs(raw_mean_change) * 100 if raw_mean_change != 0 else 0,
+            mean_percent_change=(filtered_mean_change - raw_mean_change)
+            / abs(raw_mean_change)
+            * 100
+            if raw_mean_change != 0
+            else 0,
             pct_losing_5pct_raw=pct_5_raw,
             pct_losing_5pct_filtered=pct_5_filtered,
             pct_losing_10pct_raw=pct_10_raw,
@@ -826,7 +912,7 @@ class FilteringAnalyzer:
             valid_endpoint_raw=valid_endpoint_raw,
             valid_endpoint_filtered=valid_endpoint_filtered,
             variance_reduction=variance_reduction,
-            effect_size_improvement=effect_size_improvement
+            effect_size_improvement=effect_size_improvement,
         )
 
     def _aggregate_user_metrics(self, user_metrics: List[Dict]) -> Dict:
@@ -836,19 +922,58 @@ class FilteringAnalyzer:
 
         aggregate = {
             "total_users": len(user_metrics),
-            "avg_removal_rate": np.mean([m["data_summary"]["removal_rate"] for m in user_metrics]),
+            "avg_removal_rate": np.mean(
+                [m["data_summary"]["removal_rate"] for m in user_metrics]
+            ),
             "outlier_summary": {
-                "avg_outlier_rate": np.mean([m["outliers"]["outlier_rate"] for m in user_metrics if "outliers" in m]),
-                "total_outliers": sum([m["outliers"]["outliers_removed"] for m in user_metrics if "outliers" in m])
+                "avg_outlier_rate": np.mean(
+                    [
+                        m["outliers"]["outlier_rate"]
+                        for m in user_metrics
+                        if "outliers" in m
+                    ]
+                ),
+                "total_outliers": sum(
+                    [
+                        m["outliers"]["outliers_removed"]
+                        for m in user_metrics
+                        if "outliers" in m
+                    ]
+                ),
             },
             "temporal_summary": {
-                "avg_daily_volatility": np.mean([m["temporal"]["daily_change"]["volatility"] for m in user_metrics if "temporal" in m and m["temporal"]["daily_change"]["volatility"] > 0]),
-                "total_impossible_changes": sum([m["temporal"]["daily_change"]["impossible_count"] for m in user_metrics if "temporal" in m])
+                "avg_daily_volatility": np.mean(
+                    [
+                        m["temporal"]["daily_change"]["volatility"]
+                        for m in user_metrics
+                        if "temporal" in m
+                        and m["temporal"]["daily_change"]["volatility"] > 0
+                    ]
+                ),
+                "total_impossible_changes": sum(
+                    [
+                        m["temporal"]["daily_change"]["impossible_count"]
+                        for m in user_metrics
+                        if "temporal" in m
+                    ]
+                ),
             },
             "medical_summary": {
-                "total_direction_errors": sum([m["medical_impact"]["clinical"]["direction_errors"] for m in user_metrics if "medical_impact" in m]),
-                "avg_confidence_improvement": np.mean([m["medical_impact"]["confidence"]["ci_reduction"] for m in user_metrics if "medical_impact" in m])
-            }
+                "total_direction_errors": sum(
+                    [
+                        m["medical_impact"]["clinical"]["direction_errors"]
+                        for m in user_metrics
+                        if "medical_impact" in m
+                    ]
+                ),
+                "avg_confidence_improvement": np.mean(
+                    [
+                        m["medical_impact"]["confidence"]["ci_reduction"]
+                        for m in user_metrics
+                        if "medical_impact" in m
+                    ]
+                ),
+            },
         }
 
         return aggregate

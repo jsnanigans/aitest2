@@ -6,6 +6,7 @@ Show how to use the employer filtering feature.
 import pandas as pd
 import sys
 
+
 def show_usage():
     """Show employer filtering usage examples."""
 
@@ -18,7 +19,7 @@ def show_usage():
     employer_file = "data/2025-09-17-user-employers.csv"
     try:
         df = pd.read_csv(employer_file)
-        employer_counts = df['employer_id'].value_counts()
+        employer_counts = df["employer_id"].value_counts()
 
         print("To run analysis for a specific employer:")
         print("-" * 70)
@@ -29,7 +30,7 @@ def show_usage():
 
         for i, (emp_id, count) in enumerate(top_employers.items(), 1):
             print(f"Example {i} - Analyze employer with {count} users:")
-            print(f'  uv run python scripts/run_filtering_analysis.py \\')
+            print(f"  uv run python scripts/run_filtering_analysis.py \\")
             print(f'    --filter-employer "{emp_id}"')
             print()
 
@@ -37,15 +38,15 @@ def show_usage():
         print("-" * 70)
         print()
         print("Limit number of users analyzed:")
-        print('  uv run python scripts/run_filtering_analysis.py \\')
+        print("  uv run python scripts/run_filtering_analysis.py \\")
         print(f'    --filter-employer "{top_employers.index[0]}" \\')
-        print('    --max-users 100')
+        print("    --max-users 100")
         print()
 
         print("Use custom output directory:")
-        print('  uv run python scripts/run_filtering_analysis.py \\')
+        print("  uv run python scripts/run_filtering_analysis.py \\")
         print(f'    --filter-employer "{top_employers.index[0]}" \\')
-        print('    --output-dir reports/employer_analysis')
+        print("    --output-dir reports/employer_analysis")
         print()
 
         print("Available Employers:")
@@ -61,6 +62,7 @@ def show_usage():
         print("\nPlease ensure the employer data file exists.")
     except Exception as e:
         print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     show_usage()

@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 def run_test():
     """Run the analysis with default files and limited users for testing."""
 
@@ -15,9 +16,13 @@ def run_test():
 
     # Run with defaults, limiting to just 5 users for quick test
     cmd = [
-        "uv", "run", "python", "scripts/run_filtering_analysis.py",
-        "--max-users", "5",
-        "--verbose"
+        "uv",
+        "run",
+        "python",
+        "scripts/run_filtering_analysis.py",
+        "--max-users",
+        "5",
+        "--verbose",
     ]
 
     print(f"Running command: {' '.join(cmd)}")
@@ -55,6 +60,7 @@ def run_test():
         return 1
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(run_test())

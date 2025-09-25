@@ -17,14 +17,19 @@ def run_quarterly_test():
     print("QUARTERLY REPORTING TEST")
     print("=" * 80)
     print("\nTesting the quarterly reporting functionality that answers:")
-    print("\"What is the average weight loss for users in the program for 90+ days?\"")
+    print('"What is the average weight loss for users in the program for 90+ days?"')
     print("-" * 80)
 
     # Run analysis with quarterly reporting
     cmd = [
-        "uv", "run", "python", "scripts/run_filtering_analysis.py",
-        "--max-users", "100",  # Test with subset
-        "--output-dir", "reports/quarterly_test"
+        "uv",
+        "run",
+        "python",
+        "scripts/run_filtering_analysis.py",
+        "--max-users",
+        "100",  # Test with subset
+        "--output-dir",
+        "reports/quarterly_test",
     ]
 
     print(f"\nCommand: {' '.join(cmd)}")
@@ -34,15 +39,18 @@ def run_quarterly_test():
 
     # Check for key outputs
     if result.stderr:
-        for line in result.stderr.split('\n'):
-            if any(keyword in line for keyword in [
-                "quarterly reporting",
-                "90+ days",
-                "Weight loss",
-                "Success rate",
-                "cohort progression",
-                "Generated"
-            ]):
+        for line in result.stderr.split("\n"):
+            if any(
+                keyword in line
+                for keyword in [
+                    "quarterly reporting",
+                    "90+ days",
+                    "Weight loss",
+                    "Success rate",
+                    "cohort progression",
+                    "Generated",
+                ]
+            ):
                 print(line.replace("INFO - ", ""))
 
     if result.returncode == 0:
@@ -57,13 +65,13 @@ def run_quarterly_test():
             print(f"\n📊 Report Generated: {latest_report}")
 
             # Extract quarterly section from report
-            with open(latest_report, 'r') as f:
+            with open(latest_report, "r") as f:
                 content = f.read()
                 if "QUARTERLY REPORTING ANALYSIS" in content:
                     print("\n✅ QUARTERLY SECTION FOUND IN REPORT")
 
                     # Extract the key answer
-                    lines = content.split('\n')
+                    lines = content.split("\n")
                     in_quarterly = False
                     for i, line in enumerate(lines):
                         if "QUARTERLY REPORTING ANALYSIS" in line:
@@ -91,25 +99,37 @@ def run_quarterly_test():
         metrics_files = list(Path("reports").glob("filtering_metrics_*.json"))
         if metrics_files:
             latest_metrics = max(metrics_files, key=lambda p: p.stat().st_mtime)
-            with open(latest_metrics, 'r') as f:
+            with open(latest_metrics, "r") as f:
                 metrics = json.load(f)
-                if 'quarterly' in metrics:
+                if "quarterly" in metrics:
                     print("\n✅ QUARTERLY METRICS IN JSON")
 
-                    if 'raw_metrics' in metrics['quarterly']:
-                        rm = metrics['quarterly']['raw_metrics']
-                        fm = metrics['quarterly']['filtered_metrics']
+                    if "raw_metrics" in metrics["quarterly"]:
+                        rm = metrics["quarterly"]["raw_metrics"]
+                        fm = metrics["quarterly"]["filtered_metrics"]
 
                         print("\n" + "=" * 80)
                         print("SUMMARY OF QUARTERLY METRICS:")
                         print("=" * 80)
-                        print(f"Eligible Users (90+ days): {rm.get('eligible_users', 'N/A')}")
-                        print(f"Users with Valid Data (Raw): {rm.get('users_with_valid_endpoint', 'N/A')}")
-                        print(f"Users with Valid Data (Filtered): {fm.get('users_with_valid_endpoint', 'N/A')}")
+                        print(
+                            f"Eligible Users (90+ days): {rm.get('eligible_users', 'N/A')}"
+                        )
+                        print(
+                            f"Users with Valid Data (Raw): {rm.get('users_with_valid_endpoint', 'N/A')}"
+                        )
+                        print(
+                            f"Users with Valid Data (Filtered): {fm.get('users_with_valid_endpoint', 'N/A')}"
+                        )
                         print(f"\nAverage Weight Loss:")
-                        print(f"  Raw Data: {rm.get('mean_weight_loss_pct', 'N/A'):.2f}%")
-                        print(f"  Filtered Data: {fm.get('mean_weight_loss_pct', 'N/A'):.2f}%")
-                        print(f"  Improvement: {fm.get('mean_weight_loss_pct', 0) - rm.get('mean_weight_loss_pct', 0):+.2f}%")
+                        print(
+                            f"  Raw Data: {rm.get('mean_weight_loss_pct', 'N/A'):.2f}%"
+                        )
+                        print(
+                            f"  Filtered Data: {fm.get('mean_weight_loss_pct', 'N/A'):.2f}%"
+                        )
+                        print(
+                            f"  Improvement: {fm.get('mean_weight_loss_pct', 0) - rm.get('mean_weight_loss_pct', 0):+.2f}%"
+                        )
 
     else:
         print(f"\n❌ Analysis failed with return code: {result.returncode}")

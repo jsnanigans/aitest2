@@ -12,13 +12,13 @@ from src.processing.reset_transaction import (
     ResetTransaction,
     ResetOperation,
     TransactionCheckpoint,
-    atomic_reset
+    atomic_reset,
 )
 from src.processing.state_validator import StateValidator
 from src.processing.circuit_breaker import (
     CircuitBreaker,
     CircuitState,
-    CircuitOpenError
+    CircuitOpenError,
 )
 
 
@@ -30,20 +30,20 @@ class TestResetTransaction:
         with ResetTransaction("user1") as txn:
             # Simulate successful operations
             state = {
-                'kalman_params': None,
-                'reset_parameters': {
-                    'initial_variance_multiplier': 10,
-                    'weight_noise_multiplier': 50,
-                    'trend_noise_multiplier': 500,
-                    'observation_noise_multiplier': 0.3,
-                    'adaptation_measurements': 20,
-                    'adaptation_days': 21,
-                    'adaptation_decay_rate': 1.5,
-                    'quality_acceptance_threshold': 0.25
+                "kalman_params": None,
+                "reset_parameters": {
+                    "initial_variance_multiplier": 10,
+                    "weight_noise_multiplier": 50,
+                    "trend_noise_multiplier": 500,
+                    "observation_noise_multiplier": 0.3,
+                    "adaptation_measurements": 20,
+                    "adaptation_days": 21,
+                    "adaptation_decay_rate": 1.5,
+                    "quality_acceptance_threshold": 0.25,
                 },
-                'measurements_since_reset': 0,
-                'reset_type': 'HARD',
-                'reset_timestamp': datetime.now()
+                "measurements_since_reset": 0,
+                "reset_type": "HARD",
+                "reset_timestamp": datetime.now(),
             }
 
             txn.save_checkpoint(ResetOperation.KALMAN_RESET, state)
@@ -58,11 +58,11 @@ class TestResetTransaction:
         with ResetTransaction("user1") as txn:
             # This will fail validation - missing required fields
             invalid_state = {
-                'kalman_params': None,
-                'reset_parameters': {
-                    'initial_covariance': -1.0,  # Invalid negative value
+                "kalman_params": None,
+                "reset_parameters": {
+                    "initial_covariance": -1.0,  # Invalid negative value
                 },
-                'measurements_since_reset': -5  # Invalid negative count
+                "measurements_since_reset": -5,  # Invalid negative count
             }
 
             txn.save_checkpoint(ResetOperation.KALMAN_RESET, invalid_state)
@@ -74,12 +74,12 @@ class TestResetTransaction:
 
     def test_exception_in_context_triggers_rollback(self):
         """Test that exceptions trigger rollback."""
-        original_state = {'value': 100}
+        original_state = {"value": 100}
 
         try:
             with ResetTransaction("user1") as txn:
                 txn.save_original_state(ResetOperation.STATE_UPDATE, original_state)
-                txn.save_checkpoint(ResetOperation.STATE_UPDATE, {'value': 200})
+                txn.save_checkpoint(ResetOperation.STATE_UPDATE, {"value": 200})
                 raise RuntimeError("Simulated failure")
         except RuntimeError:
             pass  # Expected
@@ -91,8 +91,8 @@ class TestResetTransaction:
         """Test checkpoint storage and retrieval."""
         txn = ResetTransaction("user1")
 
-        state1 = {'step': 1}
-        state2 = {'step': 2}
+        state1 = {"step": 1}
+        state2 = {"step": 2}
 
         txn.save_checkpoint(ResetOperation.STATE_UPDATE, state1)
         txn.save_checkpoint(ResetOperation.KALMAN_RESET, state2)
@@ -109,20 +109,20 @@ class TestResetTransaction:
         with ResetTransaction("user1") as txn:
             # Operation 1: State update
             state = {
-                'kalman_params': None,
-                'reset_parameters': {
-                    'initial_variance_multiplier': 10,
-                    'weight_noise_multiplier': 50,
-                    'trend_noise_multiplier': 500,
-                    'observation_noise_multiplier': 0.3,
-                    'adaptation_measurements': 20,
-                    'adaptation_days': 21,
-                    'adaptation_decay_rate': 1.5,
-                    'quality_acceptance_threshold': 0.25
+                "kalman_params": None,
+                "reset_parameters": {
+                    "initial_variance_multiplier": 10,
+                    "weight_noise_multiplier": 50,
+                    "trend_noise_multiplier": 500,
+                    "observation_noise_multiplier": 0.3,
+                    "adaptation_measurements": 20,
+                    "adaptation_days": 21,
+                    "adaptation_decay_rate": 1.5,
+                    "quality_acceptance_threshold": 0.25,
                 },
-                'measurements_since_reset': 0,
-                'reset_type': 'HARD',
-                'reset_timestamp': datetime.now()
+                "measurements_since_reset": 0,
+                "reset_type": "HARD",
+                "reset_timestamp": datetime.now(),
             }
 
             txn.save_checkpoint(ResetOperation.STATE_UPDATE, state)
@@ -141,20 +141,20 @@ class TestResetTransaction:
         """Test the atomic_reset convenience function."""
         with atomic_reset("user1") as txn:
             state = {
-                'kalman_params': None,
-                'reset_parameters': {
-                    'initial_variance_multiplier': 10,
-                    'weight_noise_multiplier': 50,
-                    'trend_noise_multiplier': 500,
-                    'observation_noise_multiplier': 0.3,
-                    'adaptation_measurements': 20,
-                    'adaptation_days': 21,
-                    'adaptation_decay_rate': 1.5,
-                    'quality_acceptance_threshold': 0.25
+                "kalman_params": None,
+                "reset_parameters": {
+                    "initial_variance_multiplier": 10,
+                    "weight_noise_multiplier": 50,
+                    "trend_noise_multiplier": 500,
+                    "observation_noise_multiplier": 0.3,
+                    "adaptation_measurements": 20,
+                    "adaptation_days": 21,
+                    "adaptation_decay_rate": 1.5,
+                    "quality_acceptance_threshold": 0.25,
                 },
-                'measurements_since_reset': 0,
-                'reset_type': 'SOFT',
-                'reset_timestamp': datetime.now()
+                "measurements_since_reset": 0,
+                "reset_type": "SOFT",
+                "reset_timestamp": datetime.now(),
             }
 
             txn.save_checkpoint(ResetOperation.STATE_UPDATE, state)
@@ -172,20 +172,20 @@ class TestStateValidator:
         validator = StateValidator()
 
         valid_state = {
-            'kalman_params': None,  # Should be None after reset
-            'reset_parameters': {
-                'initial_variance_multiplier': 1.5,
-                'weight_noise_multiplier': 20,
-                'trend_noise_multiplier': 200,
-                'observation_noise_multiplier': 0.5,
-                'adaptation_measurements': 20,
-                'adaptation_days': 7,
-                'adaptation_decay_rate': 2.5,
-                'quality_acceptance_threshold': 0.4
+            "kalman_params": None,  # Should be None after reset
+            "reset_parameters": {
+                "initial_variance_multiplier": 1.5,
+                "weight_noise_multiplier": 20,
+                "trend_noise_multiplier": 200,
+                "observation_noise_multiplier": 0.5,
+                "adaptation_measurements": 20,
+                "adaptation_days": 7,
+                "adaptation_decay_rate": 2.5,
+                "quality_acceptance_threshold": 0.4,
             },
-            'measurements_since_reset': 0,
-            'reset_type': 'HARD',
-            'reset_timestamp': datetime.now()
+            "measurements_since_reset": 0,
+            "reset_type": "HARD",
+            "reset_timestamp": datetime.now(),
         }
 
         assert validator.validate(valid_state, ResetOperation.KALMAN_RESET)
@@ -195,19 +195,19 @@ class TestStateValidator:
         validator = StateValidator()
 
         invalid_state = {
-            'reset_parameters': {
-                'initial_variance_multiplier': -10,  # Invalid negative
-                'weight_noise_multiplier': 0,  # Invalid zero
-                'trend_noise_multiplier': float('inf'),  # Invalid infinity
-                'observation_noise_multiplier': -0.3,  # Invalid negative
-                'adaptation_measurements': 20,
-                'adaptation_days': 7,
-                'adaptation_decay_rate': 0,  # Invalid zero
-                'quality_acceptance_threshold': 0.4
+            "reset_parameters": {
+                "initial_variance_multiplier": -10,  # Invalid negative
+                "weight_noise_multiplier": 0,  # Invalid zero
+                "trend_noise_multiplier": float("inf"),  # Invalid infinity
+                "observation_noise_multiplier": -0.3,  # Invalid negative
+                "adaptation_measurements": 20,
+                "adaptation_days": 7,
+                "adaptation_decay_rate": 0,  # Invalid zero
+                "quality_acceptance_threshold": 0.4,
             },
-            'measurements_since_reset': 0,
-            'reset_type': 'HARD',
-            'reset_timestamp': datetime.now()
+            "measurements_since_reset": 0,
+            "reset_type": "HARD",
+            "reset_timestamp": datetime.now(),
         }
 
         assert not validator.validate(invalid_state, ResetOperation.KALMAN_RESET)
@@ -221,8 +221,8 @@ class TestStateValidator:
         assert validator.validate_weight_value(150.0)
 
         # Invalid weights
-        assert not validator.validate_weight_value(float('nan'))
-        assert not validator.validate_weight_value(float('inf'))
+        assert not validator.validate_weight_value(float("nan"))
+        assert not validator.validate_weight_value(float("inf"))
         assert not validator.validate_weight_value(10.0)  # Too low
         assert not validator.validate_weight_value(500.0)  # Too high
 
@@ -230,12 +230,12 @@ class TestStateValidator:
         """Test reset type validation."""
         validator = StateValidator()
 
-        assert validator.validate_reset_type('INITIAL')
-        assert validator.validate_reset_type('HARD')
-        assert validator.validate_reset_type('SOFT')
+        assert validator.validate_reset_type("INITIAL")
+        assert validator.validate_reset_type("HARD")
+        assert validator.validate_reset_type("SOFT")
 
-        assert not validator.validate_reset_type('INVALID')
-        assert not validator.validate_reset_type('')
+        assert not validator.validate_reset_type("INVALID")
+        assert not validator.validate_reset_type("")
 
 
 class TestCircuitBreaker:
@@ -264,7 +264,7 @@ class TestCircuitBreaker:
             failure_threshold=2,
             timeout=0.1,  # 100ms timeout
             success_threshold=2,
-            name="test"
+            name="test",
         )
 
         def failing_func():
@@ -291,11 +291,7 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_reopen_on_half_open_failure(self):
         """Test circuit reopens if it fails in half-open state."""
-        breaker = CircuitBreaker(
-            failure_threshold=2,
-            timeout=0.1,
-            name="test"
-        )
+        breaker = CircuitBreaker(failure_threshold=2, timeout=0.1, name="test")
 
         def failing_func():
             raise ValueError("Test failure")
@@ -320,9 +316,9 @@ class TestCircuitBreaker:
         breaker = CircuitBreaker(failure_threshold=2, name="test")
 
         status = breaker.get_status()
-        assert status['name'] == 'test'
-        assert status['state'] == 'closed'
-        assert status['failure_count'] == 0
+        assert status["name"] == "test"
+        assert status["state"] == "closed"
+        assert status["failure_count"] == 0
 
         # Fail once
         try:
@@ -331,8 +327,8 @@ class TestCircuitBreaker:
             pass
 
         status = breaker.get_status()
-        assert status['failure_count'] == 1
-        assert status['state'] == 'closed'
+        assert status["failure_count"] == 1
+        assert status["state"] == "closed"
 
         # Fail again to open
         try:
@@ -341,8 +337,8 @@ class TestCircuitBreaker:
             pass
 
         status = breaker.get_status()
-        assert status['state'] == 'open'
-        assert 'last_error' in status
+        assert status["state"] == "open"
+        assert "last_error" in status
 
     def test_manual_reset(self):
         """Test manual reset of circuit breaker."""

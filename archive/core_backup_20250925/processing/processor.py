@@ -219,7 +219,9 @@ def process_measurement(
                 # innovation_cov = P_pred[0,0] + R
                 # We need: P_pred[0,0] + (R * multiplier)
                 predicted_cov_00 = innovation_covariance - base_obs_cov
-                innovation_covariance = predicted_cov_00 + (base_obs_cov * noise_multiplier)
+                innovation_covariance = predicted_cov_00 + (
+                    base_obs_cov * noise_multiplier
+                )
 
     # Get recent timestamps if available
     recent_timestamps = []

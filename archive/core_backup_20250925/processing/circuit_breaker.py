@@ -12,13 +12,15 @@ logger = logging.getLogger(__name__)
 
 class CircuitState(Enum):
     """Circuit breaker states"""
-    CLOSED = "closed"      # Normal operation
-    OPEN = "open"          # Failing, reject calls
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing, reject calls
     HALF_OPEN = "half_open"  # Testing recovery
 
 
 class CircuitOpenError(Exception):
     """Raised when circuit is open and rejecting calls"""
+
     pass
 
 
@@ -37,7 +39,7 @@ class CircuitBreaker:
         failure_threshold: int = 3,
         timeout: int = 60,
         success_threshold: int = 2,
-        name: str = "circuit"
+        name: str = "circuit",
     ):
         """
         Initialize circuit breaker.
@@ -120,10 +122,14 @@ class CircuitBreaker:
         """Handle successful call"""
         if self.state == CircuitState.HALF_OPEN:
             self.success_count += 1
-            logger.debug(f"Circuit '{self.name}' success in HALF_OPEN: {self.success_count}/{self.success_threshold}")
+            logger.debug(
+                f"Circuit '{self.name}' success in HALF_OPEN: {self.success_count}/{self.success_threshold}"
+            )
 
             if self.success_count >= self.success_threshold:
-                logger.info(f"Circuit breaker '{self.name}' recovered, entering CLOSED state")
+                logger.info(
+                    f"Circuit breaker '{self.name}' recovered, entering CLOSED state"
+                )
                 self.state = CircuitState.CLOSED
                 self.failure_count = 0
                 self.success_count = 0
@@ -131,7 +137,9 @@ class CircuitBreaker:
         else:
             # Reset failure count on success in CLOSED state
             if self.failure_count > 0:
-                logger.debug(f"Circuit '{self.name}' success in CLOSED, resetting failure count")
+                logger.debug(
+                    f"Circuit '{self.name}' success in CLOSED, resetting failure count"
+                )
             self.failure_count = 0
 
     def _on_failure(self, error: Exception):
@@ -141,16 +149,22 @@ class CircuitBreaker:
         self.last_error = error
 
         if self.state == CircuitState.HALF_OPEN:
-            logger.warning(f"Circuit breaker '{self.name}' recovery failed, reopening circuit")
+            logger.warning(
+                f"Circuit breaker '{self.name}' recovery failed, reopening circuit"
+            )
             self.state = CircuitState.OPEN
             self.success_count = 0
 
         elif self.failure_count >= self.failure_threshold:
-            logger.error(f"Circuit breaker '{self.name}' opening after {self.failure_count} failures: {error}")
+            logger.error(
+                f"Circuit breaker '{self.name}' opening after {self.failure_count} failures: {error}"
+            )
             self.state = CircuitState.OPEN
 
         else:
-            logger.warning(f"Circuit '{self.name}' failure {self.failure_count}/{self.failure_threshold}: {error}")
+            logger.warning(
+                f"Circuit '{self.name}' failure {self.failure_count}/{self.failure_threshold}: {error}"
+            )
 
     def reset(self):
         """Manually reset the circuit breaker to closed state"""
@@ -179,19 +193,19 @@ class CircuitBreaker:
             Dictionary with status information
         """
         status = {
-            'name': self.name,
-            'state': self.state.value,
-            'failure_count': self.failure_count,
-            'success_count': self.success_count,
+            "name": self.name,
+            "state": self.state.value,
+            "failure_count": self.failure_count,
+            "success_count": self.success_count,
         }
 
         if self.last_failure_time:
-            status['last_failure'] = self.last_failure_time.isoformat()
+            status["last_failure"] = self.last_failure_time.isoformat()
             if self.state == CircuitState.OPEN:
-                status['recovery_in'] = self._time_until_recovery()
+                status["recovery_in"] = self._time_until_recovery()
 
         if self.last_error:
-            status['last_error'] = str(self.last_error)
+            status["last_error"] = str(self.last_error)
 
         return status
 
@@ -210,7 +224,7 @@ class MultiCircuitBreaker:
         name: str,
         failure_threshold: int = 3,
         timeout: int = 60,
-        success_threshold: int = 2
+        success_threshold: int = 2,
     ) -> CircuitBreaker:
         """
         Add a new circuit breaker.
@@ -228,7 +242,7 @@ class MultiCircuitBreaker:
             failure_threshold=failure_threshold,
             timeout=timeout,
             success_threshold=success_threshold,
-            name=name
+            name=name,
         )
         self.breakers[name] = breaker
         return breaker
@@ -262,10 +276,7 @@ class MultiCircuitBreaker:
 
     def get_status(self) -> Dict[str, Dict[str, Any]]:
         """Get status of all circuit breakers"""
-        return {
-            name: breaker.get_status()
-            for name, breaker in self.breakers.items()
-        }
+        return {name: breaker.get_status() for name, breaker in self.breakers.items()}
 
     def reset_all(self):
         """Reset all circuit breakers"""

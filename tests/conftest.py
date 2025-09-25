@@ -13,31 +13,22 @@ from unittest.mock import MagicMock
 # PYTEST CONFIGURATION
 # =============================================================================
 
+
 def pytest_configure(config):
     """Register custom markers for test categorization."""
     # Test speed markers
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "fast: marks tests as fast-running unit tests"
-    )
+    config.addinivalue_line("markers", "fast: marks tests as fast-running unit tests")
 
     # Test type markers
-    config.addinivalue_line(
-        "markers", "unit: marks tests as unit tests"
-    )
-    config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests"
-    )
-    config.addinivalue_line(
-        "markers", "e2e: marks tests as end-to-end tests"
-    )
+    config.addinivalue_line("markers", "unit: marks tests as unit tests")
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
+    config.addinivalue_line("markers", "e2e: marks tests as end-to-end tests")
 
     # Priority markers
-    config.addinivalue_line(
-        "markers", "critical: marks tests as critical for safety"
-    )
+    config.addinivalue_line("markers", "critical: marks tests as critical for safety")
     config.addinivalue_line(
         "markers", "smoke: marks tests as smoke tests for basic functionality"
     )
@@ -46,6 +37,7 @@ def pytest_configure(config):
 # =============================================================================
 # COMMON FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def numpy_random_seed():
@@ -78,11 +70,11 @@ def sample_timestamps(base_timestamp):
 def weight_config():
     """Standard configuration for weight processing."""
     return {
-        'min_weight': 30.0,
-        'max_weight': 400.0,
-        'max_daily_change': 5.0,
-        'outlier_threshold': 0.15,
-        'quality_threshold': 0.6
+        "min_weight": 30.0,
+        "max_weight": 400.0,
+        "max_daily_change": 5.0,
+        "outlier_threshold": 0.15,
+        "quality_threshold": 0.6,
     }
 
 
@@ -90,11 +82,11 @@ def weight_config():
 def kalman_config():
     """Standard Kalman filter configuration."""
     return {
-        'initial_variance': 1.0,
-        'transition_covariance_weight': 0.1,
-        'transition_covariance_trend': 0.001,
-        'observation_covariance': 1.0,
-        'reset_gap_days': 30
+        "initial_variance": 1.0,
+        "transition_covariance_weight": 0.1,
+        "transition_covariance_trend": 0.001,
+        "observation_covariance": 1.0,
+        "reset_gap_days": 30,
     }
 
 
@@ -111,10 +103,10 @@ def mock_feature_manager():
 def sample_measurement(base_timestamp):
     """Single weight measurement for testing."""
     return {
-        'weight': 70.0,
-        'timestamp': base_timestamp,
-        'source': 'patient-device',
-        'user_id': 'test_user'
+        "weight": 70.0,
+        "timestamp": base_timestamp,
+        "source": "patient-device",
+        "user_id": "test_user",
     }
 
 
@@ -123,10 +115,10 @@ def measurement_batch(base_timestamp, sample_weights):
     """Batch of measurements for testing."""
     return [
         {
-            'weight': weight,
-            'timestamp': base_timestamp + timedelta(days=i),
-            'source': 'patient-device',
-            'user_id': 'test_user'
+            "weight": weight,
+            "timestamp": base_timestamp + timedelta(days=i),
+            "source": "patient-device",
+            "user_id": "test_user",
         }
         for i, weight in enumerate(sample_weights)
     ]
@@ -135,6 +127,7 @@ def measurement_batch(base_timestamp, sample_weights):
 # =============================================================================
 # DATABASE FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def mock_database():
@@ -161,21 +154,22 @@ def mock_database():
 # STATE FIXTURES
 # =============================================================================
 
+
 @pytest.fixture
 def initial_kalman_state(base_timestamp):
     """Initial Kalman filter state for testing."""
     return {
-        'last_state': np.array([70.0, 0.0]),  # Weight and trend
-        'last_covariance': np.array([[1.0, 0.0], [0.0, 0.001]]),
-        'last_timestamp': base_timestamp,
-        'kalman_params': {
-            'initial_state_mean': [70.0, 0.0],
-            'initial_state_covariance': [[1.0, 0.0], [0.0, 0.001]],
-            'transition_covariance': [[0.1, 0.0], [0.0, 0.001]],
-            'observation_covariance': [[1.0]]
+        "last_state": np.array([70.0, 0.0]),  # Weight and trend
+        "last_covariance": np.array([[1.0, 0.0], [0.0, 0.001]]),
+        "last_timestamp": base_timestamp,
+        "kalman_params": {
+            "initial_state_mean": [70.0, 0.0],
+            "initial_state_covariance": [[1.0, 0.0], [0.0, 0.001]],
+            "transition_covariance": [[0.1, 0.0], [0.0, 0.001]],
+            "observation_covariance": [[1.0]],
         },
-        'last_raw_weight': 70.0,
-        'measurement_history': []
+        "last_raw_weight": 70.0,
+        "measurement_history": [],
     }
 
 
@@ -183,8 +177,8 @@ def initial_kalman_state(base_timestamp):
 def user_state_with_history(initial_kalman_state, measurement_batch):
     """User state with measurement history."""
     state = initial_kalman_state.copy()
-    state['measurement_history'] = measurement_batch
-    state['buffer'] = measurement_batch[-5:]  # Last 5 measurements in buffer
+    state["measurement_history"] = measurement_batch
+    state["buffer"] = measurement_batch[-5:]  # Last 5 measurements in buffer
     return state
 
 
@@ -192,9 +186,11 @@ def user_state_with_history(initial_kalman_state, measurement_batch):
 # TEST DATA GENERATORS
 # =============================================================================
 
+
 @pytest.fixture
 def weight_generator():
     """Generate realistic weight sequences."""
+
     def generate(start_weight=70.0, days=30, daily_variation=0.5, trend=0.0):
         """Generate weight sequence with optional trend."""
         weights = []
@@ -216,6 +212,7 @@ def weight_generator():
 @pytest.fixture
 def outlier_generator():
     """Generate measurements with controlled outliers."""
+
     def generate(base_weights, outlier_indices, outlier_magnitude=10.0):
         """Add outliers to a weight sequence."""
         weights = base_weights.copy()
@@ -233,19 +230,26 @@ def outlier_generator():
 # ASSERTION HELPERS
 # =============================================================================
 
+
 @pytest.fixture
 def assert_weight_in_range():
     """Helper to assert weight is in valid range."""
+
     def check(weight, min_weight=30.0, max_weight=400.0):
-        assert min_weight <= weight <= max_weight, \
+        assert min_weight <= weight <= max_weight, (
             f"Weight {weight}kg outside valid range [{min_weight}, {max_weight}]"
+        )
+
     return check
 
 
 @pytest.fixture
 def assert_quality_score():
     """Helper to assert quality score is valid."""
+
     def check(score):
-        assert 0.0 <= score <= 1.0, \
+        assert 0.0 <= score <= 1.0, (
             f"Quality score {score} outside valid range [0.0, 1.0]"
+        )
+
     return check

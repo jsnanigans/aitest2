@@ -24,7 +24,7 @@ class TestStrictAnomalyDetection:
             weight=215.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         assert score < 0.01, f"Weight doubling should be rejected (score={score})"
@@ -40,10 +40,12 @@ class TestStrictAnomalyDetection:
             weight=132.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
-        assert score == 0.0, f"4kg in 1 minute should be completely rejected (score={score})"
+        assert score == 0.0, (
+            f"4kg in 1 minute should be completely rejected (score={score})"
+        )
         assert metadata["rejected_reason"] == "rapid_impossible_change"
         assert metadata["change_kg"] == 4.0
 
@@ -56,10 +58,12 @@ class TestStrictAnomalyDetection:
             weight=146.9,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
-        assert score == 0.0, f"81kg in 15 minutes should be completely rejected (score={score})"
+        assert score == 0.0, (
+            f"81kg in 15 minutes should be completely rejected (score={score})"
+        )
         assert "impossible_change" in metadata
         assert metadata["actual_change"] > 80
 
@@ -72,10 +76,12 @@ class TestStrictAnomalyDetection:
             weight=54.5,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
-        assert score < 0.01, f"54% weight loss in 20 days should be rejected (score={score})"
+        assert score < 0.01, (
+            f"54% weight loss in 20 days should be rejected (score={score})"
+        )
         assert "impossible_percent_change" in metadata
         assert metadata["percent_change"] > 50
 
@@ -88,7 +94,7 @@ class TestStrictAnomalyDetection:
             weight=80.5,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         assert score == 0.0, "Measurements within 30 seconds should be rejected"
@@ -102,14 +108,14 @@ class TestStrictAnomalyDetection:
         recent_timestamps = [
             self.base_time - timedelta(minutes=10),
             self.base_time - timedelta(minutes=7),
-            self.base_time - timedelta(minutes=3)
+            self.base_time - timedelta(minutes=3),
         ]
 
         score, metadata = self.scorer.calculate_anomaly_detection(
             weight=80.3,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         assert "burst_pattern_detected" in metadata
@@ -126,7 +132,7 @@ class TestStrictAnomalyDetection:
             weight=120.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         assert score < 0.1, f"20% change in 10 days should be rejected (score={score})"
@@ -174,11 +180,13 @@ class TestStrictAnomalyDetection:
             weight=81.5,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         # Check that it's not rejected outright
-        assert score > 0, f"1.5kg daily change should not be completely rejected (score={score})"
+        assert score > 0, (
+            f"1.5kg daily change should not be completely rejected (score={score})"
+        )
         # The score might be lower due to other factors, but shouldn't be zero
         assert "impossible_change" not in metadata
         assert "rejected_reason" not in metadata
@@ -193,10 +201,12 @@ class TestStrictAnomalyDetection:
             weight=80.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
-        assert score > 0.3, f"3kg weekly loss should be somewhat acceptable (score={score})"
+        assert score > 0.3, (
+            f"3kg weekly loss should be somewhat acceptable (score={score})"
+        )
         assert "impossible_change" not in metadata
 
     def test_aggressive_monthly_loss(self):
@@ -209,7 +219,7 @@ class TestStrictAnomalyDetection:
             weight=90.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
 
         assert score > 0.5, f"10% monthly loss should be acceptable (score={score})"
@@ -222,14 +232,19 @@ class TestStrictAnomalyDetection:
         """Test that manual entries with minute precision get special treatment."""
         # Create timestamps with exact minute precision (no seconds/microseconds)
         manual_timestamp = self.base_time.replace(second=0, microsecond=0)
-        prev_timestamp = (manual_timestamp - timedelta(minutes=3)).replace(second=0, microsecond=0)
+        prev_timestamp = (manual_timestamp - timedelta(minutes=3)).replace(
+            second=0, microsecond=0
+        )
 
         recent_weights = [80.0]
         recent_timestamps = [prev_timestamp]
 
         # Temporarily modify current time to have minute precision
         import unittest.mock
-        with unittest.mock.patch('src.processing.unified_quality_scorer.datetime') as mock_datetime:
+
+        with unittest.mock.patch(
+            "src.processing.unified_quality_scorer.datetime"
+        ) as mock_datetime:
             mock_datetime.now.return_value = manual_timestamp
             mock_datetime.fromisoformat = datetime.fromisoformat
 
@@ -238,12 +253,14 @@ class TestStrictAnomalyDetection:
                 weight=80.15,  # Only 0.15kg change
                 recent_weights=recent_weights,
                 recent_timestamps=recent_timestamps,
-                user_height_m=1.75
+                user_height_m=1.75,
             )
 
             # Manual entries should be treated more leniently - but 0.5kg in 3 min exceeds our limits
             # Changed to test with 0.15kg which should pass
-            assert score > 0, f"Manual entries with small changes should not be rejected (score={score}, metadata={metadata})"
+            assert score > 0, (
+                f"Manual entries with small changes should not be rejected (score={score}, metadata={metadata})"
+            )
 
     def test_absolute_physiological_bounds(self):
         """Test absolute min/max weight rejection."""
@@ -255,7 +272,7 @@ class TestStrictAnomalyDetection:
             weight=25.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
         assert score == 0.0, "Weight below 30kg should be rejected"
         assert "outside_absolute_min" in metadata
@@ -265,7 +282,7 @@ class TestStrictAnomalyDetection:
             weight=450.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
         assert score == 0.0, "Weight above 400kg should be rejected"
         assert "outside_absolute_max" in metadata
@@ -289,13 +306,17 @@ class TestStrictAnomalyDetection:
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
             user_height_m=1.55,
-            current_timestamp=current_timestamp
+            current_timestamp=current_timestamp,
         )
 
-        assert score == 0.0, f"66kg drop in 13 days should be completely rejected (score={score})"
+        assert score == 0.0, (
+            f"66kg drop in 13 days should be completely rejected (score={score})"
+        )
         assert "impossible_change" in metadata
         # Verify it calculated ~13 days, not months
-        assert 300 < metadata["time_diff_hours"] < 350, f"Should be ~13 days, got {metadata['time_diff_hours']/24} days"
+        assert 300 < metadata["time_diff_hours"] < 350, (
+            f"Should be ~13 days, got {metadata['time_diff_hours'] / 24} days"
+        )
 
     def test_suspicious_weight_bounds(self):
         """Test suspicious weight range penalties."""
@@ -307,7 +328,7 @@ class TestStrictAnomalyDetection:
             weight=35.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
         assert score < 0.3, "Weight below 40kg should be heavily penalized"
         assert "below_suspicious_min" in metadata
@@ -318,7 +339,7 @@ class TestStrictAnomalyDetection:
             weight=305.0,
             recent_weights=recent_weights,
             recent_timestamps=recent_timestamps,
-            user_height_m=1.75
+            user_height_m=1.75,
         )
         assert score < 0.3, "Weight above 300kg should be heavily penalized"
         assert "above_suspicious_max" in metadata

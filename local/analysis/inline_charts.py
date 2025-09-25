@@ -13,8 +13,12 @@ class InlineChartGenerator:
     """Generate simple inline charts for markdown reports."""
 
     @staticmethod
-    def create_ascii_bar_chart(values: List[float], labels: List[str],
-                              max_width: int = 40, show_values: bool = True) -> str:
+    def create_ascii_bar_chart(
+        values: List[float],
+        labels: List[str],
+        max_width: int = 40,
+        show_values: bool = True,
+    ) -> str:
         """
         Create a simple ASCII bar chart.
 
@@ -49,7 +53,9 @@ class InlineChartGenerator:
         return "\n".join(chart_lines)
 
     @staticmethod
-    def create_ascii_line_chart(values: List[float], width: int = 50, height: int = 10) -> str:
+    def create_ascii_line_chart(
+        values: List[float], width: int = 50, height: int = 10
+    ) -> str:
         """
         Create a simple ASCII line chart.
 
@@ -83,7 +89,9 @@ class InlineChartGenerator:
         for i in range(height):
             grid[i][0] = "│"
         for i in range(width):
-            grid[height - 1][i] = "─" if grid[height - 1][i] == " " else grid[height - 1][i]
+            grid[height - 1][i] = (
+                "─" if grid[height - 1][i] == " " else grid[height - 1][i]
+            )
         grid[height - 1][0] = "└"
 
         # Convert grid to string
@@ -94,8 +102,9 @@ class InlineChartGenerator:
         return "\n".join(lines)
 
     @staticmethod
-    def create_comparison_bars(raw_value: float, filtered_value: float,
-                              label: str, max_width: int = 40) -> str:
+    def create_comparison_bars(
+        raw_value: float, filtered_value: float, label: str, max_width: int = 40
+    ) -> str:
         """
         Create side-by-side comparison bars.
 
@@ -119,7 +128,7 @@ class InlineChartGenerator:
             f"{label}:",
             f"  Raw:      {'█' * raw_width} {raw_value:.2f}",
             f"  Filtered: {'█' * filt_width} {filtered_value:.2f}",
-            f"  Change:   {filtered_value - raw_value:+.2f} ({((filtered_value - raw_value) / abs(raw_value) * 100) if raw_value != 0 else 0:.1f}%)"
+            f"  Change:   {filtered_value - raw_value:+.2f} ({((filtered_value - raw_value) / abs(raw_value) * 100) if raw_value != 0 else 0:.1f}%)",
         ]
 
         return "\n".join(lines)
@@ -163,9 +172,15 @@ class InlineChartGenerator:
         return sparkline
 
     @staticmethod
-    def create_simple_plot(x_values: List[float], y_values: List[float],
-                          title: str, xlabel: str, ylabel: str,
-                          output_path: str, figsize: Tuple[float, float] = (8, 4)) -> str:
+    def create_simple_plot(
+        x_values: List[float],
+        y_values: List[float],
+        title: str,
+        xlabel: str,
+        ylabel: str,
+        output_path: str,
+        figsize: Tuple[float, float] = (8, 4),
+    ) -> str:
         """
         Create a simple matplotlib plot for embedding.
 
@@ -182,20 +197,22 @@ class InlineChartGenerator:
             Path to saved plot
         """
         plt.figure(figsize=figsize)
-        plt.plot(x_values, y_values, 'o-', linewidth=2, markersize=6)
-        plt.title(title, fontweight='bold')
+        plt.plot(x_values, y_values, "o-", linewidth=2, markersize=6)
+        plt.title(title, fontweight="bold")
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
 
-        plt.savefig(output_path, dpi=100, bbox_inches='tight')
+        plt.savefig(output_path, dpi=100, bbox_inches="tight")
         plt.close()
 
         return output_path
 
 
-def generate_report_charts(metrics: dict, output_dir: str = "reports/inline_charts") -> dict:
+def generate_report_charts(
+    metrics: dict, output_dir: str = "reports/inline_charts"
+) -> dict:
     """
     Generate a collection of inline charts for a report.
 
@@ -213,19 +230,19 @@ def generate_report_charts(metrics: dict, output_dir: str = "reports/inline_char
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # Example: Success rates comparison
-    if 'success_rates' in metrics:
-        rates = metrics['success_rates']
-        charts['success_rates_ascii'] = generator.create_comparison_bars(
-            rates.get('raw_5pct', 0),
-            rates.get('filtered_5pct', 0),
-            "5% Weight Loss Success Rate"
+    if "success_rates" in metrics:
+        rates = metrics["success_rates"]
+        charts["success_rates_ascii"] = generator.create_comparison_bars(
+            rates.get("raw_5pct", 0),
+            rates.get("filtered_5pct", 0),
+            "5% Weight Loss Success Rate",
         )
 
     # Example: Weight progression sparkline
-    if 'weight_progression' in metrics:
-        progression = metrics['weight_progression']
-        charts['progression_sparkline'] = generator.create_mini_sparkline(
-            progression.get('values', [])
+    if "weight_progression" in metrics:
+        progression = metrics["weight_progression"]
+        charts["progression_sparkline"] = generator.create_mini_sparkline(
+            progression.get("values", [])
         )
 
     return charts

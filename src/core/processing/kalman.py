@@ -105,17 +105,23 @@ class KalmanFilterManager:
         obs_cov = (
             observation_covariance
             if observation_covariance is not None
-            else float(kalman_params["observation_covariance"][0][0])  # Ensure float (not Decimal from DB)
+            else float(
+                kalman_params["observation_covariance"][0][0]
+            )  # Ensure float (not Decimal from DB)
         )
 
         kalman = KalmanFilter(
             transition_matrices=np.array([[1, time_delta_days], [0, 1]]),
             observation_matrices=np.array([[1, 0]]),
-            initial_state_mean=np.array(ensure_float_from_decimal(kalman_params["initial_state_mean"])),
+            initial_state_mean=np.array(
+                ensure_float_from_decimal(kalman_params["initial_state_mean"])
+            ),
             initial_state_covariance=np.array(
                 kalman_params["initial_state_covariance"]
             ),
-            transition_covariance=np.array(ensure_float_from_decimal(kalman_params["transition_covariance"])),
+            transition_covariance=np.array(
+                ensure_float_from_decimal(kalman_params["transition_covariance"])
+            ),
             observation_covariance=np.array([[obs_cov]]),
         )
 
@@ -302,7 +308,11 @@ class KalmanFilterManager:
             Tuple of (predicted_weight, innovation_covariance)
         """
         # Check if we have a valid state
-        if not state or state.get("last_state") is None or not state.get("kalman_params"):
+        if (
+            not state
+            or state.get("last_state") is None
+            or not state.get("kalman_params")
+        ):
             return None, None
 
         # Get last timestamp
@@ -345,7 +355,9 @@ class KalmanFilterManager:
         # Calculate innovation covariance for the measurement
         # S = H * P_pred * H' + R, where H = [1, 0] for weight observation
         # Since H = [1, 0], this simplifies to P_pred[0,0] + R
-        R = float(kalman_params["observation_covariance"][0][0])  # Ensure R is float (not Decimal from DB)
+        R = float(
+            kalman_params["observation_covariance"][0][0]
+        )  # Ensure R is float (not Decimal from DB)
         innovation_covariance = float(predicted_covariance[0, 0] + R)
 
         return predicted_weight, innovation_covariance

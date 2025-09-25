@@ -12,7 +12,10 @@ from unittest.mock import MagicMock, patch, call
 import warnings
 
 from src.processing.buffer_factory import (
-    BufferFactory, get_factory, get_replay_buffer, with_buffer
+    BufferFactory,
+    get_factory,
+    get_replay_buffer,
+    with_buffer,
 )
 from src.replay.replay_buffer import ReplayBuffer
 
@@ -20,6 +23,7 @@ from src.replay.replay_buffer import ReplayBuffer
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def clean_factory():
@@ -35,19 +39,16 @@ def clean_factory():
 @pytest.fixture
 def factory_with_buffers(clean_factory):
     """Factory pre-populated with test buffers."""
-    clean_factory.create_buffer('buffer1')
-    clean_factory.create_buffer('buffer2')
-    clean_factory.create_buffer('buffer3')
+    clean_factory.create_buffer("buffer1")
+    clean_factory.create_buffer("buffer2")
+    clean_factory.create_buffer("buffer3")
     return clean_factory
 
 
 @pytest.fixture
 def buffer_config():
     """Standard buffer configuration for testing."""
-    return {
-        'buffer_hours': 24,
-        'max_buffer_measurements': 50
-    }
+    return {"buffer_hours": 24, "max_buffer_measurements": 50}
 
 
 @pytest.fixture
@@ -63,6 +64,7 @@ def global_factory():
 # TEST CLASSES
 # =============================================================================
 
+
 @pytest.mark.unit
 class TestBufferFactory:
     """Test BufferFactory core functionality."""
@@ -75,16 +77,18 @@ class TestBufferFactory:
         Then: Should return correct ReplayBuffer instances
         """
         # Create a buffer
-        buffer1 = clean_factory.create_buffer('test1')
+        buffer1 = clean_factory.create_buffer("test1")
         assert isinstance(buffer1, ReplayBuffer), "Should create ReplayBuffer instance"
 
         # Get the same buffer
-        buffer2 = clean_factory.create_buffer('test1')
+        buffer2 = clean_factory.create_buffer("test1")
         assert buffer1 is buffer2, "Should return same instance for same name"
 
         # Create different buffer
-        buffer3 = clean_factory.create_buffer('test2')
-        assert buffer3 is not buffer1, "Should create different instance for different name"
+        buffer3 = clean_factory.create_buffer("test2")
+        assert buffer3 is not buffer1, (
+            "Should create different instance for different name"
+        )
 
     def test_buffer_with_config(self, clean_factory, buffer_config):
         """Test buffer creation with configuration.
@@ -93,20 +97,28 @@ class TestBufferFactory:
         When: Creating a buffer with config
         Then: Buffer should have the specified configuration
         """
-        buffer = clean_factory.create_buffer('configured', buffer_config)
+        buffer = clean_factory.create_buffer("configured", buffer_config)
 
-        assert buffer.config['buffer_hours'] == buffer_config['buffer_hours'], \
+        assert buffer.config["buffer_hours"] == buffer_config["buffer_hours"], (
             f"Expected buffer_hours {buffer_config['buffer_hours']}, got {buffer.config['buffer_hours']}"
-        assert buffer.config['max_buffer_measurements'] == buffer_config['max_buffer_measurements'], \
+        )
+        assert (
+            buffer.config["max_buffer_measurements"]
+            == buffer_config["max_buffer_measurements"]
+        ), (
             f"Expected max_buffer_measurements {buffer_config['max_buffer_measurements']}"
+        )
 
-    @pytest.mark.parametrize("num_buffers,should_fail", [
-        (5, False),   # Well under limit
-        (9, False),   # Just under limit
-        (10, False),  # At limit
-        (11, True),   # Over limit
-        (15, True),   # Well over limit
-    ])
+    @pytest.mark.parametrize(
+        "num_buffers,should_fail",
+        [
+            (5, False),  # Well under limit
+            (9, False),  # Just under limit
+            (10, False),  # At limit
+            (11, True),  # Over limit
+            (15, True),  # Well over limit
+        ],
+    )
     def test_instance_limit(self, clean_factory, num_buffers, should_fail):
         """Test that factory enforces instance limit.
 
@@ -117,21 +129,24 @@ class TestBufferFactory:
         if should_fail:
             # Create max allowed first
             for i in range(10):
-                clean_factory.create_buffer(f'buffer_{i}')
+                clean_factory.create_buffer(f"buffer_{i}")
 
             # Next one should fail
             with pytest.raises(ValueError, match="Maximum buffer instances"):
-                clean_factory.create_buffer(f'buffer_{num_buffers - 1}')
+                clean_factory.create_buffer(f"buffer_{num_buffers - 1}")
         else:
             # Should succeed
             for i in range(num_buffers):
-                buffer = clean_factory.create_buffer(f'buffer_{i}')
+                buffer = clean_factory.create_buffer(f"buffer_{i}")
                 assert buffer is not None, f"Failed to create buffer {i}"
 
-    @pytest.mark.parametrize("buffer_name,exists", [
-        ('nonexistent', False),
-        ('existing', True),
-    ])
+    @pytest.mark.parametrize(
+        "buffer_name,exists",
+        [
+            ("nonexistent", False),
+            ("existing", True),
+        ],
+    )
     def test_get_buffer(self, clean_factory, buffer_name, exists):
         """Test getting existing and non-existing buffers.
 
@@ -140,12 +155,14 @@ class TestBufferFactory:
         Then: Should return buffer or None appropriately
         """
         if exists:
-            created = clean_factory.create_buffer('existing')
-            retrieved = clean_factory.get_buffer('existing')
+            created = clean_factory.create_buffer("existing")
+            retrieved = clean_factory.get_buffer("existing")
             assert created is retrieved, "Should retrieve same buffer instance"
         else:
             result = clean_factory.get_buffer(buffer_name)
-            assert result is None, f"Should return None for non-existent buffer {buffer_name}"
+            assert result is None, (
+                f"Should return None for non-existent buffer {buffer_name}"
+            )
 
     def test_remove_buffer_with_references(self, clean_factory):
         """Test buffer removal with reference counting.
@@ -155,20 +172,23 @@ class TestBufferFactory:
         Then: Should respect reference counting
         """
         # Create buffer
-        buffer = clean_factory.create_buffer('removable')
+        buffer = clean_factory.create_buffer("removable")
 
         # Try to remove while referenced
-        assert not clean_factory.remove_buffer('removable'), \
+        assert not clean_factory.remove_buffer("removable"), (
             "Should not remove buffer with active references"
+        )
 
         # Decrement reference manually (simulating release)
-        clean_factory._instance_refs['removable'] = 0
+        clean_factory._instance_refs["removable"] = 0
 
         # Now removal should work
-        assert clean_factory.remove_buffer('removable'), \
+        assert clean_factory.remove_buffer("removable"), (
             "Should remove buffer with zero references"
-        assert clean_factory.get_buffer('removable') is None, \
+        )
+        assert clean_factory.get_buffer("removable") is None, (
             "Removed buffer should not be retrievable"
+        )
 
     def test_managed_buffer_context(self, clean_factory):
         """Test context manager for buffer lifecycle.
@@ -178,16 +198,20 @@ class TestBufferFactory:
         Then: Should properly manage buffer lifecycle
         """
         # Use managed buffer
-        with clean_factory.managed_buffer('context_test') as buffer:
-            assert isinstance(buffer, ReplayBuffer), "Should provide ReplayBuffer in context"
-            assert 'context_test' in clean_factory.list_buffers(), \
+        with clean_factory.managed_buffer("context_test") as buffer:
+            assert isinstance(buffer, ReplayBuffer), (
+                "Should provide ReplayBuffer in context"
+            )
+            assert "context_test" in clean_factory.list_buffers(), (
                 "Buffer should exist in factory during context"
+            )
 
         # After context, check cleanup
-        clean_factory._instance_refs['context_test'] = 0
-        clean_factory.remove_buffer('context_test')
-        assert 'context_test' not in clean_factory.list_buffers(), \
+        clean_factory._instance_refs["context_test"] = 0
+        clean_factory.remove_buffer("context_test")
+        assert "context_test" not in clean_factory.list_buffers(), (
             "Buffer should be removable after context"
+        )
 
     def test_managed_buffer_exception_handling(self, clean_factory):
         """Test that cleanup happens even with exceptions.
@@ -197,15 +221,16 @@ class TestBufferFactory:
         Then: Should still properly cleanup
         """
         try:
-            with clean_factory.managed_buffer('exception_test') as buffer:
+            with clean_factory.managed_buffer("exception_test") as buffer:
                 assert isinstance(buffer, ReplayBuffer)
                 raise ValueError("Test exception")
         except ValueError:
             pass
 
         # Reference should be decremented despite exception
-        assert clean_factory._instance_refs.get('exception_test', 0) == 0, \
+        assert clean_factory._instance_refs.get("exception_test", 0) == 0, (
             "Reference count should be decremented after exception"
+        )
 
     def test_list_buffers(self, factory_with_buffers):
         """Test listing active buffers.
@@ -217,9 +242,9 @@ class TestBufferFactory:
         buffers = factory_with_buffers.list_buffers()
 
         assert len(buffers) == 3, f"Expected 3 buffers, got {len(buffers)}"
-        assert 'buffer1' in buffers, "buffer1 should be in list"
-        assert 'buffer2' in buffers, "buffer2 should be in list"
-        assert 'buffer3' in buffers, "buffer3 should be in list"
+        assert "buffer1" in buffers, "buffer1 should be in list"
+        assert "buffer2" in buffers, "buffer2 should be in list"
+        assert "buffer3" in buffers, "buffer3 should be in list"
 
     @pytest.mark.parametrize("force", [True, False])
     def test_clear_all(self, clean_factory, force):
@@ -230,14 +255,15 @@ class TestBufferFactory:
         Then: Should behave according to force flag
         """
         # Create some buffers
-        clean_factory.create_buffer('clear1')
-        clean_factory.create_buffer('clear2')
+        clean_factory.create_buffer("clear1")
+        clean_factory.create_buffer("clear2")
 
         if force:
             # Force clear should always work
             clean_factory.clear_all(force=True)
-            assert len(clean_factory.list_buffers()) == 0, \
+            assert len(clean_factory.list_buffers()) == 0, (
                 "Force clear should remove all buffers"
+            )
         else:
             # Clear without force should fail if references exist
             with pytest.raises(RuntimeError, match="active references"):
@@ -253,9 +279,10 @@ class TestBufferFactory:
         clean_factory.set_default_config(buffer_config)
 
         # New buffer should use default config
-        buffer = clean_factory.create_buffer('with_default')
-        assert buffer.config['buffer_hours'] == buffer_config['buffer_hours'], \
+        buffer = clean_factory.create_buffer("with_default")
+        assert buffer.config["buffer_hours"] == buffer_config["buffer_hours"], (
             f"Buffer should use default config buffer_hours"
+        )
 
     def test_get_stats(self, factory_with_buffers):
         """Test factory statistics.
@@ -264,14 +291,16 @@ class TestBufferFactory:
         When: Getting stats
         Then: Should return accurate statistics
         """
-        factory_with_buffers.set_default_config({'test': True})
+        factory_with_buffers.set_default_config({"test": True})
 
         stats = factory_with_buffers.get_stats()
 
-        assert stats['total_instances'] == 3, f"Expected 3 instances, got {stats['total_instances']}"
-        assert stats['has_default_config'], "Should have default config"
-        assert 'buffer1' in stats['instances'], "buffer1 should be in instances"
-        assert stats['references']['buffer1'] == 1, "buffer1 should have 1 reference"
+        assert stats["total_instances"] == 3, (
+            f"Expected 3 instances, got {stats['total_instances']}"
+        )
+        assert stats["has_default_config"], "Should have default config"
+        assert "buffer1" in stats["instances"], "buffer1 should be in instances"
+        assert stats["references"]["buffer1"] == 1, "buffer1 should have 1 reference"
 
     @pytest.mark.slow
     def test_thread_safety(self, clean_factory):
@@ -326,14 +355,14 @@ class TestBufferFactory:
         When: Removing the buffer
         Then: Should call cleanup
         """
-        with patch.object(ReplayBuffer, 'cleanup') as mock_cleanup:
-            buffer = clean_factory.create_buffer('cleanup_test')
+        with patch.object(ReplayBuffer, "cleanup") as mock_cleanup:
+            buffer = clean_factory.create_buffer("cleanup_test")
 
             # Manually set ref count to allow removal
-            clean_factory._instance_refs['cleanup_test'] = 0
+            clean_factory._instance_refs["cleanup_test"] = 0
 
             # Remove should trigger cleanup
-            clean_factory.remove_buffer('cleanup_test')
+            clean_factory.remove_buffer("cleanup_test")
             mock_cleanup.assert_called_once()
 
 
@@ -352,19 +381,21 @@ class TestFactoryIntegration:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            buffer = get_replay_buffer({'test': True})
+            buffer = get_replay_buffer({"test": True})
 
             # Check warning was raised
             assert len(w) == 1, "Should raise one warning"
-            assert issubclass(w[0].category, DeprecationWarning), \
+            assert issubclass(w[0].category, DeprecationWarning), (
                 "Should be DeprecationWarning"
-            assert "deprecated" in str(w[0].message).lower(), \
+            )
+            assert "deprecated" in str(w[0].message).lower(), (
                 "Warning should mention deprecation"
+            )
 
         # Should return default buffer from factory
         assert isinstance(buffer, ReplayBuffer), "Should return ReplayBuffer"
         factory = get_factory()
-        assert 'default' in factory.list_buffers(), "Should create default buffer"
+        assert "default" in factory.list_buffers(), "Should create default buffer"
 
     def test_with_buffer_decorator(self, global_factory):
         """Test the with_buffer decorator for dependency injection.
@@ -375,11 +406,11 @@ class TestFactoryIntegration:
         """
         call_args = []
 
-        @with_buffer('decorated_test', {'buffer_hours': 12})
+        @with_buffer("decorated_test", {"buffer_hours": 12})
         def test_function(buffer, arg1, arg2):
             call_args.append((buffer, arg1, arg2))
             assert isinstance(buffer, ReplayBuffer)
-            assert buffer.config['buffer_hours'] == 12
+            assert buffer.config["buffer_hours"] == 12
             return arg1 + arg2
 
         result = test_function(1, 2)
@@ -388,9 +419,10 @@ class TestFactoryIntegration:
         assert len(call_args) == 1, "Function should be called once"
 
         # Check buffer handling
-        if global_factory._instance_refs.get('decorated_test', 0) == 0:
-            assert 'decorated_test' not in global_factory.list_buffers(), \
+        if global_factory._instance_refs.get("decorated_test", 0) == 0:
+            assert "decorated_test" not in global_factory.list_buffers(), (
                 "Buffer should be cleaned up after decorator"
+            )
 
     def test_global_factory_singleton(self):
         """Test that get_factory returns singleton.
@@ -405,9 +437,10 @@ class TestFactoryIntegration:
         assert factory1 is factory2, "Should return same factory instance"
 
         # Operations on one should affect the other
-        factory1.create_buffer('singleton_test')
-        assert 'singleton_test' in factory2.list_buffers(), \
+        factory1.create_buffer("singleton_test")
+        assert "singleton_test" in factory2.list_buffers(), (
             "Changes should be visible in both references"
+        )
 
 
 @pytest.mark.integration
@@ -424,12 +457,13 @@ class TestMigrationPath:
         # Old code pattern
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # Suppress deprecation warning
-            buffer1 = get_replay_buffer({'buffer_hours': 24})
+            buffer1 = get_replay_buffer({"buffer_hours": 24})
             buffer2 = get_replay_buffer()  # Should return same instance
 
         assert buffer1 is buffer2, "Should return same default buffer"
-        assert buffer1.config['buffer_hours'] == 24, \
+        assert buffer1.config["buffer_hours"] == 24, (
             "Config should be applied to buffer"
+        )
 
     def test_mixed_usage(self, global_factory):
         """Test that factory and deprecated function work together.
@@ -439,7 +473,7 @@ class TestMigrationPath:
         Then: Should work seamlessly together
         """
         # Create via factory
-        factory_buffer = global_factory.create_buffer('default', {'test': 1})
+        factory_buffer = global_factory.create_buffer("default", {"test": 1})
 
         # Get via deprecated function
         with warnings.catch_warnings():
@@ -447,8 +481,9 @@ class TestMigrationPath:
             deprecated_buffer = get_replay_buffer()
 
         # Should be the same instance
-        assert factory_buffer is deprecated_buffer, \
+        assert factory_buffer is deprecated_buffer, (
             "Factory and deprecated function should share default buffer"
+        )
 
     @pytest.mark.parametrize("phase", [1, 2, 3])
     def test_gradual_migration(self, global_factory, phase):
@@ -462,22 +497,25 @@ class TestMigrationPath:
             # Phase 1: Old code still using singleton
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                old_buffer = get_replay_buffer({'phase': 1})
+                old_buffer = get_replay_buffer({"phase": 1})
 
         if phase >= 2:
             # Phase 2: New code using factory
-            new_buffer = global_factory.get_buffer('default')
+            new_buffer = global_factory.get_buffer("default")
             if phase >= 1:
-                assert old_buffer is new_buffer, \
+                assert old_buffer is new_buffer, (
                     "Old and new patterns should share buffer"
+                )
 
         if phase >= 3:
             # Phase 3: Create additional instances with factory
-            test_buffer = global_factory.create_buffer('test', {'phase': 3})
+            test_buffer = global_factory.create_buffer("test", {"phase": 3})
 
             # Different instances
             if phase >= 1:
-                assert test_buffer is not old_buffer, \
+                assert test_buffer is not old_buffer, (
                     "New buffers should be separate instances"
-            assert test_buffer.config['phase'] == 3, \
+                )
+            assert test_buffer.config["phase"] == 3, (
                 "New buffer should have its own config"
+            )

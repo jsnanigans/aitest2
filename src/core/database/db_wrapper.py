@@ -45,38 +45,47 @@ class Database:
         measurements = []
 
         # Get measurement history if available
-        if state.get('measurement_history'):
-            for measurement in state['measurement_history']:
-                measurements.append({
-                    'timestamp': measurement.get('timestamp'),
-                    'weight': measurement.get('weight'),
-                    'raw_weight': measurement.get('weight'),  # Use same value for now
-                    'filtered_weight': measurement.get('filtered_weight', measurement.get('weight')),
-                    'source': measurement.get('source', 'unknown'),
-                    'quality_score': measurement.get('quality_score', 0.5),
-                    'is_outlier': measurement.get('is_outlier', False)
-                })
+        if state.get("measurement_history"):
+            for measurement in state["measurement_history"]:
+                measurements.append(
+                    {
+                        "timestamp": measurement.get("timestamp"),
+                        "weight": measurement.get("weight"),
+                        "raw_weight": measurement.get(
+                            "weight"
+                        ),  # Use same value for now
+                        "filtered_weight": measurement.get(
+                            "filtered_weight", measurement.get("weight")
+                        ),
+                        "source": measurement.get("source", "unknown"),
+                        "quality_score": measurement.get("quality_score", 0.5),
+                        "is_outlier": measurement.get("is_outlier", False),
+                    }
+                )
 
         # Add the last measurement if not in history
-        if state.get('last_timestamp') and state.get('last_state'):
+        if state.get("last_timestamp") and state.get("last_state"):
             last_measurement = {
-                'timestamp': state['last_timestamp'],
-                'weight': state.get('last_raw_weight'),
-                'raw_weight': state.get('last_raw_weight'),
-                'source': state.get('last_source', 'unknown'),
-                'quality_score': 0.5,  # Default quality
-                'is_outlier': False
+                "timestamp": state["last_timestamp"],
+                "weight": state.get("last_raw_weight"),
+                "raw_weight": state.get("last_raw_weight"),
+                "source": state.get("last_source", "unknown"),
+                "quality_score": 0.5,  # Default quality
+                "is_outlier": False,
             }
 
             # Get filtered weight from Kalman state
-            last_state = state['last_state']
+            last_state = state["last_state"]
             if isinstance(last_state, (list, tuple)) and len(last_state) >= 2:
-                last_measurement['filtered_weight'] = float(last_state[0])
-            elif hasattr(last_state, '__len__') and len(last_state) >= 2:
-                last_measurement['filtered_weight'] = float(last_state[0])
+                last_measurement["filtered_weight"] = float(last_state[0])
+            elif hasattr(last_state, "__len__") and len(last_state) >= 2:
+                last_measurement["filtered_weight"] = float(last_state[0])
 
             # Check if this measurement is already in the list
-            if not measurements or measurements[-1].get('timestamp') != last_measurement['timestamp']:
+            if (
+                not measurements
+                or measurements[-1].get("timestamp") != last_measurement["timestamp"]
+            ):
                 measurements.append(last_measurement)
 
         return measurements
@@ -98,11 +107,11 @@ class Database:
 
         # Look for initial-questionnaire source
         for m in measurements:
-            if m.get('source') == 'initial-questionnaire':
-                return m['timestamp']
+            if m.get("source") == "initial-questionnaire":
+                return m["timestamp"]
 
         # Fallback to first measurement
-        return measurements[0]['timestamp'] if measurements else None
+        return measurements[0]["timestamp"] if measurements else None
 
     def get_all_users(self) -> List[str]:
         """
@@ -123,13 +132,12 @@ class Database:
         users = []
         for user_id in self.get_all_users():
             measurements = self.get_user_measurements(user_id)
-            users.append({
-                'user_id': user_id,
-                'measurement_count': len(measurements)
-            })
+            users.append({"user_id": user_id, "measurement_count": len(measurements)})
         return users
 
-    def get_measurements_in_window(self, user_id: str, start: datetime, end: datetime) -> List[Dict]:
+    def get_measurements_in_window(
+        self, user_id: str, start: datetime, end: datetime
+    ) -> List[Dict]:
         """
         Get measurements for a user within a time window
 
@@ -145,7 +153,7 @@ class Database:
 
         filtered = []
         for m in all_measurements:
-            if m['timestamp'] and start <= m['timestamp'] <= end:
+            if m["timestamp"] and start <= m["timestamp"] <= end:
                 filtered.append(m)
 
         return filtered

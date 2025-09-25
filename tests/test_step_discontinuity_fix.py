@@ -4,7 +4,8 @@ Quick test to demonstrate elimination of step discontinuities at 6h and 24h boun
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.processing.unified_quality_scorer import UnifiedQualityScorer
 
@@ -25,9 +26,11 @@ def test_no_step_discontinuities():
             previous_weight=base_weight,
             time_diff_hours=hours,
             recent_weights=None,
-            recent_timestamps=None
+            recent_timestamps=None,
         )
-        print(f"{hours:4.1f}h: score={score:.4f}, max_acceptable={metadata['max_acceptable_change']:.3f}kg")
+        print(
+            f"{hours:4.1f}h: score={score:.4f}, max_acceptable={metadata['max_acceptable_change']:.3f}kg"
+        )
 
     # Test around 24-hour boundary (old step function boundary)
     print("\n=== Testing around 24-hour boundary ===")
@@ -37,9 +40,11 @@ def test_no_step_discontinuities():
             previous_weight=base_weight,
             time_diff_hours=hours,
             recent_weights=None,
-            recent_timestamps=None
+            recent_timestamps=None,
         )
-        print(f"{hours:4.1f}h: score={score:.4f}, max_acceptable={metadata['max_acceptable_change']:.3f}kg")
+        print(
+            f"{hours:4.1f}h: score={score:.4f}, max_acceptable={metadata['max_acceptable_change']:.3f}kg"
+        )
 
     print("\n=== Continuous growth of acceptable threshold ===")
     for hours in [0, 6, 12, 24, 48, 72, 96, 168]:
@@ -48,7 +53,7 @@ def test_no_step_discontinuities():
             previous_weight=base_weight,
             time_diff_hours=hours,
             recent_weights=None,
-            recent_timestamps=None
+            recent_timestamps=None,
         )
         print(f"{hours:3d}h: max_acceptable={metadata['max_acceptable_change']:.3f}kg")
 

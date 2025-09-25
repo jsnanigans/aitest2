@@ -290,7 +290,11 @@ class KalmanFilterManager:
             Tuple of (predicted_weight, innovation_covariance)
         """
         # Check if we have a valid state
-        if not state or state.get("last_state") is None or not state.get("kalman_params"):
+        if (
+            not state
+            or state.get("last_state") is None
+            or not state.get("kalman_params")
+        ):
             return None, None
 
         # Get last timestamp

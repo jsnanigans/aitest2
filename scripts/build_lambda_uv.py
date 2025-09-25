@@ -48,10 +48,20 @@ def build_lambda():
     if requirements_file.exists():
         # Use uv pip install to target directory
         result = subprocess.run(
-            ["uv", "pip", "install", "-r", str(requirements_file),
-             "--target", str(build_dir), "--python", "3.11", "--quiet"],
+            [
+                "uv",
+                "pip",
+                "install",
+                "-r",
+                str(requirements_file),
+                "--target",
+                str(build_dir),
+                "--python",
+                "3.11",
+                "--quiet",
+            ],
             capture_output=True,
-            text=True
+            text=True,
         )
         if result.returncode != 0:
             print(f"❌ Error installing dependencies: {result.stderr}")

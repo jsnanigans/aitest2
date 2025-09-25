@@ -27,7 +27,7 @@ except ImportError:
     # Fallback if not available
     def ensure_float(value):
         """Convert value to float, handling Decimal types."""
-        if hasattr(value, 'is_finite'):  # Decimal
+        if hasattr(value, "is_finite"):  # Decimal
             return float(value)
         return float(value) if value is not None else 0.0
 
@@ -41,15 +41,11 @@ def load_config(config_path: str = "config.toml") -> dict:
                 "csv_file": "./data/weights.csv",
                 "output_dir": "output",
                 "max_users": 200,
-                "min_readings": 20
+                "min_readings": 20,
             },
-            "processing": {
-                "extreme_threshold": 0.15
-            },
+            "processing": {"extreme_threshold": 0.15},
             "kalman": {},
-            "visualization": {
-                "enabled": True
-            }
+            "visualization": {"enabled": True},
         }
 
     # Load config directly
@@ -68,7 +64,7 @@ def load_test_users(filepath: str = "test_users.txt") -> list:
     with open(filepath) as f:
         for line in f:
             line = line.strip()
-            if line and not line.startswith('#'):
+            if line and not line.startswith("#"):
                 users.append(line)
     return users
 
@@ -88,10 +84,10 @@ def load_filtered_users_csv(filepath: str) -> list:
 
     users = []
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                user_id = row.get('user_id', '').strip()
+                user_id = row.get("user_id", "").strip()
                 if user_id:
                     users.append(user_id)
         print(f"Loaded {len(users)} users from filtered CSV: {filepath}")
@@ -140,11 +136,11 @@ def get_optimal_thread_count(num_users: int, config: dict) -> int:
         Optimal number of worker threads
     """
     # Get from config or use defaults
-    viz_threading = config.get('visualization', {}).get('threading', {})
-    if not viz_threading.get('enabled', True):
+    viz_threading = config.get("visualization", {}).get("threading", {})
+    if not viz_threading.get("enabled", True):
         return 1  # Threading disabled
 
-    max_workers_config = viz_threading.get('max_workers', None)
+    max_workers_config = viz_threading.get("max_workers", None)
 
     # Calculate based on CPU cores
     cpu_count = os.cpu_count() or 4
@@ -160,7 +156,13 @@ def get_optimal_thread_count(num_users: int, config: dict) -> int:
     return max(1, optimal)
 
 
-def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output: str = None, debug: bool = False):
+def stream_process(
+    csv_path: str,
+    output_dir: str,
+    config: dict,
+    filtered_output: str = None,
+    debug: bool = False,
+):
     """
     Simplified stream processing - no complex state accumulation.
     Process each measurement and stream results.
@@ -176,14 +178,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 
     # Set verbosity from config
     from src.utils import set_verbosity
-    viz_config = config.get('visualization', {})
-    verbosity_str = viz_config.get('verbosity', 'normal')
-    verbosity_map = {
-        'silent': 0,
-        'minimal': 1,
-        'normal': 2,
-        'verbose': 3
-    }
+
+    viz_config = config.get("visualization", {})
+    verbosity_str = viz_config.get("verbosity", "normal")
+    verbosity_map = {"silent": 0, "minimal": 1, "normal": 2, "verbose": 3}
     verbosity_level = verbosity_map.get(verbosity_str, 2)
     set_verbosity(verbosity_level)
 
@@ -203,12 +201,14 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     except ConnectionError as e:
         print(f"Error: {e}")
         print("\nTo fix this:")
-        if os.getenv('DYNAMODB_ENDPOINT'):
+        if os.getenv("DYNAMODB_ENDPOINT"):
             print("1. Start DynamoDB Local: docker-compose up -d dynamodb-local")
             print("2. Wait for it to be ready: docker-compose logs dynamodb-local")
             print("3. Or use the convenience script: ./scripts/run-local.sh <csv_file>")
         else:
-            print("1. For local development, set DYNAMODB_ENDPOINT=http://localhost:8000")
+            print(
+                "1. For local development, set DYNAMODB_ENDPOINT=http://localhost:8000"
+            )
             print("2. Start DynamoDB Local: docker-compose up -d dynamodb-local")
             print("3. Or use the convenience script: ./scripts/run-local.sh <csv_file>")
         sys.exit(1)
@@ -235,9 +235,11 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             # Create buffer using factory (dependency injection)
             buffer_factory = get_factory()
             buffer_factory.set_default_config(replay_config)
-            replay_buffer = buffer_factory.create_buffer('default', replay_config)
+            replay_buffer = buffer_factory.create_buffer("default", replay_config)
 
-            outlier_detector = OutlierDetector(replay_config.get("outlier_detection", {}), db=db)
+            outlier_detector = OutlierDetector(
+                replay_config.get("outlier_detection", {}), db=db
+            )
             replay_manager = ReplayManager(db, replay_config.get("safety", {}))
 
             print("Replay processing enabled")
@@ -260,7 +262,11 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 
     # Priority: test_users from config > filtered_users_csv > test_users_file
     if test_users_config:
-        test_users = test_users_config if isinstance(test_users_config, list) else [test_users_config]
+        test_users = (
+            test_users_config
+            if isinstance(test_users_config, list)
+            else [test_users_config]
+        )
         print(f"Using test_users from config: {len(test_users)} users")
     elif filtered_users_csv:
         test_users = load_filtered_users_csv(filtered_users_csv)
@@ -321,7 +327,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     eligible_users = []  # Users that meet min_readings criteria
 
     if not test_mode:
-        print(f"Analyzing user data (min_readings={min_readings}, max_users={max_users})...")
+        print(
+            f"Analyzing user data (min_readings={min_readings}, max_users={max_users})..."
+        )
         with open(csv_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -349,7 +357,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                 user_reading_counts[user_id] = user_reading_counts.get(user_id, 0) + 1
 
         # Determine eligible users based on min_readings
-        for user_id, count in sorted(user_reading_counts.items()):  # Sort for consistent ordering
+        for user_id, count in sorted(
+            user_reading_counts.items()
+        ):  # Sort for consistent ordering
             if count >= min_readings:
                 eligible_users.append(user_id)
 
@@ -365,8 +375,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
         eligible_users_set = set(eligible_users)
 
         print(f"  Found {len(user_reading_counts)} total users")
-        print(f"  {len([u for u, c in user_reading_counts.items() if c >= min_readings])} users with >= {min_readings} readings")
-        print(f"  Processing {len(eligible_users)} users (after offset={user_offset}, max={max_users})")
+        print(
+            f"  {len([u for u, c in user_reading_counts.items() if c >= min_readings])} users with >= {min_readings} readings"
+        )
+        print(
+            f"  Processing {len(eligible_users)} users (after offset={user_offset}, max={max_users})"
+        )
 
     # Main processing loop
     with open(csv_path) as f:
@@ -374,10 +388,12 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 
         # Setup filtered CSV writer after getting headers
         if filtered_output and not filtered_csv_file:
-            filtered_csv_file = open(filtered_output, 'w', newline='')
+            filtered_csv_file = open(filtered_output, "w", newline="")
             # Add quality_score column to the fieldnames
-            extended_fieldnames = list(reader.fieldnames) + ['quality_score']
-            filtered_csv_writer = csv.DictWriter(filtered_csv_file, fieldnames=extended_fieldnames)
+            extended_fieldnames = list(reader.fieldnames) + ["quality_score"]
+            filtered_csv_writer = csv.DictWriter(
+                filtered_csv_file, fieldnames=extended_fieldnames
+            )
             filtered_csv_writer.writeheader()
 
         for row in reader:
@@ -387,9 +403,11 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             if stats["total_rows"] % config["logging"]["progress_interval"] == 0:
                 elapsed = (datetime.now() - stats["start_time"]).total_seconds()
                 rate = stats["total_rows"] / elapsed if elapsed > 0 else 0
-                print(f"  Row {stats['total_rows']:,} | "
-                      f"Users: {len(processed_users):,} | "
-                      f"Rate: {rate:.0f} rows/sec")
+                print(
+                    f"  Row {stats['total_rows']:,} | "
+                    f"Users: {len(processed_users):,} | "
+                    f"Rate: {rate:.0f} rows/sec"
+                )
 
             # Parse row
             user_id = row.get("user_id")
@@ -429,14 +447,17 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             unit = row.get("unit", "").strip()  # NO DEFAULT - must be explicit
 
             # Skip BSA measurements
-            if 'BSA' in source.upper() or 'm2' in unit or 'm²' in unit:
+            if "BSA" in source.upper() or "m2" in unit or "m²" in unit:
                 continue
 
             # Early unit validation - check against whitelist
             from src.constants import SUPPORTED_WEIGHT_UNITS
+
             if not unit:
                 stats["unit_rejected"] += 1
-                stats["rejected_units"]["<missing>"] = stats["rejected_units"].get("<missing>", 0) + 1
+                stats["rejected_units"]["<missing>"] = (
+                    stats["rejected_units"].get("<missing>", 0) + 1
+                )
                 continue
 
             unit_lower = unit.lower().strip()
@@ -463,8 +484,8 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             try:
                 # Merge quality scoring config into main config
                 full_config = config.copy()
-                if 'quality_scoring' not in full_config:
-                    full_config['quality_scoring'] = {}
+                if "quality_scoring" not in full_config:
+                    full_config["quality_scoring"] = {}
 
                 result = process_measurement(
                     user_id=user_id,
@@ -473,7 +494,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                     source=source,
                     config=full_config,
                     unit=unit,
-                    db=db
+                    db=db,
                 )
             except Exception as e:
                 stats["processing_errors"] = stats.get("processing_errors", 0) + 1
@@ -489,39 +510,41 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 
                 user_results[user_id].append(result)
 
-                if result.get('accepted'):
+                if result.get("accepted"):
                     stats["accepted"] += 1
-
 
                     # Write accepted row to filtered CSV with quality_score
                     if filtered_csv_writer:
                         # Create a copy of the row and add quality_score
                         filtered_row = row.copy()
-                        filtered_row['quality_score'] = result.get('quality_score', 0.0)
+                        filtered_row["quality_score"] = result.get("quality_score", 0.0)
                         filtered_csv_writer.writerow(filtered_row)
                 else:
                     stats["rejected"] += 1
 
-
                 # Add to replay buffer if enabled
                 if replay_enabled and replay_buffer:
                     measurement_data = {
-                        'weight': weight,
-                        'timestamp': timestamp,
-                        'source': source,
-                        'unit': unit,
-                        'metadata': {
-                            'accepted': result.get('accepted', False),
-                            'rejection_reason': result.get('rejection_reason', None),
-                            'quality_score': result.get('quality_score', None),
-                            'quality_components': result.get('quality_components', None)
-                        }
+                        "weight": weight,
+                        "timestamp": timestamp,
+                        "source": source,
+                        "unit": unit,
+                        "metadata": {
+                            "accepted": result.get("accepted", False),
+                            "rejection_reason": result.get("rejection_reason", None),
+                            "quality_score": result.get("quality_score", None),
+                            "quality_components": result.get(
+                                "quality_components", None
+                            ),
+                        },
                     }
 
-                    buffer_result = replay_buffer.add_measurement(user_id, measurement_data)
+                    buffer_result = replay_buffer.add_measurement(
+                        user_id, measurement_data
+                    )
 
                     # Check if buffer is ready for processing
-                    if buffer_result.get('buffer_ready', False):
+                    if buffer_result.get("buffer_ready", False):
                         # Save state snapshot before buffer analysis
                         # This snapshot allows replay to restore state to before the buffer window
                         db.save_state_snapshot(user_id, timestamp)
@@ -534,7 +557,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                                 replay_buffer=replay_buffer,
                                 outlier_detector=outlier_detector,
                                 replay_manager=replay_manager,
-                                stats=stats
+                                stats=stats,
                             )
                         except Exception as e:
                             stats["replay_errors"] = stats.get("replay_errors", 0) + 1
@@ -555,7 +578,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                         replay_buffer=replay_buffer,
                         outlier_detector=outlier_detector,
                         replay_manager=replay_manager,
-                        stats=stats
+                        stats=stats,
                     )
                 except Exception as e:
                     stats["replay_errors"] = stats.get("replay_errors", 0) + 1
@@ -570,26 +593,32 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     if stats["date_filtered"] > 0:
         print(f"  Measurements filtered by date: {stats['date_filtered']:,}")
     if stats.get("unit_rejected", 0) > 0:
-        print(f"  Measurements rejected for unsupported units: {stats['unit_rejected']:,}")
+        print(
+            f"  Measurements rejected for unsupported units: {stats['unit_rejected']:,}"
+        )
     print(f"  Measurements accepted: {stats['accepted']:,}")
     print(f"  Measurements rejected: {stats['rejected']:,}")
-    print(f"  Time: {elapsed:.1f}s ({stats['total_rows']/elapsed:.0f} rows/sec)")
+    print(f"  Time: {elapsed:.1f}s ({stats['total_rows'] / elapsed:.0f} rows/sec)")
 
     if stats["accepted"] + stats["rejected"] > 0:
-        acceptance_rate = stats['accepted'] / (stats['accepted'] + stats['rejected'])
+        acceptance_rate = stats["accepted"] / (stats["accepted"] + stats["rejected"])
         print(f"  Acceptance rate: {acceptance_rate:.1%}")
 
     # Report rejected units
     if stats.get("rejected_units"):
         print("\nRejected Units Summary:")
-        for unit, count in sorted(stats["rejected_units"].items(), key=lambda x: x[1], reverse=True)[:10]:
+        for unit, count in sorted(
+            stats["rejected_units"].items(), key=lambda x: x[1], reverse=True
+        )[:10]:
             print(f"  '{unit}': {count:,} measurements")
 
     # Replay processing statistics
     if replay_enabled and stats.get("replay_processed", 0) > 0:
         print("\nReplay Processing:")
         print(f"  Buffers processed: {stats.get('replay_processed', 0):,}")
-        print(f"  Measurements analyzed: {stats.get('replay_measurements_analyzed', 0):,}")
+        print(
+            f"  Measurements analyzed: {stats.get('replay_measurements_analyzed', 0):,}"
+        )
         print(f"  Outliers found: {stats.get('replay_outliers_found', 0):,}")
         print(f"  Successful replays: {stats.get('replay_replays_successful', 0):,}")
         if stats.get("replay_replays_failed", 0) > 0:
@@ -606,10 +635,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     results_file = output_path / f"results_{timestamp_str}.json"
 
     with open(results_file, "w") as f:
-        json.dump({
-            "stats": stats,
-            "users": user_results
-        }, f, indent=2, default=str)
+        json.dump({"stats": stats, "users": user_results}, f, indent=2, default=str)
 
     print(f"\nResults saved to {results_file}")
 
@@ -630,6 +656,7 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             # Set visualization verbosity based on number of users
             try:
                 from src.utils import set_verbosity
+
                 if total_users > 10:
                     set_verbosity(0)  # Silent for many users
                 elif total_users > 1:
@@ -643,7 +670,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
             num_threads = get_optimal_thread_count(total_users, config)
 
             if num_threads > 1:
-                print(f"  Using {num_threads} processes for parallel visualization generation")
+                print(
+                    f"  Using {num_threads} processes for parallel visualization generation"
+                )
 
             successful = 0
             failed = 0
@@ -663,11 +692,15 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
 
                     # Progress indicator for large batches
                     if total_users > 10 and idx % 10 == 0:
-                        print(f"  Progress: {idx}/{total_users} ({idx*100//total_users}%)")
+                        print(
+                            f"  Progress: {idx}/{total_users} ({idx * 100 // total_users}%)"
+                        )
                     elif total_users <= 10:
                         print(f"  [{idx}/{total_users}] User {user_id[:8]}...", end=" ")
 
-                    user_id, success, error_msg, dashboard_path = generate_single_visualization(args)
+                    user_id, success, error_msg, dashboard_path = (
+                        generate_single_visualization(args)
+                    )
 
                     if success:
                         successful += 1
@@ -676,7 +709,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                     else:
                         failed += 1
                         if total_users <= 10:
-                            print(f"✗ ({error_msg[:30] if error_msg else 'unknown error'})")
+                            print(
+                                f"✗ ({error_msg[:30] if error_msg else 'unknown error'})"
+                            )
                         elif config.get("logging", {}).get("verbose", False):
                             print(f"    Error for {user_id}: {error_msg}")
             else:
@@ -693,7 +728,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                         user_id_from_future = future_to_user[future]
 
                         try:
-                            user_id, success, error_msg, dashboard_path = future.result(timeout=30)
+                            user_id, success, error_msg, dashboard_path = future.result(
+                                timeout=30
+                            )
 
                             # Note: Lock not needed for print in main process
                             completed += 1
@@ -705,29 +742,41 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
                             # Update progress
                             if total_users > 10:
                                 if completed % 10 == 0 or completed == total_users:
-                                    print(f"  Progress: {completed}/{total_users} ({completed*100//total_users}%) - "
-                                          f"✓ {successful} / ✗ {failed}")
+                                    print(
+                                        f"  Progress: {completed}/{total_users} ({completed * 100 // total_users}%) - "
+                                        f"✓ {successful} / ✗ {failed}"
+                                    )
                             elif total_users <= 10:
-                                status = "✓" if success else f"✗ ({error_msg[:30] if error_msg else 'unknown'})"
-                                print(f"  [{completed}/{total_users}] User {user_id[:8]}... {status}")
+                                status = (
+                                    "✓"
+                                    if success
+                                    else f"✗ ({error_msg[:30] if error_msg else 'unknown'})"
+                                )
+                                print(
+                                    f"  [{completed}/{total_users}] User {user_id[:8]}... {status}"
+                                )
 
                         except Exception as e:
                             completed += 1
                             failed += 1
                             if config.get("logging", {}).get("verbose", False):
-                                print(f"    Process error for {user_id_from_future}: {e}")
+                                print(
+                                    f"    Process error for {user_id_from_future}: {e}"
+                                )
 
             # Summary
             if total_users > 1:
-                print(f"\nVisualization complete: {successful} successful, {failed} failed")
+                print(
+                    f"\nVisualization complete: {successful} successful, {failed} failed"
+                )
 
             # Generate index.html for dashboard navigation
             if successful > 0:
                 try:
                     from src.viz.viz_index import create_index_from_results
+
                     index_path = create_index_from_results(
-                        all_results=user_results,
-                        output_dir=str(viz_dir)
+                        all_results=user_results, output_dir=str(viz_dir)
                     )
                     print(f"Dashboard index: {index_path}")
                 except Exception as e:
@@ -741,10 +790,10 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
         print(f"Filtered CSV saved to: {filtered_output} ({stats['accepted']} rows)")
 
     # Clean up replay buffer if it was created
-    if replay_enabled and 'buffer_factory' in locals():
+    if replay_enabled and "buffer_factory" in locals():
         try:
             buffer_stats = buffer_factory.get_stats()
-            if buffer_stats['total_instances'] > 0:
+            if buffer_stats["total_instances"] > 0:
                 print(f"Cleaning up {buffer_stats['total_instances']} buffer instances")
                 buffer_factory.clear_all(force=True)
         except Exception as e:
@@ -753,7 +802,9 @@ def stream_process(csv_path: str, output_dir: str, config: dict, filtered_output
     return user_results, stats
 
 
-def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay_manager, stats: dict) -> None:
+def _process_replay_buffer(
+    user_id: str, replay_buffer, outlier_detector, replay_manager, stats: dict
+) -> None:
     """
     Process a replay buffer for outlier detection and replay.
     Uses enhanced replay processor if available, falls back to original logic.
@@ -772,7 +823,7 @@ def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay
             return
 
         buffer_info = replay_buffer.get_buffer_info(user_id)
-        buffer_start_time = buffer_info['first_timestamp'] if buffer_info else None
+        buffer_start_time = buffer_info["first_timestamp"] if buffer_info else None
 
         # Try to use enhanced replay processor if available
         enhanced_mode = False
@@ -780,41 +831,60 @@ def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay
             # Get database instance
             from src.database import get_state_db
             from src.replay.replay_processor import ReplayProcessor
+
             db = get_state_db()
 
             # Create replay processor with config
             replay_config = {
-                'analysis': {
-                    'kalman_deviation_threshold': 0.10,
-                    'temporal_change_threshold': 0.05,
-                    'outlier_score_threshold': 0.4,
-                    'reset_reevaluation_threshold': 0.6
+                "analysis": {
+                    "kalman_deviation_threshold": 0.10,
+                    "temporal_change_threshold": 0.05,
+                    "outlier_score_threshold": 0.4,
+                    "reset_reevaluation_threshold": 0.6,
                 },
-                'safety': replay_manager.config if hasattr(replay_manager, 'config') else {}
+                "safety": replay_manager.config
+                if hasattr(replay_manager, "config")
+                else {},
             }
 
             processor = ReplayProcessor(db, replay_config)
 
             # Process buffer with enhanced analyzer
-            result = processor.process_buffer(user_id, buffered_measurements, buffer_start_time)
+            result = processor.process_buffer(
+                user_id, buffered_measurements, buffer_start_time
+            )
 
             # Update stats from processor metrics
             metrics = processor.get_metrics()
             stats["replay_processed"] = stats.get("replay_processed", 0) + 1
-            stats["replay_outliers_found"] = stats.get("replay_outliers_found", 0) + metrics.get('outliers_found', 0)
-            stats["replay_measurements_analyzed"] = stats.get("replay_measurements_analyzed", 0) + len(buffered_measurements)
-            stats["replay_resets_changed"] = stats.get("replay_resets_changed", 0) + metrics.get('resets_changed', 0)
-            stats["replay_corrections_made"] = stats.get("replay_corrections_made", 0) + metrics.get('corrections_made', 0)
+            stats["replay_outliers_found"] = stats.get(
+                "replay_outliers_found", 0
+            ) + metrics.get("outliers_found", 0)
+            stats["replay_measurements_analyzed"] = stats.get(
+                "replay_measurements_analyzed", 0
+            ) + len(buffered_measurements)
+            stats["replay_resets_changed"] = stats.get(
+                "replay_resets_changed", 0
+            ) + metrics.get("resets_changed", 0)
+            stats["replay_corrections_made"] = stats.get(
+                "replay_corrections_made", 0
+            ) + metrics.get("corrections_made", 0)
 
-            if result['success']:
-                stats["replay_replays_successful"] = stats.get("replay_replays_successful", 0) + 1
+            if result["success"]:
+                stats["replay_replays_successful"] = (
+                    stats.get("replay_replays_successful", 0) + 1
+                )
 
                 # Log if reset was changed
-                if result.get('reset_changed'):
-                    change_details = result.get('reset_change_details', {})
-                    print(f"  Reset anchor changed: {change_details.get('reason', 'unknown')}")
+                if result.get("reset_changed"):
+                    change_details = result.get("reset_change_details", {})
+                    print(
+                        f"  Reset anchor changed: {change_details.get('reason', 'unknown')}"
+                    )
             else:
-                stats["replay_replays_failed"] = stats.get("replay_replays_failed", 0) + 1
+                stats["replay_replays_failed"] = (
+                    stats.get("replay_replays_failed", 0) + 1
+                )
                 print(f"  Replay failed: {result.get('error', 'unknown error')}")
 
             enhanced_mode = True
@@ -826,15 +896,25 @@ def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay
         # Fallback to original logic if enhanced mode not available or failed
         if not enhanced_mode:
             # Detect outliers (now with quality score awareness and Kalman prediction)
-            clean_measurements, outlier_indices = outlier_detector.get_clean_measurements(buffered_measurements, user_id=user_id)
+            clean_measurements, outlier_indices = (
+                outlier_detector.get_clean_measurements(
+                    buffered_measurements, user_id=user_id
+                )
+            )
 
             # Get analysis details
-            analysis = outlier_detector.analyze_outliers(buffered_measurements, outlier_indices)
+            analysis = outlier_detector.analyze_outliers(
+                buffered_measurements, outlier_indices
+            )
 
             # Update statistics
             stats["replay_processed"] = stats.get("replay_processed", 0) + 1
-            stats["replay_outliers_found"] = stats.get("replay_outliers_found", 0) + len(outlier_indices)
-            stats["replay_measurements_analyzed"] = stats.get("replay_measurements_analyzed", 0) + len(buffered_measurements)
+            stats["replay_outliers_found"] = stats.get(
+                "replay_outliers_found", 0
+            ) + len(outlier_indices)
+            stats["replay_measurements_analyzed"] = stats.get(
+                "replay_measurements_analyzed", 0
+            ) + len(buffered_measurements)
 
             if len(outlier_indices) > 0:
                 # Replay clean measurements if we have any and found outliers
@@ -842,20 +922,27 @@ def _process_replay_buffer(user_id: str, replay_buffer, outlier_detector, replay
                     replay_result = replay_manager.replay_clean_measurements(
                         user_id=user_id,
                         clean_measurements=clean_measurements,
-                        buffer_start_time=buffer_start_time
+                        buffer_start_time=buffer_start_time,
                     )
 
-                    if replay_result['success']:
-                        stats["replay_replays_successful"] = stats.get("replay_replays_successful", 0) + 1
+                    if replay_result["success"]:
+                        stats["replay_replays_successful"] = (
+                            stats.get("replay_replays_successful", 0) + 1
+                        )
                     else:
-                        stats["replay_replays_failed"] = stats.get("replay_replays_failed", 0) + 1
-                        print(f"  Replay failed: {replay_result.get('error', 'unknown error')}")
+                        stats["replay_replays_failed"] = (
+                            stats.get("replay_replays_failed", 0) + 1
+                        )
+                        print(
+                            f"  Replay failed: {replay_result.get('error', 'unknown error')}"
+                        )
 
         # Clear buffer after processing
         replay_buffer.clear_buffer(user_id)
 
     except Exception as e:
         import traceback
+
         stats["replay_processing_errors"] = stats.get("replay_processing_errors", 0) + 1
         print(f"Error in replay processing for {user_id}: {e}")
         traceback.print_exc()
@@ -880,18 +967,27 @@ def parse_timestamp(date_str: str) -> datetime:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Simplified Weight Stream Processor"
-    )
+    parser = argparse.ArgumentParser(description="Simplified Weight Stream Processor")
     parser.add_argument("csv_file", nargs="?", help="CSV file to process")
     parser.add_argument("--config", default="config.toml", help="Configuration file")
     parser.add_argument("--output", help="Output directory")
     parser.add_argument("--max-users", type=int, help="Maximum users to process")
     parser.add_argument("--no-viz", action="store_true", help="Skip visualizations")
-    parser.add_argument("--no-db-export", action="store_true", help="Skip database export")
-    parser.add_argument("--filtered-output", help="Path to write filtered CSV (accepted rows only)")
-    parser.add_argument("--filtered-users-csv", help="Path to CSV file with users to process (user_id,removed_count format)")
-    parser.add_argument("--debug", action="store_true", help="Enable debug output with acceptance/rejection details")
+    parser.add_argument(
+        "--no-db-export", action="store_true", help="Skip database export"
+    )
+    parser.add_argument(
+        "--filtered-output", help="Path to write filtered CSV (accepted rows only)"
+    )
+    parser.add_argument(
+        "--filtered-users-csv",
+        help="Path to CSV file with users to process (user_id,removed_count format)",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug output with acceptance/rejection details",
+    )
 
     args = parser.parse_args()
 
@@ -900,6 +996,7 @@ if __name__ == "__main__":
 
     # Validate configuration
     from src.utils import validate_config
+
     is_valid, errors = validate_config(config)
     if not is_valid:
         print("Configuration validation failed:")
@@ -918,7 +1015,7 @@ if __name__ == "__main__":
         config["visualization"]["enabled"] = False
     if args.no_db_export:
         config["data"]["export_database"] = False
-    if hasattr(args, 'filtered_users_csv') and args.filtered_users_csv:
+    if hasattr(args, "filtered_users_csv") and args.filtered_users_csv:
         config["data"]["filtered_users_csv"] = args.filtered_users_csv
 
     csv_file = config["data"]["csv_file"]
@@ -926,6 +1023,12 @@ if __name__ == "__main__":
         print(f"Error: File {csv_file} not found")
         sys.exit(1)
 
-    stream_process(csv_file, config["data"]["output_dir"], config,
-                   filtered_output=args.filtered_output if hasattr(args, 'filtered_output') else None,
-                   debug=args.debug if hasattr(args, 'debug') else False)
+    stream_process(
+        csv_file,
+        config["data"]["output_dir"],
+        config,
+        filtered_output=args.filtered_output
+        if hasattr(args, "filtered_output")
+        else None,
+        debug=args.debug if hasattr(args, "debug") else False,
+    )

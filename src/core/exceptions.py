@@ -13,6 +13,7 @@ class DataCorruptionError(Exception):
     This indicates that the stored Kalman state has been corrupted
     beyond automatic recovery and requires manual intervention.
     """
+
     pass
 
 
@@ -23,6 +24,7 @@ class StateValidationError(Exception):
     This indicates that the Kalman state does not meet expected
     validation criteria (shape, values, completeness).
     """
+
     pass
 
 
@@ -33,4 +35,5 @@ class RecoveryFailedError(Exception):
     This indicates that the system attempted to recover from
     corrupted state but was unable to produce a valid result.
     """
+
     pass

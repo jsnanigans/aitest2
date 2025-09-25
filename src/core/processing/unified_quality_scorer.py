@@ -124,7 +124,6 @@ class UnifiedQualityScorer:
             "temporal_thresholds", self.TEMPORAL_THRESHOLDS.copy()
         )
 
-
     def calculate_quality_score(
         self,
         weight: float,
@@ -422,7 +421,9 @@ class UnifiedQualityScorer:
                         prev_timestamp = datetime.fromisoformat(prev_timestamp)
 
                     # Calculate time differences
-                    time_diff_seconds = (current_timestamp - prev_timestamp).total_seconds()
+                    time_diff_seconds = (
+                        current_timestamp - prev_timestamp
+                    ).total_seconds()
                     time_diff_minutes = time_diff_seconds / 60.0
                     time_diff_hours = time_diff_seconds / 3600.0
 
@@ -441,21 +442,28 @@ class UnifiedQualityScorer:
                         if weight_change < 0.05:
                             metadata["rejected_reason"] = "duplicate_measurement"
                             metadata["time_diff_seconds"] = time_diff_seconds
-                            metadata["threshold_seconds"] = self.DUPLICATE_THRESHOLD_SECONDS
+                            metadata["threshold_seconds"] = (
+                                self.DUPLICATE_THRESHOLD_SECONDS
+                            )
                             return 0.0, metadata  # Reject as duplicate
                         # Allow small variations (scale noise) even in rapid succession
                         elif weight_change < 0.2:
-                            score *= 0.8  # Minor penalty for rapid but different reading
+                            score *= (
+                                0.8  # Minor penalty for rapid but different reading
+                            )
                             metadata["rapid_but_different"] = True
 
                     elif time_diff_minutes < self.RAPID_THRESHOLD_MINUTES:
                         # Calculate adaptive threshold based on time and source
                         # More lenient for device measurements (scale variance)
                         source_factor = 1.0
-                        if hasattr(self, 'current_source'):
-                            if 'device' in self.current_source.lower():
+                        if hasattr(self, "current_source"):
+                            if "device" in self.current_source.lower():
                                 source_factor = 1.5  # 50% more lenient for devices
-                            elif 'manual' in self.current_source.lower() or 'upload' in self.current_source.lower():
+                            elif (
+                                "manual" in self.current_source.lower()
+                                or "upload" in self.current_source.lower()
+                            ):
                                 source_factor = 1.2  # 20% more lenient for manual
 
                         # Smooth exponential growth of allowed change
@@ -463,7 +471,9 @@ class UnifiedQualityScorer:
                         max_allowed = 0.5 + 0.5 * (1 - math.exp(-time_diff_minutes / 2))
                         max_allowed *= source_factor
 
-                        if weight_change > max_allowed * 2:  # Only reject if WAY over (2x)
+                        if (
+                            weight_change > max_allowed * 2
+                        ):  # Only reject if WAY over (2x)
                             metadata["rejected_reason"] = "rapid_impossible_change"
                             metadata["time_diff_minutes"] = time_diff_minutes
                             metadata["change_kg"] = weight_change
@@ -481,7 +491,9 @@ class UnifiedQualityScorer:
                         else:
                             # Within acceptable range for short-term change
                             # Small penalty that decreases as time increases
-                            time_penalty = 0.9 + 0.1 * (time_diff_minutes / self.RAPID_THRESHOLD_MINUTES)
+                            time_penalty = 0.9 + 0.1 * (
+                                time_diff_minutes / self.RAPID_THRESHOLD_MINUTES
+                            )
                             score *= time_penalty
                             metadata["minor_time_penalty"] = time_penalty
 
@@ -489,10 +501,14 @@ class UnifiedQualityScorer:
                     if len(recent_timestamps) >= self.BURST_COUNT_THRESHOLD:
                         # Check if we have multiple measurements within burst window
                         burst_count = 1  # Start with current measurement
-                        for ts in recent_timestamps[-(self.BURST_COUNT_THRESHOLD + 2):]:  # Look at recent measurements
+                        for ts in recent_timestamps[
+                            -(self.BURST_COUNT_THRESHOLD + 2) :
+                        ]:  # Look at recent measurements
                             if isinstance(ts, str):
                                 ts = datetime.fromisoformat(ts)
-                            if (current_timestamp - ts).total_seconds() / 60.0 <= self.BURST_WINDOW_MINUTES:
+                            if (
+                                current_timestamp - ts
+                            ).total_seconds() / 60.0 <= self.BURST_WINDOW_MINUTES:
                                 burst_count += 1
 
                         if burst_count >= self.BURST_COUNT_THRESHOLD:
@@ -528,10 +544,14 @@ class UnifiedQualityScorer:
 
                         if excess_ratio > 1.0:  # More than double the max
                             penalty_components.append(0.0)  # Impossible change
-                            penalty_weights.append(2.0)  # High weight for impossible changes
+                            penalty_weights.append(
+                                2.0
+                            )  # High weight for impossible changes
                             metadata["impossible_change"] = True
                         elif excess_ratio > 0.5:  # 50% over max
-                            penalty_components.append(0.2)  # Less harsh than before (was 0.1)
+                            penalty_components.append(
+                                0.2
+                            )  # Less harsh than before (was 0.1)
                             penalty_weights.append(1.5)
                             metadata["very_unlikely_change"] = True
                         else:
@@ -547,36 +567,52 @@ class UnifiedQualityScorer:
 
                     # 3. Check for percentage-based changes (catch weight doubling etc.)
                     # Only apply percentage checks for periods > 3 days where percentage matters more
-                    if time_diff_hours > 72 and time_diff_hours <= 720:  # Between 3-30 days
+                    if (
+                        time_diff_hours > 72 and time_diff_hours <= 720
+                    ):  # Between 3-30 days
                         percent_change = (weight_change / previous_weight) * 100
-                        max_monthly_percent = PHYSIOLOGICAL_LIMITS.get("MAX_MONTHLY_PERCENT", 15)
+                        max_monthly_percent = PHYSIOLOGICAL_LIMITS.get(
+                            "MAX_MONTHLY_PERCENT", 15
+                        )
 
                         # More generous time scaling for shorter periods
                         # Use square root for smoother scaling
-                        time_factor = max(0.2, min(1.0, math.sqrt(time_diff_hours / 720)))
+                        time_factor = max(
+                            0.2, min(1.0, math.sqrt(time_diff_hours / 720))
+                        )
                         allowed_percent = max_monthly_percent * time_factor
 
                         metadata["percent_change"] = percent_change
                         metadata["allowed_percent"] = allowed_percent
 
                         if percent_change > allowed_percent:
-                            excess_percent_ratio = (percent_change - allowed_percent) / allowed_percent
+                            excess_percent_ratio = (
+                                percent_change - allowed_percent
+                            ) / allowed_percent
                             metadata["excess_percent_ratio"] = excess_percent_ratio
 
-                            if excess_percent_ratio > 2.0:  # More than 3x the allowed percentage
+                            if (
+                                excess_percent_ratio > 2.0
+                            ):  # More than 3x the allowed percentage
                                 penalty_components.append(0.0)
                                 penalty_weights.append(2.0)
                                 metadata["impossible_percent_change"] = True
-                            elif excess_percent_ratio > 1.0:  # More than 2x the allowed percentage
+                            elif (
+                                excess_percent_ratio > 1.0
+                            ):  # More than 2x the allowed percentage
                                 penalty_components.append(0.15)  # Less harsh (was 0.05)
                                 penalty_weights.append(1.2)
                                 metadata["extreme_percent_change"] = True
-                            elif excess_percent_ratio > 0.5:  # More than 1.5x the allowed percentage
+                            elif (
+                                excess_percent_ratio > 0.5
+                            ):  # More than 1.5x the allowed percentage
                                 penalty_components.append(0.35)  # Less harsh (was 0.1)
                                 penalty_weights.append(0.8)
                                 metadata["high_percent_change"] = True
                             else:
-                                penalty_score = max(0.5, 0.8 - excess_percent_ratio * 0.4)
+                                penalty_score = max(
+                                    0.5, 0.8 - excess_percent_ratio * 0.4
+                                )
                                 penalty_components.append(penalty_score)
                                 penalty_weights.append(0.6)
                                 metadata["suspicious_percent_change"] = True
@@ -599,7 +635,13 @@ class UnifiedQualityScorer:
                     if penalty_components:
                         total_weight = sum(penalty_weights)
                         if total_weight > 0:
-                            weighted_score = sum(p * w for p, w in zip(penalty_components, penalty_weights)) / total_weight
+                            weighted_score = (
+                                sum(
+                                    p * w
+                                    for p, w in zip(penalty_components, penalty_weights)
+                                )
+                                / total_weight
+                            )
                             # Apply a minimum floor to prevent overly harsh rejections
                             # Unless we have an impossible change (score of 0.0)
                             if weighted_score > 0:
@@ -621,7 +663,9 @@ class UnifiedQualityScorer:
 
         # Ultra short-term (< 1 minute): Scale variance + positioning
         if time_hours < 0.0167:  # 1 minute
-            return PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1MIN", 0.5)  # Increased from 0.1
+            return PHYSIOLOGICAL_LIMITS.get(
+                "MAX_CHANGE_1MIN", 0.5
+            )  # Increased from 0.1
 
         # Very short-term (< 5 minutes): Scale variance + water/bathroom
         elif time_hours < 0.0833:  # 5 minutes
@@ -642,7 +686,9 @@ class UnifiedQualityScorer:
                 return max_5min
             else:
                 # Logarithmic growth from 5 min to 1 hour
-                return max_5min + (max_1h - max_5min) * math.log(minutes / 5) / math.log(12)
+                return max_5min + (max_1h - max_5min) * math.log(
+                    minutes / 5
+                ) / math.log(12)
 
         # Hours (1-6 hours): Water, food, exercise effects
         elif time_hours <= 6:
@@ -650,7 +696,9 @@ class UnifiedQualityScorer:
             max_6h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 3.0)
             # Smooth interpolation from 1h to 6h
             # At 2h: ~1.6kg, 3h: ~2.0kg, 4h: ~2.4kg, 6h: 3.0kg
-            additional = (max_6h - base_change) * math.log(1 + (time_hours - 1)) / math.log(6)
+            additional = (
+                (max_6h - base_change) * math.log(1 + (time_hours - 1)) / math.log(6)
+            )
             return base_change + additional
 
         # Day (6-24 hours): Full daily fluctuation
@@ -658,7 +706,11 @@ class UnifiedQualityScorer:
             base_change = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_6H", 3.0)
             max_24h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_24H", 4.0)
             # Logarithmic growth
-            additional = (max_24h - base_change) * math.log(1 + (time_hours - 6) / 6) / math.log(4)
+            additional = (
+                (max_24h - base_change)
+                * math.log(1 + (time_hours - 6) / 6)
+                / math.log(4)
+            )
             return base_change + additional
 
         # Week (1-7 days): Compound changes with realistic limits
@@ -964,8 +1016,7 @@ class MeasurementHistory:
     def get_recent_weights(self, min_quality: float = 0.6) -> List[float]:
         """Get recent weights above quality threshold."""
         return [
-            w for w, q in zip(self.weights, self.quality_scores)
-            if q >= min_quality
+            w for w, q in zip(self.weights, self.quality_scores) if q >= min_quality
         ]
 
     def get_statistics(self) -> Dict[str, float]:
@@ -975,10 +1026,10 @@ class MeasurementHistory:
 
         weights_array = np.array(list(self.weights))
         return {
-            'mean': np.mean(weights_array),
-            'std': np.std(weights_array),
-            'median': np.median(weights_array),
-            'min': np.min(weights_array),
-            'max': np.max(weights_array),
-            'count': len(weights_array)
+            "mean": np.mean(weights_array),
+            "std": np.std(weights_array),
+            "median": np.median(weights_array),
+            "min": np.min(weights_array),
+            "max": np.max(weights_array),
+            "count": len(weights_array),
         }

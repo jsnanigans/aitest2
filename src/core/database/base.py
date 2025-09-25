@@ -39,12 +39,16 @@ class StateStore(ABC):
         pass
 
     @abstractmethod
-    def get_snapshot(self, user_id: str, timestamp: datetime) -> Optional[Dict[str, Any]]:
+    def get_snapshot(
+        self, user_id: str, timestamp: datetime
+    ) -> Optional[Dict[str, Any]]:
         """Get the nearest snapshot before the given timestamp."""
         pass
 
     @abstractmethod
-    def check_and_restore_snapshot(self, user_id: str, buffer_start_time: datetime) -> dict:
+    def check_and_restore_snapshot(
+        self, user_id: str, buffer_start_time: datetime
+    ) -> dict:
         """Check if a snapshot exists and restore it atomically."""
         pass
 
