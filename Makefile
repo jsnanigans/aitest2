@@ -1,27 +1,77 @@
-# ============================================
-# Docker-based SAM Development (Recommended)
-# ============================================
-# For isolated, containerized development:
-#   make -f Makefile.docker quick-start  # Start environment
-#   make -f Makefile.docker sam-api      # Run API locally
-#   make -f Makefile.docker docker-shell # Work in container
-# See docker/sam/README.md for full documentation
-# ============================================
+# Weight Processor Service - Makefile
+# =====================================
 
-# Run main processing with test sample data (starts DynamoDB Local automatically)
+# Variables
+COMPOSE_FILE := docker-compose.yml
+COMPOSE_SAM_FILE := docker-compose.sam.yml
+DOCKER_COMPOSE := docker-compose -f $(COMPOSE_FILE)
+DOCKER_COMPOSE_SAM := docker-compose -f $(COMPOSE_SAM_FILE)
+
+.PHONY: help setup run run-file \
+        docker-up docker-down docker-restart docker-status docker-clean \
+        docker-shell docker-logs docker-build \
+        db-start db-stop db-reset db-admin db-clear \
+        sam-build sam-local sam-deploy sam-invoke sam-logs \
+        clean
+
+# Default target - show help
+help:
+	@echo "Weight Processor Service - Commands"
+	@echo "===================================="
+	@echo ""
+	@echo "Quick Start:"
+	@echo "  make setup            - Install dependencies with uv"
+	@echo "  make docker-up        - Start all Docker services"
+	@echo "  make sam-local        - Start SAM API locally (port 3000)"
+	@echo ""
+	@echo "Local Development:"
+	@echo "  make run              - Run with sample data"
+	@echo "  make run-file FILE=x  - Run with specific data file"
+	@echo ""
+	@echo "Docker Environment:"
+	@echo "  make docker-up        - Start Docker services (LocalStack, DynamoDB)"
+	@echo "  make docker-down      - Stop Docker services"
+	@echo "  make docker-restart   - Restart Docker services"
+	@echo "  make docker-status    - Show container status"
+	@echo "  make docker-shell     - Open shell in SAM container"
+	@echo "  make docker-logs      - Show container logs"
+	@echo "  make docker-clean     - Remove all containers and volumes"
+	@echo ""
+	@echo "Database Management:"
+	@echo "  make db-start         - Start DynamoDB Local"
+	@echo "  make db-stop          - Stop DynamoDB Local"
+	@echo "  make db-reset         - Reset database and tables"
+	@echo "  make db-admin         - Open DynamoDB Admin UI (port 8001)"
+	@echo ""
+	@echo "SAM Operations:"
+	@echo "  make sam-build        - Build Lambda package"
+	@echo "  make sam-local        - Start local API (port 3000)"
+	@echo "  make sam-deploy       - Deploy to AWS (interactive)"
+	@echo "  make sam-logs         - View Lambda logs"
+	@echo ""
+	@echo "Cleanup:"
+	@echo "  make clean            - Remove build artifacts"
+
+# =====================================
+# Setup & Installation
+# =====================================
+
+setup:
+	@echo "📦 Setting up Python environment..."
+	@uv venv
+	@uv pip install -r requirements.txt
+	@uv pip install -r requirements-lambda.txt
+	@uv pip install -r requirements-dev.txt
+	@echo "✅ Setup complete. Activate with: source .venv/bin/activate"
+
+# =====================================
+# Local Development
+# =====================================
+
+# Run with sample data
 run: db-start
-	@echo "Waiting for DynamoDB Local to be ready..."
-	@for i in {1..10}; do \
-		if curl -s http://localhost:8000 > /dev/null 2>&1; then \
-			echo "✓ DynamoDB Local is ready"; \
-			break; \
-		fi; \
-		if [ $$i -eq 10 ]; then \
-			echo "Error: DynamoDB Local failed to start"; \
-			exit 1; \
-		fi; \
-		sleep 1; \
-	done
+	@echo "🚀 Running with sample data..."
+	@sleep 2  # Wait for DynamoDB
 	@export DYNAMODB_ENDPOINT=http://localhost:8000 && \
 	export DYNAMODB_TABLE_NAME=weight-processor-state && \
 	export AWS_ACCESS_KEY_ID=local && \
@@ -29,20 +79,14 @@ run: db-start
 	uv run python scripts/init-dynamodb.py && \
 	uv run python src/local/main.py
 
-# Run with a specific data file (starts DynamoDB Local automatically)
+# Run with specific file
 run-file: db-start
-	@echo "Waiting for DynamoDB Local to be ready..."
-	@for i in {1..10}; do \
-		if curl -s http://localhost:8000 > /dev/null 2>&1; then \
-			echo "✓ DynamoDB Local is ready"; \
-			break; \
-		fi; \
-		if [ $$i -eq 10 ]; then \
-			echo "Error: DynamoDB Local failed to start"; \
-			exit 1; \
-		fi; \
-		sleep 1; \
-	done
+	@if [ -z "$(FILE)" ]; then \
+		echo "❌ Error: FILE parameter required. Usage: make run-file FILE=data/sample.csv"; \
+		exit 1; \
+	fi
+	@echo "🚀 Processing $(FILE)..."
+	@sleep 2  # Wait for DynamoDB
 	@export DYNAMODB_ENDPOINT=http://localhost:8000 && \
 	export DYNAMODB_TABLE_NAME=weight-processor-state && \
 	export AWS_ACCESS_KEY_ID=local && \
@@ -50,162 +94,217 @@ run-file: db-start
 	uv run python scripts/init-dynamodb.py && \
 	uv run python src/local/main.py $(FILE)
 
-# Create filtered output for nocon data
-create-filtered:
-	uv run python src/local/main.py data/2025-09-05_nocon.csv --max-users 0 --no-viz --filtered-output data/2025-09-05_nocon_filtered.csv
+# =====================================
+# Docker Environment Management
+# =====================================
 
-# Create filtered output for all data
-create-filtered-all:
-	uv run python src/local/main.py data/2025-09-05_all.csv --max-users 0 --no-viz --filtered-output data/2025-09-05_all_filtered.csv
+# Start all Docker services
+docker-up:
+	@echo "🚀 Starting Docker services..."
+	@$(DOCKER_COMPOSE) up -d
+	@echo "⏳ Waiting for services..."
+	@sleep 5
+	@echo "✅ Docker services ready!"
+	@echo "   - LocalStack: http://localhost:4566"
+	@echo "   - DynamoDB: http://localhost:8000"
+	@echo "   - DynamoDB Admin: http://localhost:8001"
 
-# Run report generation
-report:
-	cd create-report && uv run python run.py --employer APPLE_EMPLOYER --visualize
+# Stop Docker services
+docker-down:
+	@echo "🛑 Stopping Docker services..."
+	@$(DOCKER_COMPOSE) down
 
-# Run all tests
-test:
-	uv run pytest tests/ -q
+# Restart Docker services
+docker-restart: docker-down docker-up
 
-# Run tests with verbose output
-test-v:
-	uv run pytest tests/ -xvs
+# Show container status
+docker-status:
+	@echo "📊 Container Status:"
+	@$(DOCKER_COMPOSE) ps
 
-# Run specific test file
-test-file:
-	uv run pytest $(FILE) -xvs
+# Open shell in container (if using SAM compose)
+docker-shell:
+	@echo "🖥️ Opening Docker shell..."
+	@docker run -it --rm \
+		-v $(PWD):/var/task \
+		-w /var/task \
+		--network weight-processor-net \
+		python:3.12 bash
 
-# Run integration tests
-test-integration:
-	uv run pytest tests/integration/ -q
+# View logs
+docker-logs:
+	@$(DOCKER_COMPOSE) logs -f
 
-# Run tests with coverage report
-test-coverage:
-	uv run pytest tests/ --cov=src --cov-report=html --cov-report=term
+# Build Docker images
+docker-build:
+	@echo "🔨 Building Docker images..."
+	@$(DOCKER_COMPOSE) build --no-cache
 
-# Run replay tests specifically
-test-replay:
-	uv run pytest tests/test_replay*.py -q
+# Clean everything
+docker-clean:
+	@echo "🧹 Cleaning Docker environment..."
+	@$(DOCKER_COMPOSE) down -v
+	@docker system prune -f
+	@echo "✅ Docker environment cleaned"
 
-# Run Lambda handler tests
-test-lambda:
-	uv run pytest tests/test_lambda_handler.py -xvs
+# =====================================
+# Database Management
+# =====================================
 
-# Run tests against deployed service
-test-deployed:
-	@echo "Running integration tests against deployed $(ENV) environment..."
-	cd integration-tests && uv run pytest test_deployed.py --env=$(ENV)
-
-# Run performance benchmark
-benchmark:
-	uv run python scripts/measure_performance.py
-
-# Install/update dependencies and dev tools
-setup:
-	uv venv
-	uv pip install -r requirements.txt
-	uv pip install -r requirements-lambda.txt
-	uv pip install -r requirements-dev.txt
-	@echo "✓ Setup complete. Run 'source .venv/bin/activate' to activate the virtual environment"
-
-# Install/update dependencies
-install:
-	uv sync
-	uv pip install -r requirements.txt
-	uv pip install -r requirements-lambda.txt
-	uv pip install -r requirements-dev.txt
-
-# Format code with ruff
-format:
-	uv run ruff format .
-
-# Lint code
-lint:
-	uv run ruff check .
-
-# Type check with mypy
-type-check:
-	uv run mypy src/ --ignore-missing-imports
-
-# Install boto3 if not already installed
-install-boto3:
-	@uv run python -c "import boto3" 2>/dev/null || uv pip install boto3
-
-# Build Lambda package locally (default - no containers)
-local-build:
-	cd aws && sam build --template template-local.yaml
-
-# Build Lambda package for production (with auth)
-build:
-	cd aws && sam build --template template.yaml
-
-# Build for production deployment (Lambda only, no API Gateway)
-build-prod:
-	@echo "🔨 Building Lambda package for production (Lambda only)..."
-	cd aws && sam build --template template-prod.yaml
-
-# Deploy to AWS (dev) - includes API Gateway for testing
-deploy-dev:
-	@echo "📦 Deploying to dev with API Gateway..."
-	cd aws && sam deploy --config-env default
-
-# Deploy to production - Lambda only, no API Gateway
-deploy-prod: build-prod
-	@echo "🚀 Deploying to production (Lambda only, no API Gateway)..."
-	cd aws && sam deploy --config-env prod
-
-# Start local API Gateway (no Docker)
-local-run:
-	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
-	cd aws && sam local start-api --port 5448 --template .aws-sam/build/template.yaml
-
-# View Lambda logs (local)
-local-logs:
-	@tail -50 aws/.aws-sam/local/logs/*.log 2>/dev/null || echo "No logs found. Start the API first with 'make local-run'"
-
-# Clean up generated files
-clean:
-	rm -rf aws/.aws-sam
-	rm -rf __pycache__ .pytest_cache
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
-
-# Start DynamoDB Local and Admin UI
+# Start DynamoDB Local
 db-start:
 	@if ! docker ps | grep -q weight-processor-dynamodb; then \
-		echo "Starting DynamoDB Local..."; \
-		docker-compose up -d dynamodb-local dynamodb-admin; \
+		echo "🗄️ Starting DynamoDB Local..."; \
+		$(DOCKER_COMPOSE) up -d dynamodb-local dynamodb-admin; \
+		sleep 3; \
+		echo "✅ DynamoDB ready on port 8000"; \
+		echo "📊 Admin UI: http://localhost:8001"; \
 	else \
-		echo "DynamoDB Local is already running"; \
+		echo "✅ DynamoDB already running"; \
 	fi
 
-# Stop DynamoDB Local
+# Stop DynamoDB
 db-stop:
-	docker-compose down
+	@echo "🛑 Stopping DynamoDB..."
+	@$(DOCKER_COMPOSE) stop dynamodb-local dynamodb-admin
 
-# View DynamoDB data in browser
-db-admin:
-	@echo "Opening DynamoDB Admin UI..."
-	@open http://localhost:8001 || xdg-open http://localhost:8001 || echo "Please open http://localhost:8001 in your browser"
-
-# Clear DynamoDB data (restart containers)
-db-clear:
-	docker-compose down
-	docker-compose up -d dynamodb-local dynamodb-admin
-	@echo "DynamoDB data cleared"
-
-# Reset database and tables
+# Reset database
 db-reset: db-stop db-start
-	@echo "Waiting for DynamoDB Local to be ready..."
+	@echo "🔄 Resetting database..."
 	@sleep 3
 	@export DYNAMODB_ENDPOINT=http://localhost:8000 && \
 	export DYNAMODB_TABLE_NAME=weight-processor-state && \
 	export AWS_ACCESS_KEY_ID=local && \
 	export AWS_SECRET_ACCESS_KEY=local && \
 	uv run python scripts/init-dynamodb.py
-	@echo "✓ Database reset complete"
+	@echo "✅ Database reset complete"
 
-# Start local API with SAM
-sam-local: local-build
-	@echo "Starting local API with SAM..."
-	AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_SESSION_TOKEN=local \
-	cd aws && sam local start-api --port 3000 --template .aws-sam/build/template.yaml
+# Open DynamoDB Admin
+db-admin:
+	@echo "📊 Opening DynamoDB Admin..."
+	@open http://localhost:8001 || xdg-open http://localhost:8001 || echo "Open http://localhost:8001"
+
+# Clear database data
+db-clear:
+	@echo "🧹 Clearing database..."
+	@$(DOCKER_COMPOSE) down dynamodb-local dynamodb-admin
+	@$(DOCKER_COMPOSE) up -d dynamodb-local dynamodb-admin
+	@echo "✅ Database cleared"
+
+# =====================================
+# SAM (Serverless Application Model)
+# =====================================
+
+# Build Lambda package
+sam-build:
+	@echo "🔨 Building SAM application..."
+	@cd aws && sam build --template template.yaml
+	@echo "✅ Build complete"
+
+# Build for local testing
+sam-build-local:
+	@echo "🔨 Building for local testing..."
+	@cd aws && sam build --template template-local.yaml
+	@echo "✅ Local build complete"
+
+# Start local API
+sam-local: db-start sam-build-local
+	@echo "🚀 Starting SAM Local API..."
+	@echo "📡 API available at http://localhost:3000"
+	@cd aws && sam local start-api \
+		--port 3000 \
+		--template .aws-sam/build/template.yaml \
+		--parameter-overrides \
+			Environment=local \
+			DynamoDBEndpoint=http://localhost:8000
+
+# Deploy to AWS (interactive)
+sam-deploy: sam-build
+	@echo "🚀 Deploying to AWS..."
+	@cd aws && sam deploy --guided
+
+# Deploy with specific environment
+sam-deploy-env: sam-build
+	@if [ -z "$(ENV)" ]; then \
+		echo "❌ Error: ENV parameter required. Usage: make sam-deploy-env ENV=dev"; \
+		exit 1; \
+	fi
+	@echo "🚀 Deploying to $(ENV) environment..."
+	@cd aws && sam deploy --config-env $(ENV)
+
+# Invoke Lambda function locally
+sam-invoke:
+	@if [ -z "$(FUNC)" ]; then \
+		echo "❌ Error: FUNC parameter required. Usage: make sam-invoke FUNC=WeightProcessorFunction"; \
+		exit 1; \
+	fi
+	@echo "⚡ Invoking $(FUNC)..."
+	@cd aws && sam local invoke $(FUNC) --event ../test_events/process_event.json
+
+# View Lambda logs
+sam-logs:
+	@if [ -z "$(STACK)" ]; then \
+		echo "📋 Viewing local SAM logs..."; \
+		tail -50 aws/.aws-sam/local/logs/*.log 2>/dev/null || echo "No logs found"; \
+	else \
+		echo "📋 Viewing logs for stack $(STACK)..."; \
+		sam logs -n WeightProcessorFunction --stack-name $(STACK) --tail; \
+	fi
+
+# Delete AWS stack
+sam-delete:
+	@if [ -z "$(STACK)" ]; then \
+		echo "❌ Error: STACK parameter required. Usage: make sam-delete STACK=weight-processor-dev"; \
+		exit 1; \
+	fi
+	@echo "🗑️ Deleting stack $(STACK)..."
+	@sam delete --stack-name $(STACK)
+
+# =====================================
+# Testing API Endpoints
+# =====================================
+
+# Test local API health
+test-api:
+	@echo "🏥 Testing API health..."
+	@curl -s http://localhost:3000/health | jq '.' || echo "API not running. Start with: make sam-local"
+
+# Test process endpoint
+test-process:
+	@echo "📊 Testing process endpoint..."
+	@curl -X POST http://localhost:3000/process \
+		-H "Content-Type: application/json" \
+		-d '{ \
+			"device_id": "scale-001", \
+			"measurements": [ \
+				{"weight": 75.5, "timestamp": "2024-01-01T10:00:00Z", "source": "patient-device"} \
+			] \
+		}' | jq '.'
+
+# =====================================
+# Cleanup
+# =====================================
+
+# Clean build artifacts
+clean:
+	@echo "🧹 Cleaning build artifacts..."
+	@rm -rf aws/.aws-sam
+	@rm -rf __pycache__ .pytest_cache
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete
+	@rm -rf htmlcov .coverage
+	@echo "✅ Cleanup complete"
+
+# =====================================
+# Utility Targets
+# =====================================
+
+# Show environment info
+info:
+	@echo "Environment Information:"
+	@echo "========================"
+	@python --version
+	@docker --version
+	@docker-compose --version
+	@sam --version 2>/dev/null || echo "SAM CLI not installed"
+	@uv --version 2>/dev/null || echo "uv not installed"
