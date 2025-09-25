@@ -1,142 +1,205 @@
-# Weight Stream Processor
+# Weight Processor Service
 
-A robust weight measurement processing system with adaptive Kalman filtering and intelligent outlier detection.
+A hosted service for processing weight measurements using advanced Kalman filtering and statistical analysis. The service provides both local development environments and AWS Lambda deployment options for scalable, production-ready weight data processing.
 
-## Project Structure
+## Quick Start
 
-```
-strem_process_anchor/
-├── src/                    # Source code
-│   ├── core/              # Core business logic (shared)
-│   │   ├── processing/    # Kalman filter, validation, quality scoring
-│   │   ├── replay/        # Replay system for historical data
-│   │   ├── database/      # Database interfaces and state management
-│   │   ├── constants.py   # Physical constants and limits
-│   │   ├── exceptions.py  # Custom exceptions
-│   │   └── utils.py       # Utility functions
-│   │
-│   ├── aws/               # AWS Lambda specific code
-│   │   ├── lambda_handler.py    # Lambda entry point
-│   │   ├── api/                  # API models and interfaces
-│   │   ├── config/               # Configuration management
-│   │   └── services/             # AWS-specific services
-│   │
-│   └── local/             # Local-only code
-│       ├── main.py               # Local CLI entry point
-│       ├── analysis/             # Data analysis scripts
-│       └── viz/                  # Visualization tools
-│
-├── aws/                   # AWS deployment configurations
-│   ├── template.yaml             # SAM template for deployment
-│   ├── template-prod.yaml        # Production SAM template
-│   ├── template-local.yaml       # Local testing template
-│   └── samconfig.toml            # SAM configuration
-│
-├── config/                # Configuration files
-│   ├── local/            # Local development configs
-│   └── aws/              # AWS deployment configs
-│
-├── tests/                 # Test suite
-├── docs/                  # Documentation
-├── scripts/               # Build and utility scripts
-└── data/                  # Sample and test data
-```
+### Option 1: Docker Development (Recommended)
 
-## Usage
-
-### Local Development
-
-Run the processor locally with CSV data:
+The fastest way to get started with a fully isolated environment:
 
 ```bash
-# Process a CSV file
-uv run python src/local/main.py data/weights.csv
+# Start the complete development environment
+make -f Makefile.docker quick-start
 
-# With custom configuration
-uv run python src/local/main.py data/weights.csv --config config/local/config.toml
+# Run the API locally with SAM
+make -f Makefile.docker sam-api
 
-# Generate visualizations
-uv run python src/local/main.py data/weights.csv --visualize
+# Access the development shell
+make -f Makefile.docker docker-shell
 ```
 
-### AWS Deployment
+### Option 2: Local Development with Make
 
-Deploy to AWS using SAM:
+For direct local development:
+
+```bash
+# Install dependencies
+make setup
+
+# Run with sample data
+make run
+
+# Run with specific data file
+make run-file FILE=path/to/data.csv
+
+# Start local API server (requires SAM CLI)
+make sam-local
+```
+
+### Option 3: AWS SAM Deployment
+
+Deploy to AWS Lambda:
 
 ```bash
 # Build the Lambda package
 cd aws
-sam build
+make build
 
-# Deploy to development
-sam deploy --guided
+# Deploy to AWS
+make deploy ENV=dev
 
-# Deploy to production
-sam deploy --config-env prod
-```
-
-### Testing
-
-Run the test suite:
-
-```bash
-# All tests
-uv run python -m pytest tests/
-
-# Specific test file
-uv run python -m pytest tests/test_processor.py -xvs
-
-# With coverage
-uv run python -m pytest tests/ --cov=src
+# Run integration tests
+make test-deployed ENV=dev
 ```
 
 ## Architecture
 
-### Core Processing Pipeline
+### Docker Services
 
-The system uses an adaptive Kalman filter with intelligent outlier detection:
+The `docker-compose.yml` provides a complete local AWS environment:
 
-1. **Data Validation**: Input validation and unit conversion
-2. **Kalman Filtering**: Adaptive noise parameters based on source reliability
-3. **Quality Scoring**: Multi-factor quality assessment
-4. **Outlier Detection**: Statistical methods with quality override
-5. **State Management**: Persistent state storage (SQLite local, DynamoDB AWS)
+- **LocalStack**: Full AWS service emulation (Lambda, API Gateway, DynamoDB, S3)
+- **DynamoDB Local**: Standalone DynamoDB for development
+- **DynamoDB Admin UI**: Web interface for viewing data (port 8001)
 
-### Key Features
+### SAM Configuration
 
-- **Adaptive Kalman Filter**: Adjusts to gaps in data and source reliability
-- **Source-Based Reliability**: Different noise profiles for different data sources
-- **Quality Override System**: High-quality measurements can override outlier detection
-- **Replay System**: Process historical data with proper temporal ordering
-- **Circuit Breaker**: Protects against cascading failures
+The service uses AWS SAM (`aws/template.yaml`) for serverless deployment:
+
+- **API Gateway**: RESTful API endpoints for weight processing
+- **Lambda Function**: Python 3.12 runtime with optimized dependencies
+- **DynamoDB**: State persistence for Kalman filters and processing history
+- **CloudWatch**: Logging and monitoring
+
+### Make Commands
+
+Key Make targets for development workflow:
+
+```bash
+# Database Management
+make db-start          # Start DynamoDB Local
+make db-stop           # Stop DynamoDB Local
+make db-reset          # Reset database and tables
+
+# Testing
+make test              # Run unit tests
+make test-integration  # Run integration tests
+make test-coverage     # Generate coverage report
+
+# Development
+make lint              # Run code linting
+make format            # Format code
+make type-check        # Run type checking
+```
+
+## Source Code Organization
+
+### `/src` Directory Structure
+
+```
+src/
+├── __init__.py           # Package initialization and logging setup
+├── aws/                  # AWS Lambda specific code
+│   ├── lambda_handler.py    # Lambda entry point
+│   ├── api/                 # API endpoint handlers
+│   └── services/            # AWS service integrations
+├── core/                 # Core business logic
+│   ├── constants.py         # Configuration constants
+│   ├── exceptions.py        # Custom exceptions
+│   ├── utils.py            # Utility functions
+│   ├── database/           # Database models and operations
+│   │   ├── models.py          # DynamoDB models
+│   │   └── repository.py      # Data access layer
+│   ├── processing/         # Signal processing algorithms
+│   │   ├── processor.py       # Main processing pipeline
+│   │   ├── kalman_filter.py   # Kalman filter implementation
+│   │   ├── detector.py        # Weight change detection
+│   │   └── validators.py      # Data validation
+│   └── replay/            # State replay and recovery
+│       ├── replay_manager.py  # Replay coordination
+│       └── buffer_manager.py  # Measurement buffering
+├── local/               # Local development tools
+│   ├── main.py            # CLI entry point
+│   ├── batch/             # Batch processing utilities
+│   └── visualization/     # Data visualization tools
+└── factories/           # Factory pattern implementations
+    └── component_factory.py  # Component instantiation
+```
+
+### Core Components
+
+**Processing Pipeline** (`core/processing/`)
+- **Kalman Filter**: Adaptive filtering for noisy weight measurements
+- **Change Detection**: Identifies significant weight changes and stable periods
+- **State Validation**: Ensures filter stability and measurement consistency
+
+**Database Layer** (`core/database/`)
+- **Models**: DynamoDB schema definitions for state persistence
+- **Repository**: Abstract data access with support for local and AWS DynamoDB
+
+**Replay System** (`core/replay/`)
+- **State Recovery**: Rebuilds processing state from historical measurements
+- **Buffer Management**: Handles measurement queuing and replay sequences
+
+**AWS Integration** (`aws/`)
+- **Lambda Handler**: Serverless function entry point with error handling
+- **API Routes**: RESTful endpoints for processing, state management, and queries
+- **Service Layer**: AWS service abstractions for DynamoDB, S3, and CloudWatch
+
+## API Endpoints
+
+The service exposes the following REST API endpoints:
+
+- `POST /process` - Process weight measurement batch
+- `GET /state/{device_id}` - Retrieve current processing state
+- `POST /reset/{device_id}` - Reset device processing state
+- `GET /history/{device_id}` - Get measurement history
+- `DELETE /state/{device_id}` - Remove device state
 
 ## Configuration
 
-Configuration is managed through TOML files with sections for:
-- Kalman filter parameters
-- Quality scoring weights
-- Outlier detection thresholds
-- Source reliability mappings
-- Replay processing settings
-
-See `config/local/config.toml` for the default configuration.
-
-## Development
-
-This project uses:
-- Python 3.12+
-- uv for dependency management
-- AWS SAM for serverless deployment
-- pytest for testing
-
-Install dependencies:
+Environment variables for service configuration:
 
 ```bash
-uv pip sync requirements.txt
+# DynamoDB Configuration
+DYNAMODB_ENDPOINT=http://localhost:8000  # Local DynamoDB endpoint
+DYNAMODB_TABLE_NAME=weight-processor-state
+
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=local
+AWS_SECRET_ACCESS_KEY=local
+
+# Service Configuration
+LOG_LEVEL=INFO
+ENVIRONMENT=dev
 ```
 
-For AWS Lambda deployment:
+## Testing
+
+The service includes comprehensive test coverage:
 
 ```bash
-uv pip sync requirements-lambda.txt
+# Run all tests
+make test
+
+# Run specific test file
+make test-file FILE=tests/test_processor.py
+
+# Generate coverage report
+make test-coverage
+
+# Run integration tests against deployed service
+make test-deployed ENV=dev
 ```
+
+## Development Tools
+
+- **Postman Collection**: Import `weight-processor-api-v2.postman_collection.json` for API testing
+- **DynamoDB Admin**: Access at `http://localhost:8001` when using Docker
+- **LocalStack Dashboard**: Monitor local AWS services at `http://localhost:4566`
+
+## License
+
+Proprietary - All rights reserved
