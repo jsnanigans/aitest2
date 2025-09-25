@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # DynamoDB Local for persistent storage
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: weight-processor-dynamodb
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data -optimizeDbBeforeStartup"
+    volumes:
+      - "./data/dynamodb:/data"
+    networks:
+      - sam-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # DynamoDB Admin UI for viewing data
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: weight-processor-dynamodb-admin
+    ports:
+      - "8001:8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    networks:
+      - sam-network
+
+  # SAM CLI Container for building and running Lambda locally
+  sam-builder:
+    build:
+      context: docker/sam
+      dockerfile: Dockerfile
+    container_name: weight-processor-sam
+    ports:
+      - "3000:3000"  # SAM Local API Gateway
+      - "3001:3001"  # SAM Local Lambda endpoint
+    environment:
+      # AWS Credentials for local development
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_SESSION_TOKEN=local
+      # DynamoDB configuration
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - DYNAMODB_TABLE_NAME=weight-processor-state
+      # SAM configuration
+      - SAM_CLI_TELEMETRY=0
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      # Application configuration
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=local
+    volumes:
+      # Mount the entire project directory
+      - ".:/workspace:cached"
+      # Mount Docker socket for SAM to create Lambda containers
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      # Mount AWS credentials if needed
+      - "~/.aws:/root/.aws:ro"
+    working_dir: /workspace
+    networks:
+      - sam-network
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+  # Optional: LocalStack for additional AWS services
+  localstack:
+    image: localstack/localstack:latest
+    container_name: weight-processor-localstack
+    ports:
+      - "4566:4566"  # LocalStack Gateway
+    environment:
+      - SERVICES=s3,cloudwatch,logs,iam
+      - DEBUG=0
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - PERSISTENCE=1
+    volumes:
+      - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - sam-network
+    profiles:
+      - full
+
+networks:
+  sam-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  dynamodb-data:
+    driver: local

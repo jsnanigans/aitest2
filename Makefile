@@ -1,3 +1,13 @@
+# ============================================
+# Docker-based SAM Development (Recommended)
+# ============================================
+# For isolated, containerized development:
+#   make -f Makefile.docker quick-start  # Start environment
+#   make -f Makefile.docker sam-api      # Run API locally
+#   make -f Makefile.docker docker-shell # Work in container
+# See docker/sam/README.md for full documentation
+# ============================================
+
 # Run main processing with test sample data (starts DynamoDB Local automatically)
 run: db-start
 	@echo "Waiting for DynamoDB Local to be ready..."
