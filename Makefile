@@ -3,54 +3,7 @@
 
 # Variables
 COMPOSE_FILE := docker-compose.yml
-COMPOSE_SAM_FILE := docker-compose.sam.yml
 DOCKER_COMPOSE := docker-compose -f $(COMPOSE_FILE)
-DOCKER_COMPOSE_SAM := docker-compose -f $(COMPOSE_SAM_FILE)
-
-.PHONY: help setup run run-file \
-        docker-up docker-down docker-restart docker-status docker-clean \
-        docker-shell docker-logs docker-build \
-        db-start db-stop db-reset db-admin db-clear \
-        sam-build sam-local sam-deploy sam-invoke sam-logs \
-        clean
-
-# Default target - show help
-help:
-	@echo "Weight Processor Service - Commands"
-	@echo "===================================="
-	@echo ""
-	@echo "Quick Start:"
-	@echo "  make setup            - Install dependencies with uv"
-	@echo "  make docker-up        - Start all Docker services"
-	@echo "  make sam-local        - Start SAM API locally (port 3000)"
-	@echo ""
-	@echo "Local Development:"
-	@echo "  make run              - Run with sample data"
-	@echo "  make run-file FILE=x  - Run with specific data file"
-	@echo ""
-	@echo "Docker Environment:"
-	@echo "  make docker-up        - Start Docker services (LocalStack, DynamoDB)"
-	@echo "  make docker-down      - Stop Docker services"
-	@echo "  make docker-restart   - Restart Docker services"
-	@echo "  make docker-status    - Show container status"
-	@echo "  make docker-shell     - Open shell in SAM container"
-	@echo "  make docker-logs      - Show container logs"
-	@echo "  make docker-clean     - Remove all containers and volumes"
-	@echo ""
-	@echo "Database Management:"
-	@echo "  make db-start         - Start DynamoDB Local"
-	@echo "  make db-stop          - Stop DynamoDB Local"
-	@echo "  make db-reset         - Reset database and tables"
-	@echo "  make db-admin         - Open DynamoDB Admin UI (port 8001)"
-	@echo ""
-	@echo "SAM Operations:"
-	@echo "  make sam-build        - Build Lambda package"
-	@echo "  make sam-local        - Start local API (port 3000)"
-	@echo "  make sam-deploy       - Deploy to AWS (interactive)"
-	@echo "  make sam-logs         - View Lambda logs"
-	@echo ""
-	@echo "Cleanup:"
-	@echo "  make clean            - Remove build artifacts"
 
 # =====================================
 # Setup & Installation
@@ -105,7 +58,6 @@ docker-up:
 	@echo "⏳ Waiting for services..."
 	@sleep 5
 	@echo "✅ Docker services ready!"
-	@echo "   - LocalStack: http://localhost:4566"
 	@echo "   - DynamoDB: http://localhost:8000"
 	@echo "   - DynamoDB Admin: http://localhost:8001"
 
@@ -122,23 +74,9 @@ docker-status:
 	@echo "📊 Container Status:"
 	@$(DOCKER_COMPOSE) ps
 
-# Open shell in container (if using SAM compose)
-docker-shell:
-	@echo "🖥️ Opening Docker shell..."
-	@docker run -it --rm \
-		-v $(PWD):/var/task \
-		-w /var/task \
-		--network weight-processor-net \
-		python:3.12 bash
-
 # View logs
 docker-logs:
 	@$(DOCKER_COMPOSE) logs -f
-
-# Build Docker images
-docker-build:
-	@echo "🔨 Building Docker images..."
-	@$(DOCKER_COMPOSE) build --no-cache
 
 # Clean everything
 docker-clean:
@@ -198,30 +136,33 @@ db-clear:
 # Build Lambda package
 sam-build:
 	@echo "🔨 Building SAM application..."
-	@cd aws && sam build --template template.yaml
+	@sam build --template sam-template.yaml
 	@echo "✅ Build complete"
 
 # Build for local testing
 sam-build-local:
 	@echo "🔨 Building for local testing..."
-	@cd aws && sam build --template template-local.yaml
+	@sam build --template sam-template-local.yaml
 	@echo "✅ Local build complete"
 
-# Start local API
-sam-local: db-start sam-build-local
+sam-run-local:
 	@echo "🚀 Starting SAM Local API..."
-	@echo "📡 API available at http://localhost:3000"
-	@cd aws && sam local start-api \
-		--port 3000 \
-		--template .aws-sam/build/template.yaml \
+	@echo "📡 API available at http://localhost:3080"
+	@sam local start-api \
+		--port 3080 \
+		--template sam-template.yaml \
 		--parameter-overrides \
 			Environment=local \
 			DynamoDBEndpoint=http://localhost:8000
 
+# Start local API
+sam-local: db-start sam-build-local sam-run-local
+	@echo "✅ SAM Local API running"
+
 # Deploy to AWS (interactive)
 sam-deploy: sam-build
 	@echo "🚀 Deploying to AWS..."
-	@cd aws && sam deploy --guided
+	@sam deploy --guided
 
 # Deploy with specific environment
 sam-deploy-env: sam-build
@@ -230,7 +171,7 @@ sam-deploy-env: sam-build
 		exit 1; \
 	fi
 	@echo "🚀 Deploying to $(ENV) environment..."
-	@cd aws && sam deploy --config-env $(ENV)
+	@sam deploy --config-env $(ENV)
 
 # Invoke Lambda function locally
 sam-invoke:
@@ -239,7 +180,7 @@ sam-invoke:
 		exit 1; \
 	fi
 	@echo "⚡ Invoking $(FUNC)..."
-	@cd aws && sam local invoke $(FUNC) --event ../test_events/process_event.json
+	@sam local invoke $(FUNC) --event ../test_events/process_event.json
 
 # View Lambda logs
 sam-logs:
@@ -267,12 +208,12 @@ sam-delete:
 # Test local API health
 test-api:
 	@echo "🏥 Testing API health..."
-	@curl -s http://localhost:3000/health | jq '.' || echo "API not running. Start with: make sam-local"
+	@curl -s http://localhost:3080/health | jq '.' || echo "API not running. Start with: make sam-local"
 
 # Test process endpoint
 test-process:
 	@echo "📊 Testing process endpoint..."
-	@curl -X POST http://localhost:3000/process \
+	@curl -X POST http://localhost:3080/process \
 		-H "Content-Type: application/json" \
 		-d '{ \
 			"device_id": "scale-001", \

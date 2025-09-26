@@ -122,11 +122,6 @@ else
     check_warn "Local configuration missing"
 fi
 
-if [ -f "docker-compose.sam.yml" ]; then
-    check_pass "Docker SAM configuration exists"
-else
-    check_warn "Docker SAM configuration missing"
-fi
 
 # 6. Check Critical Files
 echo ""

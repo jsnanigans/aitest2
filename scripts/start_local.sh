@@ -17,18 +17,18 @@ sam build --use-container --template template-local.yaml
 
 echo ""
 echo "📝 API Endpoints (No Auth Required):"
-echo "  GET  http://localhost:5448/api/v1/health              - Health check"
-echo "  POST http://localhost:5448/api/v1/process/{userId}    - Process measurements"
-echo "  POST http://localhost:5448/api/v1/replay/{userId}     - Replay measurements"
-echo "  POST http://localhost:5448/api/v1/cleanup/{userId}    - Cleanup with reset"
-echo "  GET  http://localhost:5448/api/v1/state/{userId}      - Get user state"
+echo "  GET  http://localhost:3080/api/v1/health              - Health check"
+echo "  POST http://localhost:3080/api/v1/process/{userId}    - Process measurements"
+echo "  POST http://localhost:3080/api/v1/replay/{userId}     - Replay measurements"
+echo "  POST http://localhost:3080/api/v1/cleanup/{userId}    - Cleanup with reset"
+echo "  GET  http://localhost:3080/api/v1/state/{userId}      - Get user state"
 echo ""
 echo "Press Ctrl+C to stop..."
 echo ""
 
 # Start SAM local with skip-pull-image to speed up startup
 sam local start-api \
-    --port 5448 \
+    --port 3080 \
     --docker-network bridge \
     --template template-local.yaml \
     --skip-pull-image \

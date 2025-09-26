@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Weight Processor Service - Production Lambda Only (No API Gateway)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - prod
+    Description: Environment name
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 1024
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        DYNAMODB_TABLE_NAME: !Ref StateTable
+        AWS_REGION: !Ref AWS::Region
+        ENVIRONMENT: !Ref Environment
+
+Resources:
+  # Lambda Function Only - No API Gateway
+  WeightProcessorFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+      BuildProperties:
+        RequirementsFile: requirements-lambda.txt
+    Properties:
+      FunctionName: !Sub weight-processor-${Environment}
+      CodeUri: .
+      Handler: src.aws.lambda_handler.handler
+      Runtime: python3.12
+      Description: Process weight measurements with Kalman filtering
+      ReservedConcurrentExecutions: 100  # Limit concurrent executions
+      Environment:
+        Variables:
+          KALMAN_ENABLED: 'true'
+          KALMAN_ADAPTIVE: 'true'
+          KALMAN_PROCESS_NOISE: '1.0'
+          KALMAN_OBS_NOISE: '4.0'
+          KALMAN_HARD_GAP_DAYS: '30'
+          QUALITY_SCORING_ENABLED: 'true'
+          QS_WEIGHT_KALMAN: '0.4'
+          QS_WEIGHT_TEMPORAL: '0.3'
+          QS_WEIGHT_SOURCE: '0.3'
+          QS_OUTLIER_OVERRIDE: '0.8'
+          OUTLIER_DETECTION_ENABLED: 'true'
+          OUTLIER_IQR_MULTIPLIER: '1.5'
+          REPLAY_ENABLED: 'true'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StateTable
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:38
+        # AWS managed layer for numpy/scipy (Python 3.12)
+        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python312:12
+      # Optional: VPC Configuration for private Lambda
+      # VpcConfig:
+      #   SecurityGroupIds:
+      #     - !Ref LambdaSecurityGroup
+      #   SubnetIds:
+      #     - !Ref PrivateSubnet1
+      #     - !Ref PrivateSubnet2
+
+  # DynamoDB Table for State Storage
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub weight-processor-state-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: stateType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: stateType
+          KeyType: RANGE
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: weight-processor
+
+  # CloudWatch Log Group
+  ProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/weight-processor-${Environment}
+      RetentionInDays: 30
+
+  # CloudWatch Alarms
+  ProcessorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub weight-processor-errors-${Environment}
+      AlarmDescription: Alert when processor function errors exceed threshold
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WeightProcessorFunction
+      TreatMissingData: notBreaching
+
+  ProcessorThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub weight-processor-throttles-${Environment}
+      AlarmDescription: Alert when processor function is throttled
+      MetricName: Throttles
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WeightProcessorFunction
+      TreatMissingData: notBreaching
+
+  DynamoDBThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub weight-processor-db-throttles-${Environment}
+      AlarmDescription: Alert when DynamoDB throttles requests
+      MetricName: ConsumedReadCapacityUnits
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: TableName
+          Value: !Ref StateTable
+      TreatMissingData: notBreaching
+
+Outputs:
+  FunctionArn:
+    Description: Lambda function ARN for direct invocation
+    Value: !GetAtt WeightProcessorFunction.Arn
+    Export:
+      Name: !Sub weight-processor-function-${Environment}
+
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref WeightProcessorFunction
+    Export:
+      Name: !Sub weight-processor-function-name-${Environment}
+
+  StateTableName:
+    Description: DynamoDB table name
+    Value: !Ref StateTable
+    Export:
+      Name: !Sub weight-processor-table-${Environment}
+
+  StateTableArn:
+    Description: DynamoDB table ARN
+    Value: !GetAtt StateTable.Arn
+    Export:
+      Name: !Sub weight-processor-table-arn-${Environment}
+
+  InvocationRole:
+    Description: IAM role ARN that can invoke this function
+    Value: !Sub arn:aws:iam::${AWS::AccountId}:role/weight-processor-invoker-${Environment}

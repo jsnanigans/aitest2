@@ -17,7 +17,7 @@ echo "================================"
 echo ""
 echo "📦 Building Lambda package..."
 cd aws
-sam build --template template.yaml --use-container
+sam build --template sam-template.yaml --use-container
 
 # Check build directory
 BUILD_DIR=".aws-sam/build/WeightProcessorFunction"
