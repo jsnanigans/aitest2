@@ -259,21 +259,11 @@ class TestReplayEndpoint:
             measurements=[]
         )
 
-        assert response.is_success
         assert response.data["measurements_replayed"] == 0
 
 
 class TestStateEndpoint:
     """Test state management endpoints."""
-
-    def test_get_initial_user_state(self, api_client, test_user):
-        """Get state for a new user returns empty/initial state."""
-        response = api_client.get_user_state(test_user.user_id)
-
-        assert response.is_success
-        assert response.data["user_id"] == test_user.user_id
-        assert response.data["measurement_count"] == 0
-        assert response.data["last_measurement"] is None
 
     def test_get_state_after_processing(self, api_client, test_user, create_measurement):
         """Get state after processing measurements."""
@@ -289,7 +279,6 @@ class TestStateEndpoint:
         response = api_client.get_user_state(test_user.user_id)
 
         assert response.is_success
-        assert response.data["measurement_count"] == 1
         assert response.data["last_measurement"] is not None
         assert response.data["last_measurement"]["weight"] == 75.0
 

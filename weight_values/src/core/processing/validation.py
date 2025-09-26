@@ -580,30 +580,6 @@ class DataQualityPreprocessor:
 
     DEFAULT_HEIGHT_M = PHYSIOLOGICAL_LIMITS["DEFAULT_HEIGHT_M"]
 
-    _height_data = None
-    _height_data_loaded = False
-
-    @classmethod
-    def load_height_data(cls):
-        """Load height data from CSV file once."""
-        if not cls._height_data_loaded:
-            try:
-                with open("data/2025-09-11_height_values_latest.csv", "r") as f:
-                    reader = csv.DictReader(f)
-                    cls._height_data = {}
-                    for row in reader:
-                        user_id = row["user_id"]
-                        value_quantity = float(row["value_quantity"])
-                        unit = row["unit"]
-                        value_m = cls._convert_height_to_meters(value_quantity, unit)
-                        cls._height_data[user_id] = value_m
-                cls._height_data_loaded = True
-                print(f"Loaded height data for {len(cls._height_data)} users")
-            except Exception as e:
-                print(f"Could not load height data: {e}")
-                cls._height_data = {}
-                cls._height_data_loaded = True
-
     @staticmethod
     def _convert_height_to_meters(value: float, unit: str) -> float:
         """Convert height to meters."""
@@ -621,12 +597,10 @@ class DataQualityPreprocessor:
             return value / 100.0
 
     @classmethod
-    def get_user_height(cls, user_id: str) -> float:
-        """Get user's height in meters, using default if not found."""
-        if not cls._height_data_loaded:
-            cls.load_height_data()
-
-        return cls._height_data.get(user_id, cls.DEFAULT_HEIGHT_M)
+    def get_user_height(cls, user_id: str, user_height_m: Optional[float] = None) -> float:
+        """Get user's height in meters, using provided value or default."""
+        # Use provided height if available, otherwise use default
+        return user_height_m if user_height_m is not None else cls.DEFAULT_HEIGHT_M
 
     @staticmethod
     def preprocess(
@@ -635,6 +609,7 @@ class DataQualityPreprocessor:
         timestamp: datetime,
         user_id: Optional[str] = None,
         unit: str = "kg",
+        user_height_m: Optional[float] = None,
     ) -> Tuple[Optional[float], Dict]:
         """
         Clean and standardize weight data with STRICT unit validation.
@@ -699,7 +674,7 @@ class DataQualityPreprocessor:
 
         # BMI validation (for rejection only, NO conversion)
         user_height = (
-            DataQualityPreprocessor.get_user_height(user_id)
+            DataQualityPreprocessor.get_user_height(user_id, user_height_m)
             if user_id
             else DataQualityPreprocessor.DEFAULT_HEIGHT_M
         )

@@ -158,23 +158,50 @@ class PersistenceValidator:
         if not isinstance(kalman_params, dict):
             return False
 
-        # Check required parameter fields
-        required_params = {"transition_covariance", "observation_covariance"}
-        if not all(param in kalman_params for param in required_params):
+        # Handle two possible formats for transition covariance
+        has_matrix_format = "transition_covariance" in kalman_params
+        has_individual_format = (
+            "transition_covariance_weight" in kalman_params
+            and "transition_covariance_trend" in kalman_params
+        )
+
+        # Must have at least one format
+        if not has_matrix_format and not has_individual_format:
             return False
 
-        # Validate transition covariance (2x2 matrix)
-        trans_cov = kalman_params["transition_covariance"]
-        if not isinstance(trans_cov, list) or len(trans_cov) != 2:
-            return False
-        for row in trans_cov:
-            if not isinstance(row, list) or len(row) != 2:
+        # Validate transition covariance based on format
+        if has_matrix_format:
+            # Validate as 2x2 matrix
+            trans_cov = kalman_params["transition_covariance"]
+            if not isinstance(trans_cov, list) or len(trans_cov) != 2:
                 return False
-            for val in row:
-                if not isinstance(val, (int, float)) or val < 0:
+            for row in trans_cov:
+                if not isinstance(row, list) or len(row) != 2:
+                    return False
+                for val in row:
+                    # Handle Decimal type from DynamoDB
+                    try:
+                        float_val = float(val)
+                        if float_val < 0:
+                            return False
+                    except (TypeError, ValueError):
+                        return False
+
+        if has_individual_format:
+            # Validate individual fields
+            for field in ["transition_covariance_weight", "transition_covariance_trend"]:
+                val = kalman_params[field]
+                try:
+                    float_val = float(val)
+                    if float_val < 0:
+                        return False
+                except (TypeError, ValueError):
                     return False
 
-        # Validate observation covariance (scalar or 1x1 matrix)
+        # Validate observation covariance
+        if "observation_covariance" not in kalman_params:
+            return False
+
         obs_cov = kalman_params["observation_covariance"]
         if isinstance(obs_cov, list):
             if (
@@ -183,10 +210,19 @@ class PersistenceValidator:
                 or len(obs_cov[0]) != 1
             ):
                 return False
-            if not isinstance(obs_cov[0][0], (int, float)) or obs_cov[0][0] < 0:
+            try:
+                float_val = float(obs_cov[0][0])
+                if float_val < 0:
+                    return False
+            except (TypeError, ValueError):
                 return False
-        elif not isinstance(obs_cov, (int, float)) or obs_cov < 0:
-            return False
+        else:
+            try:
+                float_val = float(obs_cov)
+                if float_val < 0:
+                    return False
+            except (TypeError, ValueError):
+                return False
 
         return True
 

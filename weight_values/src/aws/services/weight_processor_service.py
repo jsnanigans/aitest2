@@ -53,7 +53,7 @@ class WeightProcessorService:
         self.config = config or ConfigManager.load_config()
 
     def process_batch(
-        self, user_id: str, measurements: List[Measurement]
+        self, user_id: str, measurements: List[Measurement], user_height_m: Optional[float] = None
     ) -> ProcessResponseData:
         """
         Process a batch of measurements for a user.
@@ -89,7 +89,7 @@ class WeightProcessorService:
 
         for measurement in sorted_measurements:
             try:
-                result = self._process_single(user_id, measurement)
+                result = self._process_single(user_id, measurement, user_height_m)
                 results.append(result)
 
                 if result.accepted:
@@ -209,7 +209,7 @@ class WeightProcessorService:
         )
 
     def _process_single(
-        self, user_id: str, measurement: Measurement
+        self, user_id: str, measurement: Measurement, user_height_m: Optional[float] = None
     ) -> MeasurementResult:
         """Process a single measurement."""
         # Call the existing processor
@@ -221,6 +221,7 @@ class WeightProcessorService:
             unit=measurement.weight_unit,
             config=self.config,
             db=self.state_store,
+            user_height_m=user_height_m,
         )
 
         # Convert to API model

@@ -53,6 +53,7 @@ def process_measurement(
     config: Dict[str, Any],
     unit: str = "kg",
     db=None,
+    user_height_m: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Process a single weight measurement through the complete pipeline.
@@ -86,7 +87,7 @@ def process_measurement(
 
     # Step 1: Data cleaning and preprocessing
     cleaned_weight, preprocess_metadata = DataQualityPreprocessor.preprocess(
-        weight, source, timestamp, user_id, unit
+        weight, source, timestamp, user_id, unit, user_height_m
     )
 
     # If preprocessing rejected the measurement
@@ -110,8 +111,8 @@ def process_measurement(
         # Ensure all numeric values from DynamoDB are proper Python types
         state = ensure_numeric_types(state)
 
-    # Add user height to config for validation
-    user_height = DataQualityPreprocessor.get_user_height(user_id)
+    # Use provided height or default
+    user_height = user_height_m if user_height_m is not None else PHYSIOLOGICAL_LIMITS["DEFAULT_HEIGHT_M"]
 
     # Step 3: Check for any type of reset using ResetManager
     kalman_config = config.get("kalman", {})

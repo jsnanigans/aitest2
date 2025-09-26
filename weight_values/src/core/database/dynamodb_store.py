@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 try:
     import boto3
     from botocore.exceptions import ClientError
+    from botocore.config import Config
 
     BOTO3_AVAILABLE = True
 except ImportError:
@@ -26,6 +27,9 @@ except ImportError:
 
 class DynamoDBStateStore(StateStore):
     """DynamoDB-based state storage for AWS deployment."""
+
+    # Class-level session for connection reuse
+    _session = None
 
     def __init__(self, table_name: str = None, region: str = None):
         """
@@ -48,6 +52,22 @@ class DynamoDBStateStore(StateStore):
         # Check if we're running against DynamoDB Local
         endpoint_url = os.getenv("DYNAMODB_ENDPOINT")
 
+        # Configure boto3 client with optimized settings
+        boto_config = Config(
+            region_name=self.region,
+            retries={
+                'max_attempts': 3,  # Reduced from default 9 for faster failure
+                'mode': 'adaptive'  # Better backoff strategy
+            },
+            max_pool_connections=50,  # Increase connection pool size
+            connect_timeout=5,  # 5 second connection timeout
+            read_timeout=10,  # 10 second read timeout
+        )
+
+        # Reuse session for better connection pooling
+        if DynamoDBStateStore._session is None:
+            DynamoDBStateStore._session = boto3.Session()
+
         # Initialize DynamoDB client
         if endpoint_url:
             # Local development with DynamoDB Local
@@ -55,9 +75,9 @@ class DynamoDBStateStore(StateStore):
             # Use environment credentials if set, otherwise use dummy for local
             access_key = os.getenv("AWS_ACCESS_KEY_ID", "dummy")
             secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "dummy")
-            self.dynamodb = boto3.resource(
+            self.dynamodb = DynamoDBStateStore._session.resource(
                 "dynamodb",
-                region_name=self.region,
+                config=boto_config,
                 endpoint_url=endpoint_url,
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
@@ -65,7 +85,7 @@ class DynamoDBStateStore(StateStore):
         else:
             # Production AWS DynamoDB
             logger.info(f"Connecting to AWS DynamoDB in region {self.region}")
-            self.dynamodb = boto3.resource("dynamodb", region_name=self.region)
+            self.dynamodb = DynamoDBStateStore._session.resource("dynamodb", config=boto_config)
 
         # Initialize table reference (create if necessary on first operation)
         self.table = self.dynamodb.Table(self.table_name)
@@ -617,3 +637,26 @@ class DynamoDBStateStore(StateStore):
         elif isinstance(value, list):
             return [self._deserialize_value(item) for item in value]
         return value
+
+    def close_connections(self):
+        """
+        Close all connections and reset session.
+        Called when resetting the database instance.
+        """
+        try:
+            # Close any active connections
+            if hasattr(self, 'dynamodb') and self.dynamodb:
+                # DynamoDB resource doesn't have explicit close, but we can
+                # reset the session to force new connections
+                pass
+
+            # Reset the class-level session to force new connections
+            DynamoDBStateStore._session = None
+            logger.debug("DynamoDB connections reset")
+        except Exception as e:
+            logger.warning(f"Error closing DynamoDB connections: {e}")
+
+    @classmethod
+    def reset_session(cls):
+        """Reset the class-level session (useful for testing)."""
+        cls._session = None

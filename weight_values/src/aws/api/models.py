@@ -112,6 +112,7 @@ class ProcessRequest(BaseModel):
 
     measurements: List[Measurement] = Field(..., min_items=1, description="Measurements to process")
     options: ProcessOptions = Field(default_factory=ProcessOptions)
+    user_height_m: Optional[float] = Field(None, gt=0, le=3.0, description="User height in meters (optional)")
 
 
 class CleanupOptions(BaseModel):
@@ -143,6 +144,7 @@ class ReplayRequest(BaseModel):
     replay_from_timestamp: datetime = Field(..., description="Timestamp to replay from")
     measurements: List[Measurement] = Field(..., min_items=1, description="Measurements to replay")
     options: ReplayOptions = Field(default_factory=ReplayOptions)
+    user_height_m: Optional[float] = Field(None, gt=0, le=3.0, description="User height in meters (optional)")
 
 
 # ============= Response Models =============
@@ -245,7 +247,9 @@ class ReplayResponseData(BaseModel):
 
     user_id: str
     replay_from: datetime
+    replay_status: str = "completed"  # Status of replay operation
     measurements_processed: int
+    measurements_replayed: int  # Alias for measurements_processed
     measurements_accepted: int
     measurements_rejected: int
     results: List[MeasurementResult]

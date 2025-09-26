@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from src.aws.api.models import Measurement
 from src.core.processing.processor import process_measurement
@@ -16,6 +16,7 @@ def replay_measurements(
     replay_from: datetime,
     state_store,
     config: Dict[str, Any],
+    user_height_m: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Simple replay: restore state and reprocess measurements.
@@ -63,6 +64,7 @@ def replay_measurements(
                 unit=measurement.weight_unit,
                 config=config,
                 db=state_store,
+                user_height_m=user_height_m,
             )
 
             results.append(

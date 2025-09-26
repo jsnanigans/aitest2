@@ -187,7 +187,7 @@ def handle_process(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
 
         # Fix: Wrap response properly to avoid NoneType issues
         try:
-            response = service.process_batch(user_id, request.measurements)
+            response = service.process_batch(user_id, request.measurements, request.user_height_m)
         except AttributeError as e:
             if "NoneType" in str(e):
                 # This is the outlier detection bug - provide better error
@@ -350,13 +350,16 @@ def handle_replay(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
             replay_from=request.replay_from_timestamp,
             state_store=state_store,
             config=config,
+            user_height_m=request.user_height_m,
         )
 
         if result["success"]:
             response_data = ReplayResponseData(
                 user_id=user_id,
                 replay_from=request.replay_from_timestamp,
+                replay_status="completed",  # Explicitly set status
                 measurements_processed=result["processed_count"],
+                measurements_replayed=result["processed_count"],  # Same as processed for compatibility
                 measurements_accepted=result["accepted_count"],
                 measurements_rejected=result["rejected_count"],
                 results=[

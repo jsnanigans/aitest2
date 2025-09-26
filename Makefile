@@ -142,17 +142,17 @@ sam-build:
 # Build for local testing
 sam-build-local:
 	@echo "🔨 Building for local testing..."
-	# @echo "📦 Using container to ensure x86_64 compatibility..."
-	# @sam build --template sam-template-local.yaml --use-container --parallel
-	@sam build --template sam-template-local.yaml --parallel
+	@sam build --template sam-template-local.yaml
 	@echo "✅ Local build complete"
 
 sam-run-local:
 	@echo "🚀 Starting SAM Local API..."
 	@echo "📡 API available at http://localhost:3080"
+	@echo "📝 Logs will be written to server.log"
 	@sam local start-api \
 		--port 3080 \
 		--template .aws-sam/build/template.yaml \
+		--log-file server.log \
 		--parameter-overrides \
 			Environment=local \
 			DynamoDBEndpoint=http://localhost:8000
@@ -188,11 +188,16 @@ sam-invoke:
 sam-logs:
 	@if [ -z "$(STACK)" ]; then \
 		echo "📋 Viewing local SAM logs..."; \
-		tail -50 aws/.aws-sam/local/logs/*.log 2>/dev/null || echo "No logs found"; \
+		tail -f server.log 2>/dev/null || echo "No server.log found. Start API with: make sam-local"; \
 	else \
 		echo "📋 Viewing logs for stack $(STACK)..."; \
 		sam logs -n WeightProcessorFunction --stack-name $(STACK) --tail; \
 	fi
+
+# View recent log entries (without following)
+sam-logs-recent:
+	@echo "📋 Recent log entries:"
+	@tail -100 server.log 2>/dev/null || echo "No server.log found"
 
 # Delete AWS stack
 sam-delete:
