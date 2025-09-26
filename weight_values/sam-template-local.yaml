@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Weight Processor Service - Serverless API
+
+Parameters:
+  Environment:
+    Type: String
+    Default: local
+    Description: Environment name
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 1024
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        DYNAMODB_TABLE_NAME: weight-processor-state-local
+        DYNAMODB_ENDPOINT: http://host.docker.internal:8000
+        AWS_REGION: us-east-1
+        AWS_ACCESS_KEY_ID: local
+        AWS_SECRET_ACCESS_KEY: local
+        ENVIRONMENT: local
+
+Resources:
+  # API Gateway (Local - No Auth)
+  WeightProcessorApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: weight-processor-local
+      StageName: local
+      Cors:
+        AllowMethods: "'GET, POST, DELETE, OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      Auth:
+        ApiKeyRequired: false
+
+  # Lambda Function
+  WeightProcessorFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+      BuildProperties:
+        RequirementsFile: requirements-lambda.txt
+    Properties:
+      FunctionName: weight-processor-local
+      CodeUri: .
+      Handler: src.aws.lambda_handler.handler
+      Runtime: python3.12
+      Architectures:
+        - x86_64
+      Description: Process weight measurements with Kalman filtering
+      Environment:
+        Variables:
+          KALMAN_ENABLED: 'true'
+          KALMAN_ADAPTIVE: 'true'
+          KALMAN_PROCESS_NOISE: '1.0'
+          KALMAN_OBS_NOISE: '4.0'
+          KALMAN_HARD_GAP_DAYS: '30'
+          QUALITY_SCORING_ENABLED: 'true'
+          QS_WEIGHT_KALMAN: '0.4'
+          QS_WEIGHT_TEMPORAL: '0.3'
+          QS_WEIGHT_SOURCE: '0.3'
+          QS_OUTLIER_OVERRIDE: '0.8'
+          OUTLIER_DETECTION_ENABLED: 'true'
+          OUTLIER_IQR_MULTIPLIER: '1.5'
+          REPLAY_ENABLED: 'false'
+      Events:
+        HealthCheck:
+          Type: Api
+          Properties:
+            RestApiId: !Ref WeightProcessorApi
+            Path: /api/v1/health
+            Method: GET
+        ProcessMeasurements:
+          Type: Api
+          Properties:
+            RestApiId: !Ref WeightProcessorApi
+            Path: /api/v1/process/{userId}
+            Method: POST
+        CleanupUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref WeightProcessorApi
+            Path: /api/v1/cleanup/{userId}
+            Method: POST
+        ReplayMeasurements:
+          Type: Api
+          Properties:
+            RestApiId: !Ref WeightProcessorApi
+            Path: /api/v1/replay/{userId}
+            Method: POST
+        GetUserState:
+          Type: Api
+          Properties:
+            RestApiId: !Ref WeightProcessorApi
+            Path: /api/v1/state/{userId}
+            Method: GET
+        DeleteUserState:
+          Type: Api
+          Properties:
+            RestApiId: !Ref WeightProcessorApi
+            Path: /api/v1/state/{userId}
+            Method: DELETE
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: weight-processor-state-local
+
+  # Note: For local development, DynamoDB is running in Docker
+  # and doesn't need to be defined in the template
+
+Outputs:
+  ApiEndpoint:
+    Description: Local API Gateway endpoint URL
+    Value: http://localhost:5448
+
+  FunctionName:
+    Description: Lambda function name
+    Value: weight-processor-local

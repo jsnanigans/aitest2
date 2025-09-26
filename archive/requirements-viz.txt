@@ -1,4 +1,0 @@
-# Visualization and analysis dependencies
-matplotlib>=3.10.6
-plotly>=6.3.0
-pandas>=2.3.2

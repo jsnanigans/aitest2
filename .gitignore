@@ -57,3 +57,9 @@ config/*.toml
 clean_db_export/*.csv
 report_output
 .aws-sam
+
+build
+data
+local
+ouput
+
