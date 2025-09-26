@@ -7,10 +7,9 @@ from typing import List, Dict, Any, Optional
 from src.aws.api.models import (
     Measurement,
     MeasurementResult,
-    ProcessResponse,
-    CleanupResponse,
-    StateUpdate,
-    FinalState,
+    ProcessResponseData,
+    CleanupResponseData,
+    StateInfo,
     HistoricalConflictDetails,
     HistoricalConflictResponse,
 )
@@ -55,7 +54,7 @@ class WeightProcessorService:
 
     def process_batch(
         self, user_id: str, measurements: List[Measurement]
-    ) -> ProcessResponse:
+    ) -> ProcessResponseData:
         """
         Process a batch of measurements for a user.
 
@@ -64,13 +63,13 @@ class WeightProcessorService:
             measurements: List of measurements to process
 
         Returns:
-            ProcessResponse with results for all measurements
+            ProcessResponseData with results for all measurements
 
         Raises:
             HistoricalConflictError: If measurements are before last processed timestamp
         """
         # Sort measurements chronologically
-        sorted_measurements = sorted(measurements, key=lambda m: m.effective_date_time)
+        sorted_measurements = sorted(measurements, key=lambda m: m.measured_at)
 
         # Check for historical conflicts
         conflict = self._check_historical_conflict(user_id, sorted_measurements)
@@ -99,13 +98,13 @@ class WeightProcessorService:
                     rejected_count += 1
 
             except Exception as e:
-                logger.error(f"Error processing {measurement.uuid}: {e}")
+                logger.error(f"Error processing {measurement.measurement_id}: {e}")
                 results.append(
                     MeasurementResult(
-                        uuid=measurement.uuid,
+                        measurement_id=measurement.measurement_id,
                         accepted=False,
                         rejection_reason=str(e),
-                        stage="processing",
+                        processing_stage="processing",
                     )
                 )
                 rejected_count += 1
@@ -117,24 +116,25 @@ class WeightProcessorService:
         # Create state update
         state_update = None
         if sorted_measurements:
-            state_update = StateUpdate(
+            state_update = StateInfo(
+                user_id=user_id,
                 previous_weight=previous_weight,
                 current_weight=current_weight,
-                last_processed_timestamp=sorted_measurements[-1].effective_date_time,
+                last_processed_at=sorted_measurements[-1].measured_at,
             )
 
-        return ProcessResponse(
-            status="processed",
-            processed_count=len(results),
-            accepted_count=accepted_count,
-            rejected_count=rejected_count,
-            measurements=results,
+        return ProcessResponseData(
+            user_id=user_id,
+            measurements_processed=len(results),
+            measurements_accepted=accepted_count,
+            measurements_rejected=rejected_count,
+            results=results,
             state_update=state_update,
         )
 
     def cleanup(
         self, user_id: str, measurements: List[Measurement], reset_state: bool = True
-    ) -> CleanupResponse:
+    ) -> CleanupResponseData:
         """
         Perform one-time cleanup for a user.
 
@@ -144,7 +144,7 @@ class WeightProcessorService:
             reset_state: Whether to reset state before processing
 
         Returns:
-            CleanupResponse with results for all measurements
+            CleanupResponseData with results for all measurements
         """
         # Reset state if requested
         if reset_state:
@@ -152,7 +152,7 @@ class WeightProcessorService:
             logger.info(f"Reset state for user {user_id}")
 
         # Sort measurements chronologically
-        sorted_measurements = sorted(measurements, key=lambda m: m.effective_date_time)
+        sorted_measurements = sorted(measurements, key=lambda m: m.measured_at)
 
         # Process all measurements
         results = []
@@ -170,13 +170,13 @@ class WeightProcessorService:
                     rejected_count += 1
 
             except Exception as e:
-                logger.error(f"Error processing {measurement.uuid}: {e}")
+                logger.error(f"Error processing {measurement.measurement_id}: {e}")
                 results.append(
                     MeasurementResult(
-                        uuid=measurement.uuid,
+                        measurement_id=measurement.measurement_id,
                         accepted=False,
                         rejection_reason=str(e),
-                        stage="processing",
+                        processing_stage="processing",
                     )
                 )
                 rejected_count += 1
@@ -186,25 +186,26 @@ class WeightProcessorService:
         final_state = None
 
         if final_state_data:
-            final_state = FinalState(
+            final_state = StateInfo(
+                user_id=user_id,
                 current_weight=final_state_data.get("last_raw_weight", 0),
-                uncertainty=final_state_data.get("last_covariance", 1.0),
-                last_processed_timestamp=final_state_data.get(
+                previous_weight=None,
+                last_processed_at=final_state_data.get(
                     "last_timestamp", datetime.now()
                 ),
-                total_measurements=len(results),
+                measurements_count=len(results),
+                last_source=None,
                 adaptation_state="converged"
                 if final_state_data.get("measurements_since_reset", 0) > 10
                 else "adapting",
             )
 
-        return CleanupResponse(
+        return CleanupResponseData(
             user_id=user_id,
-            processed_count=len(results),
-            accepted_count=accepted_count,
-            rejected_count=rejected_count,
-            measurements=results,
-            final_state=final_state,
+            cleanup_type="reset_adaptive" if reset_state else "cleanup",
+            measurements_processed=len(results),
+            state_cleared=reset_state,
+            message=f"Processed {len(results)} measurements"
         )
 
     def _process_single(
@@ -214,25 +215,25 @@ class WeightProcessorService:
         # Call the existing processor
         result = process_measurement(
             user_id=user_id,
-            weight=measurement.weight,
-            timestamp=measurement.effective_date_time,
+            weight=measurement.weight_value,
+            timestamp=measurement.measured_at,
             source=measurement.source,
-            unit=measurement.unit,
+            unit=measurement.weight_unit,
             config=self.config,
             db=self.state_store,
         )
 
         # Convert to API model
         return MeasurementResult(
-            uuid=measurement.uuid,
+            measurement_id=measurement.measurement_id,
             accepted=result.get("accepted", False),
             quality_score=result.get("quality_score"),
             kalman_estimate=result.get("kalman_estimate"),
             kalman_uncertainty=result.get("kalman_uncertainty"),
             rejection_reason=result.get("reason"),
-            stage=result.get("stage"),
+            processing_stage=result.get("stage"),
             reset_triggered=result.get("reset_triggered", False),
-            components=result.get("quality_components"),
+            quality_components=result.get("quality_components"),
         )
 
     def _check_historical_conflict(
@@ -250,17 +251,17 @@ class WeightProcessorService:
 
         # Find conflicting measurements
         conflicting = [
-            str(m.uuid) for m in measurements if m.effective_date_time < last_timestamp
+            str(m.measurement_id) for m in measurements if m.measured_at < last_timestamp
         ]
 
         if not conflicting:
             return None  # No conflict
 
         # Get earliest measurement
-        earliest = min(measurements, key=lambda m: m.effective_date_time)
+        earliest = min(measurements, key=lambda m: m.measured_at)
 
         # Check for available snapshot
-        snapshot = self.state_store.get_snapshot(user_id, earliest.effective_date_time)
+        snapshot = self.state_store.get_snapshot(user_id, earliest.measured_at)
         snapshot_time = None
         if snapshot and "snapshotTime" in snapshot:
             snapshot_time = datetime.fromisoformat(snapshot["snapshotTime"])
@@ -268,9 +269,9 @@ class WeightProcessorService:
         return HistoricalConflictResponse(
             error="One or more measurements are before last processed timestamp",
             details=HistoricalConflictDetails(
-                earliest_measurement_timestamp=earliest.effective_date_time,
+                earliest_measurement_timestamp=earliest.measured_at,
                 last_processed_timestamp=last_timestamp,
-                replay_from_timestamp=earliest.effective_date_time,
+                replay_from_timestamp=earliest.measured_at,
                 snapshot_available=snapshot_time,
                 conflicting_measurements=conflicting,
             ),

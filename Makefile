@@ -142,8 +142,9 @@ sam-build:
 # Build for local testing
 sam-build-local:
 	@echo "🔨 Building for local testing..."
-	@echo "📦 Using container to ensure x86_64 compatibility..."
-	@sam build --template sam-template-local.yaml --use-container
+	# @echo "📦 Using container to ensure x86_64 compatibility..."
+	# @sam build --template sam-template-local.yaml --use-container --parallel
+	@sam build --template sam-template-local.yaml --parallel
 	@echo "✅ Local build complete"
 
 sam-run-local:

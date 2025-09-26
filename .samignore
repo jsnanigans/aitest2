@@ -1,0 +1,102 @@
+# LARGE DIRECTORIES - MUST EXCLUDE
+data/
+data/**
+presentation/
+presentation/**
+archive/
+archive/**
+reports/
+reports/**
+output/
+output/**
+plans/
+plans/**
+docs/
+docs/**
+local/
+local/**
+
+# Test files
+tests/
+tests/**
+test_*.py
+*_test.py
+**/*test*
+**/test_*
+
+# Documentation
+*.md
+LICENSE
+README*
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# SAM/AWS
+.aws-sam/
+samconfig.toml
+sam-template-*.yaml
+template.yaml
+
+# Docker
+docker-compose.yml
+Dockerfile*
+.dockerignore
+
+# Scripts and config
+run_tests.sh
+*.sh
+*.toml
+*.ini
+.env*
+
+# Jupyter/Notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Node (just in case)
+node_modules/
+package*.json
+pnpm-lock.yaml
+yarn.lock
+
+# Other unnecessary files
+*.log
+*.pid
+*.seed
+*.csv
+*.dat
+*.out
+*.gz
+*.zip
+*.tar
+*.bak
+*.backup
+*.tmp
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/

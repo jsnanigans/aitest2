@@ -252,25 +252,6 @@ class ReplayResponseData(BaseModel):
     final_state: Optional[StateInfo] = None
 
 
-# ============= Historical Conflict Models =============
-
-class HistoricalConflictDetails(BaseModel):
-    """Details about a historical conflict."""
-
-    earliest_measurement_timestamp: datetime
-    last_processed_timestamp: datetime
-    replay_from_timestamp: datetime
-    snapshot_available: Optional[datetime] = None
-    conflicting_measurement_ids: List[str]
-
-
-class HistoricalConflictResponse(BaseModel):
-    """Response for historical conflict detection."""
-
-    error: str
-    details: HistoricalConflictDetails
-
-
 # ============= Helper Functions =============
 
 def create_success_response(data: Any, meta: Optional[ApiMeta] = None) -> StandardResponse:
