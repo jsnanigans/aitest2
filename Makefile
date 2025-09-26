@@ -142,7 +142,8 @@ sam-build:
 # Build for local testing
 sam-build-local:
 	@echo "🔨 Building for local testing..."
-	@sam build --template sam-template-local.yaml
+	@echo "📦 Using container to ensure x86_64 compatibility..."
+	@sam build --template sam-template-local.yaml --use-container
 	@echo "✅ Local build complete"
 
 sam-run-local:
@@ -150,7 +151,7 @@ sam-run-local:
 	@echo "📡 API available at http://localhost:3080"
 	@sam local start-api \
 		--port 3080 \
-		--template sam-template.yaml \
+		--template .aws-sam/build/template.yaml \
 		--parameter-overrides \
 			Environment=local \
 			DynamoDBEndpoint=http://localhost:8000

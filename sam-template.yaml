@@ -53,7 +53,7 @@ Resources:
           - "src/local/**"
     Properties:
       FunctionName: !Sub weight-processor-${Environment}
-      CodeUri: ../
+      CodeUri: .
       Handler: src.aws.lambda_handler.handler
       Runtime: python3.12
       Description: Process weight measurements with Kalman filtering

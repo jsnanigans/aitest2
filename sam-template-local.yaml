@@ -48,6 +48,8 @@ Resources:
       CodeUri: .
       Handler: src.aws.lambda_handler.handler
       Runtime: python3.12
+      Architectures:
+        - x86_64
       Description: Process weight measurements with Kalman filtering
       Environment:
         Variables:
