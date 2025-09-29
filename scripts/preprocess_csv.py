@@ -14,7 +14,7 @@ CONFIG = {
         "manual-entry",
     ],
     "min_datetime": "2010-01-01",
-    "max_datetime": "2025-09-05",
+    "max_datetime": "2025-10-01",
     "max_buffer_size": 10000,
     "output_suffix": "_optimized",
     "verbose": True,
@@ -98,9 +98,13 @@ def process_user_buffer(
     seen = set()
 
     for row in user_data:
+        # Handle both old and new column names
+        date_value = row.get("effective_date_time") or row.get("effectiveDateTime", "")
+        weight_value = row.get("value_quantity") or row.get("weight", "")
+
         key = (
-            row["effectiveDateTime"],
-            row["weight"],
+            date_value,
+            weight_value,
             row["source_type"],
             row.get("unit", "kg"),
         )
@@ -211,7 +215,9 @@ def preprocess_csv(
                 stats["filtered_by_invalid"] += 1
                 continue
 
-            weight_str = row.get("weight", "").strip()
+            # Handle both old and new column names for weight
+            weight_str = row.get("value_quantity", "") or row.get("weight", "")
+            weight_str = weight_str.strip()
             if not weight_str or weight_str.upper() == "NULL":
                 stats["filtered_rows"] += 1
                 stats["filtered_by_invalid"] += 1
@@ -234,7 +240,9 @@ def preprocess_csv(
                 stats["filtered_by_source"] += 1
                 continue
 
-            date_str = row.get("effectiveDateTime", "").strip()
+            # Handle both old and new column names for date
+            date_str = row.get("effective_date_time", "") or row.get("effectiveDateTime", "")
+            date_str = date_str.strip()
             parsed_dt = parse_datetime(date_str)
 
             if parsed_dt is None:

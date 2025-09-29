@@ -11,17 +11,31 @@ import math
 import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone as tz
 import tomllib
-
-# Add parent directory to path to import core
-import sys
 from pathlib import Path
 
+# Load environment variables from .env file if it exists
+def load_env_file():
+    """Load environment variables from .env file if present."""
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        os.environ[key.strip()] = value.strip()
+
+# Load environment variables before imports
+load_env_file()
+
+# Add parent directory to path to import core
 sys.path.insert(0, str(Path(__file__).parent.parent / "weight_values" / "src"))
 
 from core.database import get_state_db
-from core.processing import process_measurement
+from core.processing.processor import process_measurement
 from core.processing.validation import DataQualityPreprocessor
 
 
@@ -106,7 +120,10 @@ def generate_single_visualization(args):
 
     try:
         # Import here since this runs in a subprocess
-        from core.viz.visualization import create_weight_timeline
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent.parent / "weight_values" / "src"))
+        from local.viz.visualization import create_weight_timeline
 
         dashboard_path = create_weight_timeline(
             results, user_id, str(viz_dir), config=config
@@ -178,9 +195,6 @@ def stream_process(
     verbosity_level = verbosity_map.get(verbosity_str, 2)
     set_verbosity(verbosity_level)
 
-    # Load height data once
-    DataQualityPreprocessor.load_height_data()
-
     # Database for Kalman state
     db = get_state_db()
 
@@ -196,7 +210,7 @@ def stream_process(
             # Use BufferFactory for better testability and instance management
             from core.processing.buffer_factory import get_factory
             from core.processing.outlier_detection import OutlierDetector
-            from core.replay.manager import ReplayManager
+            from core.replay.replay_manager import ReplayManager
 
             # Create buffer using factory (dependency injection)
             buffer_factory = get_factory()
@@ -347,6 +361,8 @@ def stream_process(
         print(
             f"  Processing {len(eligible_users)} users (after offset={user_offset}, max={max_users})"
         )
+        if debug and eligible_users:
+            print(f"DEBUG: Eligible users: {list(eligible_users)[:5]}...")
 
     # Main processing loop
     with open(csv_path) as f:
@@ -364,6 +380,8 @@ def stream_process(
 
         for row in reader:
             stats["total_rows"] += 1
+            if debug and stats["total_rows"] <= 5:
+                print(f"DEBUG: Processing row {stats['total_rows']}: user_id={row.get('user_id')}")
 
             # Progress update
             if stats["total_rows"] % config["logging"]["progress_interval"] == 0:
@@ -375,7 +393,9 @@ def stream_process(
                     f"Rate: {rate:.0f} rows/sec"
                 )
 
-            # Parse row
+            # Parse row with new CSV format
+            # New format: measurement_id,user_id,effectiveDateTime,source_type,weight,unit
+            measurement_id = row.get("measurement_id", "")  # Optional, not used in processing
             user_id = row.get("user_id")
             if not user_id:
                 continue
@@ -387,7 +407,11 @@ def stream_process(
             else:
                 # Only process users in the eligible set
                 if user_id not in eligible_users_set:
+                    if debug:
+                        print(f"DEBUG: Skipping user {user_id} - not in eligible_users_set")
                     continue
+                elif debug and stats["total_rows"] <= 5:
+                    print(f"DEBUG: User {user_id} is eligible, continuing processing")
 
             # Parse weight with validation
             weight_str = row.get("weight", "").strip()
@@ -407,9 +431,9 @@ def stream_process(
                 stats["parse_errors"] = stats.get("parse_errors", 0) + 1
                 continue
 
-            # Parse metadata
+            # Parse metadata - updated for new CSV format
             date_str = row.get("effectiveDateTime")
-            source = row.get("source_type") or row.get("source", "unknown")
+            source = row.get("source_type", "unknown")  # Direct column in new format
             unit = row.get("unit", "").strip()  # NO DEFAULT - must be explicit
 
             # Skip BSA measurements
@@ -453,6 +477,9 @@ def stream_process(
                 if "quality_scoring" not in full_config:
                     full_config["quality_scoring"] = {}
 
+                if debug and stats["total_rows"] <= 5:
+                    print(f"DEBUG: Calling process_measurement for {user_id}, weight={weight}, unit={unit}")
+
                 result = process_measurement(
                     user_id=user_id,
                     weight=weight,
@@ -462,9 +489,12 @@ def stream_process(
                     unit=unit,
                     db=db,
                 )
+
+                if debug and stats["total_rows"] <= 5:
+                    print(f"DEBUG: Result for {user_id}: {result}")
             except Exception as e:
                 stats["processing_errors"] = stats.get("processing_errors", 0) + 1
-                if config.get("logging", {}).get("verbose", False):
+                if debug or config.get("logging", {}).get("verbose", False):
                     print(f"Error processing {user_id}: {e}")
                 continue
 
@@ -740,7 +770,7 @@ def stream_process(
             # Generate index.html for dashboard navigation
             if successful > 0:
                 try:
-                    from core.viz.viz_index import create_index_from_results
+                    from local.viz.viz_index import create_index_from_results
 
                     index_path = create_index_from_results(
                         all_results=user_results, output_dir=str(viz_dir)
@@ -797,7 +827,7 @@ def _process_replay_buffer(
         try:
             # Get database instance
             from core.database import get_state_db
-            from core.replay.processor import ReplayProcessor
+            from core.replay.replay_processor import ReplayProcessor
 
             db = get_state_db()
 
@@ -916,16 +946,25 @@ def _process_replay_buffer(
 
 
 def parse_timestamp(date_str: str) -> datetime:
-    """Parse various timestamp formats."""
+    """Parse various timestamp formats and return timezone-aware datetime in UTC."""
     if not date_str:
-        return datetime.now()
+        return datetime.now(tz.utc)
 
     if "T" in date_str:
-        return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        # Parse ISO format
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        # Ensure it has UTC timezone
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=tz.utc)
+        return dt.astimezone(tz.utc)
     elif " " in date_str:
-        return datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+        # Parse as naive and add UTC timezone
+        dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+        return dt.replace(tzinfo=tz.utc)
     else:
-        return datetime.strptime(date_str, "%Y-%m-%d")
+        # Parse date only and add UTC timezone
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.replace(tzinfo=tz.utc)
 
 
 if __name__ == "__main__":

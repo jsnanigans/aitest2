@@ -10,12 +10,12 @@ Outputs a filtered CSV with only accepted (non-rejected) measurements.
 import argparse
 import csv
 import json
-import time
-import requests
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+import requests
 
 
 @dataclass
@@ -233,13 +233,15 @@ def load_csv_data(csv_path: str, max_users: int = 0, max_rows: int = 0) -> Tuple
             if max_rows > 0 and row_count > max_rows:
                 break
 
-            measurement_id = row.get("measurement_id")
+            # Handle both old and new column names for ID
+            measurement_id = row.get("id") or row.get("measurement_id")
             user_id = row.get("user_id")
             if not user_id or not measurement_id:
                 continue
 
-            # Parse and validate weight
-            weight_str = row.get("weight", "").strip()
+            # Parse and validate weight - handle both old and new column names
+            weight_str = row.get("value_quantity", "") or row.get("weight", "")
+            weight_str = weight_str.strip()
             if not weight_str or weight_str.upper() == "NULL":
                 continue
 
@@ -250,8 +252,8 @@ def load_csv_data(csv_path: str, max_users: int = 0, max_rows: int = 0) -> Tuple
             except (ValueError, TypeError):
                 continue
 
-            # Parse other fields
-            date_str = row.get("effectiveDateTime", "")
+            # Parse other fields - handle both old and new column names
+            date_str = row.get("effective_date_time", "") or row.get("effectiveDateTime", "")
             source = row.get("source_type", "unknown")
             unit = row.get("unit", "kg")
 
@@ -422,7 +424,7 @@ def process_individual_measurements(
         if i % 10 == 0 or i == total_users:
             print(f"  Progress: {i}/{total_users} users, {processed_measurements:,}/{total_measurements:,} measurements")
 
-    print(f"\nIndividual processing complete:")
+    print("\nIndividual processing complete:")
     print(f"  Successful users: {successful_users:,}")
     print(f"  Failed users: {failed_users:,}")
     print(f"  Total measurements processed: {processed_measurements:,}")
@@ -509,7 +511,7 @@ def process_replay_batches(
         replay_results[user_id] = result
 
     successful_replays = sum(1 for r in replay_results.values() if r["success"])
-    print(f"\nReplay processing complete:")
+    print("\nReplay processing complete:")
     print(f"  Successful replays: {successful_replays:,}/{len(eligible_users):,}")
 
     return replay_results
@@ -549,7 +551,8 @@ def write_filtered_csv(
 
         for row in original_rows:
             user_id = row.get("user_id")
-            timestamp = row.get("effectiveDateTime")
+            # Handle both old and new column names for timestamp
+            timestamp = row.get("effective_date_time") or row.get("effectiveDateTime")
 
             # Convert timestamp to ISO format to match what's stored in AcceptanceTracker
             if timestamp:
@@ -572,8 +575,8 @@ def main():
     parser = argparse.ArgumentParser(description="API-based Weight Stream Processor")
     parser.add_argument(
         "--csv-file",
-        default="data/2025-09-05_all.csv",
-        help="CSV file to process (default: data/2025-09-05_all.csv)"
+        default="data/2025-09-29_weights_all.csv",
+        help="CSV file to process (default: data/2025-09-29_weights_all.csv)"
     )
     parser.add_argument(
         "--api-url",
@@ -701,7 +704,7 @@ def main():
     with open(results_file, 'w') as f:
         json.dump(overall_results, f, indent=2, default=str)
 
-    print(f"\n=== Processing Complete ===")
+    print("\n=== Processing Complete ===")
     print(f"Duration: {overall_results['duration_seconds']:.1f} seconds")
     print(f"Results saved to: {results_file}")
     print(f"Filtered CSV saved to: {filtered_csv_path}")
