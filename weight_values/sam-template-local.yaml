@@ -23,6 +23,21 @@ Globals:
         ENVIRONMENT: local
 
 Resources:
+  # Lambda Layer for Heavy Dependencies
+  WeightProcessorDependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: weight-processor-deps-local
+      Description: Heavy dependencies (numpy, pykalman) for weight processor
+      ContentUri: dependencies/
+      CompatibleRuntimes:
+        - python3.12
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: python3.12
+      BuildProperties:
+        RequirementsFile: requirements-layer.txt
+
   # API Gateway (Local - No Auth)
   WeightProcessorApi:
     Type: AWS::Serverless::Api
@@ -51,6 +66,8 @@ Resources:
       Architectures:
         - x86_64
       Description: Process weight measurements with Kalman filtering
+      Layers:
+        - !Ref WeightProcessorDependenciesLayer
       Environment:
         Variables:
           KALMAN_ENABLED: 'true'

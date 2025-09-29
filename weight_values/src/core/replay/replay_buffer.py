@@ -17,7 +17,7 @@ Key features:
 
 import threading
 from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import logging
 import time
@@ -58,7 +58,7 @@ class ReplayBuffer:
             "buffers_created": 0,
             "buffers_triggered": 0,
             "buffers_cleaned": 0,
-            "last_cleanup_time": datetime.now(),
+            "last_cleanup_time": datetime.now(timezone.utc),
         }
 
     def add_measurement(
@@ -194,7 +194,7 @@ class ReplayBuffer:
 
             # Calculate buffer age
             if buffer_data["first_timestamp"]:
-                age_delta = datetime.now() - buffer_data["first_timestamp"]
+                age_delta = datetime.now(timezone.utc) - buffer_data["first_timestamp"]
                 info["buffer_age_hours"] = age_delta.total_seconds() / 3600
 
             # Check if ready for processing
@@ -235,7 +235,7 @@ class ReplayBuffer:
             max_age_hours = self.buffer_hours * 2
 
         with self._lock:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
             users_to_remove = []
 
             for user_id, buffer_data in self.buffers.items():
@@ -293,7 +293,7 @@ class ReplayBuffer:
             "measurements": [],
             "first_timestamp": None,
             "last_timestamp": None,
-            "created_at": datetime.now(),
+            "created_at": datetime.now(timezone.utc),
         }
         self._stats["buffers_created"] += 1
         logger.debug(f"Created buffer for user {user_id}")
@@ -352,7 +352,7 @@ class ReplayBuffer:
             }
 
         # Calculate buffer age
-        buffer_age = datetime.now() - buffer_data["first_timestamp"]
+        buffer_age = datetime.now(timezone.utc) - buffer_data["first_timestamp"]
         age_hours = buffer_age.total_seconds() / 3600
 
         if self.trigger_mode == "time_based":

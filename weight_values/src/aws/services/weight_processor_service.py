@@ -1,7 +1,7 @@
 """Service layer for weight processing operations."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from src.aws.api.models import (
@@ -191,7 +191,7 @@ class WeightProcessorService:
                 current_weight=final_state_data.get("last_raw_weight", 0),
                 previous_weight=None,
                 last_processed_at=final_state_data.get(
-                    "last_timestamp", datetime.now()
+                    "last_timestamp", datetime.now(timezone.utc)
                 ),
                 measurements_count=len(results),
                 last_source=None,
@@ -248,11 +248,18 @@ class WeightProcessorService:
 
         last_timestamp = current_state["last_timestamp"]
         if isinstance(last_timestamp, str):
-            last_timestamp = datetime.fromisoformat(last_timestamp)
+            # Ensure timezone-aware datetime
+            if "+" in last_timestamp or "Z" in last_timestamp:
+                last_timestamp = datetime.fromisoformat(last_timestamp.replace("Z", "+00:00"))
+            else:
+                # Assume UTC if no timezone info
+                last_timestamp = datetime.fromisoformat(last_timestamp)
+                if last_timestamp.tzinfo is None:
+                    last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
 
         # Find conflicting measurements
         conflicting = [
-            str(m.measurement_id) for m in measurements if m.measured_at < last_timestamp
+            m.measurement_id for m in measurements if m.measured_at < last_timestamp
         ]
 
         if not conflicting:

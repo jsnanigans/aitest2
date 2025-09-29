@@ -18,9 +18,9 @@ import tomllib
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "weight_values" / "src"))
 
-from database import get_state_db
+from core.database import get_state_db
 from core.processing import process_measurement
 from core.processing.validation import DataQualityPreprocessor
 
@@ -106,7 +106,7 @@ def generate_single_visualization(args):
 
     try:
         # Import here since this runs in a subprocess
-        from viz.visualization import create_weight_timeline
+        from core.viz.visualization import create_weight_timeline
 
         dashboard_path = create_weight_timeline(
             results, user_id, str(viz_dir), config=config
@@ -170,7 +170,7 @@ def stream_process(
     output_path.mkdir(exist_ok=True)
 
     # Set verbosity from config
-    from utils import set_verbosity
+    from core.utils import set_verbosity
 
     viz_config = config.get("visualization", {})
     verbosity_str = viz_config.get("verbosity", "normal")
@@ -622,7 +622,7 @@ def stream_process(
 
             # Set visualization verbosity based on number of users
             try:
-                from utils import set_verbosity
+                from core.utils import set_verbosity
 
                 if total_users > 10:
                     set_verbosity(0)  # Silent for many users
@@ -740,7 +740,7 @@ def stream_process(
             # Generate index.html for dashboard navigation
             if successful > 0:
                 try:
-                    from viz.viz_index import create_index_from_results
+                    from core.viz.viz_index import create_index_from_results
 
                     index_path = create_index_from_results(
                         all_results=user_results, output_dir=str(viz_dir)
@@ -796,7 +796,7 @@ def _process_replay_buffer(
         enhanced_mode = False
         try:
             # Get database instance
-            from database import get_state_db
+            from core.database import get_state_db
             from core.replay.processor import ReplayProcessor
 
             db = get_state_db()

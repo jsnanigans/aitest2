@@ -1,0 +1,11 @@
+# Heavy dependencies for Lambda Layer
+# These are the largest dependencies that benefit from layer caching
+
+# Core mathematical library (largest dependency)
+numpy==1.26.4
+
+# Kalman filter implementation
+pykalman==0.9.5
+
+# Total layer size: ~12-14MB
+# This represents ~90% of the total package size

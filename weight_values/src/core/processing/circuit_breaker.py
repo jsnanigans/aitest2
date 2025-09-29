@@ -3,7 +3,7 @@ Circuit breaker pattern for preventing cascading failures.
 """
 
 from enum import Enum
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Any, Optional, Dict
 import logging
 
@@ -92,7 +92,7 @@ class CircuitBreaker:
 
         try:
             # Attempt the call
-            self.last_attempt_time = datetime.now()
+            self.last_attempt_time = datetime.now(timezone.utc)
             result = func(*args, **kwargs)
             self._on_success()
             return result
@@ -106,7 +106,7 @@ class CircuitBreaker:
         if self.last_failure_time is None:
             return True
 
-        elapsed = datetime.now() - self.last_failure_time
+        elapsed = datetime.now(timezone.utc) - self.last_failure_time
         return elapsed.total_seconds() >= self.timeout
 
     def _time_until_recovery(self) -> float:
@@ -114,7 +114,7 @@ class CircuitBreaker:
         if self.last_failure_time is None:
             return 0
 
-        elapsed = datetime.now() - self.last_failure_time
+        elapsed = datetime.now(timezone.utc) - self.last_failure_time
         remaining = self.timeout - elapsed.total_seconds()
         return max(0, remaining)
 
@@ -145,7 +145,7 @@ class CircuitBreaker:
     def _on_failure(self, error: Exception):
         """Handle failed call"""
         self.failure_count += 1
-        self.last_failure_time = datetime.now()
+        self.last_failure_time = datetime.now(timezone.utc)
         self.last_error = error
 
         if self.state == CircuitState.HALF_OPEN:

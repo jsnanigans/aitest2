@@ -5,7 +5,7 @@ Consolidates logging and general utilities.
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from enum import Enum
 
@@ -35,7 +35,7 @@ class StructuredLogger:
             return
 
         log_entry = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": level.value,
             "logger": self.name,
             "message": message,
@@ -79,12 +79,12 @@ class PerformanceTimer:
         self.start_time = None
 
     def __enter__(self):
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(timezone.utc)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.start_time:
-            duration_ms = (datetime.now() - self.start_time).total_seconds() * 1000
+            duration_ms = (datetime.now(timezone.utc) - self.start_time).total_seconds() * 1000
             self.logger.metric(
                 f"{self.operation}_duration_ms", duration_ms, operation=self.operation
             )

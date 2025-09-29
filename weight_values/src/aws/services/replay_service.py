@@ -69,7 +69,7 @@ def replay_measurements(
 
             results.append(
                 {
-                    "uuid": str(measurement.measurement_id),
+                    "uuid": measurement.measurement_id,
                     "accepted": result.get("accepted", False),
                     "quality_score": result.get("quality_score"),
                     "kalman_estimate": result.get("kalman_estimate"),

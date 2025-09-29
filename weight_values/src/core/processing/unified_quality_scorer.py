@@ -6,7 +6,7 @@ Replaces dual validation with single Kalman-deviation-based quality scorer.
 import math
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -287,7 +287,7 @@ class UnifiedQualityScorer:
             if isinstance(last_timestamp, str):
                 last_timestamp = datetime.fromisoformat(last_timestamp)
             # Get current timestamp from state or use now as fallback
-            current_timestamp = kalman_state.get("current_timestamp", datetime.now())
+            current_timestamp = kalman_state.get("current_timestamp", datetime.now(timezone.utc))
             if isinstance(current_timestamp, str):
                 current_timestamp = datetime.fromisoformat(current_timestamp)
             days_since_last = (
@@ -412,7 +412,7 @@ class UnifiedQualityScorer:
                 if len(recent_timestamps) >= 1:
                     # Use provided timestamp or fall back to now (for real-time processing)
                     if current_timestamp is None:
-                        current_timestamp = datetime.now()
+                        current_timestamp = datetime.now(timezone.utc)
                     elif isinstance(current_timestamp, str):
                         current_timestamp = datetime.fromisoformat(current_timestamp)
 
@@ -537,7 +537,12 @@ class UnifiedQualityScorer:
                     penalty_weights = []
 
                     # Apply penalty based on deviation from max allowed
-                    if weight_change > max_change:
+                    if max_change <= 0:
+                        # Same timestamp or negative time diff - any change is suspicious
+                        if weight_change > 0.1:  # More than 100g change at same time
+                            score *= 0.1  # Heavy penalty
+                            metadata["same_time_penalty"] = True
+                    elif weight_change > max_change:
                         # Calculate severity of violation
                         excess_ratio = (weight_change - max_change) / max_change
                         metadata["excess_ratio"] = excess_ratio
@@ -959,9 +964,15 @@ class UnifiedQualityScorer:
                 weighted_sum += weight / score
                 weight_sum += weight
 
-        if weighted_sum > 0 and weight_sum > 0:
+        # Ensure we have valid values before division
+        # weighted_sum is the denominator in harmonic mean
+        if weight_sum > 0 and weighted_sum > epsilon:
             return weight_sum / weighted_sum
+        elif weight_sum > 0:
+            # Edge case: all scores were at epsilon
+            return epsilon
         else:
+            # No valid weights
             return 0.0
 
     def update_temporal_baseline(

@@ -139,11 +139,24 @@ sam-build:
 	@sam build --template sam-template.yaml
 	@echo "✅ Build complete"
 
+# Cache dependencies for faster builds
+sam-deps:
+	@echo "📦 Caching dependencies for faster builds..."
+	@mkdir -p .aws-sam/deps
+	@uv pip install -r requirements-lambda.txt --target .aws-sam/deps/
+	@echo "✅ Dependencies cached in .aws-sam/deps/"
+
 # Build for local testing
 sam-build-local:
 	@echo "🔨 Building for local testing..."
 	@sam build --template sam-template-local.yaml
 	@echo "✅ Local build complete"
+
+# Fast build using cached dependencies
+sam-build-fast: sam-deps
+	@echo "🔨 Fast building with cached dependencies..."
+	@sam build --template sam-template-local.yaml --cached
+	@echo "✅ Fast build complete"
 
 sam-run-local:
 	@echo "🚀 Starting SAM Local API..."
@@ -153,13 +166,25 @@ sam-run-local:
 		--port 3080 \
 		--template .aws-sam/build/template.yaml \
 		--log-file server.log \
+		--skip-pull-image \
+		--warm-containers EAGER \
 		--parameter-overrides \
 			Environment=local \
 			DynamoDBEndpoint=http://localhost:8000
 
-# Start local API
+# Start local API (standard build)
 sam-local: db-start sam-build-local sam-run-local
 	@echo "✅ SAM Local API running"
+
+# Start local API with fast build (using cached dependencies and layers)
+sam-local-fast: db-start sam-build-fast sam-run-local
+	@echo "✅ SAM Local API running (fast mode)"
+
+# Clean dependency cache
+sam-clean-deps:
+	@echo "🧹 Cleaning dependency cache..."
+	@rm -rf .aws-sam/deps
+	@echo "✅ Dependency cache cleaned"
 
 # Deploy to AWS (interactive)
 sam-deploy: sam-build

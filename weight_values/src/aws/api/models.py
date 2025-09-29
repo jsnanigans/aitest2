@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Union
-from uuid import UUID
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -43,7 +42,7 @@ class MeasurementSource(str, Enum):
 class Measurement(BaseModel):
     """Weight measurement model with improved validation."""
 
-    measurement_id: UUID = Field(alias="uuid", description="Unique measurement ID")
+    measurement_id: str = Field(alias="uuid", description="Unique measurement ID")
     weight_value: float = Field(gt=0, alias="weight", description="Weight value")
     weight_unit: str = Field(alias="unit", description="Unit of measurement")
     measured_at: datetime = Field(alias="effectiveDateTime", description="When measurement was taken")
@@ -160,7 +159,7 @@ class ApiMeta(BaseModel):
 class MeasurementResult(BaseModel):
     """Result of processing a single measurement with consistent naming."""
 
-    measurement_id: UUID
+    measurement_id: str
     accepted: bool
     quality_score: Optional[float] = Field(None, ge=0, le=1)
     kalman_estimate: Optional[float] = None
