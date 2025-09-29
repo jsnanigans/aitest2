@@ -335,7 +335,11 @@ class UnifiedQualityScorer:
 
         # Exponential growth of acceptable change over time
         # Starts at 0.5kg for immediate, grows to ~5kg at 7 days
-        max_acceptable_change = 0.5 + 4.5 * (1 - math.exp(-time_diff_hours / 48))
+        # Use absolute time difference and cap to prevent overflow
+        abs_time_diff = abs(time_diff_hours)
+        # Cap the exponent to prevent overflow for very large time differences
+        capped_time = min(abs_time_diff, 336)  # Cap at 2 weeks (336 hours)
+        max_acceptable_change = 0.5 + 4.5 * (1 - math.exp(-capped_time / 48))
 
         metadata["max_acceptable_change"] = max_acceptable_change
         metadata["actual_change"] = weight_change

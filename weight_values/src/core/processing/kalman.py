@@ -7,6 +7,11 @@ from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+
+# Apply pykalman compatibility patch for Python 3.11+
+from .pykalman_patch import patch_pykalman
+patch_pykalman()
+
 from pykalman import KalmanFilter
 
 

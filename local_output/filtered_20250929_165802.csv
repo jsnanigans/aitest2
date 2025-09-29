@@ -1,0 +1,4 @@
+measurement_id,user_id,effectiveDateTime,source_type,weight,unit,quality_score
+3b936f3c-4e44-467b-b2bf-d11502fd498f,00088d03-2305-4032-852a-354d0786ad87,2025-01-17 00:00:00,internal-questionnaire,102.965384,kg,0.962800875273523
+a02ba2b3-3033-4fa3-91d6-4e8f0199c5df,000ded70-578d-4b05-8f62-b20b6f5bcf73,2024-03-25 00:00:00,https://connectivehealth.io,109.41,kg,0.9160305343511449
+90569c8b-2326-4277-a784-9f7d6edcaa92,000ded70-578d-4b05-8f62-b20b6f5bcf73,2025-03-07 00:00:00,internal-questionnaire,110.676448,kg,0.962800875273523

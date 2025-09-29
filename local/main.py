@@ -1,1035 +1,996 @@
 #!/usr/bin/env python3
 """
-Simplified Weight Stream Processor
-Streams CSV data through Kalman filter with minimal state management
+Hyper-Speed Local Weight Stream Processor
+
+Similar to api_main.py but uses direct method calls instead of API
+and in-memory storage instead of database for maximum performance.
+Processes weight measurements from CSV data and outputs a filtered CSV
+with only accepted (non-rejected) measurements.
+
+Implements real-time replay processing that triggers during measurement
+processing when anomalies are detected within the replay window.
 """
 
 import argparse
 import csv
 import json
-import math
-import os
 import sys
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime, timezone as tz
 import tomllib
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-# Load environment variables from .env file if it exists
-def load_env_file():
-    """Load environment variables from .env file if present."""
-    env_path = Path(__file__).parent / ".env"
-    if env_path.exists():
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    if "=" in line:
-                        key, value = line.split("=", 1)
-                        os.environ[key.strip()] = value.strip()
-
-# Load environment variables before imports
-load_env_file()
-
-# Add parent directory to path to import core
+# Add weight_values/src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "weight_values" / "src"))
 
-from core.database import get_state_db
+from core.database.database import ProcessorStateDB
 from core.processing.processor import process_measurement
-from core.processing.validation import DataQualityPreprocessor
+from core.replay.replay_manager import ReplayManager
+from core.replay.replay_buffer import ReplayBuffer
+from core.processing.outlier_detection import OutlierDetector
+from core.processing.buffer_factory import get_factory
 
 
-def load_config(config_path: str = "config.toml") -> dict:
-    """Load configuration directly from TOML file."""
-    if not Path(config_path).exists():
-        print(f"Warning: Config file {config_path} not found, using defaults")
-        return {
-            "data": {
-                "csv_file": "./data/weights.csv",
-                "output_dir": "output",
-                "max_users": 200,
-                "min_readings": 20,
+@dataclass
+class ProcessingResult:
+    """Result of processing measurements."""
+    measurements_processed: int
+    measurements_accepted: int
+    measurements_rejected: int
+    replays_triggered: int
+    errors: List[str]
+
+    @property
+    def is_success(self) -> bool:
+        return len(self.errors) == 0
+
+
+class InMemoryProcessor:
+    """Direct processor using in-memory storage for hyper-speed processing with real-time replay."""
+
+    def __init__(self, config_path: Optional[str] = None, replay_config_override: Optional[Dict[str, Any]] = None):
+        self.db = ProcessorStateDB()  # Already in-memory
+        self.data_config = {}  # Initialize data_config
+
+        # Load configuration from TOML file if provided, otherwise use defaults
+        if config_path and Path(config_path).exists():
+            self.config = self._load_config_from_toml(config_path)
+        else:
+            self.config = self._get_default_config()
+
+        # Extract replay config from loaded config or use override
+        if replay_config_override:
+            replay_config = replay_config_override
+        else:
+            replay_config = self.config.get("replay", {})
+
+        # Initialize replay components if enabled
+        self.replay_enabled = replay_config and replay_config.get("enabled", False)
+        self.replay_buffer = None
+        self.outlier_detector = None
+        self.replay_manager = None
+        self.buffer_factory = None
+
+        if self.replay_enabled:
+            # Use BufferFactory for better testability and instance management
+            self.buffer_factory = get_factory()
+            self.buffer_factory.set_default_config(replay_config)
+            self.replay_buffer = self.buffer_factory.create_buffer("default", replay_config)
+
+            self.outlier_detector = OutlierDetector(
+                replay_config.get("outlier_detection", {}), db=self.db
+            )
+            self.replay_manager = ReplayManager(self.db, replay_config.get("safety", {}))
+
+            self.replay_window_hours = replay_config.get("buffer_hours", 72)
+
+    def _load_config_from_toml(self, config_path: str) -> Dict[str, Any]:
+        """Load configuration from TOML file and convert to expected format."""
+        with open(config_path, "rb") as f:
+            toml_config = tomllib.load(f)
+
+        # Convert TOML config to the format expected by the processor
+        config = {
+            "kalman": {
+                "process_noise": toml_config.get("kalman", {}).get("process_noise", 0.01),
+                "measurement_noise": toml_config.get("kalman", {}).get("observation_noise", 1.0),
+                "initial_uncertainty": toml_config.get("kalman", {}).get("initial_covariance", 10.0),
+                "adaptation_enabled": toml_config.get("kalman", {}).get("adaptation_enabled", True),
+                "reset_window_hours": toml_config.get("kalman", {}).get("reset_window_hours", 720),
+                # Additional parameters from TOML
+                "initial_variance": toml_config.get("kalman", {}).get("initial_variance", 0.364),
+                "transition_covariance_weight": toml_config.get("kalman", {}).get("transition_covariance_weight", 0.018),
+                "transition_covariance_trend": toml_config.get("kalman", {}).get("transition_covariance_trend", 0.00015),
+                "observation_covariance": toml_config.get("kalman", {}).get("observation_covariance", 3.4),
             },
-            "processing": {"extreme_threshold": 0.15},
-            "kalman": {},
-            "visualization": {"enabled": True},
+            "quality_scoring": {
+                "enabled": toml_config.get("quality_scoring", {}).get("enabled", True),
+                "use_harmonic_mean": toml_config.get("quality_scoring", {}).get("use_harmonic_mean", True),
+                "acceptance_threshold": toml_config.get("quality_scoring", {}).get("threshold", 0.5),
+                # Component weights
+                "plausibility_weight": toml_config.get("quality_scoring", {}).get("component_weights", {}).get("physiological", 0.15),
+                "temporal_weight": toml_config.get("quality_scoring", {}).get("component_weights", {}).get("temporal_consistency", 0.20),
+                "statistical_weight": toml_config.get("quality_scoring", {}).get("component_weights", {}).get("statistical", 0.10),
+                "source_weight": toml_config.get("quality_scoring", {}).get("component_weights", {}).get("source_reliability", 0.20),
+                "kalman_weight": toml_config.get("quality_scoring", {}).get("component_weights", {}).get("kalman_fit", 0.25),
+                "frequency_weight": toml_config.get("quality_scoring", {}).get("component_weights", {}).get("frequency", 0.10),
+                # Thresholds
+                "thresholds": toml_config.get("quality_scoring", {}).get("thresholds", {}),
+                # Temporal parameters
+                "temporal": toml_config.get("quality_scoring", {}).get("temporal", {}),
+                # Trend alignment
+                "trend_alignment": toml_config.get("quality_scoring", {}).get("trend_alignment", {}),
+            },
+            "processing": {
+                "extreme_threshold": toml_config.get("processing", {}).get("extreme_threshold", 0.15),
+                "max_daily_change": toml_config.get("processing", {}).get("max_daily_change", 2.0),
+                "min_weight": toml_config.get("processing", {}).get("min_weight", 20.0),
+                "max_weight": toml_config.get("processing", {}).get("max_weight", 500.0),
+            },
+            "replay": toml_config.get("replay", {
+                "enabled": True,
+                "buffer_hours": 72,
+                "trigger_mode": "time_based"
+            }),
+            # Include reset configurations
+            "kalman.reset.initial": toml_config.get("kalman", {}).get("reset", {}).get("initial", {}),
+            "kalman.reset.hard": toml_config.get("kalman", {}).get("reset", {}).get("hard", {}),
+            "kalman.reset.soft": toml_config.get("kalman", {}).get("reset", {}).get("soft", {}),
+            # Include other sections
+            "adaptive_ranges": toml_config.get("adaptive_ranges", {}),
+            "adaptive_noise": toml_config.get("adaptive_noise", {}),
+            "circuit_breaker": toml_config.get("circuit_breaker", {}),
+            "database": toml_config.get("database", {}),
+            "visualization": toml_config.get("visualization", {}),
+            "analysis": toml_config.get("analysis", {}),
+            "logging": toml_config.get("logging", {}),
+            "service": toml_config.get("service", {}),
         }
 
-    # Load config directly
-    with open(config_path, "rb") as f:
-        config = tomllib.load(f)
+        # Store the data configuration for later use
+        self.data_config = toml_config.get("data", {})
 
-    return config
+        return config
 
+    def _get_default_config(self) -> Dict[str, Any]:
+        """Get default processing configuration."""
+        return {
+            "kalman": {
+                "process_noise": 0.01,
+                "measurement_noise": 1.0,
+                "initial_uncertainty": 10.0
+            },
+            "quality_scoring": {
+                "plausibility_weight": 0.3,
+                "temporal_weight": 0.3,
+                "statistical_weight": 0.2,
+                "source_weight": 0.2,
+                "acceptance_threshold": 0.3
+            },
+            "processing": {
+                "extreme_threshold": 0.15
+            },
+            "replay": {
+                "enabled": True,
+                "buffer_hours": 72,
+                "trigger_mode": "time_based"
+            }
+        }
 
-def load_test_users(filepath: str = "test_users.txt") -> list:
-    """Load test user IDs from file."""
-    if not Path(filepath).exists():
-        return []
+    def process_measurements_chronologically(
+        self,
+        user_id: str,
+        measurements: List[Dict[str, Any]],
+        options: Optional[Dict[str, Any]] = None,
+        acceptance_tracker: Optional['AcceptanceTracker'] = None
+    ) -> ProcessingResult:
+        """
+        Process weight measurements for a user in chronological order with real-time replay.
 
-    users = []
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                users.append(line)
-    return users
+        This simulates how measurements would be processed in production:
+        1. Each measurement is processed one by one in time order
+        2. Each measurement is added to a replay buffer
+        3. When the buffer detects anomalies or is full, replay is triggered immediately
+        4. After replay, the buffer is cleared and processing continues
 
+        The key insight: We don't write to CSV during processing. Instead, we track
+        acceptance in memory and write the CSV at the end. This allows replay to
+        properly update acceptance status.
 
-def load_filtered_users_csv(filepath: str) -> list:
-    """Load user IDs from a CSV file with format: user_id,removed_count.
+        Args:
+            user_id: User identifier
+            measurements: List of measurements to process
+            options: Optional processing options
+            acceptance_tracker: Optional tracker to update with final acceptance
 
-    Args:
-        filepath: Path to CSV file generated by create-report/run.py
-
-    Returns:
-        List of user IDs that had readings filtered out
-    """
-    if not Path(filepath).exists():
-        print(f"Warning: Filtered users CSV not found: {filepath}")
-        return []
-
-    users = []
-    try:
-        with open(filepath, "r") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                user_id = row.get("user_id", "").strip()
-                if user_id:
-                    users.append(user_id)
-        print(f"Loaded {len(users)} users from filtered CSV: {filepath}")
-    except Exception as e:
-        print(f"Error reading filtered users CSV: {e}")
-        return []
-
-    return users
-
-
-def generate_single_visualization(args):
-    """Process-safe function to generate visualization for a single user.
-
-    This function runs in a separate process for true parallelism.
-
-    Args:
-        args: Tuple of (idx, total_users, user_id, results, viz_dir, config)
-
-    Returns:
-        Tuple of (user_id, success, error_msg, dashboard_path)
-    """
-    idx, total_users, user_id, results, viz_dir, config = args
-
-    try:
-        # Import here since this runs in a subprocess
-        import sys
-        from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).parent.parent / "weight_values" / "src"))
-        from local.viz.visualization import create_weight_timeline
-
-        dashboard_path = create_weight_timeline(
-            results, user_id, str(viz_dir), config=config
+        Returns:
+            ProcessingResult with summary of processing including replay triggers
+        """
+        result = ProcessingResult(
+            measurements_processed=0,
+            measurements_accepted=0,
+            measurements_rejected=0,
+            replays_triggered=0,
+            errors=[]
         )
 
-        return (user_id, True, None, dashboard_path)
-    except Exception as e:
-        error_msg = str(e)[:100]  # Truncate long error messages
-        return (user_id, False, error_msg, None)
+        # Merge options into config
+        config = self.config.copy()
+        if options:
+            config.update(options)
 
-
-def get_optimal_thread_count(num_users: int, config: dict) -> int:
-    """Calculate optimal number of threads based on system resources and user count.
-
-    Args:
-        num_users: Number of users to process
-        config: Configuration dictionary
-
-    Returns:
-        Optimal number of worker threads
-    """
-    # Get from config or use defaults
-    viz_threading = config.get("visualization", {}).get("threading", {})
-    if not viz_threading.get("enabled", True):
-        return 1  # Threading disabled
-
-    max_workers_config = viz_threading.get("max_workers", None)
-
-    # Calculate based on CPU cores
-    cpu_count = os.cpu_count() or 4
-    default_workers = min(cpu_count, 8)  # Cap at 8 by default
-
-    # Use config value if specified, otherwise use calculated default
-    max_workers = max_workers_config if max_workers_config else default_workers
-
-    # Don't use more threads than users
-    optimal = min(max_workers, num_users)
-
-    # Minimum 1 thread
-    return max(1, optimal)
-
-
-def stream_process(
-    csv_path: str,
-    output_dir: str,
-    config: dict,
-    filtered_output: str = None,
-    debug: bool = False,
-):
-    """
-    Simplified stream processing - no complex state accumulation.
-    Process each measurement and stream results.
-
-    Args:
-        csv_path: Path to input CSV
-        output_dir: Directory for outputs
-        config: Configuration dict
-        filtered_output: Optional path to write filtered CSV (accepted rows only)
-    """
-    output_path = Path(output_dir)
-    output_path.mkdir(exist_ok=True)
-
-    # Set verbosity from config
-    from core.utils import set_verbosity
-
-    viz_config = config.get("visualization", {})
-    verbosity_str = viz_config.get("verbosity", "normal")
-    verbosity_map = {"silent": 0, "minimal": 1, "normal": 2, "verbose": 3}
-    verbosity_level = verbosity_map.get(verbosity_str, 2)
-    set_verbosity(verbosity_level)
-
-    # Database for Kalman state
-    db = get_state_db()
-
-    # Initialize replay processing components
-    replay_config = config.get("replay", {})
-    replay_enabled = replay_config.get("enabled", False)
-    replay_buffer = None
-    outlier_detector = None
-    replay_manager = None
-
-    if replay_enabled:
-        try:
-            # Use BufferFactory for better testability and instance management
-            from core.processing.buffer_factory import get_factory
-            from core.processing.outlier_detection import OutlierDetector
-            from core.replay.replay_manager import ReplayManager
-
-            # Create buffer using factory (dependency injection)
-            buffer_factory = get_factory()
-            buffer_factory.set_default_config(replay_config)
-            replay_buffer = buffer_factory.create_buffer("default", replay_config)
-
-            outlier_detector = OutlierDetector(
-                replay_config.get("outlier_detection", {}), db=db
-            )
-            replay_manager = ReplayManager(db, replay_config.get("safety", {}))
-
-            print("Replay processing enabled")
-            print(f"  Buffer window: {replay_config.get('buffer_hours', 72)} hours")
-            print(f"  Trigger mode: {replay_config.get('trigger_mode', 'time_based')}")
-            print("  Using BufferFactory for instance management")
-        except ImportError as e:
-            print(f"Warning: Could not initialize replay processing: {e}")
-            replay_enabled = False
-
-    # Parse configuration
-    max_users = config["data"].get("max_users", 0)
-    user_offset = config["data"].get("user_offset", 0)
-    min_readings = config["data"].get("min_readings", 0)
-
-    # Load test users if specified in config or command line
-    test_users_config = config["data"].get("test_users", [])
-    test_users_file = config["data"].get("test_users_file", "")
-    filtered_users_csv = config["data"].get("filtered_users_csv", "")
-
-    # Priority: test_users from config > filtered_users_csv > test_users_file
-    if test_users_config:
-        test_users = (
-            test_users_config
-            if isinstance(test_users_config, list)
-            else [test_users_config]
+        # Sort measurements chronologically - CRITICAL for realistic simulation
+        sorted_measurements = sorted(
+            measurements,
+            key=lambda m: self._parse_timestamp(m["effectiveDateTime"])
         )
-        print(f"Using test_users from config: {len(test_users)} users")
-    elif filtered_users_csv:
-        test_users = load_filtered_users_csv(filtered_users_csv)
-        if test_users:
-            print(f"Processing {len(test_users)} users from filtered CSV")
-    elif test_users_file:
-        test_users = load_test_users(test_users_file)
-        print(f"Using test_users from file: {len(test_users)} users")
-    else:
-        test_users = []
 
-    test_mode = bool(test_users)
+        # Track acceptance status for each measurement by index
+        # This is more reliable than timestamp matching
+        acceptance_status = {}  # measurement index -> accepted bool
 
-    if test_mode:
-        test_users_set = set(test_users)
-        max_users = len(test_users)
-        user_offset = 0
-        print(f"Test mode: Processing {len(test_users)} specific users")
+        # Process each measurement in chronological order
+        for idx, measurement in enumerate(sorted_measurements):
+            try:
+                timestamp = self._parse_timestamp(measurement["effectiveDateTime"])
 
-    # Date filters
-    min_date_str = config["data"].get("min_date", "")
-    max_date_str = config["data"].get("max_date", "")
-    min_date = parse_timestamp(min_date_str) if min_date_str else None
-    max_date = parse_timestamp(max_date_str) if max_date_str else None
-
-    # Tracking
-    seen_users = set()
-    processed_users = set()
-    skipped_users = set()
-    user_results = {}  # Only store results, not debug info
-
-    stats = {
-        "total_rows": 0,
-        "accepted": 0,
-        "rejected": 0,
-        "date_filtered": 0,
-        "unit_rejected": 0,
-        "rejected_units": {},  # Track which units were rejected and how often
-        "start_time": datetime.now(),
-    }
-
-    # Setup filtered CSV writer if requested
-    filtered_csv_file = None
-    filtered_csv_writer = None
-    if filtered_output:
-        print(f"Will write filtered data to: {filtered_output}")
-        # We'll open this after reading the header from input
-
-    print(f"Processing {csv_path}...")
-    if max_users > 0:
-        print(f"  Processing up to {max_users} users")
-    if min_date or max_date:
-        print(f"  Date filter: {min_date_str} to {max_date_str}")
-    print()
-
-    # First pass: count readings per user (always do this to properly filter)
-    user_reading_counts = {}
-    eligible_users = []  # Users that meet min_readings criteria
-
-    if not test_mode:
-        print(
-            f"Analyzing user data (min_readings={min_readings}, max_users={max_users})..."
-        )
-        with open(csv_path) as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                user_id = row.get("user_id")
-                if not user_id:
-                    continue
-
-                # Basic validation
-                weight_str = row.get("weight", "").strip()
-                if not weight_str or weight_str.upper() == "NULL":
-                    continue
-
-                # Date check
-                if min_date or max_date:
-                    date_str = row.get("effectiveDateTime")
-                    try:
-                        timestamp = parse_timestamp(date_str)
-                        if min_date and timestamp < min_date:
-                            continue
-                        if max_date and timestamp > max_date:
-                            continue
-                    except:
-                        continue
-
-                user_reading_counts[user_id] = user_reading_counts.get(user_id, 0) + 1
-
-        # Determine eligible users based on min_readings
-        for user_id, count in sorted(
-            user_reading_counts.items()
-        ):  # Sort for consistent ordering
-            if count >= min_readings:
-                eligible_users.append(user_id)
-
-        # Apply user_offset and max_users to eligible users
-        if user_offset > 0 and user_offset < len(eligible_users):
-            eligible_users = eligible_users[user_offset:]
-        elif user_offset >= len(eligible_users):
-            eligible_users = []  # Offset beyond available users
-
-        if max_users > 0 and len(eligible_users) > max_users:
-            eligible_users = eligible_users[:max_users]
-
-        eligible_users_set = set(eligible_users)
-
-        print(f"  Found {len(user_reading_counts)} total users")
-        print(
-            f"  {len([u for u, c in user_reading_counts.items() if c >= min_readings])} users with >= {min_readings} readings"
-        )
-        print(
-            f"  Processing {len(eligible_users)} users (after offset={user_offset}, max={max_users})"
-        )
-        if debug and eligible_users:
-            print(f"DEBUG: Eligible users: {list(eligible_users)[:5]}...")
-
-    # Main processing loop
-    with open(csv_path) as f:
-        reader = csv.DictReader(f)
-
-        # Setup filtered CSV writer after getting headers
-        if filtered_output and not filtered_csv_file:
-            filtered_csv_file = open(filtered_output, "w", newline="")
-            # Add quality_score column to the fieldnames
-            extended_fieldnames = list(reader.fieldnames) + ["quality_score"]
-            filtered_csv_writer = csv.DictWriter(
-                filtered_csv_file, fieldnames=extended_fieldnames
-            )
-            filtered_csv_writer.writeheader()
-
-        for row in reader:
-            stats["total_rows"] += 1
-            if debug and stats["total_rows"] <= 5:
-                print(f"DEBUG: Processing row {stats['total_rows']}: user_id={row.get('user_id')}")
-
-            # Progress update
-            if stats["total_rows"] % config["logging"]["progress_interval"] == 0:
-                elapsed = (datetime.now() - stats["start_time"]).total_seconds()
-                rate = stats["total_rows"] / elapsed if elapsed > 0 else 0
-                print(
-                    f"  Row {stats['total_rows']:,} | "
-                    f"Users: {len(processed_users):,} | "
-                    f"Rate: {rate:.0f} rows/sec"
+                # Process single measurement
+                process_result = process_measurement(
+                    user_id=user_id,
+                    weight=measurement["weight"],
+                    timestamp=timestamp,
+                    source=measurement.get("source", "unknown"),
+                    config=config,
+                    unit=measurement.get("unit", "kg"),
+                    db=self.db
                 )
 
-            # Parse row with new CSV format
-            # New format: measurement_id,user_id,effectiveDateTime,source_type,weight,unit
-            measurement_id = row.get("measurement_id", "")  # Optional, not used in processing
+                result.measurements_processed += 1
+
+                # Track initial acceptance status
+                accepted = process_result.get("accepted", False)
+                acceptance_status[idx] = accepted
+
+                if accepted:
+                    result.measurements_accepted += 1
+                else:
+                    result.measurements_rejected += 1
+
+                # Store quality score for later use
+                measurement["_quality_score"] = process_result.get("quality_score", 0.0)
+                measurement["_idx"] = idx  # Track index for replay updates
+
+                # Add to replay buffer if enabled (simulating real-time processing)
+                if self.replay_enabled and self.replay_buffer:
+                    measurement_data = {
+                        "weight": measurement["weight"],
+                        "timestamp": timestamp,
+                        "source": measurement.get("source", "unknown"),
+                        "unit": measurement.get("unit", "kg"),
+                        "metadata": {
+                            "accepted": accepted,
+                            "rejection_reason": process_result.get("rejection_reason", None),
+                            "quality_score": process_result.get("quality_score", None),
+                            "quality_components": process_result.get("quality_components", None),
+                            "measurement_idx": idx  # Track index for updates
+                        }
+                    }
+
+                    buffer_result = self.replay_buffer.add_measurement(user_id, measurement_data)
+
+                    # Check if buffer is ready for replay processing
+                    if buffer_result.get("buffer_ready", False):
+                        # Save state snapshot before replay
+                        self.db.save_state_snapshot(user_id, timestamp)
+
+                        # Get measurements in the buffer before replay
+                        buffered_measurements = self.replay_buffer.get_buffer_measurements(user_id)
+                        buffered_indices = [m["metadata"].get("measurement_idx") for m in buffered_measurements if m.get("metadata")]
+
+                        # Trigger replay immediately - this is the key difference!
+                        replay_success = self._process_replay_buffer(
+                            user_id=user_id,
+                            buffer_timestamp=timestamp
+                        )
+
+                        if replay_success:
+                            result.replays_triggered += 1
+
+                            # After replay, reprocess buffered measurements to get corrected acceptance
+                            # The replay has restored state, so now we need to re-evaluate
+                            for buffer_idx in buffered_indices:
+                                if buffer_idx is not None and 0 <= buffer_idx < len(sorted_measurements):
+                                    m = sorted_measurements[buffer_idx]
+                                    m_timestamp = self._parse_timestamp(m["effectiveDateTime"])
+
+                                    # Re-evaluate after replay with restored state
+                                    re_result = process_measurement(
+                                        user_id=user_id,
+                                        weight=m["weight"],
+                                        timestamp=m_timestamp,
+                                        source=m.get("source", "unknown"),
+                                        config=config,
+                                        unit=m.get("unit", "kg"),
+                                        db=self.db
+                                    )
+
+                                    new_accepted = re_result.get("accepted", False)
+                                    old_accepted = acceptance_status.get(buffer_idx, False)
+
+                                    # Update acceptance status and counts
+                                    if new_accepted != old_accepted:
+                                        acceptance_status[buffer_idx] = new_accepted
+                                        if new_accepted:
+                                            result.measurements_accepted += 1
+                                            result.measurements_rejected -= 1
+                                        else:
+                                            result.measurements_accepted -= 1
+                                            result.measurements_rejected += 1
+
+                                    # Update quality score
+                                    m["_quality_score"] = re_result.get("quality_score", 0.0)
+
+                        # Clear buffer after processing
+                        self.replay_buffer.clear_buffer(user_id)
+
+            except Exception as e:
+                result.errors.append(f"Error processing measurement at {measurement.get('effectiveDateTime', 'unknown')}: {str(e)}")
+
+        # Process any remaining buffers at the end
+        if self.replay_enabled and self.replay_buffer:
+            ready_buffers = self.replay_buffer.get_ready_buffers()
+            for buffer_user_id in ready_buffers:
+                if buffer_user_id == user_id:
+                    # Process final buffer
+                    self.db.save_state_snapshot(user_id, datetime.now(timezone.utc))
+                    buffered_measurements = self.replay_buffer.get_buffer_measurements(user_id)
+                    buffered_indices = [m["metadata"].get("measurement_idx") for m in buffered_measurements if m.get("metadata")]
+
+                    if self._process_replay_buffer(user_id, datetime.now(timezone.utc)):
+                        result.replays_triggered += 1
+
+                        # Re-evaluate buffered measurements
+                        for buffer_idx in buffered_indices:
+                            if buffer_idx is not None and 0 <= buffer_idx < len(sorted_measurements):
+                                m = sorted_measurements[buffer_idx]
+                                m_timestamp = self._parse_timestamp(m["effectiveDateTime"])
+
+                                re_result = process_measurement(
+                                    user_id=user_id,
+                                    weight=m["weight"],
+                                    timestamp=m_timestamp,
+                                    source=m.get("source", "unknown"),
+                                    config=config,
+                                    unit=m.get("unit", "kg"),
+                                    db=self.db
+                                )
+
+                                new_accepted = re_result.get("accepted", False)
+                                old_accepted = acceptance_status.get(buffer_idx, False)
+
+                                if new_accepted != old_accepted:
+                                    acceptance_status[buffer_idx] = new_accepted
+                                    if new_accepted:
+                                        result.measurements_accepted += 1
+                                        result.measurements_rejected -= 1
+                                    else:
+                                        result.measurements_accepted -= 1
+                                        result.measurements_rejected += 1
+
+                                m["_quality_score"] = re_result.get("quality_score", 0.0)
+
+                    self.replay_buffer.clear_buffer(user_id)
+
+        # Update measurements with final acceptance status
+        for idx, measurement in enumerate(sorted_measurements):
+            measurement["_accepted"] = acceptance_status.get(idx, False)
+
+        # Update acceptance tracker if provided
+        if acceptance_tracker:
+            acceptance_tracker.track_results(user_id, sorted_measurements)
+
+        return result
+
+    def _process_replay_buffer(self, user_id: str, buffer_timestamp: datetime) -> bool:
+        """
+        Process replay buffer when anomalies are detected.
+        Uses the same logic as local_old.py's _process_replay_buffer function.
+
+        Args:
+            user_id: User identifier
+            buffer_timestamp: Current timestamp when replay was triggered
+
+        Returns:
+            True if replay was successful
+        """
+        try:
+            # Get buffered measurements
+            buffered_measurements = self.replay_buffer.get_buffer_measurements(user_id)
+            if not buffered_measurements:
+                return False
+
+            buffer_info = self.replay_buffer.get_buffer_info(user_id)
+            buffer_start_time = buffer_info["first_timestamp"] if buffer_info else None
+
+            # Try enhanced replay processor first if available
+            try:
+                from core.database import get_state_db
+                from core.replay.replay_processor import ReplayProcessor
+
+                replay_config = {
+                    "analysis": {
+                        "kalman_deviation_threshold": 0.10,
+                        "temporal_change_threshold": 0.05,
+                        "outlier_score_threshold": 0.4,
+                        "reset_reevaluation_threshold": 0.6,
+                    },
+                    "safety": self.replay_manager.config if hasattr(self.replay_manager, "config") else {}
+                }
+
+                processor = ReplayProcessor(self.db, replay_config)
+                result = processor.process_buffer(user_id, buffered_measurements, buffer_start_time)
+
+                return result.get("success", False)
+
+            except ImportError:
+                # Fall back to basic replay logic
+                # Detect outliers in the buffer
+                clean_measurements, outlier_indices = self.outlier_detector.get_clean_measurements(
+                    buffered_measurements, user_id=user_id
+                )
+
+                # If we found outliers, replay from buffer start
+                if len(outlier_indices) > 0 and clean_measurements and buffer_start_time:
+                    # Restore to snapshot before buffer
+                    self.db.restore_state_snapshot(user_id)
+
+                    # Replay clean measurements
+                    replay_result = self.replay_manager.replay_clean_measurements(
+                        user_id=user_id,
+                        clean_measurements=clean_measurements,
+                        buffer_start_time=buffer_start_time
+                    )
+
+                    return replay_result.get("success", False)
+
+                return False
+
+        except Exception as e:
+            print(f"Error in replay processing for {user_id}: {e}")
+            return False
+
+    def get_user_state(self, user_id: str) -> Dict[str, Any]:
+        """Get user processing state."""
+        state = self.db.get_state(user_id)
+        if state:
+            return {"success": True, "state": state}
+        return {"success": False, "error": "User not found"}
+
+    def cleanup_user(self, user_id: str, cleanup_type: str = "reset_adaptive") -> Dict[str, Any]:
+        """Cleanup/reset user state."""
+        if cleanup_type == "reset_adaptive":
+            # Delete state to trigger fresh start
+            deleted = self.db.delete_state(user_id)
+            if self.replay_buffer and deleted:
+                self.replay_buffer.clear_buffer(user_id)
+            return {"success": deleted}
+        return {"success": False, "error": f"Unknown cleanup type: {cleanup_type}"}
+
+    def cleanup(self):
+        """Clean up resources."""
+        if self.buffer_factory:
+            try:
+                buffer_stats = self.buffer_factory.get_stats()
+                if buffer_stats["total_instances"] > 0:
+                    self.buffer_factory.clear_all(force=True)
+            except:
+                pass
+
+    def _parse_timestamp(self, date_str: str) -> datetime:
+        """Parse various timestamp formats and ensure timezone-aware datetimes."""
+        if not date_str:
+            return datetime.now(timezone.utc)
+
+        try:
+            if "T" in date_str:
+                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            elif " " in date_str:
+                dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+            else:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+
+            # Ensure timezone-aware
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+
+            return dt
+        except Exception:
+            return datetime.now(timezone.utc)
+
+
+class AcceptanceTracker:
+    """Tracks which measurements were accepted during processing."""
+
+    def __init__(self):
+        self.accepted_measurements = {}  # (user_id, timestamp) -> quality_score
+        self.user_acceptance_details = {}   # user_id -> list of acceptance info
+
+    def track_results(self, user_id: str, measurements: List[Dict[str, Any]]):
+        """Track acceptance results from processed measurements."""
+        if user_id not in self.user_acceptance_details:
+            self.user_acceptance_details[user_id] = []
+
+        for measurement in measurements:
+            timestamp = measurement["effectiveDateTime"]
+            normalized_timestamp = parse_timestamp(timestamp).isoformat()
+
+            if measurement.get("_accepted", False):
+                quality_score = measurement.get("_quality_score", 0.0)
+                self.accepted_measurements[(user_id, normalized_timestamp)] = quality_score
+
+                self.user_acceptance_details[user_id].append({
+                    "timestamp": timestamp,
+                    "accepted": True,
+                    "quality_score": quality_score
+                })
+
+    def is_accepted(self, user_id: str, timestamp: str) -> bool:
+        """Check if a measurement was accepted."""
+        normalized_timestamp = parse_timestamp(timestamp).isoformat()
+        return (user_id, normalized_timestamp) in self.accepted_measurements
+
+    def get_quality_score(self, user_id: str, timestamp: str) -> float:
+        """Get quality score for an accepted measurement."""
+        normalized_timestamp = parse_timestamp(timestamp).isoformat()
+        return self.accepted_measurements.get((user_id, normalized_timestamp), 0.0)
+
+
+def parse_timestamp(date_str: str) -> datetime:
+    """Parse various timestamp formats and ensure timezone-aware datetimes."""
+    if not date_str:
+        return datetime.now(timezone.utc)
+
+    try:
+        if "T" in date_str:
+            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        elif " " in date_str:
+            dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+        else:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+
+        # Ensure all datetimes are timezone-aware (assume UTC if missing)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        return dt
+    except Exception:
+        return datetime.now(timezone.utc)
+
+
+def load_csv_data(csv_path: str, max_users: int = 0, max_rows: int = 0) -> Tuple[Dict[str, List[Dict[str, Any]]], List[Dict[str, Any]]]:
+    """
+    Load CSV data and group measurements by user_id.
+
+    Args:
+        csv_path: Path to CSV file
+        max_users: Maximum number of users to process (0 for no limit)
+        max_rows: Maximum number of rows to read (0 for no limit)
+
+    Returns:
+        Tuple of (user_measurements dict, original_rows list)
+    """
+    user_measurements = {}
+    original_rows = []
+    selected_users = set()  # Track selected users for early stopping
+
+    print(f"Loading data from {csv_path}...")
+    if max_users > 0:
+        print(f"Will stop after loading {max_users} users")
+
+    with open(csv_path, 'r') as f:
+        reader = csv.DictReader(f)
+        row_count = 0
+
+        for row in reader:
+            row_count += 1
+            if max_rows > 0 and row_count > max_rows:
+                break
+
+            # Handle both old and new column names for ID
+            measurement_id = row.get("id") or row.get("measurement_id")
             user_id = row.get("user_id")
-            if not user_id:
+            if not user_id or not measurement_id:
                 continue
 
-            # User filtering
-            if test_mode:
-                if user_id not in test_users_set:
-                    continue
-            else:
-                # Only process users in the eligible set
-                if user_id not in eligible_users_set:
-                    if debug:
-                        print(f"DEBUG: Skipping user {user_id} - not in eligible_users_set")
-                    continue
-                elif debug and stats["total_rows"] <= 5:
-                    print(f"DEBUG: User {user_id} is eligible, continuing processing")
+            # Early stopping when we have enough users
+            if max_users > 0:
+                if user_id not in selected_users:
+                    if len(selected_users) >= max_users:
+                        # Skip rows from new users once we have enough
+                        continue
+                    selected_users.add(user_id)
+                # Always process rows from already selected users
 
-            # Parse weight with validation
-            weight_str = row.get("weight", "").strip()
+            # Parse and validate weight - handle both old and new column names
+            weight_str = row.get("value_quantity", "") or row.get("weight", "")
+            weight_str = weight_str.strip()
             if not weight_str or weight_str.upper() == "NULL":
                 continue
 
             try:
                 weight = float(weight_str)
-                # Validate weight is reasonable
-                if weight <= 0 or weight > 1000:  # Basic sanity check
-                    stats["invalid_weight"] = stats.get("invalid_weight", 0) + 1
-                    continue
-                if math.isnan(weight) or math.isinf(weight):
-                    stats["invalid_weight"] = stats.get("invalid_weight", 0) + 1
+                if weight <= 0 or weight > 1000:
                     continue
             except (ValueError, TypeError):
-                stats["parse_errors"] = stats.get("parse_errors", 0) + 1
                 continue
 
-            # Parse metadata - updated for new CSV format
-            date_str = row.get("effectiveDateTime")
-            source = row.get("source_type", "unknown")  # Direct column in new format
-            unit = row.get("unit", "").strip()  # NO DEFAULT - must be explicit
+            # Parse other fields - handle both old and new column names
+            date_str = row.get("effective_date_time", "") or row.get("effectiveDateTime", "")
+            source = row.get("source_type", "unknown")
+            unit = row.get("unit", "kg")
 
-            # Skip BSA measurements
-            if "BSA" in source.upper() or "m2" in unit or "m²" in unit:
-                continue
+            # Store original row with unique identifier for tracking
+            original_row = row.copy()
+            original_row["_row_index"] = row_count
+            original_rows.append(original_row)
 
-            # Early unit validation - check against whitelist
-            from core.constants import SUPPORTED_WEIGHT_UNITS
-
-            if not unit:
-                stats["unit_rejected"] += 1
-                stats["rejected_units"]["<missing>"] = (
-                    stats["rejected_units"].get("<missing>", 0) + 1
-                )
-                continue
-
-            unit_lower = unit.lower().strip()
-            if unit_lower not in SUPPORTED_WEIGHT_UNITS:
-                stats["unit_rejected"] += 1
-                stats["rejected_units"][unit] = stats["rejected_units"].get(unit, 0) + 1
-                continue
-
-            # Parse timestamp
-            try:
-                timestamp = parse_timestamp(date_str)
-            except:
-                timestamp = datetime.now()
-
-            # Apply date filters
-            if min_date and timestamp < min_date:
-                stats["date_filtered"] += 1
-                continue
-            if max_date and timestamp > max_date:
-                stats["date_filtered"] += 1
-                continue
-
-            # Process measurement with error boundary
-            try:
-                # Merge quality scoring config into main config
-                full_config = config.copy()
-                if "quality_scoring" not in full_config:
-                    full_config["quality_scoring"] = {}
-
-                if debug and stats["total_rows"] <= 5:
-                    print(f"DEBUG: Calling process_measurement for {user_id}, weight={weight}, unit={unit}")
-
-                result = process_measurement(
-                    user_id=user_id,
-                    weight=weight,
-                    timestamp=timestamp,
-                    source=source,
-                    config=full_config,
-                    unit=unit,
-                    db=db,
-                )
-
-                if debug and stats["total_rows"] <= 5:
-                    print(f"DEBUG: Result for {user_id}: {result}")
-            except Exception as e:
-                stats["processing_errors"] = stats.get("processing_errors", 0) + 1
-                if debug or config.get("logging", {}).get("verbose", False):
-                    print(f"Error processing {user_id}: {e}")
-                continue
-
-            # Track results
-            if result:
-                if user_id not in user_results:
-                    user_results[user_id] = []
-                    processed_users.add(user_id)
-
-                user_results[user_id].append(result)
-
-                if result.get("accepted"):
-                    stats["accepted"] += 1
-
-                    # Write accepted row to filtered CSV with quality_score
-                    if filtered_csv_writer:
-                        # Create a copy of the row and add quality_score
-                        filtered_row = row.copy()
-                        filtered_row["quality_score"] = result.get("quality_score", 0.0)
-                        filtered_csv_writer.writerow(filtered_row)
-                else:
-                    stats["rejected"] += 1
-
-                # Add to replay buffer if enabled
-                if replay_enabled and replay_buffer:
-                    measurement_data = {
-                        "weight": weight,
-                        "timestamp": timestamp,
-                        "source": source,
-                        "unit": unit,
-                        "metadata": {
-                            "accepted": result.get("accepted", False),
-                            "rejection_reason": result.get("rejection_reason", None),
-                            "quality_score": result.get("quality_score", None),
-                            "quality_components": result.get(
-                                "quality_components", None
-                            ),
-                        },
-                    }
-
-                    buffer_result = replay_buffer.add_measurement(
-                        user_id, measurement_data
-                    )
-
-                    # Check if buffer is ready for processing
-                    if buffer_result.get("buffer_ready", False):
-                        # Save state snapshot before buffer analysis
-                        # This snapshot allows replay to restore state to before the buffer window
-                        db.save_state_snapshot(user_id, timestamp)
-
-                        # Process replay in the background
-                        # Note: In production, this might be async/queued
-                        try:
-                            _process_replay_buffer(
-                                user_id=user_id,
-                                replay_buffer=replay_buffer,
-                                outlier_detector=outlier_detector,
-                                replay_manager=replay_manager,
-                                stats=stats,
-                            )
-                        except Exception as e:
-                            stats["replay_errors"] = stats.get("replay_errors", 0) + 1
-                            if config.get("logging", {}).get("verbose", False):
-                                print(f"Replay processing error for {user_id}: {e}")
-
-    # Process any remaining replay buffers at the end
-    if replay_enabled and replay_buffer:
-        ready_buffers = replay_buffer.get_ready_buffers()
-        if ready_buffers:
-            print(f"\nProcessing {len(ready_buffers)} remaining replay buffers...")
-            for user_id in ready_buffers:
-                try:
-                    # Save final snapshot
-                    db.save_state_snapshot(user_id, datetime.now())
-                    _process_replay_buffer(
-                        user_id=user_id,
-                        replay_buffer=replay_buffer,
-                        outlier_detector=outlier_detector,
-                        replay_manager=replay_manager,
-                        stats=stats,
-                    )
-                except Exception as e:
-                    stats["replay_errors"] = stats.get("replay_errors", 0) + 1
-                    print(f"Error processing final buffer for {user_id}: {e}")
-
-    # Final statistics
-    elapsed = (datetime.now() - stats["start_time"]).total_seconds()
-
-    print("\nProcessing Complete:")
-    print(f"  Total rows: {stats['total_rows']:,}")
-    print(f"  Users processed: {len(processed_users):,}")
-    if stats["date_filtered"] > 0:
-        print(f"  Measurements filtered by date: {stats['date_filtered']:,}")
-    if stats.get("unit_rejected", 0) > 0:
-        print(
-            f"  Measurements rejected for unsupported units: {stats['unit_rejected']:,}"
-        )
-    print(f"  Measurements accepted: {stats['accepted']:,}")
-    print(f"  Measurements rejected: {stats['rejected']:,}")
-    print(f"  Time: {elapsed:.1f}s ({stats['total_rows'] / elapsed:.0f} rows/sec)")
-
-    if stats["accepted"] + stats["rejected"] > 0:
-        acceptance_rate = stats["accepted"] / (stats["accepted"] + stats["rejected"])
-        print(f"  Acceptance rate: {acceptance_rate:.1%}")
-
-    # Report rejected units
-    if stats.get("rejected_units"):
-        print("\nRejected Units Summary:")
-        for unit, count in sorted(
-            stats["rejected_units"].items(), key=lambda x: x[1], reverse=True
-        )[:10]:
-            print(f"  '{unit}': {count:,} measurements")
-
-    # Replay processing statistics
-    if replay_enabled and stats.get("replay_processed", 0) > 0:
-        print("\nReplay Processing:")
-        print(f"  Buffers processed: {stats.get('replay_processed', 0):,}")
-        print(
-            f"  Measurements analyzed: {stats.get('replay_measurements_analyzed', 0):,}"
-        )
-        print(f"  Outliers found: {stats.get('replay_outliers_found', 0):,}")
-        print(f"  Successful replays: {stats.get('replay_replays_successful', 0):,}")
-        if stats.get("replay_replays_failed", 0) > 0:
-            print(f"  Failed replays: {stats.get('replay_replays_failed', 0):,}")
-        if stats.get("replay_resets_changed", 0) > 0:
-            print(f"  Reset anchors changed: {stats.get('replay_resets_changed', 0):,}")
-        if stats.get("replay_corrections_made", 0) > 0:
-            print(f"  Corrections made: {stats.get('replay_corrections_made', 0):,}")
-        if stats.get("replay_errors", 0) > 0:
-            print(f"  Processing errors: {stats.get('replay_errors', 0):,}")
-
-    # Save results
-    timestamp_str = datetime.now().strftime(config["logging"]["timestamp_format"])
-    results_file = output_path / f"results_{timestamp_str}.json"
-
-    with open(results_file, "w") as f:
-        json.dump({"stats": stats, "users": user_results}, f, indent=2, default=str)
-
-    print(f"\nResults saved to {results_file}")
-
-    # Export database if requested
-    if config["data"].get("export_database", True):
-        db_file = output_path / f"db_dump_{timestamp_str}.csv"
-        users_exported = db.export_to_csv(str(db_file))
-        print(f"Database exported to {db_file} ({users_exported} users)")
-
-    # Generate visualizations if enabled
-    if config.get("visualization", {}).get("enabled", True):
-        viz_dir = output_path / f"viz_{timestamp_str}"
-        viz_dir.mkdir(exist_ok=True)
-
-        total_users = len(user_results)
-        if total_users > 0:
-            print(f"\nGenerating visualizations for {total_users} user(s)...")
-
-            # Set visualization verbosity based on number of users
-            try:
-                from core.utils import set_verbosity
-
-                if total_users > 10:
-                    set_verbosity(0)  # Silent for many users
-                elif total_users > 1:
-                    set_verbosity(1)  # Minimal for a few users
-                else:
-                    set_verbosity(2)  # Normal for single user
-            except ImportError:
-                pass
-
-            # Determine number of threads to use
-            num_threads = get_optimal_thread_count(total_users, config)
-
-            if num_threads > 1:
-                print(
-                    f"  Using {num_threads} processes for parallel visualization generation"
-                )
-
-            successful = 0
-            failed = 0
-            completed = 0
-
-            # Prepare arguments for all visualizations
-            viz_args = [
-                (idx, total_users, user_id, results, viz_dir, config)
-                for idx, (user_id, results) in enumerate(user_results.items(), 1)
-            ]
-
-            if num_threads == 1:
-                # Single-threaded fallback (for compatibility or when disabled)
-                for args in viz_args:
-                    idx = args[0]
-                    user_id = args[2]
-
-                    # Progress indicator for large batches
-                    if total_users > 10 and idx % 10 == 0:
-                        print(
-                            f"  Progress: {idx}/{total_users} ({idx * 100 // total_users}%)"
-                        )
-                    elif total_users <= 10:
-                        print(f"  [{idx}/{total_users}] User {user_id[:8]}...", end=" ")
-
-                    user_id, success, error_msg, dashboard_path = (
-                        generate_single_visualization(args)
-                    )
-
-                    if success:
-                        successful += 1
-                        if total_users <= 10:
-                            print("✓")
-                    else:
-                        failed += 1
-                        if total_users <= 10:
-                            print(
-                                f"✗ ({error_msg[:30] if error_msg else 'unknown error'})"
-                            )
-                        elif config.get("logging", {}).get("verbose", False):
-                            print(f"    Error for {user_id}: {error_msg}")
-            else:
-                # Multi-process execution for true parallelism
-                with ProcessPoolExecutor(max_workers=num_threads) as executor:
-                    # Submit all tasks
-                    future_to_user = {
-                        executor.submit(generate_single_visualization, args): args[2]
-                        for args in viz_args
-                    }
-
-                    # Process completed futures
-                    for future in as_completed(future_to_user):
-                        user_id_from_future = future_to_user[future]
-
-                        try:
-                            user_id, success, error_msg, dashboard_path = future.result(
-                                timeout=30
-                            )
-
-                            # Note: Lock not needed for print in main process
-                            completed += 1
-                            if success:
-                                successful += 1
-                            else:
-                                failed += 1
-
-                            # Update progress
-                            if total_users > 10:
-                                if completed % 10 == 0 or completed == total_users:
-                                    print(
-                                        f"  Progress: {completed}/{total_users} ({completed * 100 // total_users}%) - "
-                                        f"✓ {successful} / ✗ {failed}"
-                                    )
-                            elif total_users <= 10:
-                                status = (
-                                    "✓"
-                                    if success
-                                    else f"✗ ({error_msg[:30] if error_msg else 'unknown'})"
-                                )
-                                print(
-                                    f"  [{completed}/{total_users}] User {user_id[:8]}... {status}"
-                                )
-
-                        except Exception as e:
-                            completed += 1
-                            failed += 1
-                            if config.get("logging", {}).get("verbose", False):
-                                print(
-                                    f"    Process error for {user_id_from_future}: {e}"
-                                )
-
-            # Summary
-            if total_users > 1:
-                print(
-                    f"\nVisualization complete: {successful} successful, {failed} failed"
-                )
-
-            # Generate index.html for dashboard navigation
-            if successful > 0:
-                try:
-                    from local.viz.viz_index import create_index_from_results
-
-                    index_path = create_index_from_results(
-                        all_results=user_results, output_dir=str(viz_dir)
-                    )
-                    print(f"Dashboard index: {index_path}")
-                except Exception as e:
-                    print(f"Warning: Could not generate index.html: {e}")
-
-            print(f"Output: {viz_dir}")
-
-    # Close filtered CSV file if it was opened
-    if filtered_csv_file:
-        filtered_csv_file.close()
-        print(f"Filtered CSV saved to: {filtered_output} ({stats['accepted']} rows)")
-
-    # Clean up replay buffer if it was created
-    if replay_enabled and "buffer_factory" in locals():
-        try:
-            buffer_stats = buffer_factory.get_stats()
-            if buffer_stats["total_instances"] > 0:
-                print(f"Cleaning up {buffer_stats['total_instances']} buffer instances")
-                buffer_factory.clear_all(force=True)
-        except Exception as e:
-            print(f"Warning: Error during buffer cleanup: {e}")
-
-    return user_results, stats
-
-
-def _process_replay_buffer(
-    user_id: str, replay_buffer, outlier_detector, replay_manager, stats: dict
-) -> None:
-    """
-    Process a replay buffer for outlier detection and replay.
-    Uses enhanced replay processor if available, falls back to original logic.
-
-    Args:
-        user_id: User identifier
-        replay_buffer: ReplayBuffer instance
-        outlier_detector: OutlierDetector instance (may be unused with enhanced processor)
-        replay_manager: ReplayManager instance (may be unused with enhanced processor)
-        stats: Statistics dictionary to update
-    """
-    try:
-        # Get buffered measurements
-        buffered_measurements = replay_buffer.get_buffer_measurements(user_id)
-        if not buffered_measurements:
-            return
-
-        buffer_info = replay_buffer.get_buffer_info(user_id)
-        buffer_start_time = buffer_info["first_timestamp"] if buffer_info else None
-
-        # Try to use enhanced replay processor if available
-        enhanced_mode = False
-        try:
-            # Get database instance
-            from core.database import get_state_db
-            from core.replay.replay_processor import ReplayProcessor
-
-            db = get_state_db()
-
-            # Create replay processor with config
-            replay_config = {
-                "analysis": {
-                    "kalman_deviation_threshold": 0.10,
-                    "temporal_change_threshold": 0.05,
-                    "outlier_score_threshold": 0.4,
-                    "reset_reevaluation_threshold": 0.6,
-                },
-                "safety": replay_manager.config
-                if hasattr(replay_manager, "config")
-                else {},
+            # Convert to measurement format for processing
+            measurement = {
+                "uuid": measurement_id,
+                "weight": weight,
+                "unit": unit,
+                "effectiveDateTime": parse_timestamp(date_str).isoformat() if date_str else datetime.now(timezone.utc).isoformat(),
+                "source": source,
+                "metadata": {
+                    "original_row_index": row_count,
+                    "csv_row": original_row
+                }
             }
 
-            processor = ReplayProcessor(db, replay_config)
+            if user_id not in user_measurements:
+                user_measurements[user_id] = []
+            user_measurements[user_id].append(measurement)
 
-            # Process buffer with enhanced analyzer
-            result = processor.process_buffer(
-                user_id, buffered_measurements, buffer_start_time
-            )
+            # Progress update
+            if row_count % 10000 == 0:
+                print(f"  Loaded {row_count:,} rows, {len(user_measurements):,} users...")
+                if max_users > 0 and len(selected_users) >= max_users:
+                    print(f"  Reached max users limit ({max_users}), continuing to load their remaining measurements...")
 
-            # Update stats from processor metrics
-            metrics = processor.get_metrics()
-            stats["replay_processed"] = stats.get("replay_processed", 0) + 1
-            stats["replay_outliers_found"] = stats.get(
-                "replay_outliers_found", 0
-            ) + metrics.get("outliers_found", 0)
-            stats["replay_measurements_analyzed"] = stats.get(
-                "replay_measurements_analyzed", 0
-            ) + len(buffered_measurements)
-            stats["replay_resets_changed"] = stats.get(
-                "replay_resets_changed", 0
-            ) + metrics.get("resets_changed", 0)
-            stats["replay_corrections_made"] = stats.get(
-                "replay_corrections_made", 0
-            ) + metrics.get("corrections_made", 0)
+    print(f"Loaded {len(user_measurements):,} users with {sum(len(m) for m in user_measurements.values()):,} total measurements")
 
-            if result["success"]:
-                stats["replay_replays_successful"] = (
-                    stats.get("replay_replays_successful", 0) + 1
-                )
-
-                # Log if reset was changed
-                if result.get("reset_changed"):
-                    change_details = result.get("reset_change_details", {})
-                    print(
-                        f"  Reset anchor changed: {change_details.get('reason', 'unknown')}"
-                    )
-            else:
-                stats["replay_replays_failed"] = (
-                    stats.get("replay_replays_failed", 0) + 1
-                )
-                print(f"  Replay failed: {result.get('error', 'unknown error')}")
-
-            enhanced_mode = True
-
-        except ImportError:
-            # Enhanced processor not available, fall back to original logic
-            pass
-
-        # Fallback to original logic if enhanced mode not available or failed
-        if not enhanced_mode:
-            # Detect outliers (now with quality score awareness and Kalman prediction)
-            clean_measurements, outlier_indices = (
-                outlier_detector.get_clean_measurements(
-                    buffered_measurements, user_id=user_id
-                )
-            )
-
-            # Get analysis details
-            analysis = outlier_detector.analyze_outliers(
-                buffered_measurements, outlier_indices
-            )
-
-            # Update statistics
-            stats["replay_processed"] = stats.get("replay_processed", 0) + 1
-            stats["replay_outliers_found"] = stats.get(
-                "replay_outliers_found", 0
-            ) + len(outlier_indices)
-            stats["replay_measurements_analyzed"] = stats.get(
-                "replay_measurements_analyzed", 0
-            ) + len(buffered_measurements)
-
-            if len(outlier_indices) > 0:
-                # Replay clean measurements if we have any and found outliers
-                if clean_measurements and buffer_start_time:
-                    replay_result = replay_manager.replay_clean_measurements(
-                        user_id=user_id,
-                        clean_measurements=clean_measurements,
-                        buffer_start_time=buffer_start_time,
-                    )
-
-                    if replay_result["success"]:
-                        stats["replay_replays_successful"] = (
-                            stats.get("replay_replays_successful", 0) + 1
-                        )
-                    else:
-                        stats["replay_replays_failed"] = (
-                            stats.get("replay_replays_failed", 0) + 1
-                        )
-                        print(
-                            f"  Replay failed: {replay_result.get('error', 'unknown error')}"
-                        )
-
-        # Clear buffer after processing
-        replay_buffer.clear_buffer(user_id)
-
-    except Exception as e:
-        import traceback
-
-        stats["replay_processing_errors"] = stats.get("replay_processing_errors", 0) + 1
-        print(f"Error in replay processing for {user_id}: {e}")
-        traceback.print_exc()
+    return user_measurements, original_rows
 
 
-def parse_timestamp(date_str: str) -> datetime:
-    """Parse various timestamp formats and return timezone-aware datetime in UTC."""
-    if not date_str:
-        return datetime.now(tz.utc)
+def process_users_chronologically(
+    processor: InMemoryProcessor,
+    user_measurements: Dict[str, List[Dict[str, Any]]],
+    acceptance_tracker: AcceptanceTracker
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Process measurements chronologically for each user with real-time replay.
 
-    if "T" in date_str:
-        # Parse ISO format
-        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        # Ensure it has UTC timezone
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=tz.utc)
-        return dt.astimezone(tz.utc)
-    elif " " in date_str:
-        # Parse as naive and add UTC timezone
-        dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-        return dt.replace(tzinfo=tz.utc)
-    else:
-        # Parse date only and add UTC timezone
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
-        return dt.replace(tzinfo=tz.utc)
+    This simulates production behavior where measurements arrive in real-time
+    and replay is triggered immediately when anomalies are detected.
+
+    Args:
+        processor: InMemoryProcessor instance
+        user_measurements: Dict mapping user_id to measurements
+        acceptance_tracker: Tracker for accepted measurements
+
+    Returns:
+        Dict mapping user_id to processing results
+    """
+    results = {}
+    total_users = len(user_measurements)
+    total_measurements = sum(len(measurements) for measurements in user_measurements.values())
+
+    print(f"\nProcessing measurements chronologically with real-time replay...")
+    print(f"Total users: {total_users:,}")
+    print(f"Total measurements: {total_measurements:,}")
+    if processor.replay_enabled:
+        print(f"Replay window: {processor.replay_window_hours} hours")
+
+    processed_measurements = 0
+    successful_users = 0
+    failed_users = 0
+    total_replays = 0
+
+    for i, (user_id, measurements) in enumerate(user_measurements.items(), 1):
+        if i % 100 == 0:
+            print(f"[{i}/{total_users}] Processing users...")
+
+        # Process all measurements chronologically for this user
+        # Pass acceptance_tracker to update it during processing
+        result = processor.process_measurements_chronologically(
+            user_id, measurements, acceptance_tracker=acceptance_tracker
+        )
+
+        user_results = {
+            "measurements_processed": result.measurements_processed,
+            "measurements_accepted": result.measurements_accepted,
+            "measurements_rejected": result.measurements_rejected,
+            "replays_triggered": result.replays_triggered,
+            "errors": result.errors
+        }
+
+        processed_measurements += result.measurements_processed
+        total_replays += result.replays_triggered
+
+        results[user_id] = user_results
+
+        if user_results["errors"]:
+            failed_users += 1
+        else:
+            successful_users += 1
+
+        # Progress update
+        if i % 500 == 0 or i == total_users:
+            print(f"  Progress: {i}/{total_users} users, {processed_measurements:,}/{total_measurements:,} measurements, {total_replays} replays triggered")
+
+    print("\nProcessing complete:")
+    print(f"  Successful users: {successful_users:,}")
+    print(f"  Failed users: {failed_users:,}")
+    print(f"  Total measurements processed: {processed_measurements:,}")
+    print(f"  Total replay triggers: {total_replays:,}")
+
+    return results
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Simplified Weight Stream Processor")
-    parser.add_argument("csv_file", nargs="?", help="CSV file to process")
-    parser.add_argument("--config", default="config.toml", help="Configuration file")
-    parser.add_argument("--output", help="Output directory")
-    parser.add_argument("--max-users", type=int, help="Maximum users to process")
-    parser.add_argument("--no-viz", action="store_true", help="Skip visualizations")
+def write_filtered_csv(
+    original_rows: List[Dict[str, Any]],
+    acceptance_tracker: AcceptanceTracker,
+    output_path: str
+) -> int:
+    """
+    Write filtered CSV with only accepted measurements.
+    Similar to local_old.py but reads from acceptance tracker instead of real-time writing.
+
+    Args:
+        original_rows: Original CSV rows with tracking info
+        acceptance_tracker: Tracker containing acceptance information
+        output_path: Path to write filtered CSV
+
+    Returns:
+        Number of accepted rows written
+    """
+    if not original_rows:
+        print("No original rows to filter")
+        return 0
+
+    print(f"\nWriting filtered CSV to {output_path}...")
+
+    # Get fieldnames from first row (excluding internal tracking fields)
+    fieldnames = [k for k in original_rows[0].keys() if not k.startswith('_')]
+
+    # Add quality_score column like local_old.py does
+    if 'quality_score' not in fieldnames:
+        fieldnames.append('quality_score')
+
+    accepted_count = 0
+    total_count = len(original_rows)
+
+    with open(output_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for row in original_rows:
+            user_id = row.get("user_id")
+            # Handle both old and new column names for timestamp
+            timestamp = row.get("effective_date_time") or row.get("effectiveDateTime")
+
+            if user_id and timestamp and acceptance_tracker.is_accepted(user_id, timestamp):
+                # Create filtered row without internal tracking fields
+                filtered_row = {k: v for k, v in row.items() if not k.startswith('_')}
+
+                # Add quality score
+                filtered_row['quality_score'] = acceptance_tracker.get_quality_score(user_id, timestamp)
+
+                writer.writerow(filtered_row)
+                accepted_count += 1
+
+    print(f"Filtered CSV written: {accepted_count:,}/{total_count:,} measurements accepted ({accepted_count/total_count*100:.1f}%)")
+
+    return accepted_count
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Hyper-Speed Local Weight Stream Processor with Real-Time Replay")
     parser.add_argument(
-        "--no-db-export", action="store_true", help="Skip database export"
+        "--config",
+        default="config.toml",
+        help="Path to configuration TOML file (default: local/config.toml)"
     )
     parser.add_argument(
-        "--filtered-output", help="Path to write filtered CSV (accepted rows only)"
+        "--csv-file",
+        help="CSV file to process (overrides config file)"
     )
     parser.add_argument(
-        "--filtered-users-csv",
-        help="Path to CSV file with users to process (user_id,removed_count format)",
+        "--max-users",
+        type=int,
+        help="Maximum users to process (overrides config file)"
     )
     parser.add_argument(
-        "--debug",
+        "--max-rows",
+        type=int,
+        help="Maximum CSV rows to read (overrides config file)"
+    )
+    parser.add_argument(
+        "--enable-replay",
         action="store_true",
-        help="Enable debug output with acceptance/rejection details",
+        help="Enable real-time replay processing (overrides config file)"
+    )
+    parser.add_argument(
+        "--disable-replay",
+        action="store_true",
+        help="Disable real-time replay processing (overrides config file)"
+    )
+    parser.add_argument(
+        "--replay-window",
+        type=int,
+        help="Replay window in hours (overrides config file)"
+    )
+    parser.add_argument(
+        "--output-dir",
+        help="Output directory for results (overrides config file)"
+    )
+    parser.add_argument(
+        "--filtered-csv",
+        help="Output path for filtered CSV (default: output_dir/filtered_TIMESTAMP.csv)"
     )
 
     args = parser.parse_args()
 
-    # Load config
-    config = load_config(args.config)
+    # Load configuration file first
+    config_path = Path(args.config)
+    if config_path.exists():
+        processor = InMemoryProcessor(config_path=str(config_path))
+        # Get data config from loaded TOML
+        data_config = processor.data_config
+        toml_replay_config = processor.config.get("replay", {})
+    else:
+        print(f"Warning: Config file not found: {config_path}, using defaults")
+        processor = InMemoryProcessor()
+        data_config = {}
+        toml_replay_config = {}
 
-    # Validate configuration
-    from core.utils import validate_config
+    # Override config values with command-line arguments
+    csv_file = args.csv_file or data_config.get("csv_file", "data/2025-09-29_weights_all.csv")
+    max_users = args.max_users if args.max_users is not None else data_config.get("max_users", 0)
+    max_rows = args.max_rows if args.max_rows is not None else data_config.get("max_rows", 0)
+    output_dir = args.output_dir or data_config.get("output_dir", "output_local")
 
-    is_valid, errors = validate_config(config)
-    if not is_valid:
-        print("Configuration validation failed:")
-        for error in errors:
-            print(f"  - {error}")
-        sys.exit(1)
+    # Handle replay configuration
+    if args.disable_replay:
+        replay_enabled = False
+    elif args.enable_replay:
+        replay_enabled = True
+    else:
+        replay_enabled = toml_replay_config.get("enabled", False)
 
-    # Override with command line arguments
-    if args.csv_file:
-        config["data"]["csv_file"] = args.csv_file
-    if args.output:
-        config["data"]["output_dir"] = args.output
-    if args.max_users is not None:
-        config["data"]["max_users"] = args.max_users
-    if args.no_viz:
-        config["visualization"]["enabled"] = False
-    if args.no_db_export:
-        config["data"]["export_database"] = False
-    if hasattr(args, "filtered_users_csv") and args.filtered_users_csv:
-        config["data"]["filtered_users_csv"] = args.filtered_users_csv
+    replay_window = args.replay_window or toml_replay_config.get("buffer_hours", 72)
 
-    csv_file = config["data"]["csv_file"]
+    # Validate inputs
     if not Path(csv_file).exists():
-        print(f"Error: File {csv_file} not found")
-        sys.exit(1)
+        print(f"Error: CSV file not found: {csv_file}")
+        return 1
 
-    stream_process(
+    # Create output directory
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True)
+
+    # Configure replay if enabled
+    if replay_enabled:
+        replay_config = {
+            "enabled": True,
+            "buffer_hours": replay_window,
+            "trigger_mode": toml_replay_config.get("trigger_mode", "time_based"),
+            "outlier_detection": toml_replay_config.get("outlier_detection", {
+                "mad_threshold": 3.0,
+                "quality_threshold": 0.3
+            }),
+            "safety": toml_replay_config.get("safety", {
+                "max_replay_attempts": 3,
+                "min_measurements": 5
+            })
+        }
+        # Re-initialize processor with updated replay config if needed
+        if not processor.replay_enabled:
+            processor = InMemoryProcessor(config_path=str(config_path) if config_path.exists() else None, replay_config_override=replay_config)
+    else:
+        replay_config = None
+
+    print("=" * 60)
+    print("HYPER-SPEED LOCAL PROCESSOR WITH REAL-TIME REPLAY")
+    print("Using in-memory storage and direct method calls")
+    if config_path.exists():
+        print(f"Configuration loaded from: {config_path}")
+    if replay_enabled:
+        print(f"Real-time replay enabled with {replay_window}h window")
+    else:
+        print("Real-time replay disabled")
+    print("=" * 60)
+
+    # Load CSV data
+    user_measurements, original_rows = load_csv_data(
         csv_file,
-        config["data"]["output_dir"],
-        config,
-        filtered_output=args.filtered_output
-        if hasattr(args, "filtered_output")
-        else None,
-        debug=args.debug if hasattr(args, "debug") else False,
+        max_users=max_users,
+        max_rows=max_rows
     )
+
+    if not user_measurements:
+        print("No valid measurements found in CSV file")
+        return 1
+
+    # Initialize acceptance tracker
+    acceptance_tracker = AcceptanceTracker()
+
+    # Track overall results
+    start_time = datetime.now()
+    overall_results = {
+        "start_time": start_time.isoformat(),
+        "csv_file": csv_file,
+        "config_file": str(config_path) if config_path.exists() else None,
+        "mode": "hyper-speed-local-realtime",
+        "replay_enabled": replay_enabled,
+        "replay_window_hours": replay_window if replay_enabled else None,
+        "users_loaded": len(user_measurements),
+        "total_measurements": sum(len(m) for m in user_measurements.values()),
+        "processing_results": None
+    }
+
+    # Process measurements chronologically with real-time replay
+    processing_results = process_users_chronologically(
+        processor,
+        user_measurements,
+        acceptance_tracker
+    )
+    overall_results["processing_results"] = processing_results
+
+    # Write filtered CSV
+    timestamp_str = start_time.strftime("%Y%m%d_%H%M%S")
+    filtered_csv_path = args.filtered_csv or str(output_dir / f"filtered_{timestamp_str}.csv")
+    accepted_count = write_filtered_csv(original_rows, acceptance_tracker, filtered_csv_path)
+
+    # Finalize results
+    end_time = datetime.now()
+    overall_results["end_time"] = end_time.isoformat()
+    overall_results["duration_seconds"] = (end_time - start_time).total_seconds()
+    overall_results["filtered_csv_path"] = filtered_csv_path
+    overall_results["accepted_measurements"] = accepted_count
+    overall_results["total_original_measurements"] = len(original_rows)
+
+    # Save results to file
+    results_file = output_dir / f"local_processing_results_{timestamp_str}.json"
+
+    with open(results_file, 'w') as f:
+        json.dump(overall_results, f, indent=2, default=str)
+
+    print("\n=== Processing Complete ===")
+    print(f"Duration: {overall_results['duration_seconds']:.1f} seconds")
+    if overall_results['duration_seconds'] > 0:
+        print(f"Speed: {len(original_rows) / overall_results['duration_seconds']:.0f} rows/second")
+    print(f"Results saved to: {results_file}")
+    print(f"Filtered CSV saved to: {filtered_csv_path}")
+
+    # Print summary statistics
+    if overall_results["processing_results"]:
+        stats = overall_results["processing_results"]
+        total_processed = sum(r["measurements_processed"] for r in stats.values())
+        total_accepted = sum(r["measurements_accepted"] for r in stats.values())
+        total_replays = sum(r.get("replays_triggered", 0) for r in stats.values())
+        print(f"Processing summary: {total_processed:,} processed, {total_accepted:,} accepted")
+        if replay_enabled:
+            print(f"Real-time replays triggered: {total_replays:,}")
+
+    print(f"Filtered output: {accepted_count:,} accepted measurements written")
+
+    # Cleanup
+    processor.cleanup()
+
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())

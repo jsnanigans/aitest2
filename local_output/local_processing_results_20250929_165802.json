@@ -1,0 +1,35 @@
+{
+  "start_time": "2025-09-29T16:58:02.408439",
+  "csv_file": "data/2025-09-05_all.csv",
+  "config_file": "local/config.toml",
+  "mode": "hyper-speed-local-realtime",
+  "replay_enabled": true,
+  "replay_window_hours": 72,
+  "users_loaded": 2,
+  "total_measurements": 5,
+  "processing_results": {
+    "00088d03-2305-4032-852a-354d0786ad87": {
+      "measurements_processed": 1,
+      "measurements_accepted": 1,
+      "measurements_rejected": 0,
+      "replays_triggered": 0,
+      "errors": [
+        "Error processing measurement at 2025-01-22T13:03:37+00:00: object has no __init__ method"
+      ]
+    },
+    "000ded70-578d-4b05-8f62-b20b6f5bcf73": {
+      "measurements_processed": 2,
+      "measurements_accepted": 2,
+      "measurements_rejected": 0,
+      "replays_triggered": 0,
+      "errors": [
+        "Error processing measurement at 2024-04-04T00:00:00+00:00: object has no __init__ method"
+      ]
+    }
+  },
+  "end_time": "2025-09-29T16:58:02.410251",
+  "duration_seconds": 0.001812,
+  "filtered_csv_path": "local_output/filtered_20250929_165802.csv",
+  "accepted_measurements": 3,
+  "total_original_measurements": 5
+}
