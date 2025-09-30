@@ -137,6 +137,17 @@ class ReplayOptions(BaseModel):
     use_snapshot: bool = Field(True, description="Use state snapshot if available")
 
 
+# ============= Replay Models (must be before Request models that use them) =============
+
+class ReplayWindowInfo(BaseModel):
+    """Information about a replay window."""
+
+    window_start: datetime = Field(description="Start time of replay window")
+    window_end: datetime = Field(description="End time of replay window")
+    measurements_in_window: int = Field(description="Number of measurements in window")
+    measurement_ids: List[str] = Field(default_factory=list, description="IDs of measurements to re-evaluate")
+
+
 class ReplayRequest(BaseModel):
     """Request for replay operation with consistent field naming."""
 
@@ -144,6 +155,21 @@ class ReplayRequest(BaseModel):
     measurements: List[Measurement] = Field(..., min_items=1, description="Measurements to replay")
     options: ReplayOptions = Field(default_factory=ReplayOptions)
     user_height_m: Optional[float] = Field(None, gt=0, le=3.0, description="User height in meters (optional)")
+
+
+class ReplayCheckRequest(BaseModel):
+    """Request to check if replay should trigger."""
+
+    user_id: str = Field(..., description="User identifier")
+    current_timestamp: datetime = Field(..., description="Timestamp of last processed measurement")
+    buffer_hours: Optional[int] = Field(None, ge=1, le=168, description="Replay window in hours (default: 72)")
+
+
+class ReplayExecuteRequest(BaseModel):
+    """Request to execute replay for a window."""
+
+    user_id: str = Field(..., description="User identifier")
+    window_info: ReplayWindowInfo = Field(..., description="Window information from replay check")
 
 
 # ============= Response Models =============
@@ -272,6 +298,41 @@ class HistoricalConflictResponse(BaseModel):
 
     error: str
     details: HistoricalConflictDetails
+
+
+class ReplayResultData(BaseModel):
+    """Results from replay execution that caller must process."""
+
+    user_id: str
+    success: bool
+    window_start: datetime
+    window_end: datetime
+
+    # NEW acceptance results - caller must update tracking
+    measurement_results: List[MeasurementResult] = Field(
+        description="One result per measurement in window with NEW acceptance status"
+    )
+
+    # Metadata
+    outliers_detected: List[str] = Field(
+        default_factory=list,
+        description="measurement_ids marked as outliers"
+    )
+    outliers_count: int = Field(default=0)
+    corrections_made: int = Field(default=0, description="Number of acceptance changes")
+    state_restored_to: Optional[datetime] = Field(default=None)
+
+    error: Optional[str] = None
+
+
+class ReplayTriggerCheckResponse(BaseModel):
+    """Response from checking if replay should trigger."""
+
+    should_trigger: bool = Field(description="Whether replay is recommended")
+    window_info: Optional[ReplayWindowInfo] = Field(
+        default=None,
+        description="Window information if replay should trigger"
+    )
 
 
 # ============= Helper Functions =============

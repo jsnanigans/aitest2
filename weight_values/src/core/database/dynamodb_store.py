@@ -367,6 +367,61 @@ class DynamoDBStateStore(StateStore):
             "user_id": user_id,
         }
 
+    def get_measurements_in_window(
+        self,
+        user_id: str,
+        start_time: datetime,
+        end_time: datetime
+    ) -> list:
+        """
+        Get measurements for a user within a time window.
+
+        Used by replay trigger logic to find measurements in the 72-hour window.
+
+        Args:
+            user_id: User identifier
+            start_time: Window start time (inclusive)
+            end_time: Window end time (exclusive)
+
+        Returns:
+            List of measurement dicts with keys:
+            - timestamp: datetime
+            - weight: float
+            - source: str
+            - unit: str
+            - metadata: dict
+        """
+        try:
+            state = self.get_state(user_id)
+            if not state or "measurement_history" not in state:
+                return []
+
+            measurements = []
+            for m in state.get("measurement_history", []):
+                timestamp = m.get("timestamp")
+                if timestamp is None:
+                    continue
+
+                # Ensure timestamp is datetime
+                if isinstance(timestamp, str):
+                    timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+                # Check if in window
+                if start_time <= timestamp < end_time:
+                    measurements.append({
+                        "timestamp": timestamp,
+                        "weight": m.get("weight"),
+                        "source": m.get("source", "unknown"),
+                        "unit": m.get("unit", "kg"),
+                        "metadata": m.get("metadata", {})
+                    })
+
+            return measurements
+
+        except ClientError as e:
+            logger.error(f"Error getting measurements in window from DynamoDB: {e}")
+            return []
+
     def _init_table(self):
         """Create DynamoDB table if it doesn't exist (mainly for local development)."""
         try:

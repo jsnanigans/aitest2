@@ -12,6 +12,9 @@ from src.aws.api.models import (
     StateInfo,
     HistoricalConflictDetails,
     HistoricalConflictResponse,
+    ReplayWindowInfo,
+    ReplayResultData,
+    ReplayTriggerCheckResponse,
 )
 from src.core.database.base import StateStore
 from src.core.processing.processor import process_measurement
@@ -284,3 +287,191 @@ class WeightProcessorService:
                 conflicting_measurements=conflicting,
             ),
         )
+
+    def should_trigger_replay(
+        self,
+        user_id: str,
+        current_timestamp: datetime,
+        buffer_hours: int = None
+    ) -> ReplayTriggerCheckResponse:
+        """
+        Check if replay should trigger after processing a measurement.
+
+        This method provides information to help the CALLER decide whether
+        to trigger replay. It does NOT execute replay automatically.
+
+        Replay should trigger when there are measurements in the buffer window
+        before the current timestamp.
+
+        Args:
+            user_id: User identifier
+            current_timestamp: Timestamp of measurement just processed
+            buffer_hours: Size of replay window in hours (default: from config)
+
+        Returns:
+            ReplayTriggerCheckResponse with trigger recommendation and window info
+        """
+        # Get buffer hours from config if not provided
+        if buffer_hours is None:
+            buffer_hours = self.config.get("replay", {}).get("buffer_hours", 72)
+
+        # Calculate window boundaries
+        from datetime import timedelta
+        window_start = current_timestamp - timedelta(hours=buffer_hours)
+        window_end = current_timestamp
+
+        # Query measurements in window
+        measurements = self.state_store.get_measurements_in_window(
+            user_id, window_start, window_end
+        )
+
+        # Trigger if there are measurements in window
+        should_trigger = len(measurements) > 0
+
+        if should_trigger:
+            # Extract measurement IDs for tracking
+            measurement_ids = [
+                m.get("metadata", {}).get("measurement_id", "")
+                for m in measurements
+                if m.get("metadata")
+            ]
+
+            window_info = ReplayWindowInfo(
+                window_start=window_start,
+                window_end=window_end,
+                measurements_in_window=len(measurements),
+                measurement_ids=measurement_ids
+            )
+
+            return ReplayTriggerCheckResponse(
+                should_trigger=True,
+                window_info=window_info
+            )
+        else:
+            return ReplayTriggerCheckResponse(
+                should_trigger=False,
+                window_info=None
+            )
+
+    def execute_replay(
+        self,
+        user_id: str,
+        window_info: ReplayWindowInfo,
+        measurements_to_replay: Optional[List[Measurement]] = None
+    ) -> ReplayResultData:
+        """
+        Execute replay for a measurement window.
+
+        The CALLER triggers this method and must handle the results by updating
+        acceptance tracking. This method:
+        1. Restores state to before window
+        2. Detects outliers using pre-window state
+        3. Replays clean measurements chronologically
+        4. Returns NEW acceptance results for caller to process
+
+        Args:
+            user_id: User identifier
+            window_info: Window information from should_trigger_replay()
+            measurements_to_replay: Optional list of measurements (if None, queries from DB)
+
+        Returns:
+            ReplayResultData containing NEW acceptance results
+
+        IMPORTANT: Caller must update acceptance tracking based on results!
+        """
+        try:
+            # Import replay components
+            from src.core.replay.replay_manager import ReplayManager
+            from src.core.processing.outlier_detection import OutlierDetector
+
+            # Get measurements if not provided
+            if measurements_to_replay is None:
+                measurements_dict = self.state_store.get_measurements_in_window(
+                    user_id, window_info.window_start, window_info.window_end
+                )
+            else:
+                # Convert Measurement objects to dict format
+                measurements_dict = [
+                    {
+                        "weight": m.weight_value,
+                        "timestamp": m.measured_at,
+                        "source": m.source,
+                        "unit": m.weight_unit,
+                        "metadata": m.metadata or {}
+                    }
+                    for m in measurements_to_replay
+                ]
+
+            if not measurements_dict:
+                return ReplayResultData(
+                    user_id=user_id,
+                    success=False,
+                    window_start=window_info.window_start,
+                    window_end=window_info.window_end,
+                    measurement_results=[],
+                    error="No measurements found in window"
+                )
+
+            # Initialize replay manager
+            replay_config = self.config.get("replay", {})
+            replay_manager = ReplayManager(self.state_store, replay_config.get("safety", {}))
+
+            # Execute replay using existing replay manager logic
+            replay_result = replay_manager.replay_clean_measurements(
+                user_id=user_id,
+                clean_measurements=measurements_dict,
+                buffer_start_time=window_info.window_start
+            )
+
+            if not replay_result.get("success"):
+                return ReplayResultData(
+                    user_id=user_id,
+                    success=False,
+                    window_start=window_info.window_start,
+                    window_end=window_info.window_end,
+                    measurement_results=[],
+                    error=replay_result.get("error", "Replay failed")
+                )
+
+            # Get the final state to determine which measurements were accepted
+            # Re-process measurements to get acceptance results
+            measurement_results = []
+            for m_dict in measurements_dict:
+                result = self._process_single(
+                    user_id,
+                    Measurement(
+                        measurement_id=m_dict.get("metadata", {}).get("measurement_id", ""),
+                        weight_value=m_dict["weight"],
+                        weight_unit=m_dict["unit"],
+                        measured_at=m_dict["timestamp"],
+                        source=m_dict["source"],
+                        metadata=m_dict.get("metadata")
+                    )
+                )
+                measurement_results.append(result)
+
+            # Calculate corrections (accepted vs rejected changes)
+            corrections_made = sum(1 for r in measurement_results if r.accepted)
+
+            return ReplayResultData(
+                user_id=user_id,
+                success=True,
+                window_start=window_info.window_start,
+                window_end=window_info.window_end,
+                measurement_results=measurement_results,
+                outliers_detected=[],  # Would need to track from outlier detection
+                outliers_count=0,
+                corrections_made=corrections_made,
+                state_restored_to=window_info.window_start
+            )
+
+        except Exception as e:
+            logger.error(f"Error executing replay for user {user_id}: {e}")
+            return ReplayResultData(
+                user_id=user_id,
+                success=False,
+                window_start=window_info.window_start,
+                window_end=window_info.window_end,
+                measurement_results=[],
+                error=str(e)
+            )

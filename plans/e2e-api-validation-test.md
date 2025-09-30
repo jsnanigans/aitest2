@@ -11,7 +11,22 @@ Create a comprehensive end-to-end test that validates the SAM Local API produces
 
 ## Revision History
 
-### V2: Pragmatic 72-Hour Replay Simulation (Current)
+### V3: Continuous Replay with Check/Execute Endpoints (Current)
+
+**Key Changes from V2**:
+- **New Endpoints**: `/api/v1/replay/{userId}/check` and `/api/v1/replay/{userId}/execute`
+- **Processing**: Measurements processed one at a time with automatic replay checking
+- **Replay Triggers**: After each measurement, check if replay should trigger
+- **Acceptance Tracking**: Replay execution returns NEW acceptance results to update tracking
+- **External Control**: Caller decides when to execute replay (service provides advisory)
+
+**Rationale**: This approach provides better separation of concerns:
+1. Service layer handles replay logic (outlier detection, state restoration)
+2. Caller controls when to trigger replay (external trigger model)
+3. Clear contract: check → execute → update acceptance
+4. Same logic available to both API and local processing
+
+### V2: Pragmatic 72-Hour Replay Simulation (Deprecated)
 
 **Key Changes from V1**:
 - **Processing**: Measurements processed one at a time (mimics real-time ingestion)
@@ -115,7 +130,142 @@ def process_individual_measurements(
 }
 ```
 
-### Phase 3: Replay Processing (Pragmatic 72-Hour Window Simulation)
+### Phase 3: Continuous Replay with Check/Execute (V3 - Current)
+
+**New API Endpoints:**
+
+#### Check if Replay Should Trigger
+```http
+POST /api/v1/replay/{userId}/check
+Content-Type: application/json
+
+{
+  "user_id": "user_123",
+  "current_timestamp": "2025-09-30T12:00:00Z",
+  "buffer_hours": 72  // optional, defaults to 72
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "should_trigger": true,
+    "window_info": {
+      "window_start": "2025-09-27T12:00:00Z",
+      "window_end": "2025-09-30T12:00:00Z",
+      "measurements_in_window": 15,
+      "measurement_ids": ["id1", "id2", ...]
+    }
+  }
+}
+```
+
+#### Execute Replay
+```http
+POST /api/v1/replay/{userId}/execute
+Content-Type: application/json
+
+{
+  "user_id": "user_123",
+  "window_info": {
+    "window_start": "2025-09-27T12:00:00Z",
+    "window_end": "2025-09-30T12:00:00Z",
+    "measurements_in_window": 15,
+    "measurement_ids": ["id1", "id2", ...]
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "user_id": "user_123",
+    "success": true,
+    "window_start": "2025-09-27T12:00:00Z",
+    "window_end": "2025-09-30T12:00:00Z",
+    "measurement_results": [
+      {
+        "measurement_id": "id1",
+        "accepted": false,  // NEW status
+        "quality_score": 0.45,
+        "rejection_reason": "outlier"
+      },
+      {
+        "measurement_id": "id2",
+        "accepted": true,  // NEW status
+        "quality_score": 0.92
+      }
+    ],
+    "outliers_detected": ["id1"],
+    "outliers_count": 1,
+    "corrections_made": 3
+  }
+}
+```
+
+**Implementation:**
+```python
+def process_with_continuous_replay(
+    api_client,
+    user_id: str,
+    measurements: List[Dict]
+) -> Set[str]:
+    """
+    Process measurements with continuous replay checking.
+
+    Uses the new check/execute endpoints for replay.
+
+    Returns: Final set of accepted measurement IDs
+    """
+    accepted_ids = set()
+    sorted_measurements = sorted(
+        measurements,
+        key=lambda m: parse_timestamp(m["effectiveDateTime"])
+    )
+
+    # Process measurements one at a time
+    for measurement in sorted_measurements:
+        # 1. Process single measurement
+        response = api_client.process_measurements(user_id, [measurement])
+        if response["accepted"]:
+            accepted_ids.add(measurement["uuid"])
+
+        # 2. Check if replay should trigger
+        measurement_timestamp = parse_timestamp(measurement["effectiveDateTime"])
+        check_response = api_client.check_replay(user_id, measurement_timestamp)
+
+        if check_response["should_trigger"]:
+            # 3. Execute replay
+            window_info = check_response["window_info"]
+            replay_response = api_client.execute_replay(user_id, window_info)
+
+            # 4. Update acceptance tracking with NEW results
+            if replay_response["success"]:
+                # Clear previous acceptances for this window
+                accepted_ids = {
+                    mid for mid in accepted_ids
+                    if mid not in window_info["measurement_ids"]
+                }
+
+                # Add NEW acceptances from replay results
+                for result in replay_response["measurement_results"]:
+                    if result["accepted"]:
+                        accepted_ids.add(result["measurement_id"])
+
+    return accepted_ids
+```
+
+**Key Differences from V2:**
+- ✅ **External trigger control**: Caller decides when to execute replay
+- ✅ **Service handles complexity**: Outlier detection, state restoration in service layer
+- ✅ **Clear contract**: Check → Execute → Update acceptance
+- ✅ **NEW results**: Replay returns definitive acceptance statuses for all measurements in window
+
+### Phase 3 (Legacy): Replay Processing (Pragmatic 72-Hour Window Simulation)
 
 **Production Behavior**:
 - After processing each measurement, if >1 measurement exists in last 72 hours, schedule a replay timeout
@@ -225,13 +375,62 @@ def validate_acceptance(
 
 ## Implementation Strategy
 
-### Test Structure
+### Test Structure (V3 - Continuous Replay)
 
 ```python
 @pytest.mark.e2e
-def test_single_user_end_to_end_validation(api_client, ensure_clean_state):
+def test_single_user_end_to_end_validation_v3(api_client, ensure_clean_state):
     """
-    E2E test: Process a real user and validate against reference dataset.
+    E2E test: Process a real user using continuous replay (V3).
+
+    This test uses the new check/execute replay endpoints:
+    1. Extracts user data from source CSV
+    2. Processes measurements one at a time
+    3. After each measurement, checks if replay should trigger
+    4. If replay triggers, executes replay and updates acceptance tracking
+    5. Validates accepted measurements match filtered dataset
+
+    Processing Logic:
+    - Each measurement processed individually (mimics real-time ingestion)
+    - After processing, check if replay should trigger (POST /replay/{userId}/check)
+    - If should_trigger=true, execute replay (POST /replay/{userId}/execute)
+    - Update acceptance tracking with NEW results from replay
+    - Replay results REPLACE acceptance status for the replayed window
+    """
+    # Arrange
+    user_id = "c51ef96b-5618-4295-a910-233faed5ab60"
+
+    # Reset state for clean test
+    cleanup_user(api_client, user_id)
+
+    # Load test data
+    measurements = extract_user_measurements(SOURCE_CSV, user_id)
+    expected_accepted = extract_expected_accepted(FILTERED_CSV, user_id)
+
+    # Act: Process with continuous replay (V3)
+    final_accepted = process_with_continuous_replay(
+        api_client, user_id, measurements
+    )
+
+    # Assert
+    validation = validate_acceptance(final_accepted, expected_accepted)
+
+    assert validation.is_exact_match, (
+        f"Acceptance mismatch:\n"
+        f"  Expected: {len(expected_accepted)} measurements\n"
+        f"  Actual: {len(final_accepted)} measurements\n"
+        f"  Missing: {validation.missing_ids}\n"
+        f"  Extra: {validation.extra_ids}"
+    )
+```
+
+### Test Structure (Legacy V2)
+
+```python
+@pytest.mark.e2e
+def test_single_user_end_to_end_validation_v2(api_client, ensure_clean_state):
+    """
+    E2E test: Process a real user and validate against reference dataset (V2 legacy).
 
     This test simulates production behavior:
     1. Extracts user data from source CSV
@@ -411,27 +610,58 @@ def ensure_clean_state(api_client, test_user_id):
 
 ## Next Steps
 
+**Recommended: Implement V3 (Continuous Replay)**
+
+1. **Update api_main.py** ✅ COMPLETED
+   - Add `check_replay()` method to APIClient
+   - Add `execute_replay()` method to APIClient
+   - Add `update_from_replay_results()` to AcceptanceTracker
+   - Add `process_measurements_with_continuous_replay()` function
+   - Add CLI flags: `--enable-continuous-replay` and `--disable-replay`
+
+2. **Test api_main.py with continuous replay**
+   ```bash
+   # Start SAM API
+   make sam-local
+
+   # Test continuous replay mode
+   python api_main.py --csv-file data/test_weights.csv \
+     --max-users 3 \
+     --enable-continuous-replay
+
+   # Test with replay disabled
+   python api_main.py --csv-file data/test_weights.csv \
+     --max-users 3 \
+     --enable-continuous-replay \
+     --disable-replay
+   ```
+
+3. **Update test implementation** (in `tests/api/test_e2e_validation.py`)
+   - Add `test_single_user_end_to_end_validation_v3()` using continuous replay
+   - Add helper function `process_with_continuous_replay()`
+   - Keep V2 test as `test_single_user_end_to_end_validation_v2()` for regression
+
+4. **Run tests and verify**
+   ```bash
+   # Run V3 test
+   uv run pytest tests/api/test_e2e_validation.py::test_single_user_end_to_end_validation_v3 -xvs
+
+   # Run V2 test for regression
+   uv run pytest tests/api/test_e2e_validation.py::test_single_user_end_to_end_validation_v2 -xvs
+   ```
+
+**Legacy: V2 Implementation (Optional)**
+
 1. **Analyze test data characteristics**
    - Check timestamps for natural 72-hour gaps
    - Verify expected replay trigger points
 
-2. **Update test implementation** (in `tests/api/test_e2e_validation.py`)
-   - Replace `process_individual_measurements()` + `process_replay()` with `process_with_72h_replay_simulation()`
-   - Add logging for replay trigger points
-   - Track number of replays executed
+2. **Add helper function** `process_with_72h_replay_simulation()`
+   - Implements legacy 72-hour boundary detection
+   - Uses old `/replay/{userId}` endpoint
 
-3. **Add helper function** `process_single_measurement()`
-   - Processes exactly one measurement via API
-   - Returns acceptance status
-
-4. **Add helper function** `execute_replay()`
-   - Executes replay for specific time window
-   - Returns updated acceptance set
-
-5. **Run test and verify**
-   - `uv run pytest tests/api/test_e2e_validation.py::test_single_user_end_to_end_validation -xvs --log-cli-level=INFO`
-   - Check replay trigger points align with data
-   - Verify final acceptance matches reference
+3. **Run test and verify**
+   - `uv run pytest tests/api/test_e2e_validation.py::test_single_user_end_to_end_validation_v2 -xvs --log-cli-level=INFO`
 
 ## Implementation Notes
 

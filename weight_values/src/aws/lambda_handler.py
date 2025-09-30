@@ -18,6 +18,7 @@ from src.aws.api.models import (
     StandardResponse, ErrorResponse, HealthStatus,
     ProcessResponseData, CleanupResponseData, ReplayResponseData, StateInfo,
     MeasurementResult, ApiMeta,
+    ReplayCheckRequest, ReplayExecuteRequest, ReplayTriggerCheckResponse, ReplayResultData,
     create_success_response, create_error_response
 )
 from src.aws.services.weight_processor_service import (
@@ -131,6 +132,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_process(event, request_id)
         elif resource == "/api/v1/cleanup/{userId}" and http_method == "POST":
             return handle_cleanup(event, request_id)
+        elif resource == "/api/v1/replay/{userId}/check" and http_method == "POST":
+            return handle_replay_check(event, request_id)
+        elif resource == "/api/v1/replay/{userId}/execute" and http_method == "POST":
+            return handle_replay_execute(event, request_id)
         elif resource == "/api/v1/replay/{userId}" and http_method == "POST":
             return handle_replay(event, request_id)
         elif resource == "/api/v1/state/{userId}" and http_method == "GET":
@@ -492,6 +497,111 @@ def handle_replay(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
         )
         return format_error_response(
             500, "REPLAY_ERROR", "Failed to replay measurements",
+            details={"error": str(e)},
+            request_id=request_id
+        )
+
+
+def handle_replay_check(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
+    """Handle replay check endpoint - checks if replay should trigger."""
+    user_id = None
+
+    try:
+        # Extract user ID and request body
+        user_id = event["pathParameters"]["userId"]
+        body = json.loads(event.get("body", "{}"))
+
+        # Parse and validate request
+        try:
+            request = ReplayCheckRequest(**body)
+        except Exception as e:
+            return format_error_response(
+                400, "VALIDATION_ERROR", "Invalid replay check request",
+                details={"validation_errors": str(e)},
+                suggestion="Ensure 'user_id' and 'current_timestamp' fields are present and valid",
+                request_id=request_id
+            )
+
+        # Get service
+        service = get_service()
+
+        # Check if replay should trigger
+        result = service.should_trigger_replay(
+            user_id=request.user_id,
+            current_timestamp=request.current_timestamp,
+            buffer_hours=request.buffer_hours
+        )
+
+        # Create response
+        api_response = create_success_response(
+            result.model_dump(),
+            meta=ApiMeta(request_id=request_id)
+        )
+        return format_success_response(api_response)
+
+    except Exception as e:
+        logger.exception(
+            "Error in replay check",
+            extra={
+                "request_id": request_id,
+                "user_id": mask_pii(user_id),
+                "error": str(e)
+            }
+        )
+        return format_error_response(
+            500, "REPLAY_CHECK_ERROR", "Failed to check replay trigger",
+            details={"error": str(e)},
+            request_id=request_id
+        )
+
+
+def handle_replay_execute(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
+    """Handle replay execute endpoint - executes replay for a window."""
+    user_id = None
+
+    try:
+        # Extract user ID and request body
+        user_id = event["pathParameters"]["userId"]
+        body = json.loads(event.get("body", "{}"))
+
+        # Parse and validate request
+        try:
+            request = ReplayExecuteRequest(**body)
+        except Exception as e:
+            return format_error_response(
+                400, "VALIDATION_ERROR", "Invalid replay execute request",
+                details={"validation_errors": str(e)},
+                suggestion="Ensure 'user_id' and 'window_info' fields are present and valid",
+                request_id=request_id
+            )
+
+        # Get service
+        service = get_service()
+
+        # Execute replay
+        result = service.execute_replay(
+            user_id=request.user_id,
+            window_info=request.window_info
+        )
+
+        # Create response
+        api_response = create_success_response(
+            result.model_dump(),
+            meta=ApiMeta(request_id=request_id)
+        )
+        return format_success_response(api_response)
+
+    except Exception as e:
+        logger.exception(
+            "Error in replay execute",
+            extra={
+                "request_id": request_id,
+                "user_id": mask_pii(user_id),
+                "error": str(e)
+            }
+        )
+        return format_error_response(
+            500, "REPLAY_EXECUTE_ERROR", "Failed to execute replay",
             details={"error": str(e)},
             request_id=request_id
         )

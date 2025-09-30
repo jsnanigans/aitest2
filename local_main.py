@@ -361,21 +361,53 @@ class AcceptanceTracker:
         """Check if a measurement was accepted."""
         return (user_id, timestamp) in self.accepted_measurements
 
+    def update_from_replay_results(self, user_id: str, replay_result):
+        """
+        Update acceptance tracking based on replay results.
 
-def process_individual_measurements(
+        Args:
+            user_id: User identifier
+            replay_result: ReplayResultData from service.execute_replay()
+        """
+        # Clear existing acceptances for measurements in the replay window
+        to_remove = [
+            (uid, ts) for uid, ts in self.accepted_measurements
+            if uid == user_id
+        ]
+        for item in to_remove:
+            self.accepted_measurements.discard(item)
+
+        # Re-add based on NEW replay results
+        for result in replay_result.measurement_results:
+            if result.accepted:
+                # Extract timestamp from measurement result
+                # This assumes the result has the measurement metadata
+                timestamp = result.measured_at.isoformat() if hasattr(result, 'measured_at') else None
+                if timestamp:
+                    self.mark_measurement_accepted(user_id, timestamp, {
+                        "quality_score": result.quality_score,
+                        "kalman_estimate": result.kalman_estimate,
+                        "from_replay": True
+                    })
+
+
+def process_measurements_with_continuous_replay(
     service: WeightProcessorService,
     user_measurements: Dict[str, List[Measurement]],
     acceptance_tracker: AcceptanceTracker,
-    batch_size: int = 1
+    enable_replay: bool = True
 ) -> Dict[str, Dict[str, Any]]:
     """
-    Process measurements individually (or in small batches) for each user.
+    Process measurements one at a time with external replay triggering.
+
+    After each measurement, checks if replay should trigger and executes if needed.
+    Caller maintains control over acceptance tracking.
 
     Args:
         service: Weight processor service instance
         user_measurements: Dict mapping user_id to measurements
         acceptance_tracker: Tracker for accepted measurements
-        batch_size: Number of measurements to send per call
+        enable_replay: Whether to check for and execute replay after each measurement
 
     Returns:
         Dict mapping user_id to processing results
@@ -384,9 +416,9 @@ def process_individual_measurements(
     total_users = len(user_measurements)
     total_measurements = sum(len(measurements) for measurements in user_measurements.values())
 
-    print(f"\nProcessing measurements individually (batch_size={batch_size})...")
-    print(f"Total users: {total_users:,}")
+    print(f"\nProcessing {total_users:,} users with continuous replay...")
     print(f"Total measurements: {total_measurements:,}")
+    print(f"Replay: {'ENABLED' if enable_replay else 'DISABLED'}")
 
     processed_measurements = 0
     successful_users = 0
@@ -399,34 +431,59 @@ def process_individual_measurements(
             "measurements_processed": 0,
             "measurements_accepted": 0,
             "measurements_rejected": 0,
-            "api_calls": 0,
+            "replays_triggered": 0,
+            "total_corrections": 0,
             "errors": []
         }
 
-        # Sort measurements by timestamp
+        # Sort by timestamp
         sorted_measurements = sorted(measurements, key=lambda m: m.measured_at)
 
-        # Process in batches
-        for batch_start in range(0, len(sorted_measurements), batch_size):
-            batch = sorted_measurements[batch_start:batch_start + batch_size]
-
+        # Process ONE AT A TIME
+        for j, measurement in enumerate(sorted_measurements):
             try:
-                response: ProcessResponseData = service.process_batch(user_id, batch)
-                user_results["api_calls"] += 1
-
-                user_results["measurements_processed"] += response.measurements_processed
+                # 1. Process measurement
+                response: ProcessResponseData = service.process_batch(user_id, [measurement])
+                user_results["measurements_processed"] += 1
                 user_results["measurements_accepted"] += response.measurements_accepted
                 user_results["measurements_rejected"] += response.measurements_rejected
 
-                processed_measurements += response.measurements_processed
+                processed_measurements += 1
 
-                # Track accepted measurements
-                acceptance_tracker.mark_batch_results(user_id, batch, response)
+                # 2. Track initial acceptance
+                acceptance_tracker.mark_batch_results(user_id, [measurement], response)
+
+                # 3. Check if replay should trigger
+                if enable_replay:
+                    trigger_check = service.should_trigger_replay(
+                        user_id, measurement.measured_at
+                    )
+
+                    if trigger_check.should_trigger:
+                        # 4. Execute replay (service handles outlier detection)
+                        replay_result = service.execute_replay(
+                            user_id, trigger_check.window_info
+                        )
+
+                        if replay_result.success:
+                            user_results["replays_triggered"] += 1
+                            user_results["total_corrections"] += replay_result.corrections_made
+
+                            # 5. Update acceptance tracking based on NEW results
+                            acceptance_tracker.update_from_replay_results(
+                                user_id, replay_result
+                            )
+
+                            print(f"  └─ Replay: {replay_result.outliers_count} outliers, "
+                                  f"{replay_result.corrections_made} corrections")
+                        else:
+                            user_results["errors"].append(f"Replay failed: {replay_result.error}")
+                            print(f"  └─ Replay failed: {replay_result.error}")
 
             except Exception as e:
                 error_msg = str(e)
-                user_results["errors"].append(f"Batch {batch_start//batch_size + 1}: {error_msg}")
-                print(f"  Error in batch {batch_start//batch_size + 1}: {error_msg}")
+                user_results["errors"].append(f"Measurement {j+1}: {error_msg}")
+                print(f"  Error processing measurement {j+1}: {error_msg}")
 
         results[user_id] = user_results
 
@@ -439,7 +496,7 @@ def process_individual_measurements(
         if i % 10 == 0 or i == total_users:
             print(f"  Progress: {i}/{total_users} users, {processed_measurements:,}/{total_measurements:,} measurements")
 
-    print("\nIndividual processing complete:")
+    print("\nProcessing complete:")
     print(f"  Successful users: {successful_users:,}")
     print(f"  Failed users: {failed_users:,}")
     print(f"  Total measurements processed: {processed_measurements:,}")
@@ -447,185 +504,6 @@ def process_individual_measurements(
     return results
 
 
-def process_replay_with_outlier_detection(
-    state_store: ProcessorStateDB,
-    user_measurements: Dict[str, List[Measurement]],
-    acceptance_tracker: AcceptanceTracker,
-    config: Dict[str, Any],
-) -> Dict[str, Dict[str, Any]]:
-    """
-    Process replay with outlier detection and selective replay.
-
-    This implements the proper replay mechanism:
-    1. Buffer measurements in windows
-    2. Detect outliers by comparing to pre-window Kalman state
-    3. Restore state to before window
-    4. Replay only clean measurements chronologically
-
-    Based on local_old.py:_process_replay_buffer() implementation.
-
-    Args:
-        state_store: State storage instance
-        user_measurements: Dict mapping user_id to measurements
-        acceptance_tracker: Tracker for accepted measurements
-        config: Configuration dictionary
-
-    Returns:
-        Dict mapping user_id to replay results
-    """
-    replay_results = {}
-
-    # Import replay components
-    try:
-        sys.path.insert(0, str(Path(__file__).parent / "weight_values"))
-        from weight_values.src.core.processing.outlier_detection import OutlierDetector
-        from weight_values.src.core.replay.replay_manager import ReplayManager
-    except ImportError as e:
-        print(f"Error: Could not import replay components: {e}")
-        print("  Replay processing requires: OutlierDetector, ReplayManager")
-        return replay_results
-
-    # Initialize components
-    replay_config = config.get("replay", {})
-    outlier_config = config.get("outlier_detection", {})
-
-    outlier_detector = OutlierDetector(outlier_config, db=state_store)
-    replay_manager = ReplayManager(state_store, replay_config.get("safety", {}))
-
-    # Filter users with enough data for meaningful replay
-    min_measurements = replay_config.get("min_measurements", 10)
-    eligible_users = {
-        uid: measurements for uid, measurements in user_measurements.items()
-        if len(measurements) >= min_measurements
-    }
-
-    if not eligible_users:
-        print(f"No users have sufficient data for replay processing (need >= {min_measurements} measurements)")
-        return replay_results
-
-    print(f"\nProcessing replay with outlier detection for {len(eligible_users):,} eligible users...")
-    print(f"  Buffer window: {replay_config.get('buffer_hours', 72)} hours")
-    print(f"  Min measurements: {min_measurements}")
-
-    successful_replays = 0
-    failed_replays = 0
-    total_outliers = 0
-    total_corrections = 0
-
-    for i, (user_id, measurements) in enumerate(eligible_users.items(), 1):
-        print(f"[{i}/{len(eligible_users)}] Replay analysis for user {user_id[:12]}...")
-
-        # Sort measurements by timestamp
-        sorted_measurements = sorted(measurements, key=lambda m: m.measured_at)
-
-        # Take middle point as buffer start (mimics 72-hour window)
-        buffer_anchor_idx = len(sorted_measurements) // 2
-        buffer_start_time = sorted_measurements[buffer_anchor_idx].measured_at
-
-        # Get measurements from anchor onwards (the "buffer window")
-        buffered_measurements = sorted_measurements[buffer_anchor_idx:]
-
-        if len(buffered_measurements) < 5:
-            print(f"  Skipping: insufficient buffer data ({len(buffered_measurements)} measurements)")
-            continue
-
-        print(f"  Analyzing {len(buffered_measurements)} measurements from {buffer_start_time}")
-
-        # Save state snapshot before buffer processing
-        state_store.save_state_snapshot(user_id, buffer_start_time)
-
-        # Convert Measurement objects to dict format for outlier detector
-        buffer_dicts = [{
-            "weight": m.weight_value,
-            "timestamp": m.measured_at,
-            "source": m.source,
-            "unit": m.weight_unit,
-            "metadata": m.metadata or {}
-        } for m in buffered_measurements]
-
-        try:
-            # Detect outliers
-            clean_measurements, outlier_indices = outlier_detector.get_clean_measurements(
-                buffer_dicts, user_id=user_id
-            )
-
-            outliers_found = len(outlier_indices)
-            total_outliers += outliers_found
-
-            if outliers_found > 0:
-                print(f"  Found {outliers_found} outliers, replaying {len(clean_measurements)} clean measurements")
-
-                # Replay clean measurements
-                replay_result = replay_manager.replay_clean_measurements(
-                    user_id=user_id,
-                    clean_measurements=clean_measurements,
-                    buffer_start_time=buffer_start_time
-                )
-
-                if replay_result["success"]:
-                    successful_replays += 1
-                    corrections = len(buffered_measurements) - len(clean_measurements)
-                    total_corrections += corrections
-
-                    result = {
-                        "buffer_start": buffer_start_time.isoformat(),
-                        "measurements_analyzed": len(buffered_measurements),
-                        "outliers_found": outliers_found,
-                        "clean_measurements": len(clean_measurements),
-                        "replay_success": True,
-                        "corrections_made": corrections,
-                    }
-
-                    print(f"  ✓ Replay successful: {corrections} measurements corrected")
-                else:
-                    failed_replays += 1
-                    result = {
-                        "buffer_start": buffer_start_time.isoformat(),
-                        "measurements_analyzed": len(buffered_measurements),
-                        "outliers_found": outliers_found,
-                        "replay_success": False,
-                        "error": replay_result.get("error", "Unknown error")
-                    }
-                    print(f"  ✗ Replay failed: {result['error']}")
-            else:
-                result = {
-                    "buffer_start": buffer_start_time.isoformat(),
-                    "measurements_analyzed": len(buffered_measurements),
-                    "outliers_found": 0,
-                    "clean_measurements": len(buffered_measurements),
-                    "replay_success": False,
-                    "skipped": "No outliers found"
-                }
-                print(f"  No outliers found, no replay needed")
-
-            replay_results[user_id] = result
-
-        except Exception as e:
-            failed_replays += 1
-            error_msg = str(e)
-            print(f"  ✗ Analysis failed: {error_msg}")
-
-            replay_results[user_id] = {
-                "buffer_start": buffer_start_time.isoformat(),
-                "measurements_analyzed": len(buffered_measurements),
-                "replay_success": False,
-                "error": error_msg
-            }
-
-    print("\nReplay processing complete:")
-    print(f"  Successful replays: {successful_replays:,}/{len(eligible_users):,}")
-    if failed_replays > 0:
-        print(f"  Failed/skipped: {failed_replays:,}")
-    print(f"  Total outliers found: {total_outliers:,}")
-    print(f"  Total corrections made: {total_corrections:,}")
-
-    # Note: Acceptance tracker is NOT cleared in proper replay
-    # The replay updates Kalman state but doesn't change which measurements were "accepted"
-    # The filtered CSV still reflects original acceptance decisions
-    print("\nNote: Replay modifies Kalman state but does not change acceptance tracking")
-    print("      Filtered CSV contains original acceptance results")
-
-    return replay_results
 
 
 def write_filtered_csv(
@@ -702,12 +580,6 @@ def main():
         help="Maximum CSV rows to read (0 for no limit)"
     )
     parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=1,
-        help="Number of measurements per processing call (default: 1)"
-    )
-    parser.add_argument(
         "--output-dir",
         default="output_local",
         help="Output directory for results"
@@ -724,12 +596,12 @@ def main():
         "--enable-replay",
         action="store_true",
         default=True,
-        help="Enable replay with outlier detection after individual processing (default: enabled)"
+        help="Enable continuous replay checking after each measurement (default: enabled)"
     )
     parser.add_argument(
         "--disable-replay",
         action="store_true",
-        help="Disable replay processing (only do individual processing, matches reference dataset creation)"
+        help="Disable continuous replay (measurements processed sequentially without replay)"
     )
 
     args = parser.parse_args()
@@ -783,37 +655,22 @@ def main():
         "storage_type": "in-memory",
         "users_loaded": len(user_measurements),
         "total_measurements": sum(len(m) for m in user_measurements.values()),
-        "individual_processing": None,
-        "replay_processing": None,
-        "replay_enabled": args.enable_replay,
+        "processing_results": None,
+        "replay_mode": "continuous" if not args.disable_replay else "disabled",
     }
 
-    # Phase 1: Individual measurement processing
-    print("\n=== Phase 1: Individual Processing ===")
-    individual_results = process_individual_measurements(
-        service,
-        user_measurements,
-        acceptance_tracker,
-        batch_size=args.batch_size
+    # Single phase: Process with continuous replay
+    print("\n=== Processing with Continuous Replay ===")
+    print(f"Replay: {'ENABLED' if not args.disable_replay else 'DISABLED'}")
+
+    processing_results = process_measurements_with_continuous_replay(
+        service=service,
+        user_measurements=user_measurements,
+        acceptance_tracker=acceptance_tracker,
+        enable_replay=not args.disable_replay
     )
-    overall_results["individual_processing"] = individual_results
 
-    # Phase 2: Replay with outlier detection (enabled by default)
-    if args.disable_replay:
-        print("\n=== Replay Disabled (--disable-replay specified) ===")
-        print("NOTE: Matches reference dataset creation behavior")
-    else:
-        print("\n=== Phase 2: Replay with Outlier Detection ===")
-        print("NOTE: This analyzes measurement windows, detects outliers, and replays clean data")
-        print("      The Kalman state is corrected but acceptance tracker is NOT changed")
-
-        replay_results = process_replay_with_outlier_detection(
-            state_store,
-            user_measurements,
-            acceptance_tracker,
-            config,
-        )
-        overall_results["replay_processing"] = replay_results
+    overall_results["processing_results"] = processing_results
 
     # Write filtered CSV
     timestamp_str = start_time.strftime("%Y%m%d_%H%M%S")
@@ -841,27 +698,24 @@ def main():
 
     # Print summary statistics
     print("\nProcessing Summary:")
-    if overall_results["individual_processing"]:
-        individual_stats = overall_results["individual_processing"]
-        total_processed = sum(r["measurements_processed"] for r in individual_stats.values())
-        total_accepted = sum(r["measurements_accepted"] for r in individual_stats.values())
-        print(f"  Phase 1 (Individual): {total_processed:,} processed, {total_accepted:,} accepted")
+    if overall_results["processing_results"]:
+        processing_stats = overall_results["processing_results"]
+        total_processed = sum(r["measurements_processed"] for r in processing_stats.values())
+        total_accepted = sum(r["measurements_accepted"] for r in processing_stats.values())
+        total_replays = sum(r.get("replays_triggered", 0) for r in processing_stats.values())
+        total_corrections = sum(r.get("total_corrections", 0) for r in processing_stats.values())
 
-    if overall_results["replay_processing"]:
-        replay_stats = overall_results["replay_processing"]
-        successful_replays = sum(1 for r in replay_stats.values() if r.get("replay_success", False))
-        total_analyzed = sum(r.get("measurements_analyzed", 0) for r in replay_stats.values())
-        total_outliers = sum(r.get("outliers_found", 0) for r in replay_stats.values())
-        total_corrections = sum(r.get("corrections_made", 0) for r in replay_stats.values())
-        print(f"  Phase 2 (Replay with Outlier Detection):")
-        print(f"    Measurements analyzed: {total_analyzed:,}")
-        print(f"    Outliers detected: {total_outliers:,}")
-        print(f"    Corrections made: {total_corrections:,}")
-        print(f"    Successful replays: {successful_replays:,}/{len(replay_stats):,} users")
-        print(f"\n  NOTE: Replay corrects Kalman state but does NOT change acceptance decisions")
-        print(f"        Filtered CSV still contains Phase 1 (individual) acceptance results")
-    else:
-        print(f"\n  NOTE: Filtered CSV contains INDIVIDUAL results (no replay)")
+        print(f"  Measurements processed: {total_processed:,}")
+        print(f"  Measurements accepted: {total_accepted:,}")
+
+        if overall_results["replay_mode"] == "continuous":
+            print(f"\n  Continuous Replay:")
+            print(f"    Total replays triggered: {total_replays:,}")
+            print(f"    Total corrections made: {total_corrections:,}")
+            print(f"\n  NOTE: Replay results are reflected in the acceptance tracking")
+            print(f"        Filtered CSV contains FINAL acceptance results after replay")
+        else:
+            print(f"\n  NOTE: Replay was DISABLED - filtered CSV contains results without replay")
 
     print(f"\nFiltered CSV: {accepted_count:,} accepted measurements written")
 

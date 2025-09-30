@@ -116,7 +116,7 @@ class WeightProcessorAPIClient:
         measurements: List[Dict[str, Any]],
         options: Optional[Dict[str, Any]] = None
     ) -> APIResponse:
-        """Replay measurements from a specific timestamp."""
+        """Replay measurements from a specific timestamp (legacy endpoint)."""
         # Ensure timezone-aware timestamp
         if replay_from.tzinfo is None:
             replay_from_str = replay_from.isoformat() + "Z"
@@ -131,6 +131,87 @@ class WeightProcessorAPIClient:
         try:
             response = self.session.post(
                 f"{self.base_url}/api/v1/replay/{user_id}",
+                json=payload,
+                timeout=30
+            )
+            return self._parse_response(response)
+        except requests.RequestException as e:
+            return APIResponse(
+                status_code=0,
+                data={},
+                success=False,
+                error={"message": str(e)}
+            )
+
+    def check_replay(
+        self,
+        user_id: str,
+        current_timestamp: datetime,
+        buffer_hours: Optional[int] = None
+    ) -> APIResponse:
+        """
+        Check if replay should trigger for a user.
+
+        Args:
+            user_id: User identifier
+            current_timestamp: Timestamp of last processed measurement
+            buffer_hours: Optional replay window size (default: 72)
+
+        Returns:
+            APIResponse with should_trigger and window_info
+        """
+        # Ensure timezone-aware timestamp
+        if current_timestamp.tzinfo is None:
+            timestamp_str = current_timestamp.isoformat() + "Z"
+        else:
+            timestamp_str = current_timestamp.isoformat()
+
+        payload = {
+            "user_id": user_id,
+            "current_timestamp": timestamp_str
+        }
+
+        if buffer_hours is not None:
+            payload["buffer_hours"] = buffer_hours
+
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/replay/{user_id}/check",
+                json=payload,
+                timeout=10
+            )
+            return self._parse_response(response)
+        except requests.RequestException as e:
+            return APIResponse(
+                status_code=0,
+                data={},
+                success=False,
+                error={"message": str(e)}
+            )
+
+    def execute_replay(
+        self,
+        user_id: str,
+        window_info: Dict[str, Any]
+    ) -> APIResponse:
+        """
+        Execute replay for a measurement window.
+
+        Args:
+            user_id: User identifier
+            window_info: Window information from check_replay()
+
+        Returns:
+            APIResponse with measurement_results containing NEW acceptance statuses
+        """
+        payload = {
+            "user_id": user_id,
+            "window_info": window_info
+        }
+
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/replay/{user_id}/execute",
                 json=payload,
                 timeout=30
             )
@@ -343,6 +424,34 @@ class AcceptanceTracker:
         """Check if a measurement was accepted."""
         return (user_id, timestamp) in self.accepted_measurements
 
+    def update_from_replay_results(self, user_id: str, replay_response: Dict[str, Any]):
+        """
+        Update acceptance tracking based on replay results.
+
+        Args:
+            user_id: User identifier
+            replay_response: Replay result data from execute_replay() API call
+        """
+        # Clear existing acceptances for measurements in the replay window
+        to_remove = [
+            (uid, ts) for uid, ts in self.accepted_measurements
+            if uid == user_id
+        ]
+        for item in to_remove:
+            self.accepted_measurements.discard(item)
+
+        # Re-add based on NEW replay results
+        measurement_results = replay_response.get("measurement_results", [])
+        for result in measurement_results:
+            if result.get("accepted", False):
+                # Extract timestamp from measurement result
+                timestamp = result.get("effectiveDateTime") or result.get("timestamp")
+                if timestamp:
+                    self.mark_measurement_accepted(user_id, timestamp, {
+                        "quality_score": result.get("quality_score"),
+                        "from_replay": True
+                    })
+
 
 def process_individual_measurements(
     api_client: WeightProcessorAPIClient,
@@ -517,6 +626,120 @@ def process_replay_batches(
     return replay_results
 
 
+def process_measurements_with_continuous_replay(
+    api_client: WeightProcessorAPIClient,
+    user_measurements: Dict[str, List[Dict[str, Any]]],
+    acceptance_tracker: AcceptanceTracker,
+    enable_replay: bool = True
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Process measurements one at a time with external replay triggering.
+
+    After each measurement, checks if replay should trigger and executes if needed.
+    Uses the new /replay/{userId}/check and /replay/{userId}/execute endpoints.
+
+    Args:
+        api_client: API client instance
+        user_measurements: Dict mapping user_id to measurements
+        acceptance_tracker: Tracker for accepted measurements
+        enable_replay: Whether to check for and execute replay after each measurement
+
+    Returns:
+        Dict mapping user_id to processing results
+    """
+    results = {}
+    total_users = len(user_measurements)
+    total_measurements = sum(len(measurements) for measurements in user_measurements.values())
+
+    print(f"\nProcessing {total_users:,} users with continuous replay...")
+    print(f"Total measurements: {total_measurements:,}")
+    print(f"Replay: {'ENABLED' if enable_replay else 'DISABLED'}")
+
+    processed_measurements = 0
+    successful_users = 0
+    failed_users = 0
+
+    for i, (user_id, measurements) in enumerate(user_measurements.items(), 1):
+        print(f"[{i}/{total_users}] Processing user {user_id[:12]}... ({len(measurements)} measurements)")
+
+        user_results = {
+            "measurements_processed": 0,
+            "measurements_accepted": 0,
+            "measurements_rejected": 0,
+            "replays_triggered": 0,
+            "total_corrections": 0,
+            "errors": []
+        }
+
+        # Sort by timestamp
+        sorted_measurements = sorted(measurements, key=lambda m: parse_timestamp(m["effectiveDateTime"]))
+
+        # Process ONE AT A TIME
+        for j, measurement in enumerate(sorted_measurements):
+            # 1. Process measurement
+            response = api_client.process_measurements(user_id, [measurement])
+
+            if response.is_success:
+                user_results["measurements_processed"] += 1
+                user_results["measurements_accepted"] += response.data.get("measurements_accepted", 0)
+                user_results["measurements_rejected"] += (
+                    response.data.get("measurements_processed", 0) -
+                    response.data.get("measurements_accepted", 0)
+                )
+
+                processed_measurements += 1
+
+                # 2. Track initial acceptance
+                acceptance_tracker.mark_batch_results(user_id, [measurement], response.data)
+
+                # 3. Check if replay should trigger
+                if enable_replay:
+                    measurement_timestamp = parse_timestamp(measurement["effectiveDateTime"])
+                    trigger_check = api_client.check_replay(user_id, measurement_timestamp)
+
+                    if trigger_check.is_success and trigger_check.data.get("should_trigger"):
+                        # 4. Execute replay (service handles outlier detection)
+                        window_info = trigger_check.data.get("window_info")
+                        if window_info:
+                            replay_result = api_client.execute_replay(user_id, window_info)
+
+                            if replay_result.is_success and replay_result.data.get("success"):
+                                user_results["replays_triggered"] += 1
+                                user_results["total_corrections"] += replay_result.data.get("corrections_made", 0)
+
+                                # 5. Update acceptance tracking based on NEW results
+                                acceptance_tracker.update_from_replay_results(user_id, replay_result.data)
+
+                                print(f"  └─ Replay: {replay_result.data.get('outliers_count', 0)} outliers, "
+                                      f"{replay_result.data.get('corrections_made', 0)} corrections")
+                            else:
+                                error_msg = replay_result.error.get("message", "Unknown error") if replay_result.error else "Replay failed"
+                                user_results["errors"].append(f"Replay failed: {error_msg}")
+                                print(f"  └─ Replay failed: {error_msg}")
+            else:
+                error_msg = response.error.get("message", "Unknown error") if response.error else f"HTTP {response.status_code}"
+                user_results["errors"].append(f"Measurement {j+1}: {error_msg}")
+                print(f"  Error processing measurement {j+1}: {error_msg}")
+
+        results[user_id] = user_results
+
+        if user_results["errors"]:
+            failed_users += 1
+        else:
+            successful_users += 1
+
+        # Progress update
+        if i % 10 == 0 or i == total_users:
+            print(f"  Progress: {i}/{total_users} users, {processed_measurements:,}/{total_measurements:,} measurements")
+
+    print("\nProcessing complete:")
+    print(f"  Successful users: {successful_users:,}")
+    print(f"  Failed users: {failed_users:,}")
+    print(f"  Total measurements processed: {processed_measurements:,}")
+
+    return results
+
+
 def write_filtered_csv(
     original_rows: List[Dict[str, Any]],
     acceptance_tracker: AcceptanceTracker,
@@ -609,7 +832,17 @@ def main():
     parser.add_argument(
         "--skip-replay",
         action="store_true",
-        help="Skip replay batch processing"
+        help="Skip replay batch processing (legacy mode)"
+    )
+    parser.add_argument(
+        "--enable-continuous-replay",
+        action="store_true",
+        help="Use continuous replay mode (new check/execute endpoints)"
+    )
+    parser.add_argument(
+        "--disable-replay",
+        action="store_true",
+        help="Disable all replay processing"
     )
     parser.add_argument(
         "--output-dir",
@@ -666,24 +899,45 @@ def main():
         "api_url": args.api_url,
         "users_loaded": len(user_measurements),
         "total_measurements": sum(len(m) for m in user_measurements.values()),
+        "processing_mode": None,
         "individual_processing": None,
-        "replay_processing": None
+        "replay_processing": None,
+        "continuous_replay_processing": None
     }
 
-    # Individual measurement processing
-    if not args.skip_individual:
-        individual_results = process_individual_measurements(
+    # Choose processing mode
+    if args.enable_continuous_replay:
+        # New continuous replay mode
+        print("\n=== Processing with Continuous Replay (New Mode) ===")
+        print(f"Replay: {'ENABLED' if not args.disable_replay else 'DISABLED'}")
+
+        overall_results["processing_mode"] = "continuous_replay"
+        continuous_results = process_measurements_with_continuous_replay(
             api_client,
             user_measurements,
             acceptance_tracker,
-            batch_size=args.batch_size
+            enable_replay=not args.disable_replay
         )
-        overall_results["individual_processing"] = individual_results
+        overall_results["continuous_replay_processing"] = continuous_results
+    else:
+        # Legacy two-phase mode
+        print("\n=== Legacy Two-Phase Processing ===")
+        overall_results["processing_mode"] = "two_phase_legacy"
 
-    # Replay batch processing
-    if not args.skip_replay:
-        replay_results = process_replay_batches(api_client, user_measurements, acceptance_tracker)
-        overall_results["replay_processing"] = replay_results
+        # Individual measurement processing
+        if not args.skip_individual:
+            individual_results = process_individual_measurements(
+                api_client,
+                user_measurements,
+                acceptance_tracker,
+                batch_size=args.batch_size
+            )
+            overall_results["individual_processing"] = individual_results
+
+        # Replay batch processing
+        if not args.skip_replay and not args.disable_replay:
+            replay_results = process_replay_batches(api_client, user_measurements, acceptance_tracker)
+            overall_results["replay_processing"] = replay_results
 
     # Write filtered CSV
     timestamp_str = start_time.strftime("%Y%m%d_%H%M%S")
@@ -710,18 +964,35 @@ def main():
     print(f"Filtered CSV saved to: {filtered_csv_path}")
 
     # Print summary statistics
-    if overall_results["individual_processing"]:
-        individual_stats = overall_results["individual_processing"]
-        total_processed = sum(r["measurements_processed"] for r in individual_stats.values())
-        total_accepted = sum(r["measurements_accepted"] for r in individual_stats.values())
-        print(f"Individual processing: {total_processed:,} processed, {total_accepted:,} accepted")
+    print(f"\nProcessing Mode: {overall_results['processing_mode']}")
 
-    if overall_results["replay_processing"]:
-        replay_stats = overall_results["replay_processing"]
-        successful_replays = sum(1 for r in replay_stats.values() if r["success"])
-        print(f"Replay processing: {successful_replays:,}/{len(replay_stats):,} successful")
+    if overall_results["continuous_replay_processing"]:
+        # Continuous replay mode statistics
+        continuous_stats = overall_results["continuous_replay_processing"]
+        total_processed = sum(r["measurements_processed"] for r in continuous_stats.values())
+        total_accepted = sum(r["measurements_accepted"] for r in continuous_stats.values())
+        total_replays = sum(r.get("replays_triggered", 0) for r in continuous_stats.values())
+        total_corrections = sum(r.get("total_corrections", 0) for r in continuous_stats.values())
 
-    print(f"Filtered output: {accepted_count:,} accepted measurements written")
+        print(f"\nContinuous Replay Statistics:")
+        print(f"  Measurements processed: {total_processed:,}")
+        print(f"  Measurements accepted: {total_accepted:,}")
+        print(f"  Replays triggered: {total_replays:,}")
+        print(f"  Total corrections: {total_corrections:,}")
+    else:
+        # Legacy two-phase mode statistics
+        if overall_results["individual_processing"]:
+            individual_stats = overall_results["individual_processing"]
+            total_processed = sum(r["measurements_processed"] for r in individual_stats.values())
+            total_accepted = sum(r["measurements_accepted"] for r in individual_stats.values())
+            print(f"\nIndividual processing: {total_processed:,} processed, {total_accepted:,} accepted")
+
+        if overall_results["replay_processing"]:
+            replay_stats = overall_results["replay_processing"]
+            successful_replays = sum(1 for r in replay_stats.values() if r["success"])
+            print(f"Replay processing: {successful_replays:,}/{len(replay_stats):,} successful")
+
+    print(f"\nFiltered output: {accepted_count:,} accepted measurements written")
 
     return 0
 

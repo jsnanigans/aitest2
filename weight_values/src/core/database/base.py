@@ -51,6 +51,13 @@ class StateStore(ABC):
         pass
 
     @abstractmethod
+    def get_measurements_in_window(
+        self, user_id: str, start_time: datetime, end_time: datetime
+    ) -> List[Dict[str, Any]]:
+        """Get measurements for a user within a time window."""
+        pass
+
+    @abstractmethod
     def check_and_restore_snapshot(
         self, user_id: str, buffer_start_time: datetime
     ) -> dict:
