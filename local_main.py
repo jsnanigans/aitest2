@@ -19,12 +19,24 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Add weight_values to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "weight_values"))
+# Add local to path for visualization imports
+sys.path.insert(0, str(Path(__file__).parent))
 
 from weight_values.src.aws.api.models import Measurement, ProcessResponseData
 from weight_values.src.aws.services.weight_processor_service import WeightProcessorService
 from weight_values.src.core.database.database import ProcessorStateDB
 from weight_values.src.aws.config.config_manager import ConfigManager
 from weight_values.src.core.constants import SUPPORTED_WEIGHT_UNITS
+
+# Visualization imports (optional)
+try:
+    from local.viz.visualization import create_weight_timeline
+    from local.viz.viz_index import create_index_from_results
+    VISUALIZATION_AVAILABLE = True
+except ImportError as e:
+    VISUALIZATION_AVAILABLE = False
+    # Store error for debugging
+    _viz_import_error = str(e)
 
 
 def get_default_config() -> Dict[str, Any]:
@@ -145,7 +157,7 @@ def parse_timestamp(date_str: str) -> datetime:
         return datetime.now(timezone.utc)
 
 
-def load_csv_data(csv_path: str, max_users: int = 0, max_rows: int = 0) -> Tuple[Dict[str, List[Measurement]], List[Dict[str, Any]]]:
+def load_csv_data(csv_path: str, max_users: int = 0, max_rows: int = 0, min_readings: int = 0) -> Tuple[Dict[str, List[Measurement]], List[Dict[str, Any]]]:
     """
     Load CSV data and group measurements by user_id.
 
@@ -153,6 +165,7 @@ def load_csv_data(csv_path: str, max_users: int = 0, max_rows: int = 0) -> Tuple
         csv_path: Path to CSV file
         max_users: Maximum number of users to process (0 for no limit)
         max_rows: Maximum number of rows to read (0 for no limit)
+        min_readings: Minimum number of readings per user (0 for no filter)
 
     Returns:
         Tuple of (user_measurements dict, original_rows list)
@@ -272,7 +285,34 @@ def load_csv_data(csv_path: str, max_users: int = 0, max_rows: int = 0) -> Tuple
             if row_count % 10000 == 0:
                 print(f"  Loaded {row_count:,} rows, {len(user_measurements):,} users...")
 
-    # Apply user limit
+    # Calculate initial totals
+    initial_user_count = len(user_measurements)
+    initial_measurement_count = sum(len(m) for m in user_measurements.values())
+
+    # Filter users by minimum readings BEFORE applying max_users limit
+    if min_readings > 0:
+        users_before_filter = len(user_measurements)
+        measurements_before_filter = sum(len(m) for m in user_measurements.values())
+
+        # Filter out users with fewer than min_readings
+        user_measurements = {
+            uid: measurements
+            for uid, measurements in user_measurements.items()
+            if len(measurements) >= min_readings
+        }
+
+        # Filter original_rows to match remaining users
+        remaining_user_set = set(user_measurements.keys())
+        original_rows = [row for row in original_rows if row.get("user_id") in remaining_user_set]
+
+        users_filtered = users_before_filter - len(user_measurements)
+        measurements_filtered = measurements_before_filter - sum(len(m) for m in user_measurements.values())
+
+        if users_filtered > 0:
+            print(f"\nFiltered out {users_filtered:,} users with < {min_readings} readings ({measurements_filtered:,} measurements)")
+            print(f"Remaining: {len(user_measurements):,} users with {sum(len(m) for m in user_measurements.values()):,} measurements")
+
+    # Apply user limit AFTER min_readings filter
     if max_users > 0 and len(user_measurements) > max_users:
         # Take first N users by sorted order for consistency
         sorted_users = sorted(user_measurements.keys())[:max_users]
@@ -328,11 +368,13 @@ class AcceptanceTracker:
     def __init__(self):
         self.accepted_measurements = set()  # Track by (user_id, timestamp)
         self.user_acceptance_details = {}   # user_id -> list of acceptance info
+        self.user_detailed_results = {}     # user_id -> list of detailed results for viz
 
     def clear(self):
         """Clear all tracked acceptances (used for replay)."""
         self.accepted_measurements.clear()
         self.user_acceptance_details.clear()
+        self.user_detailed_results.clear()
 
     def mark_measurement_accepted(self, user_id: str, timestamp: str, additional_info: Dict[str, Any] = None):
         """Mark a measurement as accepted."""
@@ -356,6 +398,47 @@ class AcceptanceTracker:
                     "kalman_estimate": result.kalman_estimate,
                     "processing_result": result.model_dump()
                 })
+
+    def store_detailed_result(self, user_id: str, measurement: Measurement, result, was_reset: bool = False, reset_info: Dict = None):
+        """Store detailed result for visualization."""
+        if user_id not in self.user_detailed_results:
+            self.user_detailed_results[user_id] = []
+
+        # Get kalman estimate with fallback to raw weight
+        kalman_est = getattr(result, 'kalman_estimate', None) or measurement.weight_value
+        kalman_unc = getattr(result, 'kalman_uncertainty', getattr(result, 'kalman_variance', 1.0))
+        if kalman_unc is None:
+            kalman_unc = 1.0
+
+        # Create detailed result dict for visualization
+        # Ensure all numeric fields have non-None values for formatting
+        detail = {
+            "timestamp": measurement.measured_at.isoformat(),
+            "raw_weight": measurement.weight_value,
+            "source": measurement.source,
+            "accepted": result.accepted,
+            "filtered_weight": kalman_est if result.accepted else measurement.weight_value,
+            "quality_score": getattr(result, 'quality_score', None) or 0.0,
+            "kalman_estimate": kalman_est,
+            "kalman_variance": kalman_unc,
+            "innovation": getattr(result, 'innovation', 0.0),
+            "normalized_innovation": getattr(result, 'normalized_innovation', 0.0),
+            "confidence": getattr(result, 'confidence', 0.95),
+            "trend": getattr(result, 'trend', 0.0),
+            "trend_weekly": getattr(result, 'trend_weekly', 0.0),
+            "kalman_confidence_upper": getattr(result, 'kalman_confidence_upper', None) or (kalman_est + 2 * kalman_unc),
+            "kalman_confidence_lower": getattr(result, 'kalman_confidence_lower', None) or (kalman_est - 2 * kalman_unc),
+            "quality_components": getattr(result, 'quality_components', None) or {},
+            "was_reset": was_reset,
+        }
+
+        if not result.accepted:
+            detail["reason"] = getattr(result, 'rejection_reason', getattr(result, 'reason', 'Unknown'))
+
+        if reset_info:
+            detail.update(reset_info)
+
+        self.user_detailed_results[user_id].append(detail)
 
     def is_accepted(self, user_id: str, timestamp: str) -> bool:
         """Check if a measurement was accepted."""
@@ -453,14 +536,18 @@ def process_measurements_with_continuous_replay(
                 # 2. Track initial acceptance
                 acceptance_tracker.mark_batch_results(user_id, [measurement], response)
 
-                # 3. Check if replay should trigger
+                # 3. Store detailed result for visualization
+                if response.results:
+                    acceptance_tracker.store_detailed_result(user_id, measurement, response.results[0])
+
+                # 4. Check if replay should trigger
                 if enable_replay:
                     trigger_check = service.should_trigger_replay(
                         user_id, measurement.measured_at
                     )
 
                     if trigger_check.should_trigger:
-                        # 4. Execute replay (service handles outlier detection)
+                        # 5. Execute replay (service handles outlier detection)
                         replay_result = service.execute_replay(
                             user_id, trigger_check.window_info
                         )
@@ -469,13 +556,12 @@ def process_measurements_with_continuous_replay(
                             user_results["replays_triggered"] += 1
                             user_results["total_corrections"] += replay_result.corrections_made
 
-                            # 5. Update acceptance tracking based on NEW results
+                            # 6. Update acceptance tracking based on NEW results
                             acceptance_tracker.update_from_replay_results(
                                 user_id, replay_result
                             )
 
-                            print(f"  └─ Replay: {replay_result.outliers_count} outliers, "
-                                  f"{replay_result.corrections_made} corrections")
+
                         else:
                             user_results["errors"].append(f"Replay failed: {replay_result.error}")
                             print(f"  └─ Replay failed: {replay_result.error}")
@@ -580,6 +666,12 @@ def main():
         help="Maximum CSV rows to read (0 for no limit)"
     )
     parser.add_argument(
+        "--min-readings",
+        type=int,
+        default=20,
+        help="Minimum number of readings per user (default: 20, users below this are filtered out)"
+    )
+    parser.add_argument(
         "--output-dir",
         default="output_local",
         help="Output directory for results"
@@ -602,6 +694,11 @@ def main():
         "--disable-replay",
         action="store_true",
         help="Disable continuous replay (measurements processed sequentially without replay)"
+    )
+    parser.add_argument(
+        "--enable-viz",
+        action="store_true",
+        help="Enable visualization generation (creates HTML dashboards for each user and index.html)"
     )
 
     args = parser.parse_args()
@@ -637,7 +734,8 @@ def main():
     user_measurements, original_rows = load_csv_data(
         args.csv_file,
         max_users=args.max_users,
-        max_rows=args.max_rows
+        max_rows=args.max_rows,
+        min_readings=args.min_readings
     )
 
     if not user_measurements:
@@ -676,6 +774,58 @@ def main():
     timestamp_str = start_time.strftime("%Y%m%d_%H%M%S")
     filtered_csv_path = args.filtered_csv or str(output_dir / f"filtered_{timestamp_str}.csv")
     accepted_count = write_filtered_csv(original_rows, acceptance_tracker, filtered_csv_path)
+
+    # Generate visualizations if enabled
+    if args.enable_viz:
+        if not VISUALIZATION_AVAILABLE:
+            print("\n⚠️  Visualization libraries not available. Skipping visualization generation.")
+            if '_viz_import_error' in globals():
+                print(f"    Import error: {_viz_import_error}")
+            print("    Install plotly to enable visualizations: pip install plotly")
+        else:
+            print("\n=== Generating Visualizations ===")
+            viz_output_dir = output_dir / "visualizations"
+            viz_output_dir.mkdir(exist_ok=True, parents=True)
+
+            print(f"Output directory: {viz_output_dir}")
+
+            # Generate dashboard for each user
+            dashboard_count = 0
+            failed_count = 0
+
+            for user_id, results in acceptance_tracker.user_detailed_results.items():
+                if not results:
+                    continue
+
+                try:
+                    print(f"  Generating dashboard for {user_id[:12]}... ({len(results)} measurements)")
+                    html_file = create_weight_timeline(
+                        results=results,
+                        user_id=user_id,
+                        output_dir=str(viz_output_dir),
+                        config=None
+                    )
+                    dashboard_count += 1
+                except Exception as e:
+                    print(f"  ⚠️  Failed to generate dashboard for {user_id[:12]}: {e}")
+                    failed_count += 1
+
+            print(f"\nGenerated {dashboard_count} user dashboards")
+            if failed_count > 0:
+                print(f"Failed to generate {failed_count} dashboards")
+
+            # Generate index.html
+            try:
+                print("\nGenerating index.html...")
+                index_path = create_index_from_results(
+                    acceptance_tracker.user_detailed_results,
+                    str(viz_output_dir),
+                    "index.html"
+                )
+                print(f"✓ Index file created: {index_path}")
+                print(f"\n📊 Open {index_path} in your browser to view all dashboards")
+            except Exception as e:
+                print(f"⚠️  Failed to generate index.html: {e}")
 
     # Finalize results
     end_time = datetime.now()

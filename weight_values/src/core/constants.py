@@ -83,10 +83,10 @@ BMI_LIMITS = {
 
 # Kalman filter defaults
 KALMAN_DEFAULTS = {
-    "initial_variance": 0.361,  # Optimized from 1.0
-    "transition_covariance_weight": 0.0160,  # Optimized from 0.1
-    "transition_covariance_trend": 0.0001,  # Optimized from 0.001
-    "observation_covariance": 3.490,  # Optimized from 1.0
+    "initial_variance": 0.364,  # Optimized from 1.0
+    "transition_covariance_weight": 0.018,  # Optimized from 0.1
+    "transition_covariance_trend": 0.00015,  # Optimized from 0.001
+    "observation_covariance": 3.4,  # Optimized from 1.0
     "reset_gap_days": 30,
     "questionnaire_reset_days": 10,
 }
@@ -227,13 +227,14 @@ PROCESSING_DEFAULTS = {
 # Quality scoring defaults
 QUALITY_SCORING_DEFAULTS = {
     "enabled": False,
-    "threshold": 0.6,
+    "threshold": 0.46,
     "use_harmonic_mean": True,
     "component_weights": {
-        "safety": 0.35,
-        "plausibility": 0.25,
-        "consistency": 0.25,
-        "reliability": 0.15,
+        "kalman_fit": 0.40,
+        "temporal_consistency": 0.30,
+        "anomaly_detection": 0.20,
+        "source_reliability": 0.05,
+        "trend_alignment": 0.05,
     },
     "safety_critical_threshold": 0.3,
     "history_window_size": 20,

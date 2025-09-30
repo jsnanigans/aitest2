@@ -37,7 +37,7 @@ class QualityScore:
 
     overall: float
     components: Dict[str, float]
-    threshold: float = 0.6
+    threshold: float = 0.46
     accepted: bool = False
     rejection_reason: Optional[str] = None
     metadata: Dict[str, Any] = None
@@ -81,10 +81,10 @@ class UnifiedQualityScorer:
     # Default component weights (must sum to 1.0)
     DEFAULT_WEIGHTS = {
         "kalman_fit": 0.40,  # Primary signal
-        "temporal_consistency": 0.20,
+        "temporal_consistency": 0.30,
         "anomaly_detection": 0.20,
-        "source_reliability": 0.10,
-        "trend_alignment": 0.10,
+        "source_reliability": 0.05,
+        "trend_alignment": 0.05,
     }
 
     # Time-based thresholds for temporal consistency
@@ -119,7 +119,7 @@ class UnifiedQualityScorer:
             self.weights = {k: v / weight_sum for k, v in self.weights.items()}
 
         # Get thresholds
-        self.threshold = self.config.get("threshold", 0.6)
+        self.threshold = self.config.get("threshold", 0.46)
         self.temporal_thresholds = self.config.get(
             "temporal_thresholds", self.TEMPORAL_THRESHOLDS.copy()
         )

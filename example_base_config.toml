@@ -17,13 +17,8 @@ export_database = true
 # filtered_users_csv = "apple_users_01.csv"
 # Test with actual users from the CSV
 test_users = [
-  # Comment out to disable test mode
-  # "test_user_1",
-  # "test_user_2",
-  "dbe420d0-4a85-4691-aa28-510bdebd736d",
-  "f64ce835-ebba-4efa-b6f5-5c096a6258f5",
   # "187b215b-dd62-4ce3-8d01-59b43339cec7",
-  # "678639d5-e18b-4014-8859-fa3f1b436a99",
+  # "678639d5-e18b-4014-8859-fa3f1b436a99"
   # "019a504f-3376-46eb-ace1-97b44979a5aa",
   # "091baa98-cf05-4399-b490-e24324f7607f",
   # "eb61194e-491f-40e4-9064-d3d096e0fe64",
