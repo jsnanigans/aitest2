@@ -1,14 +1,17 @@
 """AWS Lambda handler - Weight Processor Service API v2."""
 
 import json
-import logging
 import os
 import traceback
 import uuid
 from datetime import datetime
 from typing import Dict, Any, Optional
+import re
+import hashlib
 
 import numpy as np
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools.logging import correlation_paths
 
 from src.aws.api.models import (
     ProcessRequest, CleanupRequest, ReplayRequest,
@@ -24,12 +27,55 @@ from src.aws.services.weight_processor_service import (
 from src.aws.config.config_manager import ConfigManager
 from src.core.database import get_state_db
 
-# Configure logging
-logger = logging.getLogger()
-logger.setLevel(os.getenv("LOG_LEVEL", "INFO"))
+# Configure structured logging with PII redaction
+logger = Logger(
+    service="weight-processor",
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    log_uncaught_exceptions=True,
+    sample_rate=0.1,  # Sample 10% of logs to reduce volume
+)
 
 # Initialize services (reused across invocations)
 _service = None
+
+
+def mask_pii(value: Any) -> str:
+    """
+    Mask PII data for logging.
+    Returns a hashed version of the value that's consistent but not reversible.
+    """
+    if value is None:
+        return "null"
+
+    # Convert to string and hash
+    value_str = str(value)
+    hash_obj = hashlib.sha256(value_str.encode())
+    return f"masked_{hash_obj.hexdigest()[:8]}"
+
+
+def redact_sensitive_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Redact sensitive fields from logged data.
+    Creates a copy with sensitive fields masked.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    redacted = data.copy()
+    sensitive_fields = ["user_id", "userId", "weight", "weight_kg", "value"]
+
+    for field in sensitive_fields:
+        if field in redacted:
+            redacted[field] = mask_pii(redacted[field])
+
+    # Recursively redact nested structures
+    for key, value in redacted.items():
+        if isinstance(value, dict):
+            redacted[key] = redact_sensitive_data(value)
+        elif isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
+            redacted[key] = [redact_sensitive_data(item) for item in value]
+
+    return redacted
 
 
 def get_service() -> WeightProcessorService:
@@ -58,8 +104,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     request_id = generate_request_id()
 
     try:
-        # Log the event for debugging
-        logger.debug(f"[{request_id}] Received event: {json.dumps(event)}")
+        # Log the event for debugging (with PII redaction)
+        redacted_event = redact_sensitive_data(event)
+        logger.debug("Received event", extra={"event": redacted_event, "request_id": request_id})
 
         # Extract routing information
         resource = event.get("resource", "")
@@ -68,7 +115,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Log the routing info
         logger.info(
-            f"[{request_id}] Routing - resource: {resource}, path: {path}, method: {http_method}"
+            "Request routing",
+            extra={
+                "request_id": request_id,
+                "resource": resource,
+                "path": path,
+                "method": http_method
+            }
         )
 
         # Route to appropriate handler
@@ -90,7 +143,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             )
 
     except Exception as e:
-        logger.exception(f"[{request_id}] Unhandled error in Lambda handler")
+        logger.exception(
+            "Unhandled error in Lambda handler",
+            extra={
+                "request_id": request_id,
+                "error_type": type(e).__name__
+            }
+        )
         return format_error_response(
             500, "INTERNAL_ERROR", "An unexpected error occurred",
             details={"error_type": type(e).__name__},
@@ -110,7 +169,10 @@ def handle_health(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
             _ = state_store.get_state("health_check_user")
         except Exception as e:
             db_status = "unhealthy"
-            logger.warning(f"[{request_id}] Database health check failed: {e}")
+            logger.warning(
+                "Database health check failed",
+                extra={"request_id": request_id, "error": str(e)}
+            )
 
         # Get configuration status
         config_status = "healthy"
@@ -122,7 +184,10 @@ def handle_health(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
             config_loaded = bool(config)
         except Exception as e:
             config_status = "unhealthy"
-            logger.warning(f"[{request_id}] Config health check failed: {e}")
+            logger.warning(
+                "Config health check failed",
+                extra={"request_id": request_id, "error": str(e)}
+            )
 
         # Build health response
         health_data = HealthStatus(
@@ -154,7 +219,10 @@ def handle_health(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
         return format_success_response(response)
 
     except Exception as e:
-        logger.exception(f"[{request_id}] Error in health check")
+        logger.exception(
+            "Error in health check",
+            extra={"request_id": request_id, "error": str(e)}
+        )
         return format_error_response(
             503, "HEALTH_CHECK_FAILED", "Health check failed",
             details={"error": str(e)},
@@ -191,7 +259,14 @@ def handle_process(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
         except AttributeError as e:
             if "NoneType" in str(e):
                 # This is the outlier detection bug - provide better error
-                logger.error(f"[{request_id}] Outlier detection error: {e}")
+                logger.error(
+                    "Outlier detection error",
+                    extra={
+                        "request_id": request_id,
+                        "user_id": mask_pii(user_id),
+                        "error": str(e)
+                    }
+                )
                 return format_error_response(
                     500, "PROCESSING_ERROR", "Error in outlier detection module",
                     details={"error": "Internal state initialization error"},
@@ -236,7 +311,14 @@ def handle_process(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
     except Exception as e:
         # Check for time gap issue
         if "502" in str(e) or "gap" in str(e).lower():
-            logger.error(f"[{request_id}] Time gap processing error: {e}")
+            logger.error(
+                "Time gap processing error",
+                extra={
+                    "request_id": request_id,
+                    "user_id": mask_pii(user_id),
+                    "error": str(e)
+                }
+            )
             return format_error_response(
                 422, "TIME_GAP_ERROR", "Cannot process measurements with large time gaps",
                 details={"error": str(e)},
@@ -244,7 +326,14 @@ def handle_process(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
                 request_id=request_id
             )
 
-        logger.exception(f"[{request_id}] Error processing measurements for user {user_id}")
+        logger.exception(
+            "Error processing measurements",
+            extra={
+                "request_id": request_id,
+                "user_id": mask_pii(user_id),
+                "error": str(e)
+            }
+        )
         return format_error_response(
             500, "PROCESSING_ERROR", "Failed to process measurements",
             details={"error": str(e)},
@@ -306,7 +395,14 @@ def handle_cleanup(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
         return format_success_response(api_response)
 
     except Exception as e:
-        logger.exception(f"[{request_id}] Error in cleanup for user {user_id}")
+        logger.exception(
+            "Error in cleanup",
+            extra={
+                "request_id": request_id,
+                "user_id": mask_pii(user_id),
+                "error": str(e)
+            }
+        )
         return format_error_response(
             500, "CLEANUP_ERROR", "Failed to perform cleanup",
             details={"error": str(e)},
@@ -386,7 +482,14 @@ def handle_replay(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
             )
 
     except Exception as e:
-        logger.exception(f"[{request_id}] Error in replay for user {user_id}")
+        logger.exception(
+            "Error in replay",
+            extra={
+                "request_id": request_id,
+                "user_id": mask_pii(user_id),
+                "error": str(e)
+            }
+        )
         return format_error_response(
             500, "REPLAY_ERROR", "Failed to replay measurements",
             details={"error": str(e)},
@@ -450,7 +553,14 @@ def handle_get_state(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
         return format_success_response(api_response)
 
     except Exception as e:
-        logger.exception(f"[{request_id}] Error getting state for user {user_id}")
+        logger.exception(
+            "Error getting state",
+            extra={
+                "request_id": request_id,
+                "user_id": mask_pii(user_id),
+                "error": str(e)
+            }
+        )
         return format_error_response(
             500, "STATE_ERROR", "Failed to retrieve state",
             details={"error": str(e)},
@@ -490,7 +600,14 @@ def handle_delete_state(event: Dict[str, Any], request_id: str) -> Dict[str, Any
         return format_success_response(api_response, status_code=200 if success else 500)
 
     except Exception as e:
-        logger.exception(f"[{request_id}] Error deleting state for user {user_id}")
+        logger.exception(
+            "Error deleting state",
+            extra={
+                "request_id": request_id,
+                "user_id": mask_pii(user_id),
+                "error": str(e)
+            }
+        )
         return format_error_response(
             500, "DELETE_ERROR", "Failed to delete state",
             details={"error": str(e)},

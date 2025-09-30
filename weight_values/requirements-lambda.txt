@@ -5,6 +5,9 @@
 # Data validation (required for API models)
 pydantic==2.11.9
 
+# Structured logging and observability
+aws-lambda-powertools==2.37.0
+
 # IMPORTANT: Do NOT include:
 # - numpy: Provided by Lambda layer
 # - pykalman: Provided by Lambda layer

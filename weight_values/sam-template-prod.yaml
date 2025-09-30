@@ -14,6 +14,7 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 1024
+    Tracing: Active  # Enable AWS X-Ray for distributed tracing
     Environment:
       Variables:
         LOG_LEVEL: INFO
@@ -22,6 +23,155 @@ Globals:
         ENVIRONMENT: !Ref Environment
 
 Resources:
+  # KMS Key for DynamoDB Encryption
+  DatabaseEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for Weight Processor DynamoDB table encryption
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow DynamoDB to use the key
+            Effect: Allow
+            Principal:
+              Service: dynamodb.amazonaws.com
+            Action:
+              - 'kms:Decrypt'
+              - 'kms:DescribeKey'
+              - 'kms:CreateGrant'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'kms:ViaService': !Sub 'dynamodb.${AWS::Region}.amazonaws.com'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: weight-processor
+
+  DatabaseEncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/weight-processor-${Environment}'
+      TargetKeyId: !Ref DatabaseEncryptionKey
+
+  # VPC for Lambda
+  ProcessorVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub weight-processor-vpc-${Environment}
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Private Subnets (no direct internet access)
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProcessorVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub weight-processor-private-1-${Environment}
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProcessorVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub weight-processor-private-2-${Environment}
+
+  # Route Table for Private Subnets
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ProcessorVPC
+      Tags:
+        - Key: Name
+          Value: !Sub weight-processor-private-rt-${Environment}
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security Group for Lambda
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Weight Processor Lambda
+      VpcId: !Ref ProcessorVPC
+      SecurityGroupEgress:
+        # Allow HTTPS to VPC endpoints only
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationSecurityGroupId: !Ref VPCEndpointSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub weight-processor-lambda-sg-${Environment}
+
+  # Security Group for VPC Endpoints
+  VPCEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for VPC Endpoints
+      VpcId: !Ref ProcessorVPC
+      SecurityGroupIngress:
+        # Allow HTTPS from Lambda
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub weight-processor-vpce-sg-${Environment}
+
+  # VPC Endpoint for DynamoDB
+  DynamoDBVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref ProcessorVPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
+  # VPC Endpoint for CloudWatch Logs
+  CloudWatchLogsVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref ProcessorVPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
   # Lambda Function Only - No API Gateway
   WeightProcessorFunction:
     Type: AWS::Serverless::Function
@@ -52,20 +202,55 @@ Resources:
           OUTLIER_IQR_MULTIPLIER: '1.5'
           REPLAY_ENABLED: 'true'
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref StateTable
+        # Specific IAM permissions following principle of least privilege
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt StateTable.Arn
+                - !Sub '${StateTable.Arn}/index/*'
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt StateTable.Arn
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:DescribeKey
+                - kms:GenerateDataKey
+              Resource:
+                - !GetAtt DatabaseEncryptionKey.Arn
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DeleteNetworkInterface
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  'ec2:Vpc': !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:vpc/${ProcessorVPC}'
         - CloudWatchLambdaInsightsExecutionRolePolicy
       Layers:
         - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:38
         # AWS managed layer for numpy/scipy (Python 3.12)
         - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python312:12
-      # Optional: VPC Configuration for private Lambda
-      # VpcConfig:
-      #   SecurityGroupIds:
-      #     - !Ref LambdaSecurityGroup
-      #   SubnetIds:
-      #     - !Ref PrivateSubnet1
-      #     - !Ref PrivateSubnet2
+      # VPC Configuration for private Lambda
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+      Tags:
+        Environment: !Ref Environment
+        Service: weight-processor
+        CostCenter: health-services
+        DataClassification: PII
+        ManagedBy: SAM
 
   # DynamoDB Table for State Storage
   StateTable:
@@ -73,6 +258,10 @@ Resources:
     Properties:
       TableName: !Sub weight-processor-state-${Environment}
       BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !Ref DatabaseEncryptionKey
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -183,3 +372,33 @@ Outputs:
   InvocationRole:
     Description: IAM role ARN that can invoke this function
     Value: !Sub arn:aws:iam::${AWS::AccountId}:role/weight-processor-invoker-${Environment}
+
+  VpcId:
+    Description: VPC ID for Lambda deployment
+    Value: !Ref ProcessorVPC
+    Export:
+      Name: !Sub weight-processor-vpc-${Environment}
+
+  PrivateSubnet1Id:
+    Description: Private Subnet 1 ID
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub weight-processor-subnet-1-${Environment}
+
+  PrivateSubnet2Id:
+    Description: Private Subnet 2 ID
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub weight-processor-subnet-2-${Environment}
+
+  LambdaSecurityGroupId:
+    Description: Lambda Security Group ID
+    Value: !Ref LambdaSecurityGroup
+    Export:
+      Name: !Sub weight-processor-lambda-sg-${Environment}
+
+  EncryptionKeyArn:
+    Description: KMS Key ARN for DynamoDB encryption
+    Value: !GetAtt DatabaseEncryptionKey.Arn
+    Export:
+      Name: !Sub weight-processor-kms-key-${Environment}
