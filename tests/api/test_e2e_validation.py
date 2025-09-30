@@ -8,14 +8,17 @@ API implementation and the reference data processing pipeline.
 
 Test Strategy:
 1. Extract single-user data from source CSV
-2. Process via API (individual measurements + replay)
+2. Process via API (individual measurements only, no replay)
 3. Compare accepted measurements with reference filtered dataset
 4. Validate exact match
 
-Processing Flow (mimics api_main.py):
+Processing Flow (matches reference dataset creation):
 - Phase 1: Process all measurements individually (batch_size=1)
-- Phase 2: Replay from middle point to recalculate with updated state
-- Phase 3: Track FINAL acceptance state after replay
+- Phase 2: Use Phase 1 results for validation (no replay)
+
+NOTE: Reference dataset (2025-09-29_all_filtered_e.csv) was created WITHOUT
+replay processing, using only individual measurement processing. This test
+matches that behavior by validating Phase 1 results directly.
 """
 
 import csv
@@ -297,116 +300,11 @@ def process_individual_measurements(
 
 
 # ============================================================================
-# Phase 3: Replay Processing
+# NOTE: Replay processing is not used in this E2E test
 # ============================================================================
-
-def process_replay(
-    base_url: str,
-    user_id: str,
-    measurements: List[Dict[str, Any]]
-) -> Tuple[Set[str], Dict[str, Any]]:
-    """
-    Execute replay from middle point to recalculate with updated Kalman state.
-
-    Matches api_main.py:435-517 replay logic.
-
-    Returns:
-        Tuple of (accepted_measurement_ids_from_replay, replay_stats)
-    """
-    accepted_ids = set()
-    stats = {
-        "replay_executed": False,
-        "replay_from": None,
-        "measurements_replayed": 0,
-        "measurements_processed": 0,
-        "measurements_accepted": 0,
-        "success": False,
-        "error": None
-    }
-
-    # Need at least 10 measurements for meaningful replay
-    if len(measurements) < 10:
-        logger.info("Skipping replay: insufficient measurements (need >= 10)")
-        return accepted_ids, stats
-
-    # Sort measurements by timestamp
-    sorted_measurements = sorted(measurements, key=lambda m: parse_timestamp(m["effectiveDateTime"]))
-
-    # Take a point in the middle as replay anchor (matches api_main.py:478)
-    replay_anchor_idx = len(sorted_measurements) // 2
-    replay_from = parse_timestamp(sorted_measurements[replay_anchor_idx]["effectiveDateTime"])
-
-    # Get measurements from anchor onwards
-    replay_measurements = sorted_measurements[replay_anchor_idx:]
-
-    logger.info(f"Replaying {len(replay_measurements)} measurements from {replay_from.isoformat()}")
-
-    # Prepare payload
-    replay_from_str = replay_from.isoformat()
-    payload = {
-        "replay_from_timestamp": replay_from_str,
-        "measurements": replay_measurements,
-        "options": {}
-    }
-
-    try:
-        response = requests.post(
-            f"{base_url}/api/v1/replay/{user_id}",
-            json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "X-API-Version": "v2"
-            },
-            timeout=30
-        )
-
-        stats["replay_executed"] = True
-        stats["replay_from"] = replay_from_str
-        stats["measurements_replayed"] = len(replay_measurements)
-
-        if response.status_code >= 200 and response.status_code < 300:
-            data = response.json()
-
-            # Parse V2 format response
-            if "success" in data and data["success"]:
-                response_data = data.get("data", {})
-                stats["success"] = True
-            else:
-                response_data = data
-                stats["success"] = response.status_code < 400
-
-            # Update stats
-            stats["measurements_processed"] = response_data.get("measurements_processed", 0)
-            stats["measurements_accepted"] = response_data.get("measurements_accepted", 0)
-
-            # Track accepted measurements from results
-            results = response_data.get("results", [])
-            if results:
-                for i, result in enumerate(results):
-                    if i < len(replay_measurements) and result.get("accepted", False):
-                        measurement_id = replay_measurements[i]["uuid"]
-                        accepted_ids.add(measurement_id)
-                        logger.debug(f"  Replay accepted: {measurement_id}")
-            else:
-                # Fallback: assume first N measurements are accepted
-                accepted_count = response_data.get("measurements_accepted", 0)
-                for i in range(min(accepted_count, len(replay_measurements))):
-                    measurement_id = replay_measurements[i]["uuid"]
-                    accepted_ids.add(measurement_id)
-
-            logger.info(f"Replay complete: {stats['measurements_processed']} processed, "
-                       f"{stats['measurements_accepted']} accepted, {len(accepted_ids)} unique IDs tracked")
-        else:
-            error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
-            stats["error"] = error_msg
-            logger.error(f"Replay failed: {error_msg}")
-
-    except requests.RequestException as e:
-        error_msg = str(e)
-        stats["error"] = error_msg
-        logger.error(f"Replay failed: {error_msg}")
-
-    return accepted_ids, stats
+# The reference dataset was created without replay processing, using only
+# individual measurement processing. This test validates Phase 1 results
+# directly against the reference to ensure API consistency.
 
 
 # ============================================================================
@@ -552,8 +450,11 @@ def test_single_user_end_to_end_validation(
 
     1. Extracts user data from source CSV (49 measurements expected)
     2. Processes via API (individual batch processing)
-    3. Executes replay from middle point
+    3. Compares Phase 1 results (no replay) against reference dataset
     4. Validates accepted measurements match filtered dataset (9 expected)
+
+    NOTE: Reference dataset was created WITHOUT replay, using only individual
+    processing. This test matches that behavior by validating Phase 1 results.
 
     Test User: c51ef96b-5618-4295-a910-233faed5ab60
     Expected acceptance rate: 18.4% (9/49)
@@ -612,54 +513,17 @@ def test_single_user_end_to_end_validation(
     logger.info(f"✓ Individual processing complete: {len(accepted_after_individual)} accepted")
 
     # ========================================================================
-    # Act - Phase 2: Replay ALL measurements (from beginning)
+    # Act - Phase 2: Use individual processing results (no replay)
     # ========================================================================
 
-    logger.info("\n[ACT - Phase 2] Executing replay of ALL measurements from beginning...")
+    logger.info("\n[ACT - Phase 2] Using individual processing results for validation...")
+    logger.info("NOTE: Reference dataset was created WITHOUT replay")
+    logger.info("      Comparing Phase 1 (individual) results against reference")
 
-    # Replay ALL measurements from the very beginning
-    sorted_measurements = sorted(measurements, key=lambda m: parse_timestamp(m["effectiveDateTime"]))
-    replay_from_beginning = parse_timestamp(sorted_measurements[0]["effectiveDateTime"])
+    # Use Phase 1 results for comparison
+    final_accepted = accepted_after_individual.copy()
 
-    payload = {
-        "replay_from_timestamp": replay_from_beginning.isoformat(),
-        "measurements": sorted_measurements,
-        "options": {}
-    }
-
-    try:
-        response = requests.post(
-            f"{api_base_url}/api/v1/replay/{test_user_id}",
-            json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "X-API-Version": "v2"
-            },
-            timeout=60
-        )
-
-        if response.status_code >= 200 and response.status_code < 300:
-            data = response.json()
-            response_data = data.get("data", {}) if "success" in data else data
-
-            # Track accepted measurements from replay
-            final_accepted = set()
-            results = response_data.get("results", [])
-            if results:
-                for i, result in enumerate(results):
-                    if result.get("accepted", False):
-                        final_accepted.add(sorted_measurements[i]["uuid"])
-
-            logger.info(f"✓ Replay complete: {response_data.get('measurements_processed', 0)} processed, "
-                       f"{response_data.get('measurements_accepted', 0)} accepted, "
-                       f"{len(final_accepted)} unique IDs tracked")
-        else:
-            pytest.fail(f"Replay failed: HTTP {response.status_code}")
-
-    except requests.RequestException as e:
-        pytest.fail(f"Replay failed: {e}")
-
-    logger.info(f"✓ Final accepted set: {len(final_accepted)} unique measurements")
+    logger.info(f"✓ Final accepted set: {len(final_accepted)} unique measurements from Phase 1")
 
     # ========================================================================
     # Export: Write CSV files for manual inspection
