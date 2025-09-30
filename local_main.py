@@ -97,6 +97,11 @@ def get_default_config() -> Dict[str, Any]:
             "iqr_multiplier": 1.5,
             "mad_threshold": 3.0,
         },
+        "snapshot": {
+            "periodic_enabled": True,
+            "interval_hours": 24,
+            "retention_days": 10,
+        },
         "circuit_breaker": {
             "enabled": True,
             "failure_threshold": 5,

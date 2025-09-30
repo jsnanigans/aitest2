@@ -22,7 +22,7 @@ class ProcessorStateDB:
     def __init__(self, storage_path: Optional[str] = None):
         """Initialize in-memory state database."""
         self.states = {}
-        self._snapshots = {}  # For replay functionality
+        self._snapshots = {}  # For replay functionality: user_id -> list of snapshots
 
     def get_state(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -81,29 +81,93 @@ class ProcessorStateDB:
             "measurements_since_reset": 0,
         }
 
-    def save_state_snapshot(self, user_id: str, timestamp: datetime) -> None:
+    def save_state_snapshot(self, user_id: str, timestamp: datetime) -> bool:
         """
         Save a snapshot of current state (for replay functionality).
 
         Args:
             user_id: User identifier
             timestamp: Timestamp for the snapshot
+
+        Returns:
+            True if snapshot saved successfully
         """
         if user_id in self.states:
-            self._snapshots[user_id] = {
+            if user_id not in self._snapshots:
+                self._snapshots[user_id] = []
+
+            snapshot = {
                 "timestamp": timestamp,
+                "snapshotTime": timestamp.isoformat(),
                 "state": copy.deepcopy(self.states[user_id]),
             }
+            self._snapshots[user_id].append(snapshot)
+
+            # Keep only last 10 snapshots (10 days with 24-hour intervals)
+            self._snapshots[user_id] = sorted(
+                self._snapshots[user_id], key=lambda s: s["timestamp"]
+            )[-10:]
+
+            return True
+        return False
+
+    def get_latest_snapshot(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the most recent snapshot for a user.
+
+        Used by periodic snapshot logic to determine when to create next snapshot.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Latest snapshot dict or None if no snapshots exist
+        """
+        if user_id not in self._snapshots or not self._snapshots[user_id]:
+            return None
+
+        # Get the most recent snapshot (list is kept sorted)
+        latest = self._snapshots[user_id][-1]
+        return copy.deepcopy(latest["state"])
+
+    def get_snapshot(
+        self, user_id: str, timestamp: datetime
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the nearest snapshot before the given timestamp.
+
+        Args:
+            user_id: User identifier
+            timestamp: Find snapshot before this time
+
+        Returns:
+            Snapshot state dict or None if no suitable snapshot exists
+        """
+        if user_id not in self._snapshots or not self._snapshots[user_id]:
+            return None
+
+        # Find the most recent snapshot before the timestamp
+        suitable_snapshots = [
+            s for s in self._snapshots[user_id] if s["timestamp"] < timestamp
+        ]
+
+        if not suitable_snapshots:
+            return None
+
+        # Return the most recent one
+        latest = max(suitable_snapshots, key=lambda s: s["timestamp"])
+        return copy.deepcopy(latest["state"])
 
     def restore_state_snapshot(self, user_id: str) -> bool:
         """
-        Restore state from snapshot.
+        Restore state from the latest snapshot.
 
         Returns:
             True if restored, False if no snapshot found
         """
-        if user_id in self._snapshots:
-            self.states[user_id] = copy.deepcopy(self._snapshots[user_id]["state"])
+        latest_snapshot_state = self.get_latest_snapshot(user_id)
+        if latest_snapshot_state:
+            self.states[user_id] = copy.deepcopy(latest_snapshot_state)
             return True
         return False
 
@@ -111,29 +175,31 @@ class ProcessorStateDB:
         self, user_id: str, buffer_start_time: datetime
     ) -> dict:
         """
-        Check if a snapshot exists and restore it atomically.
+        Check if a snapshot exists before buffer_start_time and restore it atomically.
 
         Args:
             user_id: User identifier
-            buffer_start_time: Time to check for snapshot (currently unused)
+            buffer_start_time: Find snapshot before this time
 
         Returns:
             Dictionary with success status and snapshot details
         """
-        if user_id in self._snapshots:
-            snapshot = self._snapshots[user_id]
+        snapshot_state = self.get_snapshot(user_id, buffer_start_time)
+        if snapshot_state:
             # Restore the state
-            self.states[user_id] = copy.deepcopy(snapshot["state"])
+            self.states[user_id] = copy.deepcopy(snapshot_state)
             return {
                 "success": True,
-                "snapshot": snapshot,
-                "snapshot_timestamp": snapshot.get("timestamp", buffer_start_time),
+                "snapshot": snapshot_state,
+                "snapshot_timestamp": snapshot_state.get(
+                    "last_timestamp", buffer_start_time
+                ),
                 "user_id": user_id,
             }
         else:
             return {
                 "success": False,
-                "error": f"No snapshot found for user {user_id}",
+                "error": f"No snapshot found for user {user_id} before {buffer_start_time}",
                 "user_id": user_id,
             }
 

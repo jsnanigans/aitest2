@@ -235,8 +235,8 @@ class DynamoDBStateStore(StateStore):
                     "stateType": f"snapshot_{timestamp.isoformat()}",
                     "snapshotTime": timestamp.isoformat(),
                     "ttl": int(
-                        (timestamp + timedelta(days=7)).timestamp()
-                    ),  # 7-day retention
+                        (timestamp + timedelta(days=10)).timestamp()
+                    ),  # 10-day retention for replay support
                 }
             )
 
@@ -312,6 +312,36 @@ class DynamoDBStateStore(StateStore):
 
         except ClientError as e:
             logger.error(f"Error getting snapshot from DynamoDB: {e}")
+            return None
+
+    def get_latest_snapshot(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the most recent snapshot for a user.
+
+        Used by periodic snapshot logic to determine when to create next snapshot.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Latest snapshot dict or None if no snapshots exist
+        """
+        try:
+            # Query for the latest snapshot
+            response = self.table.query(
+                KeyConditionExpression="userId = :uid AND begins_with(stateType, :st)",
+                ExpressionAttributeValues={":uid": user_id, ":st": "snapshot_"},
+                ScanIndexForward=False,  # Descending order (newest first)
+                Limit=1,
+            )
+
+            if not response.get("Items"):
+                return None
+
+            return self._deserialize_state(response["Items"][0])
+
+        except ClientError as e:
+            logger.error(f"Error getting latest snapshot from DynamoDB: {e}")
             return None
 
     def check_and_restore_snapshot(

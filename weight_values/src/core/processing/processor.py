@@ -45,6 +45,79 @@ except ImportError:
         return data
 
 
+def _maybe_create_periodic_snapshot(
+    db,
+    user_id: str,
+    timestamp: datetime,
+    config: Dict[str, Any]
+) -> bool:
+    """
+    Create periodic snapshot if interval has elapsed since last snapshot.
+
+    This function checks if enough time has passed since the last snapshot
+    and creates a new one if needed. This ensures replay functionality has
+    adequate state history even for users without recent resets.
+
+    Args:
+        db: State store instance
+        user_id: User identifier
+        timestamp: Current measurement timestamp
+        config: Configuration dictionary
+
+    Returns:
+        True if snapshot was created, False otherwise
+    """
+    try:
+        # Get snapshot configuration
+        snapshot_config = config.get("snapshot", {})
+        snapshot_interval_hours = snapshot_config.get("interval_hours", 24)
+        periodic_enabled = snapshot_config.get("periodic_enabled", True)
+
+        if not periodic_enabled:
+            return False
+
+        # Get the latest snapshot for this user
+        latest_snapshot = db.get_latest_snapshot(user_id)
+
+        # Create snapshot if none exists (initial snapshot)
+        if not latest_snapshot:
+            db.save_state_snapshot(user_id, timestamp)
+            logger.debug(f"Created initial periodic snapshot for user {user_id}")
+            return True
+
+        # Check time since last snapshot
+        last_snapshot_time = latest_snapshot.get("last_timestamp")
+        if not last_snapshot_time:
+            # Fallback: if no last_timestamp in snapshot, create new one
+            db.save_state_snapshot(user_id, timestamp)
+            logger.debug(f"Created periodic snapshot for user {user_id} (no timestamp in last snapshot)")
+            return True
+
+        # Ensure last_snapshot_time is a datetime
+        if isinstance(last_snapshot_time, str):
+            last_snapshot_time = datetime.fromisoformat(
+                last_snapshot_time.replace("Z", "+00:00")
+            )
+
+        # Calculate hours since last snapshot
+        hours_since = (timestamp - last_snapshot_time).total_seconds() / 3600
+
+        # Create snapshot if interval elapsed
+        if hours_since >= snapshot_interval_hours:
+            db.save_state_snapshot(user_id, timestamp)
+            logger.debug(
+                f"Created periodic snapshot for user {user_id} "
+                f"({hours_since:.1f} hours since last)"
+            )
+            return True
+
+        return False
+
+    except Exception as e:
+        logger.warning(f"Failed to create periodic snapshot for {user_id}: {e}")
+        return False
+
+
 def process_measurement(
     user_id: str,
     weight: float,
@@ -474,6 +547,10 @@ def process_measurement(
                         f"Failed to save post-reset snapshot for {user_id}: {e}"
                     )
                     # Continue processing even if snapshot fails
+
+            # Create periodic snapshot if interval has elapsed
+            # This ensures replay has adequate state history even without resets
+            _maybe_create_periodic_snapshot(db, user_id, timestamp, config)
         else:
             # Log why we're not persisting
             PersistenceValidator.create_audit_log(

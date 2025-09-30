@@ -46,6 +46,11 @@ class StateStore(ABC):
         pass
 
     @abstractmethod
+    def get_latest_snapshot(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get the most recent snapshot for a user."""
+        pass
+
+    @abstractmethod
     def check_and_restore_snapshot(
         self, user_id: str, buffer_start_time: datetime
     ) -> dict:

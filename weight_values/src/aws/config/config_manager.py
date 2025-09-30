@@ -97,6 +97,11 @@ class ConfigManager:
                 "enabled": os.getenv("REPLAY_ENABLED", "false").lower() == "true",
                 "buffer_hours": int(os.getenv("REPLAY_BUFFER_HOURS", "72")),
             },
+            "snapshot": {
+                "periodic_enabled": os.getenv("SNAPSHOT_PERIODIC_ENABLED", "true").lower() == "true",
+                "interval_hours": int(os.getenv("SNAPSHOT_INTERVAL_HOURS", "24")),
+                "retention_days": int(os.getenv("SNAPSHOT_RETENTION_DAYS", "10")),
+            },
             "database": {
                 "backend": os.getenv("DB_BACKEND", "memory"),
                 "table_name": os.getenv("DB_TABLE_NAME", "weight-processor-state"),
