@@ -313,7 +313,7 @@ class WeightProcessorService:
         """
         # Get buffer hours from config if not provided
         if buffer_hours is None:
-            buffer_hours = self.config.get("replay", {}).get("buffer_hours", 72)
+            buffer_hours = self.config.get("replay", {}).get("buffer_hours", 24)
 
         # Calculate window boundaries
         from datetime import timedelta

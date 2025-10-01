@@ -90,11 +90,31 @@ class ReplayManager:
         start_time = time.time()
 
         try:
+            # Step 0: Check if replay already in progress (prevent concurrent replay)
+            current_state = self.db.get_state(user_id)
+            if current_state and current_state.get("replay_in_progress"):
+                replay_start = current_state.get("replay_started_at")
+                return {
+                    "success": False,
+                    "error": f"Replay already in progress (started: {replay_start})",
+                    "user_id": user_id,
+                    "reason": "concurrent_replay_prevented",
+                }
+
             # Step 1: Create backup of current state
             if not self._create_state_backup(user_id):
                 return {
                     "success": False,
                     "error": "Failed to create state backup",
+                    "user_id": user_id,
+                }
+
+            # Step 1.5: Set replay_in_progress flag
+            if not self._set_replay_in_progress(user_id, True):
+                self._restore_state_from_backup(user_id)
+                return {
+                    "success": False,
+                    "error": "Failed to set replay_in_progress flag",
                     "user_id": user_id,
                 }
 
@@ -150,7 +170,21 @@ class ReplayManager:
                 self._restore_state_from_backup(user_id)
                 return replay_result
 
-            # Step 4: Commit changes (clear backup)
+            # Step 4: Verify state was saved before clearing backup
+            # (Transactional safety - don't clear backup until we confirm save)
+            final_state = self.db.get_state(user_id)
+            if not final_state:
+                logger.error(f"Failed to retrieve state after replay for {user_id}")
+                self._restore_state_from_backup(user_id)
+                self._set_replay_in_progress(user_id, False)
+                return {
+                    "success": False,
+                    "error": "State verification failed after replay",
+                    "user_id": user_id,
+                }
+
+            # Step 5: Clear replay flag and backup (only after verification)
+            self._set_replay_in_progress(user_id, False)
             self._clear_state_backup(user_id)
 
             return {
@@ -158,7 +192,7 @@ class ReplayManager:
                 "user_id": user_id,
                 "measurements_replayed": len(clean_measurements),
                 "processing_time_seconds": time.time() - start_time,
-                "final_state": self.db.get_state(user_id),
+                "final_state": final_state,
                 "restore_point": restore_result.get("restore_snapshot"),
             }
 
@@ -166,6 +200,7 @@ class ReplayManager:
             logger.error(f"Replay failed for user {user_id}: {e}")
             # Emergency rollback
             self._restore_state_from_backup(user_id)
+            self._set_replay_in_progress(user_id, False)
             return {
                 "success": False,
                 "error": f"Replay exception: {str(e)}",
@@ -233,12 +268,102 @@ class ReplayManager:
             del self._backup_states[user_id]
             logger.debug(f"Cleared backup for user {user_id}")
 
+    def _set_replay_in_progress(self, user_id: str, in_progress: bool) -> bool:
+        """
+        Set or clear replay_in_progress flag in user state.
+
+        Args:
+            user_id: User identifier
+            in_progress: True to set flag, False to clear
+
+        Returns:
+            True if successfully set/cleared
+        """
+        try:
+            state = self.db.get_state(user_id)
+            if not state:
+                logger.error(f"No state found for user {user_id} when setting replay flag")
+                return False
+
+            if in_progress:
+                state["replay_in_progress"] = True
+                state["replay_started_at"] = datetime.now().isoformat()
+            else:
+                state["replay_in_progress"] = False
+                if "replay_started_at" in state:
+                    del state["replay_started_at"]
+
+            self.db.save_state(user_id, state)
+            logger.debug(f"Set replay_in_progress={in_progress} for {user_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to set replay_in_progress flag for {user_id}: {e}")
+            return False
+
+    def _validate_snapshot(self, snapshot: Dict[str, Any], user_id: str) -> bool:
+        """
+        Validate snapshot has required fields and reasonable values.
+
+        Args:
+            snapshot: Snapshot to validate
+            user_id: User identifier (for logging)
+
+        Returns:
+            True if snapshot is valid
+        """
+        if not snapshot:
+            logger.warning(f"Snapshot is None for {user_id}")
+            return False
+
+        # Check required fields
+        required_fields = ["last_state", "last_timestamp"]
+        for field in required_fields:
+            if field not in snapshot:
+                logger.warning(f"Snapshot missing required field '{field}' for {user_id}")
+                return False
+
+        # Validate last_state structure
+        last_state = snapshot.get("last_state")
+        if last_state is None:
+            logger.warning(f"Snapshot has None last_state for {user_id}")
+            return False
+
+        # Check if it's a valid array/list with weight component
+        try:
+            if isinstance(last_state, (list, tuple)):
+                if len(last_state) == 0:
+                    logger.warning(f"Snapshot has empty last_state for {user_id}")
+                    return False
+                # Try to access weight (first element)
+                weight = float(last_state[0])
+                if weight <= 0 or weight > 500:  # Sanity check
+                    logger.warning(f"Snapshot has invalid weight {weight}kg for {user_id}")
+                    return False
+        except (TypeError, ValueError, IndexError) as e:
+            logger.warning(f"Snapshot has invalid last_state structure for {user_id}: {e}")
+            return False
+
+        # Validate timestamp
+        timestamp = snapshot.get("last_timestamp")
+        try:
+            if isinstance(timestamp, str):
+                datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            elif not isinstance(timestamp, datetime):
+                logger.warning(f"Snapshot has invalid timestamp type for {user_id}")
+                return False
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Snapshot has invalid timestamp for {user_id}: {e}")
+            return False
+
+        return True
+
     def _restore_state_to_buffer_start(
         self, user_id: str, buffer_start_time: datetime
     ) -> Dict[str, Any]:
         """
         Restore user state to just before the buffer start time using atomic operations.
-        Includes retry logic for transient failures.
+        Includes retry logic for transient failures and snapshot validation.
 
         Args:
             user_id: User identifier
@@ -262,6 +387,18 @@ class ReplayManager:
 
                 # Use atomic check-and-restore method to prevent race condition
                 result = self.db.check_and_restore_snapshot(user_id, buffer_start_time)
+
+                # Validate snapshot before using it
+                if result.get("success"):
+                    snapshot = result.get("snapshot")
+                    if not self._validate_snapshot(snapshot, user_id):
+                        logger.error(f"Snapshot validation failed for {user_id}")
+                        return {
+                            "success": False,
+                            "error": "Snapshot validation failed",
+                            "user_id": user_id,
+                            "attempts": attempt + 1,
+                        }
 
                 if result["success"]:
                     logger.info(
@@ -373,35 +510,14 @@ class ReplayManager:
                     source = clean_measurement.get("source", "replay-replay")
                     unit = clean_measurement.get("unit", "kg")
 
-                    # Create replay-friendly config with more lenient quality thresholds
-                    replay_config = self.config.copy()
-                    if "quality_scoring" in replay_config:
-                        # Use more lenient threshold during replay since we already filtered outliers
-                        replay_config["quality_scoring"]["threshold"] = (
-                            0.25  # vs normal 0.6
-                        )
-                        # Adjust component weights to be more forgiving during replay
-                        if "component_weights" in replay_config["quality_scoring"]:
-                            weights = replay_config["quality_scoring"][
-                                "component_weights"
-                            ].copy()
-                            weights["consistency"] = (
-                                0.10  # Reduce consistency weight (often fails during replay)
-                            )
-                            weights["plausibility"] = 0.15  # Reduce plausibility weight
-                            weights["safety"] = 0.45  # Keep safety high
-                            weights["reliability"] = 0.30  # Increase reliability weight
-                            replay_config["quality_scoring"]["component_weights"] = (
-                                weights
-                            )
-
-                    # Process through existing pipeline with replay-friendly config
+                    # Process through existing pipeline with SAME config as real-time
+                    # No relaxed thresholds - temporal filtering already happened
                     result = process_measurement(
                         user_id=user_id,
                         weight=weight,
                         timestamp=timestamp,
                         source=source,
-                        config=replay_config,
+                        config=self.config,  # Use same config as real-time
                         unit=unit,
                         db=self.db,
                     )

@@ -1,5 +1,5 @@
 """
-ReplayBuffer - Thread-safe 72-hour measurement buffering
+ReplayBuffer - Thread-safe 24-hour measurement buffering
 
 Manages in-memory storage of measurements for replay analysis.
 Automatically manages buffer windows and provides thread-safe operations.
@@ -9,7 +9,7 @@ Use BufferFactory from buffer_factory.py for instance management.
 
 Key features:
 - Thread-safe buffer management
-- Automatic 72-hour window rotation
+- Automatic 24-hour window rotation
 - Memory-efficient storage with limits
 - Proper cleanup() method for resource management
 - Buffer state tracking and cleanup
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 class ReplayBuffer:
     """
-    Thread-safe buffer for storing measurements in 72-hour windows.
+    Thread-safe buffer for storing measurements in 24-hour windows.
     Each user has their own measurement buffer with automatic window management.
     """
 
@@ -42,7 +42,7 @@ class ReplayBuffer:
         self.config = config or {}
 
         # Configuration
-        self.buffer_hours = self.config.get("buffer_hours", 72)
+        self.buffer_hours = self.config.get("buffer_hours", 24)
         self.max_buffer_measurements = self.config.get("max_buffer_measurements", 100)
         self.trigger_mode = self.config.get("trigger_mode", "time_based")
 

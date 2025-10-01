@@ -126,7 +126,7 @@ iglucose-com = 3.0
 
 [replay]
 enabled = true
-buffer_hours = 48
+buffer_hours = 24
 trigger_mode = "time_based"
 max_buffer_measurements = 100
 state_history_limit = 100

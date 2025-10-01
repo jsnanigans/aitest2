@@ -1,19 +1,18 @@
 """
-Replay Processor - Integrates enhanced replay analysis with main processing flow.
+Simplified Replay Processor - Temporal consistency filtering only.
 
 Handles the complete replay workflow:
-1. Buffer analysis with enhanced scoring
-2. Reset re-evaluation and correction
-3. State restoration and reprocessing
-4. Metrics tracking
+1. Temporal consistency analysis (single filter)
+2. State restoration and reprocessing
+3. Metrics tracking
 """
 
 import logging
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 import time
 
-from .enhanced_replay_analyzer import EnhancedReplayAnalyzer
+from .temporal_consistency_analyzer import TemporalConsistencyAnalyzer
 from .replay_manager import ReplayManager
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 class ReplayProcessor:
     """
-    Orchestrates replay processing with enhanced analysis capabilities.
+    Orchestrates replay processing with temporal consistency filtering.
+    Simplified from previous multi-method approach.
     """
 
     def __init__(self, db, config: Optional[Dict[str, Any]] = None):
@@ -36,7 +36,9 @@ class ReplayProcessor:
         self.config = config or {}
 
         # Initialize components
-        self.analyzer = EnhancedReplayAnalyzer(db, config.get("analysis", {}))
+        self.analyzer = TemporalConsistencyAnalyzer(
+            config.get("temporal_consistency", {})
+        )
         self.replay_manager = ReplayManager(db, config.get("safety", {}))
 
         # Metrics tracking
@@ -44,9 +46,9 @@ class ReplayProcessor:
             "buffers_processed": 0,
             "measurements_analyzed": 0,
             "outliers_found": 0,
-            "resets_changed": 0,
             "corrections_made": 0,
             "replay_time_total": 0.0,
+            "concurrent_replay_prevented": 0,
         }
 
     def process_buffer(
@@ -56,7 +58,7 @@ class ReplayProcessor:
         buffer_start_time: datetime,
     ) -> Dict[str, Any]:
         """
-        Process a buffer of measurements with enhanced analysis.
+        Process a buffer of measurements with temporal consistency analysis.
 
         Args:
             user_id: User identifier
@@ -73,44 +75,30 @@ class ReplayProcessor:
             self.metrics["buffers_processed"] += 1
             self.metrics["measurements_analyzed"] += len(buffered_measurements)
 
-            # Step 1: Analyze measurements with enhanced scoring
+            # Step 1: Analyze measurements for temporal consistency
             logger.info(
                 f"Analyzing {len(buffered_measurements)} measurements for {user_id}"
             )
 
-            clean_measurements, analysis = (
-                self.analyzer.analyze_measurements_with_reset_context(
-                    buffered_measurements, user_id, buffer_start_time
-                )
-            )
+            analysis = self.analyzer.analyze_and_filter(buffered_measurements, user_id)
 
-            # Update metrics from analysis
-            self.metrics["outliers_found"] += analysis.get("outliers_found", 0)
+            if not analysis["success"]:
+                return {
+                    "success": False,
+                    "error": f"Analysis failed: {analysis.get('error')}",
+                    "user_id": user_id,
+                }
 
-            # Step 2: Check for reset changes
-            reset_changes = analysis.get("reset_changes")
-            if reset_changes and reset_changes.get("should_change"):
-                self.metrics["resets_changed"] += 1
-                logger.warning(
-                    f"Reset change recommended for {user_id}: {reset_changes['reason']}"
-                )
+            # Update metrics
+            outliers_found = analysis["outliers_found"]
+            self.metrics["outliers_found"] += outliers_found
 
-                # Handle reset change
-                reset_result = self._handle_reset_change(
-                    user_id, reset_changes, clean_measurements, buffer_start_time
-                )
-
-                if not reset_result["success"]:
-                    return {
-                        "success": False,
-                        "error": f"Failed to handle reset change: {reset_result['error']}",
-                        "analysis": analysis,
-                    }
-
-            # Step 3: Replay clean measurements if we found outliers
-            if analysis.get("outliers_found", 0) > 0:
+            # Step 2: If outliers found, replay clean measurements
+            if outliers_found > 0:
+                clean_measurements = analysis["clean_measurements"]
                 logger.info(
-                    f"Replaying {len(clean_measurements)} clean measurements for {user_id}"
+                    f"Found {outliers_found} outliers for {user_id}, "
+                    f"replaying {len(clean_measurements)} clean measurements"
                 )
 
                 replay_result = self.replay_manager.replay_clean_measurements(
@@ -119,11 +107,20 @@ class ReplayProcessor:
                     buffer_start_time=buffer_start_time,
                 )
 
+                # Check if concurrent replay was prevented
+                if replay_result.get("reason") == "concurrent_replay_prevented":
+                    self.metrics["concurrent_replay_prevented"] += 1
+
                 if replay_result["success"]:
                     self.metrics["corrections_made"] += 1
 
-                # Add analysis to result
-                replay_result["analysis"] = analysis
+                # Add analysis details
+                replay_result["analysis"] = {
+                    "total_measurements": analysis["total_measurements"],
+                    "outliers_found": outliers_found,
+                    "clean_measurements": len(clean_measurements),
+                    "statistics": self.analyzer.get_statistics(analysis),
+                }
 
                 # Track processing time
                 processing_time = time.time() - start_time
@@ -137,8 +134,12 @@ class ReplayProcessor:
                 return {
                     "success": True,
                     "user_id": user_id,
-                    "message": "No outliers found, replay not needed",
-                    "analysis": analysis,
+                    "message": "No temporal outliers found, replay not needed",
+                    "analysis": {
+                        "total_measurements": analysis["total_measurements"],
+                        "outliers_found": 0,
+                        "clean_measurements": len(buffered_measurements),
+                    },
                     "processing_time": time.time() - start_time,
                 }
 
@@ -150,78 +151,6 @@ class ReplayProcessor:
                 "user_id": user_id,
                 "processing_time": time.time() - start_time,
             }
-
-    def _handle_reset_change(
-        self,
-        user_id: str,
-        reset_changes: Dict[str, Any],
-        clean_measurements: List[Dict[str, Any]],
-        buffer_start_time: datetime,
-    ) -> Dict[str, Any]:
-        """
-        Handle a recommended reset change.
-
-        This involves:
-        1. Restoring to before the original reset
-        2. Applying the new reset at the better anchor point
-        3. Reprocessing from that point
-
-        Args:
-            user_id: User identifier
-            reset_changes: Reset change recommendations
-            clean_measurements: Clean measurements list
-            buffer_start_time: Buffer start time
-
-        Returns:
-            Result dictionary
-        """
-        try:
-            original_reset = reset_changes["original_reset"]
-            new_anchor = reset_changes["new_anchor"]
-
-            logger.info(
-                f"Changing reset anchor for {user_id} from "
-                f"{original_reset['weight']:.1f}kg to {new_anchor['weight']:.1f}kg"
-            )
-
-            # Create a modified measurement list with the new reset point
-            modified_measurements = []
-
-            for i, measurement in enumerate(clean_measurements):
-                measurement_copy = measurement.copy()
-
-                # Mark the new reset point
-                if i == new_anchor["index"]:
-                    measurement_copy["force_reset"] = True
-                    measurement_copy["reset_type"] = "corrected"
-
-                # Skip the original reset point if it's now an outlier
-                if (
-                    i == original_reset["index"]
-                    and new_anchor["index"] != original_reset["index"]
-                ):
-                    continue
-
-                modified_measurements.append(measurement_copy)
-
-            # Now replay with the modified measurements
-            replay_result = self.replay_manager.replay_clean_measurements(
-                user_id=user_id,
-                clean_measurements=modified_measurements,
-                buffer_start_time=buffer_start_time,
-            )
-
-            if replay_result["success"]:
-                replay_result["reset_changed"] = True
-                replay_result["reset_change_details"] = reset_changes
-
-            return replay_result
-
-        except Exception as e:
-            logger.error(
-                f"Failed to handle reset change for {user_id}: {e}", exc_info=True
-            )
-            return {"success": False, "error": str(e), "user_id": user_id}
 
     def get_metrics(self) -> Dict[str, Any]:
         """
@@ -259,7 +188,7 @@ class ReplayProcessor:
             "buffers_processed": 0,
             "measurements_analyzed": 0,
             "outliers_found": 0,
-            "resets_changed": 0,
             "corrections_made": 0,
             "replay_time_total": 0.0,
+            "concurrent_replay_prevented": 0,
         }

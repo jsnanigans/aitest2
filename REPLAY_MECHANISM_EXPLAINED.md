@@ -35,7 +35,7 @@ def process_replay_from_beginning():
 ```python
 def process_replay_with_outlier_detection():
     # CORRECT: Sophisticated outlier detection + selective replay
-    1. Choose buffer window (e.g., last 72 hours)
+    1. Choose buffer window (e.g., last 24 hours)
     2. Save state snapshot BEFORE buffer
     3. Detect outliers by comparing to snapshot state
     4. Restore to snapshot
@@ -100,7 +100,7 @@ New Kalman state: 77kg (correct trend!)
 ### 1. Buffer Windows
 
 **Not:** Process all data from beginning
-**Instead:** Analyze recent windows (default 72 hours)
+**Instead:** Analyze recent windows (default 24 hours)
 
 **Why?**
 - Efficient (don't reprocess everything)
@@ -192,7 +192,7 @@ From `config/lambda.env.template` and default config:
 ```python
 "replay": {
     "enabled": True,                     # Enable replay processing
-    "buffer_hours": 72,                  # Window size for analysis (3 days)
+    "buffer_hours": 24,                  # Window size for analysis (1 day)
     "min_measurements": 10,              # Minimum data for replay
     "trigger_mode": "time_based",        # When to trigger replay
     "outlier_methods": ["iqr", "mad"],   # Detection methods

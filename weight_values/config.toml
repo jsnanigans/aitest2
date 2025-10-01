@@ -10,10 +10,10 @@
 # ============================================================================
 
 [kalman]
-initial_variance = 0.364
-transition_covariance_weight = 0.018
-transition_covariance_trend = 0.00015
-observation_covariance = 3.4
+initial_variance = 0.364 # how uncertain we are initially
+transition_covariance_weight = 0.018 # how much weight changes naturally (Q weight)
+transition_covariance_trend = 0.00012 # how much trend changes (Q trend)
+observation_covariance = 5 # how much we trust measurements (higher is less trust)
 
 # ============================================================================
 # RESET CONFIGURATION
@@ -246,7 +246,7 @@ low_confidence_multiplier = 1.5
 
 [replay]
 enabled = true
-buffer_hours = 48
+buffer_hours = 24
 trigger_mode = "time_based"
 max_buffer_measurements = 100
 state_history_limit = 100
