@@ -6,15 +6,15 @@
 [data]
 csv_file = "./data/2025-09-05_all.csv"
 output_dir = "output"
-max_users = 0
+max_users = 400
 user_offset = 0
-min_readings = 10
+min_readings = 20
 min_date = "2015-01-01"
 max_date = "2026-01-01"
 export_database = true
 
 # Test users configuration
-# filtered_users_csv = "apple_users_01.csv"
+filtered_users_csv = "apple_users_01.csv"
 # Test with actual users from the CSV
 test_users = [
   # "187b215b-dd62-4ce3-8d01-59b43339cec7",

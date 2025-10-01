@@ -41,94 +41,19 @@ except ImportError as e:
 
 def get_default_config() -> Dict[str, Any]:
     """
-    Get default configuration based on lambda.env.template.
+    Load configuration from weight_values/config.toml.
+    Override database backend for local processing.
 
     Returns:
-        Configuration dictionary matching production settings
+        Configuration dictionary
     """
-    return {
-        "database": {
-            "backend": "memory",  # Override for local processing
-            "table_name": "weight-processor-state",
-            "region": "us-east-1",
-        },
-        "kalman": {
-            "enabled": True,
-            "adaptive": True,
-            "process_noise": 0.1,
-            "observation_noise": 1.0,
-            "initial_covariance": 1.0,
-            "adaptation": {
-                "enabled": True,
-                "initial_multiplier": 10.0,
-                "decay_rate": 0.1,
-            },
-            "resets": {
-                "enabled": True,
-                "hard_gap_days": 30,
-                "window_hours": 720,
-                "soft_sources": ["questionnaire"],
-            },
-        },
-        "quality_scoring": {
-            "enabled": True,
-            "weights": {
-                "kalman": 0.25,
-                "temporal": 0.20,
-                "source": 0.20,
-                "physiological": 0.15,
-                "statistical": 0.10,
-                "frequency": 0.10,
-            },
-            "thresholds": {
-                "high": 0.8,
-                "medium": 0.5,
-                "outlier_override": 0.85,
-                "acceptance": 0.3,
-            },
-        },
-        "processing": {
-            "extreme_threshold": 0.15,
-            "max_daily_change_kg": 2.0,
-            "min_weight_kg": 20.0,
-            "max_weight_kg": 500.0,
-        },
-        "replay": {
-            "enabled": True,
-            "buffer_hours": 72,
-            "trigger_mode": "time_based",
-            "outlier_methods": ["iqr", "mad"],
-            "iqr_multiplier": 1.5,
-            "mad_threshold": 3.0,
-            "max_attempts": 3,
-            "min_measurements": 10,
-            "rollback_on_error": True,
-        },
-        "outlier_detection": {
-            "enabled": True,
-            "iqr_multiplier": 1.5,
-            "mad_threshold": 3.0,
-        },
-        "snapshot": {
-            "periodic_enabled": True,
-            "interval_hours": 24,
-            "retention_days": 10,
-        },
-        "circuit_breaker": {
-            "enabled": True,
-            "failure_threshold": 5,
-            "timeout_seconds": 60,
-            "half_open_attempts": 3,
-        },
-        "logging": {
-            "level": "INFO",
-            "verbose": False,
-        },
-        "service": {
-            "environment": "local",
-            "version": "1.0.0",
-        },
-    }
+    # Load from unified config file
+    config = ConfigManager.load_config(source="file")
+
+    # Override database backend for local in-memory processing
+    config["database"]["backend"] = "memory"
+
+    return config
 
 
 def parse_timestamp(date_str: str) -> datetime:

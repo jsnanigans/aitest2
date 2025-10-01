@@ -1,10 +1,14 @@
 """
 Constants for weight stream processor.
-All hard-coded values that should not be configurable for safety.
+Safety limits and immutable values.
+Configurable parameters are now in config.toml
 """
 
 from dataclasses import dataclass
 from typing import Dict, Optional
+
+# NOTE: SOURCE_PROFILES and KALMAN_DEFAULTS have been moved to config.toml
+# Use ConfigManager to load these values dynamically
 
 
 @dataclass
@@ -81,132 +85,52 @@ BMI_LIMITS = {
     "SUSPICIOUS_HIGH": 70.0,
 }
 
-# Kalman filter defaults
-KALMAN_DEFAULTS = {
-    "initial_variance": 0.364,  # Optimized from 1.0
-    "transition_covariance_weight": 0.018,  # Optimized from 0.1
-    "transition_covariance_trend": 0.00015,  # Optimized from 0.001
-    "observation_covariance": 3.4,  # Optimized from 1.0
-    "reset_gap_days": 30,
-    "questionnaire_reset_days": 10,
-}
+# ==============================================================================
+# DEPRECATED CONSTANTS - Moved to config.toml
+# ==============================================================================
+# These remain here for backward compatibility but are now loaded from config
+# Use ConfigManager.load_config() and access config["sources"] instead
 
-# Source profiles with reliability and noise characteristics
-SOURCE_PROFILES = {
-    "care-team-upload": {
-        "outlier_rate": 3.6,
-        "reliability": "excellent",
-        "noise_multiplier": 0.5,
-        "priority": 1,
-        "base_threshold_kg": 2.0,
-        "max_threshold_kg": 8.0,
-        "spike_threshold_kg": 5.0,
-        "drift_threshold_kg": 3.0,
-        "noise_threshold_kg": 2.0,
-        "max_daily_change_kg": 6.44,
-        "high_confidence_multiplier": 0.8,
-        "low_confidence_multiplier": 1.5,
-    },
-    "patient-upload": {
-        "outlier_rate": 13.0,
-        "reliability": "excellent",
-        "noise_multiplier": 0.7,
-        "priority": 4,
-        "base_threshold_kg": 2.0,
-        "max_threshold_kg": 10.0,
-        "spike_threshold_kg": 5.0,
-        "drift_threshold_kg": 3.0,
-        "noise_threshold_kg": 2.0,
-        "max_daily_change_kg": 6.44,
-        "high_confidence_multiplier": 0.8,
-        "low_confidence_multiplier": 1.5,
-    },
-    "internal-questionnaire": {
-        "outlier_rate": 14.0,
-        "reliability": "good",
-        "noise_multiplier": 0.8,
-        "priority": 1,
-        "base_threshold_kg": 3.0,
-        "max_threshold_kg": 12.0,
-        "spike_threshold_kg": 6.0,
-        "drift_threshold_kg": 4.0,
-        "noise_threshold_kg": 3.0,
-        "max_daily_change_kg": 8.0,
-        "high_confidence_multiplier": 0.9,
-        "low_confidence_multiplier": 1.8,
-    },
-    "initial-questionnaire": {
-        "outlier_rate": 14.0,
-        "reliability": "good",
-        "noise_multiplier": 0.8,
-        "priority": 1,
-        "base_threshold_kg": 3.0,
-        "max_threshold_kg": 12.0,
-        "spike_threshold_kg": 6.0,
-        "drift_threshold_kg": 4.0,
-        "noise_threshold_kg": 3.0,
-        "max_daily_change_kg": 8.0,
-        "high_confidence_multiplier": 0.9,
-        "low_confidence_multiplier": 1.8,
-    },
-    "patient-device": {
-        "outlier_rate": 20.7,
-        "reliability": "good",
-        "noise_multiplier": 1.0,
-        "priority": 3,
-        "base_threshold_kg": 2.5,
-        "max_threshold_kg": 10.0,
-        "spike_threshold_kg": 5.5,
-        "drift_threshold_kg": 3.5,
-        "noise_threshold_kg": 2.5,
-        "max_daily_change_kg": 7.0,
-        "high_confidence_multiplier": 0.85,
-        "low_confidence_multiplier": 1.6,
-    },
-    "https://connectivehealth.io": {
-        "outlier_rate": 35.8,
-        "reliability": "moderate",
-        "noise_multiplier": 1.5,
-        "priority": 2,
-        "base_threshold_kg": 4.0,
-        "max_threshold_kg": 15.0,
-        "spike_threshold_kg": 8.0,
-        "drift_threshold_kg": 5.0,
-        "noise_threshold_kg": 4.0,
-        "max_daily_change_kg": 10.0,
-        "high_confidence_multiplier": 1.0,
-        "low_confidence_multiplier": 2.0,
-    },
-    "https://api.iglucose.com": {
-        "outlier_rate": 151.4,
-        "reliability": "poor",
-        "noise_multiplier": 3.0,
-        "priority": 2,
-        "base_threshold_kg": 5.0,
-        "max_threshold_kg": 20.0,
-        "spike_threshold_kg": 10.0,
-        "drift_threshold_kg": 7.0,
-        "noise_threshold_kg": 5.0,
-        "max_daily_change_kg": 15.0,
-        "high_confidence_multiplier": 1.2,
-        "low_confidence_multiplier": 2.5,
-    },
-}
+# Module-level variables that get populated from config on first access
+_SOURCE_PROFILES: Optional[Dict] = None
+_DEFAULT_PROFILE: Optional[Dict] = None
+_PROFILES_LOADED = False
 
-DEFAULT_PROFILE = {
-    "outlier_rate": 20.0,
-    "reliability": "unknown",
-    "noise_multiplier": 1.0,
-    "priority": 999,
-    "base_threshold_kg": 3.0,
-    "max_threshold_kg": 10.0,
-    "spike_threshold_kg": 5.0,
-    "drift_threshold_kg": 3.0,
-    "noise_threshold_kg": 2.0,
-    "max_daily_change_kg": 6.44,
-    "high_confidence_multiplier": 1.0,
-    "low_confidence_multiplier": 1.5,
-}
+
+def _ensure_profiles_loaded():
+    """Ensure source profiles are loaded from config."""
+    global _SOURCE_PROFILES, _DEFAULT_PROFILE, _PROFILES_LOADED
+    if not _PROFILES_LOADED:
+        try:
+            # Lazy import to avoid circular dependency
+            from ..aws.config.config_manager import ConfigManager
+            config = ConfigManager.load_config()
+            _SOURCE_PROFILES = config.get("sources", {})
+            _DEFAULT_PROFILE = _SOURCE_PROFILES.get("default", {
+                "outlier_rate": 20.0,
+                "reliability": "unknown",
+                "noise_multiplier": 1.0,
+                "priority": 999,
+                "base_threshold_kg": 3.0,
+                "max_threshold_kg": 10.0,
+            })
+        except Exception as e:
+            # Fallback if config can't be loaded
+            _SOURCE_PROFILES = {}
+            _DEFAULT_PROFILE = {
+                "noise_multiplier": 1.0,
+                "priority": 999,
+                "reliability": "unknown",
+            }
+        _PROFILES_LOADED = True
+
+
+# Lazy load on module import
+_ensure_profiles_loaded()
+
+# Expose as module-level constants for backward compatibility
+SOURCE_PROFILES = _SOURCE_PROFILES
+DEFAULT_PROFILE = _DEFAULT_PROFILE
 
 # Questionnaire sources (for special handling)
 QUESTIONNAIRE_SOURCES = {
@@ -216,28 +140,12 @@ QUESTIONNAIRE_SOURCES = {
     "questionnaire",
 }
 
-# Processing defaults
-PROCESSING_DEFAULTS = {
-    "extreme_threshold": 0.15,
-    "max_daily_change": 0.05,
-    "min_weight": 30,
-    "max_weight": 400,
-}
-
-# Quality scoring defaults
-QUALITY_SCORING_DEFAULTS = {
-    "enabled": False,
-    "threshold": 0.46,
-    "use_harmonic_mean": True,
-    "component_weights": {
-        "kalman_fit": 0.40,
-        "temporal_consistency": 0.30,
-        "anomaly_detection": 0.20,
-        "source_reliability": 0.05,
-        "trend_alignment": 0.05,
-    },
-    "safety_critical_threshold": 0.3,
-    "history_window_size": 20,
+# DEPRECATED: Kalman defaults now in config.toml
+KALMAN_DEFAULTS = {
+    "initial_variance": 0.364,
+    "transition_covariance_weight": 0.018,
+    "transition_covariance_trend": 0.00015,
+    "observation_covariance": 3.4,
 }
 
 # Visualization marker symbols for source types
@@ -270,20 +178,23 @@ SESSION_VARIANCE_THRESHOLD = 5.81  # kg
 
 def get_source_priority(source: str) -> int:
     """Get priority for a source (lower number = higher priority)."""
+    _ensure_profiles_loaded()
     profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
     return profile.get("priority", 999)
 
 
 def get_source_reliability(source: str) -> str:
     """Get reliability classification for source."""
+    _ensure_profiles_loaded()
     profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
-    return profile["reliability"]
+    return profile.get("reliability", "unknown")
 
 
 def get_noise_multiplier(source: str) -> float:
     """Get Kalman filter measurement noise multiplier for source."""
+    _ensure_profiles_loaded()
     profile = SOURCE_PROFILES.get(source, DEFAULT_PROFILE)
-    return profile["noise_multiplier"]
+    return profile.get("noise_multiplier", 1.0)
 
 
 def categorize_rejection_enhanced(reason: str) -> str:

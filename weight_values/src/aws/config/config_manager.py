@@ -36,82 +36,53 @@ class ConfigManager:
             else:
                 source = "file"
 
-        # Load configuration
+        # Load base configuration from file
+        if config_path is None:
+            # Default to weight_values/config.toml
+            # __file__ is weight_values/src/aws/config/config_manager.py
+            # So we go up 4 levels to get to weight_values/
+            config_path = Path(__file__).parent.parent.parent.parent / "config.toml"
+
+        config = cls._load_from_file(config_path)
+
+        # Override with environment variables if in Lambda
         if source == "env":
-            config = cls._load_from_env()
-        else:
-            config = cls._load_from_file(config_path or "config.toml")
+            config = cls._apply_env_overrides(config)
 
         # Cache the config
         cls._cached_config = config
         return config
 
     @classmethod
-    def _load_from_env(cls) -> Dict[str, Any]:
-        """Load configuration from environment variables."""
-        return {
-            "data": {
-                "max_users": int(os.getenv("MAX_USERS", "0")),
-                "min_readings": int(os.getenv("MIN_READINGS", "0")),
-            },
-            "kalman": {
-                "enabled": os.getenv("KALMAN_ENABLED", "true").lower() == "true",
-                "adaptive": os.getenv("KALMAN_ADAPTIVE", "true").lower() == "true",
-                "process_noise": float(os.getenv("KALMAN_PROCESS_NOISE", "1.0")),
-                "observation_noise": float(os.getenv("KALMAN_OBS_NOISE", "4.0")),
-                "adaptation": {
-                    "enabled": os.getenv("KALMAN_ADAPTATION_ENABLED", "true").lower()
-                    == "true",
-                    "initial_multiplier": float(
-                        os.getenv("KALMAN_ADAPTATION_MULTIPLIER", "10.0")
-                    ),
-                    "decay_rate": float(os.getenv("KALMAN_ADAPTATION_DECAY", "0.1")),
-                },
-                "resets": {
-                    "hard_gap_days": int(os.getenv("KALMAN_HARD_GAP_DAYS", "30")),
-                    "soft_sources": os.getenv(
-                        "KALMAN_SOFT_SOURCES", "questionnaire"
-                    ).split(","),
-                },
-            },
-            "quality_scoring": {
-                "enabled": os.getenv("QUALITY_SCORING_ENABLED", "true").lower()
-                == "true",
-                "weights": {
-                    "kalman": float(os.getenv("QS_WEIGHT_KALMAN", "0.4")),
-                    "temporal": float(os.getenv("QS_WEIGHT_TEMPORAL", "0.3")),
-                    "source": float(os.getenv("QS_WEIGHT_SOURCE", "0.3")),
-                },
-                "thresholds": {
-                    "outlier_override": float(os.getenv("QS_OUTLIER_OVERRIDE", "0.8")),
-                    "acceptance": float(os.getenv("QS_ACCEPTANCE", "0.3")),
-                },
-            },
-            "outlier_detection": {
-                "enabled": os.getenv("OUTLIER_DETECTION_ENABLED", "true").lower()
-                == "true",
-                "iqr_multiplier": float(os.getenv("OUTLIER_IQR_MULTIPLIER", "1.5")),
-                "mad_threshold": float(os.getenv("OUTLIER_MAD_THRESHOLD", "3.0")),
-            },
-            "replay": {
-                "enabled": os.getenv("REPLAY_ENABLED", "false").lower() == "true",
-                "buffer_hours": int(os.getenv("REPLAY_BUFFER_HOURS", "72")),
-            },
-            "snapshot": {
-                "periodic_enabled": os.getenv("SNAPSHOT_PERIODIC_ENABLED", "true").lower() == "true",
-                "interval_hours": int(os.getenv("SNAPSHOT_INTERVAL_HOURS", "24")),
-                "retention_days": int(os.getenv("SNAPSHOT_RETENTION_DAYS", "10")),
-            },
-            "database": {
-                "backend": os.getenv("DB_BACKEND", "memory"),
-                "table_name": os.getenv("DB_TABLE_NAME", "weight-processor-state"),
-                "region": os.getenv("AWS_REGION", "us-east-1"),
-            },
-            "logging": {
-                "level": os.getenv("LOG_LEVEL", "INFO"),
-                "verbose": os.getenv("LOG_VERBOSE", "false").lower() == "true",
-            },
-        }
+    def _apply_env_overrides(cls, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply environment variable overrides to config."""
+        # Only override specific values if env vars are set
+
+        # Kalman overrides
+        if os.getenv("KALMAN_INITIAL_VARIANCE"):
+            config["kalman"]["initial_variance"] = float(os.getenv("KALMAN_INITIAL_VARIANCE"))
+        if os.getenv("KALMAN_OBS_COVARIANCE"):
+            config["kalman"]["observation_covariance"] = float(os.getenv("KALMAN_OBS_COVARIANCE"))
+
+        # Quality scoring overrides
+        if os.getenv("QS_THRESHOLD"):
+            config["quality_scoring"]["threshold"] = float(os.getenv("QS_THRESHOLD"))
+        if os.getenv("QS_USE_HARMONIC_MEAN"):
+            config["quality_scoring"]["use_harmonic_mean"] = os.getenv("QS_USE_HARMONIC_MEAN").lower() == "true"
+
+        # Database overrides
+        if os.getenv("DB_BACKEND"):
+            config["database"]["backend"] = os.getenv("DB_BACKEND")
+        if os.getenv("DB_TABLE_NAME"):
+            config["database"]["table_name"] = os.getenv("DB_TABLE_NAME")
+        if os.getenv("AWS_REGION"):
+            config["database"]["region"] = os.getenv("AWS_REGION")
+
+        # Logging overrides
+        if os.getenv("LOG_LEVEL"):
+            config["logging"]["level"] = os.getenv("LOG_LEVEL")
+
+        return config
 
     @classmethod
     def _load_from_file(cls, config_path: str) -> Dict[str, Any]:
@@ -119,27 +90,31 @@ class ConfigManager:
         path = Path(config_path)
 
         if not path.exists():
-            # Return minimal defaults if file doesn't exist
-            return cls._get_defaults()
+            raise FileNotFoundError(
+                f"Config file not found: {config_path}. "
+                f"Expected config at weight_values/config.toml"
+            )
 
         with open(path, "rb") as f:
             return tomllib.load(f)
 
     @classmethod
-    def _get_defaults(cls) -> Dict[str, Any]:
-        """Get default configuration."""
-        return {
-            "data": {"max_users": 0, "min_readings": 0},
-            "kalman": {
-                "enabled": True,
-                "adaptive": True,
-                "process_noise": 1.0,
-                "observation_noise": 4.0,
-            },
-            "quality_scoring": {"enabled": True},
-            "database": {"backend": "memory"},
-            "logging": {"level": "INFO"},
-        }
+    def get_source_profiles(cls, config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """
+        Extract source profiles from config.
+
+        Args:
+            config: Configuration dictionary
+
+        Returns:
+            Dictionary of source profiles
+        """
+        sources = config.get("sources", {})
+        # Convert TOML section names back to source names
+        profiles = {}
+        for source_key, profile in sources.items():
+            profiles[source_key] = profile
+        return profiles
 
     @classmethod
     def reset_cache(cls):
