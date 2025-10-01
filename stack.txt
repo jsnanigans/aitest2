@@ -1,0 +1,61 @@
+📋 Getting dev stack information...
+
+=== Stack Status ===
+-------------------------------------------------
+|                DescribeStacks                 |
++---------+-------------------------------------+
+|  Created|  2025-10-01T14:57:49.320000+00:00   |
+|  Status |  UPDATE_COMPLETE                    |
+|  Updated|  2025-10-02T08:15:28.470000+00:00   |
++---------+-------------------------------------+
+
+=== Stack Outputs ===
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                                        DescribeStacks                                                                                         |
++--------------------------------------------+----------------------------------------+------------------------+--------------------------------------------------------------------------------+
+|                 Description                |              ExportName                |       OutputKey        |                                  OutputValue                                   |
++--------------------------------------------+----------------------------------------+------------------------+--------------------------------------------------------------------------------+
+|  Lambda function ARN for direct invocation |  weight-processor-function-dev-us      |  FunctionArn           |  arn:aws:lambda:us-east-1:387257169268:function:weight-processor-dev-us        |
+|  Lambda function name                      |  weight-processor-function-name-dev-us |  FunctionName          |  weight-processor-dev-us                                                       |
+|  DynamoDB table name                       |  weight-processor-table-dev-us         |  StateTableName        |  weight-processor-state-dev-us                                                 |
+|  DynamoDB table ARN                        |  weight-processor-table-arn-dev-us     |  StateTableArn         |  arn:aws:dynamodb:us-east-1:387257169268:table/weight-processor-state-dev-us   |
+|  VPC ID for Lambda deployment              |  weight-processor-vpc-dev-us           |  VpcId                 |  vpc-04624d1b017777654                                                         |
+|  KMS Key ARN for DynamoDB encryption       |  weight-processor-kms-key-dev-us       |  EncryptionKeyArn      |  arn:aws:kms:us-east-1:387257169268:key/39b3b276-ceb2-4c76-9ddd-2b8e796ebdd5   |
+|  IAM role ARN that can invoke this function|                                        |  InvocationRole        |  arn:aws:iam::387257169268:role/weight-processor-invoker-dev-us                |
+|  Private Subnet 2 ID                       |  weight-processor-subnet-2-dev-us      |  PrivateSubnet2Id      |  subnet-015948222172e4967                                                      |
+|  Private Subnet 1 ID                       |  weight-processor-subnet-1-dev-us      |  PrivateSubnet1Id      |  subnet-0ebe170f594c472fc                                                      |
+|  Lambda Security Group ID                  |  weight-processor-lambda-sg-dev-us     |  LambdaSecurityGroupId |  sg-0e00b0ac33aa37477                                                          |
++--------------------------------------------+----------------------------------------+------------------------+--------------------------------------------------------------------------------+
+
+=== Stack Resources ===
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                             DescribeStackResources                                                                              |
++-------------------------------------+------------------------------------------------------------------------------+------------------+-----------------------------------------+
+|              LogicalId              |                                 PhysicalId                                   |     Status       |                  Type                   |
++-------------------------------------+------------------------------------------------------------------------------+------------------+-----------------------------------------+
+|  CloudWatchLogsVPCEndpoint          |  vpce-0597f15527223072f                                                      |  CREATE_COMPLETE |  AWS::EC2::VPCEndpoint                  |
+|  DatabaseEncryptionKey              |  39b3b276-ceb2-4c76-9ddd-2b8e796ebdd5                                        |  CREATE_COMPLETE |  AWS::KMS::Key                          |
+|  DatabaseEncryptionKeyAlias         |  alias/weight-processor-dev-us                                               |  CREATE_COMPLETE |  AWS::KMS::Alias                        |
+|  DependenciesLayer619dc25bde        |  arn:aws:lambda:us-east-1:387257169268:layer:weight-processor-deps-dev-us:2  |  CREATE_COMPLETE |  AWS::Lambda::LayerVersion              |
+|  DynamoDBThrottleAlarm              |  weight-processor-db-throttles-dev-us                                        |  CREATE_COMPLETE |  AWS::CloudWatch::Alarm                 |
+|  DynamoDBVPCEndpoint                |  vpce-0c50a8a68c67596da                                                      |  CREATE_COMPLETE |  AWS::EC2::VPCEndpoint                  |
+|  LambdaSecurityGroup                |  sg-0e00b0ac33aa37477                                                        |  CREATE_COMPLETE |  AWS::EC2::SecurityGroup                |
+|  LambdaSecurityGroupEgress          |  sgr-043063b0c86051c0d                                                       |  CREATE_COMPLETE |  AWS::EC2::SecurityGroupEgress          |
+|  PrivateRouteTable                  |  rtb-063c36d9f5a79af76                                                       |  CREATE_COMPLETE |  AWS::EC2::RouteTable                   |
+|  PrivateSubnet1                     |  subnet-0ebe170f594c472fc                                                    |  CREATE_COMPLETE |  AWS::EC2::Subnet                       |
+|  PrivateSubnet1RouteTableAssociation|  rtbassoc-0af3a87f471f43d2c                                                  |  CREATE_COMPLETE |  AWS::EC2::SubnetRouteTableAssociation  |
+|  PrivateSubnet2                     |  subnet-015948222172e4967                                                    |  CREATE_COMPLETE |  AWS::EC2::Subnet                       |
+|  PrivateSubnet2RouteTableAssociation|  rtbassoc-04626fa5f94f5924d                                                  |  CREATE_COMPLETE |  AWS::EC2::SubnetRouteTableAssociation  |
+|  ProcessorErrorAlarm                |  weight-processor-errors-dev-us                                              |  CREATE_COMPLETE |  AWS::CloudWatch::Alarm                 |
+|  ProcessorLogGroup                  |  /aws/lambda/weight-processor-dev-us                                         |  CREATE_COMPLETE |  AWS::Logs::LogGroup                    |
+|  ProcessorThrottleAlarm             |  weight-processor-throttles-dev-us                                           |  CREATE_COMPLETE |  AWS::CloudWatch::Alarm                 |
+|  ProcessorVPC                       |  vpc-04624d1b017777654                                                       |  CREATE_COMPLETE |  AWS::EC2::VPC                          |
+|  StateTable                         |  weight-processor-state-dev-us                                               |  CREATE_COMPLETE |  AWS::DynamoDB::Table                   |
+|  VPCEndpointSecurityGroup           |  sg-0f01b74911d883c77                                                        |  CREATE_COMPLETE |  AWS::EC2::SecurityGroup                |
+|  VPCEndpointSecurityGroupIngress    |  sgr-008d7194c6a0f8358                                                       |  CREATE_COMPLETE |  AWS::EC2::SecurityGroupIngress         |
+|  WeightProcessorFunction            |  weight-processor-dev-us                                                     |  UPDATE_COMPLETE |  AWS::Lambda::Function                  |
+|  WeightProcessorFunctionRole        |  weight-processor-dev-WeightProcessorFunctionRole-MJGUjnReEcft               |  CREATE_COMPLETE |  AWS::IAM::Role                         |
++-------------------------------------+------------------------------------------------------------------------------+------------------+-----------------------------------------+
+
+=== Exporting Full Template ===
+✅ Template saved to deployed-dev-template.json

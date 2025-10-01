@@ -1,5 +1,5 @@
 # Minimal requirements for AWS Lambda deployment
-# Heavy dependencies (numpy, pykalman) are provided by Lambda Layer
+# Heavy dependency (numpy) is provided by Lambda Layer
 # This keeps the main function package very small (~1-2MB)
 
 # Data validation (required for API models)
@@ -10,7 +10,6 @@ aws-lambda-powertools==2.37.0
 
 # IMPORTANT: Do NOT include:
 # - numpy: Provided by Lambda layer
-# - pykalman: Provided by Lambda layer
 # - boto3: Provided by Lambda runtime
 # - tomllib: Built-in to Python 3.11+
 # - matplotlib/plotly/pandas: Not needed for Lambda

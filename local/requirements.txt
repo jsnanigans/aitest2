@@ -3,7 +3,6 @@
 
 # Core dependencies
 numpy==1.26.4
-pykalman>=0.10.2
 pydantic>=2.11.9
 
 # Visualization and analysis

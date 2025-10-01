@@ -28,7 +28,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: weight-processor-deps-local
-      Description: Heavy dependencies (numpy, pykalman) for weight processor
+      Description: Heavy dependencies (numpy) for weight processor
       ContentUri: dependencies/
       CompatibleRuntimes:
         - python3.12
