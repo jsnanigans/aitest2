@@ -71,8 +71,15 @@ def parse_timestamp(date_str: str) -> datetime:
             return dt.astimezone(timezone.utc)
         elif " " in date_str:
             # Parse as naive and add UTC timezone
-            dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-            return dt.replace(tzinfo=timezone.utc)
+            # Try with milliseconds first, then without
+            for fmt in ["%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"]:
+                try:
+                    dt = datetime.strptime(date_str, fmt)
+                    return dt.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    continue
+            # If no format matched, fall through to exception handler
+            raise ValueError(f"Cannot parse space-separated date: {date_str}")
         else:
             # Parse date only and add UTC timezone
             dt = datetime.strptime(date_str, "%Y-%m-%d")
@@ -369,150 +376,8 @@ class AcceptanceTracker:
         """Check if a measurement was accepted."""
         return (user_id, timestamp) in self.accepted_measurements
 
-    def update_from_replay_results(self, user_id: str, replay_result):
-        """
-        Update acceptance tracking based on replay results.
-
-        Args:
-            user_id: User identifier
-            replay_result: ReplayResultData from service.execute_replay()
-        """
-        # Clear existing acceptances for measurements in the replay window
-        to_remove = [
-            (uid, ts) for uid, ts in self.accepted_measurements
-            if uid == user_id
-        ]
-        for item in to_remove:
-            self.accepted_measurements.discard(item)
-
-        # Re-add based on NEW replay results
-        for result in replay_result.measurement_results:
-            if result.accepted:
-                # Extract timestamp from measurement result
-                # This assumes the result has the measurement metadata
-                timestamp = result.measured_at.isoformat() if hasattr(result, 'measured_at') else None
-                if timestamp:
-                    self.mark_measurement_accepted(user_id, timestamp, {
-                        "quality_score": result.quality_score,
-                        "kalman_estimate": result.kalman_estimate,
-                        "from_replay": True
-                    })
 
 
-def process_measurements_with_continuous_replay(
-    service: WeightProcessorService,
-    user_measurements: Dict[str, List[Measurement]],
-    acceptance_tracker: AcceptanceTracker,
-    enable_replay: bool = True
-) -> Dict[str, Dict[str, Any]]:
-    """
-    Process measurements one at a time with external replay triggering.
-
-    After each measurement, checks if replay should trigger and executes if needed.
-    Caller maintains control over acceptance tracking.
-
-    Args:
-        service: Weight processor service instance
-        user_measurements: Dict mapping user_id to measurements
-        acceptance_tracker: Tracker for accepted measurements
-        enable_replay: Whether to check for and execute replay after each measurement
-
-    Returns:
-        Dict mapping user_id to processing results
-    """
-    results = {}
-    total_users = len(user_measurements)
-    total_measurements = sum(len(measurements) for measurements in user_measurements.values())
-
-    print(f"\nProcessing {total_users:,} users with continuous replay...")
-    print(f"Total measurements: {total_measurements:,}")
-    print(f"Replay: {'ENABLED' if enable_replay else 'DISABLED'}")
-
-    processed_measurements = 0
-    successful_users = 0
-    failed_users = 0
-
-    for i, (user_id, measurements) in enumerate(user_measurements.items(), 1):
-        print(f"[{i}/{total_users}] Processing user {user_id[:12]}... ({len(measurements)} measurements)")
-
-        user_results = {
-            "measurements_processed": 0,
-            "measurements_accepted": 0,
-            "measurements_rejected": 0,
-            "replays_triggered": 0,
-            "total_corrections": 0,
-            "errors": []
-        }
-
-        # Sort by timestamp
-        sorted_measurements = sorted(measurements, key=lambda m: m.measured_at)
-
-        # Process ONE AT A TIME
-        for j, measurement in enumerate(sorted_measurements):
-            try:
-                # 1. Process measurement
-                response: ProcessResponseData = service.process_batch(user_id, [measurement])
-                user_results["measurements_processed"] += 1
-                user_results["measurements_accepted"] += response.measurements_accepted
-                user_results["measurements_rejected"] += response.measurements_rejected
-
-                processed_measurements += 1
-
-                # 2. Track initial acceptance
-                acceptance_tracker.mark_batch_results(user_id, [measurement], response)
-
-                # 3. Store detailed result for visualization
-                if response.results:
-                    acceptance_tracker.store_detailed_result(user_id, measurement, response.results[0])
-
-                # 4. Check if replay should trigger
-                if enable_replay:
-                    trigger_check = service.should_trigger_replay(
-                        user_id, measurement.measured_at
-                    )
-
-                    if trigger_check.should_trigger:
-                        # 5. Execute replay (service handles outlier detection)
-                        replay_result = service.execute_replay(
-                            user_id, trigger_check.window_info
-                        )
-
-                        if replay_result.success:
-                            user_results["replays_triggered"] += 1
-                            user_results["total_corrections"] += replay_result.corrections_made
-
-                            # 6. Update acceptance tracking based on NEW results
-                            acceptance_tracker.update_from_replay_results(
-                                user_id, replay_result
-                            )
-
-
-                        else:
-                            user_results["errors"].append(f"Replay failed: {replay_result.error}")
-                            print(f"  └─ Replay failed: {replay_result.error}")
-
-            except Exception as e:
-                error_msg = str(e)
-                user_results["errors"].append(f"Measurement {j+1}: {error_msg}")
-                print(f"  Error processing measurement {j+1}: {error_msg}")
-
-        results[user_id] = user_results
-
-        if user_results["errors"]:
-            failed_users += 1
-        else:
-            successful_users += 1
-
-        # Progress update
-        if i % 10 == 0 or i == total_users:
-            print(f"  Progress: {i}/{total_users} users, {processed_measurements:,}/{total_measurements:,} measurements")
-
-    print("\nProcessing complete:")
-    print(f"  Successful users: {successful_users:,}")
-    print(f"  Failed users: {failed_users:,}")
-    print(f"  Total measurements processed: {processed_measurements:,}")
-
-    return results
 
 
 
@@ -575,7 +440,7 @@ def main():
     parser = argparse.ArgumentParser(description="Local Weight Stream Processor")
     parser.add_argument(
         "--csv-file",
-        default="data/2025-09-29_weights_all.csv",
+        default="data/2025-10-22_weights_all.csv",
         help="CSV file to process (default: data/2025-09-29_weights_all.csv)"
     )
     parser.add_argument(
@@ -597,6 +462,10 @@ def main():
         help="Minimum number of readings per user (default: 20, users below this are filtered out)"
     )
     parser.add_argument(
+        "--user-ids",
+        help="Comma-separated list of specific user IDs to process (e.g., 'user1,user2,user3')"
+    )
+    parser.add_argument(
         "--output-dir",
         default="output_local",
         help="Output directory for results"
@@ -608,17 +477,6 @@ def main():
     parser.add_argument(
         "--config",
         help="Path to config file (optional, will use defaults if not provided)"
-    )
-    parser.add_argument(
-        "--enable-replay",
-        action="store_true",
-        default=True,
-        help="Enable continuous replay checking after each measurement (default: enabled)"
-    )
-    parser.add_argument(
-        "--disable-replay",
-        action="store_true",
-        help="Disable continuous replay (measurements processed sequentially without replay)"
     )
     parser.add_argument(
         "--enable-viz",
@@ -667,6 +525,40 @@ def main():
         print("No valid measurements found in CSV file")
         return 1
 
+    # Filter by specific user IDs if provided
+    if args.user_ids:
+        requested_user_ids = [uid.strip() for uid in args.user_ids.split(',')]
+        print(f"\nFiltering to {len(requested_user_ids)} specific user ID(s)...")
+
+        # Track which users were found and not found
+        found_users = []
+        not_found_users = []
+
+        for user_id in requested_user_ids:
+            if user_id in user_measurements:
+                found_users.append(user_id)
+            else:
+                not_found_users.append(user_id)
+
+        # Report not found users
+        if not_found_users:
+            print(f"\n⚠️  Warning: {len(not_found_users)} requested user ID(s) not found in CSV:")
+            for user_id in not_found_users:
+                print(f"  - {user_id}")
+
+        # Filter to only found users
+        if found_users:
+            user_measurements = {uid: user_measurements[uid] for uid in found_users}
+
+            # Filter original_rows to match selected users
+            selected_user_set = set(found_users)
+            original_rows = [row for row in original_rows if row.get("user_id") in selected_user_set]
+
+            print(f"\n✓ Processing {len(found_users)} user(s) with {sum(len(m) for m in user_measurements.values()):,} measurements")
+        else:
+            print("\nError: None of the requested user IDs were found in the CSV file")
+            return 1
+
     # Initialize acceptance tracker
     acceptance_tracker = AcceptanceTracker()
 
@@ -679,19 +571,73 @@ def main():
         "users_loaded": len(user_measurements),
         "total_measurements": sum(len(m) for m in user_measurements.values()),
         "processing_results": None,
-        "replay_mode": "continuous" if not args.disable_replay else "disabled",
+        "replay_mode": "manual",
     }
 
-    # Single phase: Process with continuous replay
-    print("\n=== Processing with Continuous Replay ===")
-    print(f"Replay: {'ENABLED' if not args.disable_replay else 'DISABLED'}")
+    # Process measurements (manual replay only)
+    print("\n=== Processing Measurements (Manual Replay) ===")
+    print("Note: Use manual replay endpoints for historical conflict resolution")
 
-    processing_results = process_measurements_with_continuous_replay(
-        service=service,
-        user_measurements=user_measurements,
-        acceptance_tracker=acceptance_tracker,
-        enable_replay=not args.disable_replay
-    )
+    # Process all measurements first
+    processing_results = {}
+    total_users = len(user_measurements)
+    total_measurements = sum(len(measurements) for measurements in user_measurements.values())
+
+    print(f"\nProcessing {total_users:,} users...")
+    print(f"Total measurements: {total_measurements:,}")
+
+    processed_measurements = 0
+    successful_users = 0
+    failed_users = 0
+
+    for i, (user_id, measurements) in enumerate(user_measurements.items(), 1):
+        print(f"[{i}/{total_users}] Processing user {user_id[:12]}... ({len(measurements)} measurements)")
+
+        user_results = {
+            "measurements_processed": 0,
+            "measurements_accepted": 0,
+            "measurements_rejected": 0,
+            "errors": []
+        }
+
+        # Sort by timestamp
+        sorted_measurements = sorted(measurements, key=lambda m: m.measured_at)
+
+        # Process measurements
+        try:
+            response: ProcessResponseData = service.process_batch(user_id, sorted_measurements)
+            user_results["measurements_processed"] = response.measurements_processed
+            user_results["measurements_accepted"] = response.measurements_accepted
+            user_results["measurements_rejected"] = response.measurements_rejected
+
+            processed_measurements += response.measurements_processed
+
+            # Track acceptance
+            acceptance_tracker.mark_batch_results(user_id, sorted_measurements, response)
+
+            # Store detailed results for visualization
+            for j, result in enumerate(response.results):
+                if j < len(sorted_measurements):
+                    acceptance_tracker.store_detailed_result(user_id, sorted_measurements[j], result)
+
+            successful_users += 1
+
+        except Exception as e:
+            error_msg = str(e)
+            user_results["errors"].append(f"Batch processing: {error_msg}")
+            print(f"  Error: {error_msg}")
+            failed_users += 1
+
+        processing_results[user_id] = user_results
+
+        # Progress update
+        if i % 10 == 0 or i == total_users:
+            print(f"  Progress: {i}/{total_users} users, {processed_measurements:,}/{total_measurements:,} measurements")
+
+    print("\nProcessing complete:")
+    print(f"  Successful users: {successful_users:,}")
+    print(f"  Failed users: {failed_users:,}")
+    print(f"  Total measurements processed: {processed_measurements:,}")
 
     overall_results["processing_results"] = processing_results
 
@@ -777,20 +723,11 @@ def main():
         processing_stats = overall_results["processing_results"]
         total_processed = sum(r["measurements_processed"] for r in processing_stats.values())
         total_accepted = sum(r["measurements_accepted"] for r in processing_stats.values())
-        total_replays = sum(r.get("replays_triggered", 0) for r in processing_stats.values())
-        total_corrections = sum(r.get("total_corrections", 0) for r in processing_stats.values())
 
         print(f"  Measurements processed: {total_processed:,}")
         print(f"  Measurements accepted: {total_accepted:,}")
-
-        if overall_results["replay_mode"] == "continuous":
-            print(f"\n  Continuous Replay:")
-            print(f"    Total replays triggered: {total_replays:,}")
-            print(f"    Total corrections made: {total_corrections:,}")
-            print(f"\n  NOTE: Replay results are reflected in the acceptance tracking")
-            print(f"        Filtered CSV contains FINAL acceptance results after replay")
-        else:
-            print(f"\n  NOTE: Replay was DISABLED - filtered CSV contains results without replay")
+        print(f"\n  NOTE: Manual replay can be triggered via service.replay_measurements()")
+        print(f"        Use this for historical conflict resolution when needed")
 
     print(f"\nFiltered CSV: {accepted_count:,} accepted measurements written")
 

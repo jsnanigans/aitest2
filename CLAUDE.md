@@ -171,3 +171,19 @@ Main endpoints (when running locally on port 3080):
 - Follow existing patterns in the codebase
 - Maintain consistency with existing error handling patterns
 - All new features should include corresponding tests in `tests/api/`
+
+## Active Work
+
+### TypeScript Weight Processor Port (2025-11-04)
+- **Goal**: Complete port of Python weight processing pipeline to TypeScript
+- **Runtime**: Bun (CLI + publishable library)
+- **Scope**: ~30 TypeScript files, complete feature parity
+- **TempDoc**: `/Users/brendanmullins/Documents/Log/TempDoc/strem_process_anchor/2025-11/04/browser-migration-prep-progress.md`
+- **Spec Directory**: `./spec/2025-11-04-browser-weight-processor/`
+  - `specifications.md` - Requirements and scope
+  - `research.md` - Technical research and algorithms
+  - `discussion.md` - Solution approaches
+  - `recommendation.md` - Final recommendations
+  - `plan.md` - Detailed implementation plan (100+ tasks)
+- **Status**: ✅ **PREP COMPLETE** - Ready for implementation
+- **Timeline**: 6-7 weeks estimated for full implementation
