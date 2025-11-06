@@ -20,27 +20,27 @@ import type { Config } from '../../models';
 
 interface BufferData {
   measurements: Array<Record<string, any>>;
-  first_timestamp: Date | null;
-  last_timestamp: Date | null;
-  created_at: Date;
+  firstTimestamp: Date | null;
+  lastTimestamp: Date | null;
+  createdAt: Date;
 }
 
 interface BufferStats {
-  total_measurements_buffered: number;
-  buffers_created: number;
-  buffers_triggered: number;
-  buffers_cleaned: number;
-  last_cleanup_time: Date;
+  totalMeasurementsBuffered: number;
+  buffersCreated: number;
+  buffersTriggered: number;
+  buffersCleaned: number;
+  lastCleanupTime: Date;
 }
 
 interface TriggerResult {
-  should_trigger: boolean;
+  shouldTrigger: boolean;
   reason: string;
-  buffer_age_hours?: number;
-  trigger_threshold_hours?: number;
-  measurement_count?: number;
-  trigger_threshold?: number;
-  min_required?: number;
+  bufferAgeHours?: number;
+  triggerThresholdHours?: number;
+  measurementCount?: number;
+  triggerThreshold?: number;
+  minRequired?: number;
 }
 
 export class ReplayBuffer {
@@ -68,11 +68,11 @@ export class ReplayBuffer {
 
     // Statistics
     this._stats = {
-      total_measurements_buffered: 0,
-      buffers_created: 0,
-      buffers_triggered: 0,
-      buffers_cleaned: 0,
-      last_cleanup_time: new Date()
+      totalMeasurementsBuffered: 0,
+      buffersCreated: 0,
+      buffersTriggered: 0,
+      buffersCleaned: 0,
+      lastCleanupTime: new Date()
     };
   }
 
@@ -106,15 +106,15 @@ export class ReplayBuffer {
       buffer_data.measurements.push(measurement_copy);
 
       // Update buffer timestamps
-      if (!buffer_data.first_timestamp || timestamp < buffer_data.first_timestamp) {
-        buffer_data.first_timestamp = timestamp;
+      if (!buffer_data.firstTimestamp || timestamp < buffer_data.firstTimestamp) {
+        buffer_data.firstTimestamp = timestamp;
       }
-      if (!buffer_data.last_timestamp || timestamp > buffer_data.last_timestamp) {
-        buffer_data.last_timestamp = timestamp;
+      if (!buffer_data.lastTimestamp || timestamp > buffer_data.lastTimestamp) {
+        buffer_data.lastTimestamp = timestamp;
       }
 
       // Update statistics
-      this._stats.total_measurements_buffered += 1;
+      this._stats.totalMeasurementsBuffered += 1;
 
       // Check buffer limits
       this._enforce_buffer_limits(user_id);
@@ -122,18 +122,14 @@ export class ReplayBuffer {
       // Check if buffer should be triggered for processing
       const trigger_result = this._check_buffer_trigger(user_id);
 
-      console.debug(
-        `Added measurement for user ${user_id}, buffer size: ${buffer_data.measurements.length}`
-      );
-
       return {
         success: true,
         user_id,
         buffer_size: buffer_data.measurements.length,
-        buffer_ready: trigger_result.should_trigger,
+        buffer_ready: trigger_result.shouldTrigger,
         trigger_reason: trigger_result.reason || 'not_ready',
-        buffer_window_start: buffer_data.first_timestamp,
-        buffer_window_end: buffer_data.last_timestamp
+        buffer_window_start: buffer_data.firstTimestamp,
+        buffer_window_end: buffer_data.lastTimestamp
       };
     } catch (e) {
       const error = e as Error;
@@ -162,8 +158,7 @@ export class ReplayBuffer {
     if (this.buffers.has(user_id)) {
       const old_size = this.buffers.get(user_id)!.measurements.length;
       this._create_user_buffer(user_id); // Reset to empty buffer
-      this._stats.buffers_cleaned += 1;
-      console.info(`Cleared buffer for user ${user_id} (was ${old_size} measurements)`);
+      this._stats.buffersCleaned += 1;
       return true;
     }
     return false;
@@ -182,23 +177,23 @@ export class ReplayBuffer {
 
     const info: Record<string, any> = {
       user_id,
-      measurement_count: measurements.length,
-      first_timestamp: buffer_data.first_timestamp,
-      last_timestamp: buffer_data.last_timestamp,
-      buffer_age_hours: 0,
+      measurementCount: measurements.length,
+      first_timestamp: buffer_data.firstTimestamp,
+      last_timestamp: buffer_data.lastTimestamp,
+      bufferAgeHours: 0,
       is_ready_for_processing: false,
       trigger_reason: null
     };
 
     // Calculate buffer age
-    if (buffer_data.first_timestamp) {
-      const age_delta = new Date().getTime() - buffer_data.first_timestamp.getTime();
-      info.buffer_age_hours = age_delta / (3600 * 1000);
+    if (buffer_data.firstTimestamp) {
+      const age_delta = new Date().getTime() - buffer_data.firstTimestamp.getTime();
+      info.bufferAgeHours = age_delta / (3600 * 1000);
     }
 
     // Check if ready for processing
     const trigger_result = this._check_buffer_trigger(user_id);
-    info.is_ready_for_processing = trigger_result.should_trigger;
+    info.is_ready_for_processing = trigger_result.shouldTrigger;
     info.trigger_reason = trigger_result.reason;
 
     return info;
@@ -212,7 +207,7 @@ export class ReplayBuffer {
 
     for (const user_id of this.buffers.keys()) {
       const trigger_result = this._check_buffer_trigger(user_id);
-      if (trigger_result.should_trigger) {
+      if (trigger_result.shouldTrigger) {
         ready_users.push(user_id);
       }
     }
@@ -232,7 +227,7 @@ export class ReplayBuffer {
     const users_to_remove: string[] = [];
 
     for (const [user_id, buffer_data] of this.buffers.entries()) {
-      const last_timestamp = buffer_data.last_timestamp;
+      const last_timestamp = buffer_data.lastTimestamp;
       if (last_timestamp) {
         const age_hours = (current_time.getTime() - last_timestamp.getTime()) / (3600 * 1000);
         if (age_hours > max_age_hours) {
@@ -246,11 +241,10 @@ export class ReplayBuffer {
       this.buffers.delete(user_id);
     }
 
-    this._stats.buffers_cleaned += users_to_remove.length;
-    this._stats.last_cleanup_time = current_time;
+    this._stats.buffersCleaned += users_to_remove.length;
+    this._stats.lastCleanupTime = current_time;
 
     if (users_to_remove.length > 0) {
-      console.info(`Cleaned up ${users_to_remove.length} old buffers`);
     }
 
     return users_to_remove.length;
@@ -290,8 +284,7 @@ export class ReplayBuffer {
       last_timestamp: null,
       created_at: new Date()
     });
-    this._stats.buffers_created += 1;
-    console.debug(`Created buffer for user ${user_id}`);
+    this._stats.buffersCreated += 1;
   }
 
   /**
@@ -312,12 +305,9 @@ export class ReplayBuffer {
 
       // Update first timestamp
       if (buffer_data.measurements.length > 0) {
-        buffer_data.first_timestamp = buffer_data.measurements[0].timestamp as Date;
+        buffer_data.firstTimestamp = buffer_data.measurements[0].timestamp as Date;
       }
 
-      console.debug(
-        `Enforced buffer limit for user ${user_id}, kept ${buffer_data.measurements.length} measurements`
-      );
     }
   }
 
@@ -328,8 +318,8 @@ export class ReplayBuffer {
     const buffer_data = this.buffers.get(user_id)!;
     const measurements = buffer_data.measurements;
 
-    if (measurements.length === 0 || !buffer_data.first_timestamp) {
-      return { should_trigger: false, reason: 'empty_buffer' };
+    if (measurements.length === 0 || !buffer_data.firstTimestamp) {
+      return { shouldTrigger: false, reason: 'empty_buffer' };
     }
 
     // Check minimum measurements requirement for meaningful analysis
@@ -338,45 +328,45 @@ export class ReplayBuffer {
 
     if (measurements.length < min_measurements) {
       return {
-        should_trigger: false,
+        shouldTrigger: false,
         reason: 'insufficient_measurements',
-        measurement_count: measurements.length,
-        min_required: min_measurements
+        measurementCount: measurements.length,
+        minRequired: min_measurements
       };
     }
 
     // Calculate buffer age
-    const buffer_age = new Date().getTime() - buffer_data.first_timestamp.getTime();
+    const buffer_age = new Date().getTime() - buffer_data.firstTimestamp.getTime();
     const age_hours = buffer_age / (3600 * 1000);
 
     if (this.trigger_mode === 'time_based') {
       // Trigger when buffer reaches configured age AND has enough measurements
       if (age_hours >= this.buffer_hours) {
         return {
-          should_trigger: true,
+          shouldTrigger: true,
           reason: 'time_based_trigger',
-          buffer_age_hours: age_hours,
-          trigger_threshold_hours: this.buffer_hours,
-          measurement_count: measurements.length
+          bufferAgeHours: age_hours,
+          triggerThresholdHours: this.buffer_hours,
+          measurementCount: measurements.length
         };
       }
-    } else if (this.trigger_mode === 'measurement_count') {
+    } else if (this.trigger_mode === 'measurementCount') {
       // Trigger when buffer reaches measurement limit
       if (measurements.length >= this.max_buffer_measurements) {
         return {
-          should_trigger: true,
-          reason: 'measurement_count_trigger',
-          measurement_count: measurements.length,
-          trigger_threshold: this.max_buffer_measurements
+          shouldTrigger: true,
+          reason: 'measurementCount_trigger',
+          measurementCount: measurements.length,
+          triggerThreshold: this.max_buffer_measurements
         };
       }
     }
 
     return {
-      should_trigger: false,
+      shouldTrigger: false,
       reason: 'threshold_not_reached',
-      buffer_age_hours: age_hours,
-      measurement_count: measurements.length
+      bufferAgeHours: age_hours,
+      measurementCount: measurements.length
     };
   }
 
@@ -385,7 +375,6 @@ export class ReplayBuffer {
    */
   force_trigger_buffer(user_id: string): boolean {
     if (this.buffers.has(user_id) && this.buffers.get(user_id)!.measurements.length > 0) {
-      console.info(`Force triggered buffer for user ${user_id}`);
       return true;
     }
     return false;
@@ -405,19 +394,13 @@ export class ReplayBuffer {
     }
 
     if (total_measurements > 0) {
-      console.info(
-        `Cleaning up ReplayBuffer with ${this.buffers.size} users, ` +
-          `${total_measurements} total measurements`
-      );
     }
 
     // Clear all buffers
     this.buffers.clear();
 
     // Reset stats
-    this._stats.total_measurements_buffered = 0;
-    this._stats.buffers_triggered = 0;
-
-    console.debug('ReplayBuffer cleanup complete');
+    this._stats.totalMeasurementsBuffered = 0;
+    this._stats.buffersTriggered = 0;
   }
 }

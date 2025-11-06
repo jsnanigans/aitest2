@@ -233,14 +233,16 @@ export class ResetManager {
 
     // Create reset event
     const resetEvent: ResetEvent = {
-      timestamp,
-      type: resetType,
-      source,
-      weight,
-      lastWeight: state.lastRawWeight ?? undefined,
+      timestamp: timestamp instanceof Date ? timestamp.toISOString() : timestamp,
+      resetType: resetType,
+      resetReason: ResetManager.getResetReason(resetType, gapDays, weight, state),
+      previousWeight: state.lastRawWeight ?? undefined,
+      newWeight: weight,
       gapDays: gapDays ?? undefined,
-      reason: ResetManager.getResetReason(resetType, gapDays, weight, state),
-      parameters: resetParams,
+      metadata: {
+        source,
+        parameters: resetParams,
+      },
     };
 
     // Create new state with reset

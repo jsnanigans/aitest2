@@ -9,7 +9,7 @@ import type { ProcessorState } from '../../models';
 import type { StateStore } from './base';
 
 /**
- * Deep copy helper function
+ * Deep copy helper function (only used for snapshots)
  */
 function deepCopy<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
@@ -39,22 +39,19 @@ export class ProcessorStateDB implements StateStore {
 
   /**
    * Retrieve state for a user.
-   * Returns a deep copy to prevent external modifications.
+   * Returns direct reference for in-memory processing.
    */
   get_state(user_id: string): ProcessorState | null {
     const state = this.states.get(user_id);
-    if (state) {
-      return deepCopy(state);
-    }
-    return null;
+    return state || null;
   }
 
   /**
    * Save state for a user.
-   * Stores a deep copy to prevent external modifications.
+   * Stores direct reference for in-memory processing.
    */
   save_state(user_id: string, state: ProcessorState): void {
-    this.states.set(user_id, deepCopy(state));
+    this.states.set(user_id, state);
   }
 
   /**

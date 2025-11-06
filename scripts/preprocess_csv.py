@@ -46,14 +46,18 @@ def parse_datetime(date_str: str, formats: List[str] = None) -> Optional[datetim
 
     for fmt in formats:
         try:
-            return datetime.strptime(date_str, fmt)
+            dt = datetime.strptime(date_str, fmt)
+            # Remove timezone info to make all datetimes naive
+            return dt.replace(tzinfo=None) if dt.tzinfo else dt
         except ValueError:
             continue
 
     try:
         from dateutil import parser
 
-        return parser.parse(date_str)
+        dt = parser.parse(date_str)
+        # Remove timezone info to make all datetimes naive for comparison
+        return dt.replace(tzinfo=None) if dt.tzinfo else dt
     except:
         pass
 
@@ -191,13 +195,15 @@ def preprocess_csv(
         open(input_file, "r", encoding="utf-8") as infile,
         open(output_path, "w", encoding="utf-8", newline="") as outfile,
     ):
-        reader = csv.DictReader(infile)
+        # Handle both quoted and unquoted CSV formats
+        reader = csv.DictReader(infile, quoting=csv.QUOTE_MINIMAL)
         fieldnames = reader.fieldnames
 
         if not fieldnames:
             raise ValueError("CSV file has no headers")
 
-        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        # Use QUOTE_MINIMAL to handle both quoted and unquoted input/output
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames, quoting=csv.QUOTE_MINIMAL)
         writer.writeheader()
 
         for row_num, row in enumerate(reader, 1):

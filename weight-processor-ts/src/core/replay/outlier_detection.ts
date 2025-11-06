@@ -280,7 +280,7 @@ export class OutlierDetector {
       return new Set();
     }
 
-    const last_state = user_state.last_state;
+    const last_state = user_state.lastState;
     if (last_state === null) {
       // No Kalman state available, can't do prediction-based detection
       return new Set();

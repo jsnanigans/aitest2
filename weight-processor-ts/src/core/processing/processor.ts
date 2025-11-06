@@ -26,11 +26,35 @@ const _reset_circuit_breaker = new CircuitBreaker({
   name: 'reset_operations'
 });
 
+// Verbose logging helpers
+const VERBOSE_LOGGING = process.env.VERBOSE_LOGGING === "true";
+
+function _log(message: string): void {
+    if (VERBOSE_LOGGING) {
+        console.log(`[TS] ${message}`);
+    }
+}
+
+function _formatNum(value: number | null | undefined): string {
+    if (value === null || value === undefined) {
+        return "null";
+    }
+    return value.toFixed(6);
+}
+
+function _formatVec(vec: number[][] | number[] | null | undefined): string {
+    if (!vec) return "null";
+    const flat = Array.isArray(vec[0])
+        ? (vec as number[][]).flat()
+        : vec as number[];
+    return `[${flat.map(v => v.toFixed(6)).join(', ')}]`;
+}
+
 /**
  * Get the timestamp of the most recent reset event.
  */
 function get_reset_timestamp(state: ProcessorState): Date | null {
-  const reset_events = state.reset_events || [];
+  const reset_events = state.resetEvents || [];
   if (reset_events.length === 0) {
     return null;
   }
@@ -72,8 +96,8 @@ function get_adaptive_kalman_params(
   let reset_params: Record<string, any> = {};
 
   // Check if we have custom reset parameters in state
-  if (state && state.reset_parameters) {
-    reset_params = state.reset_parameters;
+  if (state && state.resetParameters) {
+    reset_params = state.resetParameters;
     adaptation_days_value = reset_params.adaptation_days ?? adaptive_days;
 
     // Get multipliers from reset parameters
@@ -102,7 +126,7 @@ function get_adaptive_kalman_params(
 
     // Calculate decay factor based on days since reset
     const decay_rate = reset_params.adaptation_decay_rate ?? 2.5;
-    const measurements_since = state.measurements_since_reset ?? 0;
+    const measurements_since = state.measurementsSinceReset ?? 0;
 
     let decay_factor: number;
     // Use measurement-based decay if available, otherwise time-based
@@ -186,16 +210,14 @@ function _maybe_create_periodic_snapshot(
     // Create snapshot if none exists (initial snapshot)
     if (!latest_snapshot) {
       db.save_state_snapshot(userId, timestamp);
-      console.debug(`Created initial periodic snapshot for user ${userId}`);
       return true;
     }
 
     // Check time since last snapshot
-    let last_snapshot_time = latest_snapshot.last_timestamp;
+    let last_snapshot_time = latest_snapshot.lastTimestamp;
     if (!last_snapshot_time) {
-      // Fallback: if no last_timestamp in snapshot, create new one
+      // Fallback: if no lastTimestamp in snapshot, create new one
       db.save_state_snapshot(userId, timestamp);
-      console.debug(`Created periodic snapshot for user ${userId} (no timestamp in last snapshot)`);
       return true;
     }
 
@@ -210,9 +232,6 @@ function _maybe_create_periodic_snapshot(
     // Create snapshot if interval elapsed
     if (hours_since >= snapshot_interval_hours) {
       db.save_state_snapshot(userId, timestamp);
-      console.debug(
-        `Created periodic snapshot for user ${userId} (${hours_since.toFixed(1)} hours since last)`
-      );
       return true;
     }
 
@@ -281,7 +300,6 @@ function _perform_transactional_reset(
 
     // Step 1: Perform the actual reset
     const reset_type_value = typeof reset_type === 'string' ? reset_type : reset_type;
-    console.info(`Applying ${reset_type_value} reset for user ${userId}`);
 
     const [new_state, reset_event] = ResetManager.performReset(
       state,
@@ -300,13 +318,14 @@ function _perform_transactional_reset(
 
     txn.markCompleted(ResetOperation.STATE_UPDATE);
 
-    // Step 2: Validate Kalman reset (kalman_params should be None)
+    // Step 2: Validate Kalman reset (kalmanParams should be None)
     const kalman_state = {
-      kalman_params: new_state.kalman_params,
-      reset_parameters: new_state.reset_parameters,
-      measurements_since_reset: new_state.measurements_since_reset || 0,
-      reset_type: new_state.reset_type,
-      reset_timestamp: new_state.reset_timestamp
+      kalmanParams: new_state.kalmanParams,
+      resetParameters: new_state.resetParameters,
+      measurementsSinceReset: new_state.measurementsSinceReset || 0,
+      resetType: new_state.resetType,
+      resetTimestamp: new_state.resetTimestamp,
+      userId: new_state.userId
     };
 
     txn.saveCheckpoint(ResetOperation.KALMAN_RESET, kalman_state);
@@ -318,7 +337,6 @@ function _perform_transactional_reset(
 
     // All operations succeeded
     txn.commit();
-    console.info(`Reset transaction completed successfully for user ${userId}`);
     return [new_state, reset_event, true];
 
   } catch (e) {
@@ -360,43 +378,79 @@ export async function processMeasurement(
   // Ensure weight is a number
   weight = ensureFloat(weight);
 
+  // Log input header
+  _log("=".repeat(80));
+  _log(`Processing measurement for user: ${userId.substring(0, 12)}...`);
+  _log(`Weight: ${_formatNum(weight)}, Unit: ${unit}, Timestamp: ${timestamp.toISOString()}, Source: ${source}`);
+
   // Step 1: Data cleaning and preprocessing
+  _log("Step 1: Data cleaning and preprocessing");
+  // Use provided height or default for preprocessing
+  const height_for_preprocessing = user_height_m ?? PHYSIOLOGICAL_LIMITS.DEFAULT_HEIGHT_M;
   const [cleaned_weight, preprocess_metadata] = DataQualityPreprocessor.preprocess(
     weight,
     source,
     timestamp,
     userId,
     unit,
-    user_height_m
+    height_for_preprocessing
   );
+
+  if (cleaned_weight !== null) {
+    _log(`Cleaned weight: ${_formatNum(cleaned_weight)}`);
+  } else {
+    _log(`Preprocessing rejected: ${preprocess_metadata.rejected || preprocess_metadata.rejection_reason || 'Unknown reason'}`);
+  }
 
   // If preprocessing rejected the measurement
   if (cleaned_weight === null) {
+    _log("Result: REJECTED");
+    _log(`  stage: preprocessing`);
+    _log("=".repeat(80));
     return {
       accepted: false,
       rejected: true,
       timestamp,
       source,
       raw_weight: weight,
-      reason: preprocess_metadata.rejected || 'Preprocessing failed',
+      reason: preprocess_metadata.rejected || preprocess_metadata.rejection_reason || 'Preprocessing failed',
       stage: 'preprocessing',
       metadata: preprocess_metadata
     } as ProcessResult;
   }
 
   // Step 2: Load or create user state
+  _log("Step 2: Load or create user state");
   let state = db.get_state(userId);
   if (state === null) {
+    _log("Creating new state (no existing state)");
     state = db.create_initial_state();
   } else {
-    // Ensure all numeric values are proper types
-    state = ensureNumericTypes(state);
+    _log("State exists");
+    if (state.lastRawWeight !== undefined) {
+      _log(`  last_raw_weight: ${_formatNum(state.lastRawWeight)}`);
+    }
+    if (state.lastTimestamp) {
+      const lastTs = state.lastTimestamp instanceof Date
+        ? state.lastTimestamp
+        : new Date(state.lastTimestamp as any);
+
+      if (lastTs && !isNaN(lastTs.getTime())) {
+        _log(`  last_timestamp: ${lastTs.toISOString()}`);
+      } else {
+        _log(`  last_timestamp: <invalid date>`);
+      }
+    }
+    if (state.kalmanParams) {
+      _log(`  kalman_params: present`);
+    }
   }
 
-  // Use provided height or default
-  const user_height = user_height_m ?? PHYSIOLOGICAL_LIMITS.DEFAULT_HEIGHT_M;
+  // Use the same height we used for preprocessing
+  const user_height = height_for_preprocessing;
 
   // Step 3: Check for any type of reset using ResetManager
+  _log("Step 3: Check for reset");
   const kalman_config = config.kalman || {};
 
   // Check if reset is needed (only if reset features are enabled)
@@ -412,6 +466,7 @@ export async function processMeasurement(
   let reset_occurred = false;
 
   if (reset_type) {
+    _log(`Reset needed: type=${reset_type}`);
     // Perform the reset with transaction safety
     [state, reset_event, reset_occurred] = await _handle_reset_with_transaction(
       userId,
@@ -422,13 +477,20 @@ export async function processMeasurement(
       source,
       config
     );
+    if (reset_occurred && reset_event) {
+      _log(`  Reset completed: reason=${reset_event.resetReason || 'unknown'}, gap_days=${reset_event.gapDays || 0}`);
+    }
+  } else {
+    _log("No reset needed");
   }
 
   // Step 4: Initialize Kalman if needed
+  _log("Step 4: Initialize Kalman if needed");
   let kalman_already_updated = false;
   let result: ProcessResult | null = null;
 
-  if (!state.kalman_params) {
+  if (!state.kalmanParams) {
+    _log("Initializing Kalman filter");
     // Check if this is a post-reset initialization
     // For initial measurements, treat current timestamp as "reset" to get adaptive params
     const reset_timestamp = reset_occurred ? get_reset_timestamp(state) : timestamp;
@@ -441,12 +503,15 @@ export async function processMeasurement(
       7, // adaptive_days
       state
     );
+    _log(`  Using adaptive parameters: Q_weight=${_formatNum(adaptive_kalman_config.transition_covariance_weight)}, Q_trend=${_formatNum(adaptive_kalman_config.transition_covariance_trend)}`);
 
     // Get adaptive noise for this source
     const adaptive_config = config.adaptive_noise || {};
-    const noise_multiplier = getNoiseMultiplier(source);
+    const noise_multiplier = getNoiseMultiplier(source, config.sources);
     const observation_covariance =
       (adaptive_kalman_config.observation_covariance || 3.49) * noise_multiplier;
+    _log(`  noise_multiplier: ${_formatNum(noise_multiplier)}`);
+    _log(`  observation_covariance: ${_formatNum(observation_covariance)}`);
 
     const kalman_state = KalmanFilterManager.initializeImmediate(
       cleaned_weight,
@@ -454,6 +519,7 @@ export async function processMeasurement(
       adaptive_kalman_config,
       observation_covariance
     );
+    _log(`  Initial state: ${_formatVec(kalman_state.lastState)}`);
 
     // Merge Kalman state with existing state to preserve reset parameters
     Object.assign(state, kalman_state);
@@ -478,14 +544,14 @@ export async function processMeasurement(
     // Add reset event info if it occurred (flattened for visualization)
     if (reset_occurred && reset_event) {
       result.was_reset = true;
-      result.reset_reason = reset_event.reason || 'unknown';
-      result.reset_type = reset_event.type || 'unknown';
-      result.gap_days = reset_event.gap_days || 0;
+      result.reset_reason = reset_event.resetReason || 'unknown';
+      result.resetType = reset_event.resetType || 'unknown';
+      result.gap_days = reset_event.gapDays || 0;
       // Also keep nested structure for backward compatibility
       result.reset_event = {
-        type: reset_event.type || 'unknown',
-        gap_days: reset_event.gap_days,
-        reason: reset_event.reason || 'unknown'
+        type: reset_event.resetType || 'unknown',
+        gap_days: reset_event.gapDays,
+        reason: reset_event.resetReason || 'unknown'
       };
     }
 
@@ -496,6 +562,7 @@ export async function processMeasurement(
   }
 
   // Step 5: Quality scoring (replaces physiological validation)
+  _log("Step 5: Quality scoring");
   const quality_config = config.quality_scoring || {};
 
   // Get previous weight and time diff
@@ -507,19 +574,19 @@ export async function processMeasurement(
     const [current_weight] = KalmanFilterManager.getCurrentStateValues(state);
     if (current_weight !== null) {
       previous_weight = current_weight;
-    } else if (state.last_raw_weight !== null && state.last_raw_weight !== undefined) {
-      previous_weight = ensureFloat(state.last_raw_weight);
+    } else if (state.lastRawWeight !== null && state.lastRawWeight !== undefined) {
+      previous_weight = ensureFloat(state.lastRawWeight);
     }
 
     // Get time diff
-    if (state.last_timestamp) {
+    if (state.lastTimestamp) {
       let prev_time: Date;
-      if (typeof state.last_timestamp === 'string') {
-        prev_time = new Date(state.last_timestamp);
-      } else if (state.last_timestamp instanceof Date) {
-        prev_time = state.last_timestamp;
+      if (typeof state.lastTimestamp === 'string') {
+        prev_time = new Date(state.lastTimestamp);
+      } else if (state.lastTimestamp instanceof Date) {
+        prev_time = state.lastTimestamp;
       } else {
-        prev_time = new Date(state.last_timestamp);
+        prev_time = new Date(state.lastTimestamp);
       }
 
       if (prev_time instanceof Date && !isNaN(prev_time.getTime())) {
@@ -530,8 +597,8 @@ export async function processMeasurement(
 
   // Get recent weights for statistical analysis
   const recent_weights: number[] = [];
-  if (state && state.measurement_history) {
-    const history = state.measurement_history;
+  if (state && state.measurementHistory) {
+    const history = state.measurementHistory;
     if (Array.isArray(history)) {
       for (const h of history.slice(-20)) {
         if (h.weight !== undefined) {
@@ -546,7 +613,7 @@ export async function processMeasurement(
   let kalman_prediction: number | null = null;
   let innovation_covariance: number | null = null;
 
-  if (state && state.kalman_params) {
+  if (state && state.kalmanParams) {
     // Use the proper Kalman predict step to get prediction BEFORE update
     [kalman_prediction, innovation_covariance] = KalmanFilterManager.predictNextState(
       state,
@@ -557,26 +624,27 @@ export async function processMeasurement(
     if (innovation_covariance !== null) {
       // The predictNextState already includes base observation noise
       // We need to adjust for source-specific multiplier
-      const noise_multiplier = getNoiseMultiplier(source);
+      const noise_multiplier = getNoiseMultiplier(source, config.sources);
       if (noise_multiplier !== 1.0) {
         // Adjust innovation covariance for source reliability
         // Remove base R, apply multiplier, add back
-        const kalman_params = state.kalman_params;
+        const kalman_params = state.kalmanParams;
         const base_obs_cov = ensureFloat(
-          kalman_params.observation_covariance?.[0]?.[0] || KALMAN_DEFAULTS.observation_covariance
+          kalman_params.observationCovariance?.[0]?.[0] || KALMAN_DEFAULTS.observation_covariance
         );
         // innovation_cov = P_pred[0,0] + R
         // We need: P_pred[0,0] + (R * multiplier)
         const predicted_cov_00 = innovation_covariance - base_obs_cov;
         innovation_covariance = predicted_cov_00 + base_obs_cov * noise_multiplier;
+
       }
     }
   }
 
   // Get recent timestamps if available
   const recent_timestamps: Date[] = [];
-  if (state && state.measurement_history) {
-    const history = state.measurement_history;
+  if (state && state.measurementHistory) {
+    const history = state.measurementHistory;
     if (Array.isArray(history)) {
       for (const h of history.slice(-20)) {
         if (h.timestamp) {
@@ -587,8 +655,22 @@ export async function processMeasurement(
     }
   }
 
-  // Create unified scorer instance
-  const unified_scorer = new UnifiedQualityScorer(quality_config);
+  // Create unified scorer instance with source profiles
+  const unified_scorer = new UnifiedQualityScorer(quality_config, config.sources);
+
+  // Log quality scoring inputs
+  if (kalman_prediction !== null) {
+    _log(`  kalman_prediction: ${_formatNum(kalman_prediction)}`);
+  }
+  if (innovation_covariance !== null) {
+    _log(`  innovation_covariance: ${_formatNum(innovation_covariance)}`);
+  }
+  if (previous_weight !== null) {
+    _log(`  previous_weight: ${_formatNum(previous_weight)}`);
+  }
+  if (time_diff_hours !== null) {
+    _log(`  time_diff_hours: ${_formatNum(time_diff_hours)}`);
+  }
 
   // Add current timestamp to kalman_state for time-based decay calculation
   const kalman_state_with_timestamp = { ...state, current_timestamp: timestamp };
@@ -597,28 +679,35 @@ export async function processMeasurement(
   const quality_score = unified_scorer.calculateQualityScore({
     weight: cleaned_weight,
     source,
-    kalman_state: kalman_state_with_timestamp,
-    kalman_prediction,
-    innovation_covariance,
-    previous_weight,
-    time_diff_hours,
-    recent_weights,
-    recent_timestamps,
-    user_height_m: user_height
+    kalmanState: kalman_state_with_timestamp,
+    kalmanPrediction: kalman_prediction,
+    innovationCovariance: innovation_covariance,
+    previousWeight: previous_weight,
+    timeDiffHours: time_diff_hours,
+    recentWeights: recent_weights,
+    recentTimestamps: recent_timestamps,
+    userHeightM: user_height
   });
 
+  _log(`  quality_score.overall: ${_formatNum(quality_score.overall)}`);
+  _log(`  quality_components: ${JSON.stringify(quality_score.components)}`);
+
   if (!quality_score.accepted) {
+    _log(`  Rejected by quality scorer: ${quality_score.rejectionReason}`);
+    _log("Result: REJECTED");
+    _log(`  stage: unified_quality_scoring`);
+    _log("=".repeat(80));
     return {
       accepted: false,
       timestamp,
       raw_weight: weight,
       cleaned_weight,
       source,
-      reason: quality_score.rejection_reason,
+      reason: quality_score.rejectionReason,
       stage: 'unified_quality_scoring',
       quality_score: quality_score.overall,
       quality_components: quality_score.components,
-      quality_details: quality_score.to_dict()
+      quality_details: quality_score.toDict()
     } as ProcessResult;
   }
 
@@ -628,6 +717,7 @@ export async function processMeasurement(
 
   // Only do Kalman update if not already done during initialization
   if (!kalman_already_updated) {
+    _log("Step 6: Kalman update");
     // Check if we should use adaptive parameters (within 7 days of reset)
     const reset_timestamp = get_reset_timestamp(state);
     const adaptive_kalman_config = get_adaptive_kalman_params(
@@ -648,27 +738,34 @@ export async function processMeasurement(
         adaptive_kalman_config.transition_covariance_weight !== undefined &&
         adaptive_kalman_config.transition_covariance_trend !== undefined
       ) {
-        state.kalman_params!.transition_covariance = [
+        state.kalmanParams!.transition_covariance = [
           [adaptive_kalman_config.transition_covariance_weight, 0],
           [0, adaptive_kalman_config.transition_covariance_trend]
         ];
       }
     }
 
-    const noise_multiplier = getNoiseMultiplier(source);
+    const noise_multiplier = getNoiseMultiplier(source, config.sources);
     const observation_covariance =
       (adaptive_kalman_config.observation_covariance || 3.49) * noise_multiplier;
 
+    _log(`  Using adaptive parameters: Q_weight=${_formatNum(adaptive_kalman_config.transition_covariance_weight)}, Q_trend=${_formatNum(adaptive_kalman_config.transition_covariance_trend)}`);
+    _log(`  observation_covariance: ${_formatNum(observation_covariance)}`);
+
     // Apply trend limiting before update
     let [current_weight, current_trend] = KalmanFilterManager.getCurrentStateValues(state);
+    if (state.lastState) {
+      _log(`  State before update: ${_formatVec(state.lastState)}`);
+    }
     if (current_trend !== null) {
+      _log(`  Trend before limiting: ${_formatNum(current_trend)}`);
       // Limit trend to ±5kg/week (±0.714kg/day)
       const max_daily_trend = 0.714; // 5kg/week
       if (Math.abs(current_trend) > max_daily_trend) {
         // Clamp the trend in the state before update
         const limited_trend = current_trend > 0 ? max_daily_trend : -max_daily_trend;
-        if (state.last_state !== null && state.last_state !== undefined) {
-          const last_state = state.last_state;
+        if (state.lastState !== null && state.lastState !== undefined) {
+          const last_state = state.lastState;
           if (Array.isArray(last_state) && last_state.length >= 2) {
             // Handle both 1D and 2D arrays
             if (Array.isArray(last_state[0])) {
@@ -692,13 +789,21 @@ export async function processMeasurement(
       observation_covariance
     );
 
+    if (state.lastState) {
+      _log(`  State after update: ${_formatVec(state.lastState)}`);
+    }
+
     // Apply trend limiting after update
     [current_weight, current_trend] = KalmanFilterManager.getCurrentStateValues(state);
+    if (current_trend !== null) {
+      _log(`  Trend after update (before limiting): ${_formatNum(current_trend)}`);
+    }
     if (current_trend !== null && Math.abs(current_trend) > 0.714) {
+      _log(`  Limiting trend from ${_formatNum(current_trend)} to ±0.714`);
       // Clamp the trend after update
       const limited_trend = current_trend > 0 ? 0.714 : -0.714;
-      if (state.last_state !== null && state.last_state !== undefined) {
-        const last_state = state.last_state;
+      if (state.lastState !== null && state.lastState !== undefined) {
+        const last_state = state.lastState;
         if (Array.isArray(last_state) && last_state.length >= 2) {
           // Handle both 1D and 2D arrays
           if (Array.isArray(last_state[0])) {
@@ -731,7 +836,7 @@ export async function processMeasurement(
   result.preprocessing = preprocess_metadata;
   // Set noise multiplier if not already set
   if (result.noise_multiplier === undefined) {
-    result.noise_multiplier = getNoiseMultiplier(source);
+    result.noise_multiplier = getNoiseMultiplier(source, config.sources);
   }
   result.stage = 'accepted';
 
@@ -760,11 +865,11 @@ export async function processMeasurement(
   };
 
   // Update measurement history for quality scoring
-  if (!state.measurement_history) {
-    state.measurement_history = [];
+  if (!state.measurementHistory) {
+    state.measurementHistory = [];
   }
 
-  state.measurement_history.push({
+  state.measurementHistory.push({
     weight: cleaned_weight,
     timestamp: timestamp.toISOString(),
     quality_score: quality_score_value,
@@ -772,15 +877,15 @@ export async function processMeasurement(
   });
 
   // Keep only last 30 measurements
-  state.measurement_history = state.measurement_history.slice(-30);
+  state.measurementHistory = state.measurementHistory.slice(-30);
 
   // Save updated state - Main successful processing path
   // Increment measurements counter for adaptation tracking
-  state.measurements_since_reset = (state.measurements_since_reset || 0) + 1;
-  state.last_source = source;
-  state.last_timestamp = timestamp; // Keep for backward compatibility
-  state.last_accepted_timestamp = timestamp;
-  state.last_raw_weight = cleaned_weight; // Track for soft reset detection
+  state.measurementsSinceReset = (state.measurementsSinceReset || 0) + 1;
+  state.lastSource = source;
+  state.lastTimestamp = timestamp; // Keep for backward compatibility
+  state.lastAcceptedTimestamp = timestamp;
+  state.lastRawWeight = cleaned_weight; // Track for soft reset detection
 
   // Update temporal baseline for continuous tracking
   state = unified_scorer.update_temporal_baseline(state, cleaned_weight, timestamp);
@@ -817,7 +922,6 @@ export async function processMeasurement(
       if (reset_occurred) {
         try {
           db.save_state_snapshot(userId, timestamp);
-          console.debug(`Saved post-reset snapshot for user ${userId} at ${timestamp}`);
         } catch (e) {
           const error = e as Error;
           console.warn(`Failed to save post-reset snapshot for ${userId}: ${error.message}`);
@@ -850,6 +954,20 @@ export async function processMeasurement(
       error_msg
     );
   }
+
+  // Log final result
+  _log(`Result: ${result.accepted ? 'ACCEPTED' : 'REJECTED'}`);
+  if (result.kalman_estimate !== undefined && result.kalman_estimate !== null) {
+    _log(`  kalman_estimate: ${_formatNum(result.kalman_estimate)}`);
+  }
+  if (result.kalman_uncertainty !== undefined && result.kalman_uncertainty !== null) {
+    _log(`  kalman_uncertainty: ${_formatNum(result.kalman_uncertainty)}`);
+  }
+  if (result.quality_score !== undefined && result.quality_score !== null) {
+    _log(`  quality_score: ${_formatNum(result.quality_score)}`);
+  }
+  _log(`  stage: ${result.stage || 'unknown'}`);
+  _log("=".repeat(80));
 
   return result;
 }

@@ -13,12 +13,15 @@ import { parse } from "csv-parse/sync";
 import { stringify } from "csv-stringify/sync";
 import { join } from "node:path";
 
-import { WeightProcessorService } from "./src/services/weight_processor_service";
+import {
+  WeightProcessorService,
+  type MeasurementInput,
+  type BatchProcessResult
+} from "./src/services/weight_processor_service";
 import { ProcessorStateDB } from "./src/core/database/database";
 import { ConfigManager } from "./src/config/config_manager";
 import { SUPPORTED_WEIGHT_UNITS } from "./src/constants";
 import type {
-  Measurement,
   ProcessResponseData,
   ProcessResult,
 } from "./src/models";
@@ -27,11 +30,13 @@ import type {
  * Load configuration from config.toml, overriding database backend for local processing.
  */
 function getDefaultConfig(): any {
-  // Load from unified config file
-  const config = ConfigManager.loadConfig("file");
+  // Load from unified config file (default: ./config.toml)
+  const config = ConfigManager.loadConfig();
 
   // Override database backend for local in-memory processing
-  config.database.backend = "memory";
+  if (config.database) {
+    config.database.backend = "memory";
+  }
 
   return config;
 }
@@ -79,6 +84,7 @@ interface CsvRow {
   value_quantity?: string;
   weight?: string;
   unit: string;
+  timestamp?: string;
   effective_date_time?: string;
   effectiveDateTime?: string;
   source_type: string;
@@ -114,10 +120,10 @@ function loadCsvData(
   csvPath: string,
   options: LoadOptions
 ): {
-  userMeasurements: Map<string, Measurement[]>;
+  userMeasurements: Map<string, MeasurementInput[]>;
   originalRows: CsvRow[];
 } {
-  const userMeasurements = new Map<string, Measurement[]>();
+  const userMeasurements = new Map<string, MeasurementInput[]>();
   const originalRows: CsvRow[] = [];
 
   // Statistics for rejected data
@@ -185,7 +191,7 @@ function loadCsvData(
     }
 
     // Parse other fields - handle both old and new column names
-    const dateStr = row.effective_date_time || row.effectiveDateTime || "";
+    const dateStr = row.effective_date_time || row.effectiveDateTime || row.timestamp || "";
     const source = row.source_type || "unknown";
     const unit = (row.unit || "").trim(); // NO DEFAULT - must be explicit
 
@@ -231,18 +237,14 @@ function loadCsvData(
       timestamp = new Date();
     }
 
-    // Convert to Measurement model
+    // Convert to MeasurementInput for service
     try {
-      const measurement: Measurement = {
-        uuid: measurementId,
+      const measurement: MeasurementInput = {
+        measurement_id: measurementId,
         weight: weight,
         unit: unit,
-        effectiveDateTime: timestamp,
+        timestamp: timestamp,
         source: source,
-        metadata: {
-          originalRowIndex: rowCount,
-          csvRow: originalRow,
-        },
       };
 
       if (!userMeasurements.has(userId)) {
@@ -438,14 +440,16 @@ class AcceptanceTracker {
 
   markBatchResults(
     userId: string,
-    measurements: Measurement[],
+    measurements: MeasurementInput[],
     responseData: ProcessResponseData
   ): void {
     // Extract results from response
     for (let i = 0; i < responseData.results.length; i++) {
       const result = responseData.results[i];
       if (result.accepted && i < measurements.length) {
-        const timestamp = measurements[i].effectiveDateTime.toISOString();
+        const timestamp = typeof measurements[i].timestamp === 'string'
+          ? new Date(measurements[i].timestamp as string).toISOString()
+          : (measurements[i].timestamp as Date).toISOString();
         this.markMeasurementAccepted(userId, timestamp, {
           qualityScore: result.qualityScore,
           kalmanEstimate: result.kalmanEstimate,
@@ -457,7 +461,7 @@ class AcceptanceTracker {
 
   storeDetailedResult(
     userId: string,
-    measurement: Measurement,
+    measurement: MeasurementInput,
     result: ProcessResult,
     wasReset: boolean = false,
     resetInfo?: Record<string, any>
@@ -471,8 +475,12 @@ class AcceptanceTracker {
     const kalmanUnc = result.kalmanUncertainty || 1.0;
 
     // Create detailed result dict
+    const timestamp_str = typeof measurement.timestamp === 'string'
+      ? new Date(measurement.timestamp).toISOString()
+      : measurement.timestamp.toISOString();
+
     const detail: any = {
-      timestamp: measurement.effectiveDateTime.toISOString(),
+      timestamp: timestamp_str,
       rawWeight: measurement.weight,
       source: measurement.source,
       accepted: result.accepted,
@@ -539,7 +547,7 @@ function writeFilteredCsv(
   for (const row of originalRows) {
     const userId = row.user_id;
     // Handle both old and new column names for timestamp
-    const timestamp = row.effective_date_time || row.effectiveDateTime;
+    const timestamp = row.effective_date_time || row.effectiveDateTime || row.timestamp;
 
     // Convert timestamp to ISO format to match what's stored in AcceptanceTracker
     if (timestamp) {
@@ -643,7 +651,11 @@ async function main(): Promise<number> {
   console.log("Loading configuration...");
   let config: any;
   if (configPath) {
-    config = ConfigManager.loadConfig("file", configPath);
+    config = ConfigManager.loadConfig(configPath);
+    // Override database backend for local in-memory processing
+    if (config.database) {
+      config.database.backend = "memory";
+    }
     console.log(`  Using config from: ${configPath}`);
   } else {
     // Use default config
@@ -778,31 +790,39 @@ async function main(): Promise<number> {
 
     try {
       // Sort measurements chronologically
-      const sortedMeasurements = [...measurements].sort(
-        (a, b) =>
-          a.effectiveDateTime.getTime() - b.effectiveDateTime.getTime()
-      );
+      const sortedMeasurements = [...measurements].sort((a, b) => {
+        const ts_a = typeof a.timestamp === 'string' ? new Date(a.timestamp) : a.timestamp;
+        const ts_b = typeof b.timestamp === 'string' ? new Date(b.timestamp) : b.timestamp;
+        return ts_a.getTime() - ts_b.getTime();
+      });
 
       // Process batch
-      const responseData = service.processBatch(userId, sortedMeasurements);
+      const responseData = await service.processBatch(userId, sortedMeasurements);
 
-      userResults.measurementsProcessed = responseData.measurementsProcessed;
-      userResults.measurementsAccepted = responseData.measurementsAccepted;
-      userResults.measurementsRejected = responseData.measurementsRejected;
+      userResults.measurementsProcessed = responseData.measurements_processed;
+      userResults.measurementsAccepted = responseData.measurements_accepted;
+      userResults.measurementsRejected = responseData.measurements_rejected;
       userResults.results = responseData.results;
 
-      // Track acceptance
+      // Track acceptance - convert BatchProcessResult to ProcessResponseData format
+      const processResponseData: ProcessResponseData = {
+        userId: userId,
+        measurementsProcessed: responseData.measurements_processed,
+        measurementsAccepted: responseData.measurements_accepted,
+        measurementsRejected: responseData.measurements_rejected,
+        results: responseData.results
+      };
       acceptanceTracker.markBatchResults(
         userId,
         sortedMeasurements,
-        responseData
+        processResponseData
       );
 
-      processedMeasurements += responseData.measurementsProcessed;
+      processedMeasurements += responseData.measurements_processed;
       successfulUsers++;
 
       console.log(
-        `  ✓ Processed: ${responseData.measurementsProcessed}, Accepted: ${responseData.measurementsAccepted}, Rejected: ${responseData.measurementsRejected}`
+        `  ✓ Processed: ${responseData.measurements_processed}, Accepted: ${responseData.measurements_accepted}, Rejected: ${responseData.measurements_rejected}`
       );
     } catch (error: any) {
       failedUsers++;

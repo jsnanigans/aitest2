@@ -44,7 +44,6 @@ export class ResetTransaction {
    */
   constructor(userId: string) {
     this.userId = userId;
-    console.log(`Starting reset transaction for user ${userId}`);
   }
 
   /**
@@ -53,7 +52,6 @@ export class ResetTransaction {
   saveOriginalState(operation: ResetOperation, state: any): void {
     if (!this.originalStates.has(operation)) {
       this.originalStates.set(operation, this.deepCopy(state));
-      console.debug(`Saved original state for ${operation}`);
     }
   }
 
@@ -68,7 +66,6 @@ export class ResetTransaction {
       validationPassed: false,
     };
     this.checkpoints.push(checkpoint);
-    console.debug(`Checkpoint saved for ${operation}`);
   }
 
   /**
@@ -130,7 +127,6 @@ export class ResetTransaction {
    */
   markCompleted(operation: ResetOperation): void {
     this.completedOperations.push(operation);
-    console.info(`Operation completed: ${operation}`);
   }
 
   /**
@@ -154,9 +150,6 @@ export class ResetTransaction {
    * Commit all operations - make permanent
    */
   commit(): void {
-    console.info(
-      `Committing reset transaction for user ${this.userId} - ${this.completedOperations.length} operations`
-    );
     // States are already updated in place, just log success
   }
 

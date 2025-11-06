@@ -91,9 +91,11 @@ export class UnifiedQualityScorer {
   private threshold: number;
   private temporalThresholds: Record<string, number>;
   private currentSource?: string;
+  private sourceProfiles?: Record<string, any>;
 
-  constructor(config?: any) {
+  constructor(config?: any, sourceProfiles?: Record<string, any>) {
     this.config = config || {};
+    this.sourceProfiles = sourceProfiles;
 
     // Get component weights from config
     this.weights = { ...UnifiedQualityScorer.DEFAULT_WEIGHTS, ...(this.config.component_weights || {}) };
@@ -153,7 +155,9 @@ export class UnifiedQualityScorer {
         innovationCovariance,
         kalmanState
       );
-      components.kalman_fit = kalmanScore;
+      if (kalmanScore !== null && kalmanScore !== undefined && !isNaN(kalmanScore)) {
+        components.kalman_fit = kalmanScore;
+      }
       metadata.kalman_fit = kalmanMeta;
     }
 
@@ -166,7 +170,9 @@ export class UnifiedQualityScorer {
         recentWeights,
         recentTimestamps
       );
-      components.temporal_consistency = temporalScore;
+      if (temporalScore !== null && temporalScore !== undefined && !isNaN(temporalScore)) {
+        components.temporal_consistency = temporalScore;
+      }
       metadata.temporal_consistency = temporalMeta;
     }
 
@@ -180,14 +186,18 @@ export class UnifiedQualityScorer {
         userHeightM,
         currentTs
       );
-      components.anomaly_detection = anomalyScore;
+      if (anomalyScore !== null && anomalyScore !== undefined && !isNaN(anomalyScore)) {
+        components.anomaly_detection = anomalyScore;
+      }
       metadata.anomaly_detection = anomalyMeta;
     }
 
     // 4. Source Reliability
     if (this.weights.source_reliability > 0) {
       const sourceScore = this.calculateSourceReliability(source);
-      components.source_reliability = sourceScore;
+      if (sourceScore !== null && sourceScore !== undefined && !isNaN(sourceScore)) {
+        components.source_reliability = sourceScore;
+      }
       metadata.source_reliability = { source, score: sourceScore };
     }
 
@@ -198,7 +208,10 @@ export class UnifiedQualityScorer {
         kalmanState,
         recentWeights
       );
-      components.trend_alignment = trendScore;
+      // Only set if we got a valid number (not null/undefined/NaN)
+      if (trendScore !== null && trendScore !== undefined && !isNaN(trendScore)) {
+        components.trend_alignment = trendScore;
+      }
       metadata.trend_alignment = trendMeta;
     }
 
@@ -475,10 +488,13 @@ export class UnifiedQualityScorer {
    * Calculate source reliability based on source profiles.
    */
   calculateSourceReliability(source: string): number {
-    const profile = DEFAULT_SOURCE_PROFILE; // TODO: Implement source-specific profiles
+    // Get source-specific profile from config or use default
+    const profile = this.sourceProfiles?.[source] || DEFAULT_SOURCE_PROFILE;
     const noiseMultiplier = profile.noise_multiplier ?? 1.0;
 
     // Invert and normalize to [0, 1]
+    // Higher noise multiplier = lower reliability
+    // noise_multiplier ranges from 0.5 (excellent) to 3.0 (poor)
     let reliability = 1.0 - ((noiseMultiplier - 0.5) / 2.5);
     reliability = Math.max(0.2, Math.min(1.0, reliability));
 
@@ -503,8 +519,8 @@ export class UnifiedQualityScorer {
     let weights = recentWeights;
 
     // Use Kalman filtered weights if available
-    if (kalmanState && (kalmanState as any).measurement_history) {
-      const history = (kalmanState as any).measurement_history;
+    if (kalmanState && (kalmanState as any).measurementHistory) {
+      const history = (kalmanState as any).measurementHistory;
       if (Array.isArray(history) && history.length >= 5) {
         const kalmanWeights = history.slice(-10).map((h: any) => h.filtered_weight || h.weight).filter((w: any) => w !== undefined);
         if (kalmanWeights.length >= 5) {
@@ -663,15 +679,15 @@ export class UnifiedQualityScorer {
   update_temporal_baseline(state: ProcessorState, weight: number, timestamp: Date): ProcessorState {
     const baseline = state.temporal_baseline || {};
 
-    if (baseline.last_weight && baseline.last_timestamp) {
-      let last_ts = baseline.last_timestamp;
+    if (baseline.lastWeight && baseline.lastTimestamp) {
+      let last_ts = baseline.lastTimestamp;
       if (typeof last_ts === 'string') {
         last_ts = new Date(last_ts);
       }
 
       const time_diff = (timestamp.getTime() - last_ts.getTime()) / (1000 * 3600); // hours
       if (time_diff > 0) {
-        const weight_change = Math.abs(weight - baseline.last_weight);
+        const weight_change = Math.abs(weight - baseline.lastWeight);
         const daily_rate = weight_change / Math.max(time_diff / 24, 0.1);
 
         // Exponential moving average with α=0.3
@@ -680,8 +696,8 @@ export class UnifiedQualityScorer {
       }
     }
 
-    baseline.last_weight = weight;
-    baseline.last_timestamp = timestamp instanceof Date ? timestamp.toISOString() : timestamp;
+    baseline.lastWeight = weight;
+    baseline.lastTimestamp = timestamp instanceof Date ? timestamp.toISOString() : timestamp;
 
     state.temporal_baseline = baseline;
     return state;

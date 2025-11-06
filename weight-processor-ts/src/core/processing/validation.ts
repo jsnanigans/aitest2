@@ -237,16 +237,18 @@ export class DataQualityPreprocessor {
     let weightKg = DataQualityPreprocessor.convertToKg(weight, unit);
     metadata.weight_kg = weightKg;
 
-    // 3. Check for BMI confusion
-    if (userHeightM) {
-      const [isBMI, calculatedWeight] = DataQualityPreprocessor.checkBMI(weightKg, userHeightM);
-      if (isBMI && calculatedWeight) {
-        metadata.bmi_detected = true;
-        metadata.original_value_as_bmi = weightKg;
-        metadata.calculated_weight = calculatedWeight;
-        weightKg = calculatedWeight;
-      }
-    }
+    // 3. Check for BMI confusion - DISABLED
+    // This feature was incorrectly converting valid weights to BMI-calculated weights
+    // Python doesn't have this feature in preprocessing
+    // if (userHeightM) {
+    //   const [isBMI, calculatedWeight] = DataQualityPreprocessor.checkBMI(weightKg, userHeightM);
+    //   if (isBMI && calculatedWeight) {
+    //     metadata.bmi_detected = true;
+    //     metadata.original_value_as_bmi = weightKg;
+    //     metadata.calculated_weight = calculatedWeight;
+    //     weightKg = calculatedWeight;
+    //   }
+    // }
 
     // 4. Validate absolute limits
     const [isValid, reason] = PhysiologicalValidator.validateAbsoluteLimits(weightKg);
@@ -256,7 +258,28 @@ export class DataQualityPreprocessor {
       return [null, metadata];
     }
 
-    // 5. Check suspicious range (warning only)
+    // 5. Check BMI plausibility if height is provided
+    if (userHeightM && userHeightM > 0) {
+      const impliedBMI = weightKg / (userHeightM * userHeightM);
+      metadata.implied_bmi = impliedBMI;
+
+      // Reject physiologically impossible BMI values
+      if (impliedBMI < BMI_LIMITS.IMPOSSIBLE_LOW) {
+        metadata.rejection_reason = `Implied BMI ${impliedBMI.toFixed(1)} physiologically impossible (weight: ${weightKg.toFixed(1)}kg, height: ${userHeightM.toFixed(2)}m)`;
+        metadata.rejected = metadata.rejection_reason;
+        metadata.stage = 'bmi_validation';
+        return [null, metadata];
+      }
+
+      if (impliedBMI > BMI_LIMITS.IMPOSSIBLE_HIGH) {
+        metadata.rejection_reason = `Implied BMI ${impliedBMI.toFixed(1)} physiologically impossible (weight: ${weightKg.toFixed(1)}kg, height: ${userHeightM.toFixed(2)}m)`;
+        metadata.rejected = metadata.rejection_reason;
+        metadata.stage = 'bmi_validation';
+        return [null, metadata];
+      }
+    }
+
+    // 6. Check suspicious range (warning only)
     const warning = PhysiologicalValidator.checkSuspiciousRange(weightKg);
     if (warning) {
       metadata.warning = warning;

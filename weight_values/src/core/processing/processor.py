@@ -45,6 +45,34 @@ except ImportError:
         return data
 
 
+# Verbose logging helpers
+import os
+VERBOSE_LOGGING = os.getenv("VERBOSE_LOGGING", "false").lower() == "true"
+
+def _log(message: str):
+    """Log processing step if verbose logging enabled."""
+    if VERBOSE_LOGGING:
+        print(f"[PY] {message}", flush=True)
+
+def _format_num(value: float | None) -> str:
+    """Format number to 6 decimal places."""
+    if value is None:
+        return "None"
+    return f"{float(value):.6f}"
+
+def _format_vec(vec) -> str:
+    """Format state vector/array."""
+    if vec is None:
+        return "None"
+    if hasattr(vec, 'flatten'):
+        flat = vec.flatten()
+    elif isinstance(vec, list):
+        flat = vec if not isinstance(vec[0], list) else [item for sublist in vec for item in sublist]
+    else:
+        flat = vec
+    return f"[{', '.join(_format_num(float(v)) for v in flat)}]"
+
+
 def _maybe_create_periodic_snapshot(
     db,
     user_id: str,
@@ -158,13 +186,27 @@ def process_measurement(
     if db is None:
         db = get_state_db()
 
+    # Log input header
+    _log("=" * 80)
+    _log(f"Processing measurement for user: {user_id[:12]}...")
+    _log(f"Weight: {_format_num(weight)}, Unit: {unit}, Timestamp: {timestamp.isoformat()}, Source: {source}")
+
     # Step 1: Data cleaning and preprocessing
+    _log("Step 1: Data cleaning and preprocessing")
     cleaned_weight, preprocess_metadata = DataQualityPreprocessor.preprocess(
         weight, source, timestamp, user_id, unit, user_height_m
     )
 
+    if cleaned_weight is not None:
+        _log(f"Cleaned weight: {_format_num(cleaned_weight)}")
+    else:
+        _log(f"Preprocessing rejected: {preprocess_metadata.get('rejected', 'Unknown reason')}")
+
     # If preprocessing rejected the measurement
     if cleaned_weight is None:
+        _log("Result: REJECTED")
+        _log(f"  stage: preprocessing")
+        _log("=" * 80)
         return {
             "accepted": False,
             "rejected": True,
@@ -177,17 +219,30 @@ def process_measurement(
         }
 
     # Step 2: Load or create user state
+    _log("Step 2: Load or create user state")
     state = db.get_state(user_id)
     if state is None:
+        _log("Creating new state (no existing state)")
         state = db.create_initial_state()
     else:
         # Ensure all numeric values from DynamoDB are proper Python types
         state = ensure_numeric_types(state)
+        _log("State exists")
+        if "last_raw_weight" in state:
+            _log(f"  last_raw_weight: {_format_num(state.get('last_raw_weight'))}")
+        if "last_timestamp" in state:
+            last_ts = state["last_timestamp"]
+            if isinstance(last_ts, str):
+                last_ts = datetime.fromisoformat(last_ts)
+            _log(f"  last_timestamp: {last_ts.isoformat()}")
+        if "kalman_params" in state:
+            _log(f"  kalman_params: present")
 
     # Use provided height or default
     user_height = user_height_m if user_height_m is not None else PHYSIOLOGICAL_LIMITS["DEFAULT_HEIGHT_M"]
 
     # Step 3: Check for any type of reset using ResetManager
+    _log("Step 3: Check for reset")
     kalman_config = config.get("kalman", {})
 
     # Check if reset is needed (only if reset features are enabled)
@@ -199,16 +254,23 @@ def process_measurement(
     reset_occurred = False
 
     if reset_type:
+        _log(f"Reset needed: type={reset_type}")
         # Perform the reset with transaction safety
         state, reset_event, reset_occurred = _handle_reset_with_transaction(
             user_id, state, reset_type, timestamp, cleaned_weight, source, config
         )
+        if reset_occurred and reset_event:
+            _log(f"  Reset completed: reason={reset_event.get('reason', 'unknown')}, gap_days={reset_event.get('gap_days', 0)}")
+    else:
+        _log("No reset needed")
 
     # Step 4: Initialize Kalman if needed
+    _log("Step 4: Initialize Kalman if needed")
     kalman_already_updated = False
     result = None
 
     if not state.get("kalman_params"):
+        _log("Initializing Kalman filter")
         # Check if this is a post-reset initialization
         # For initial measurements, treat current timestamp as "reset" to get adaptive params
         reset_timestamp = get_reset_timestamp(state) if reset_occurred else timestamp
@@ -217,6 +279,7 @@ def process_measurement(
         adaptive_kalman_config = get_adaptive_kalman_params(
             reset_timestamp, timestamp, kalman_config, adaptive_days=7, state=state
         )
+        _log(f"  Using adaptive parameters: Q_weight={_format_num(adaptive_kalman_config.get('transition_covariance_weight'))}, Q_trend={_format_num(adaptive_kalman_config.get('transition_covariance_trend'))}")
 
         # Get adaptive noise for this source
         adaptive_config = config.get("adaptive_noise", {})
@@ -226,10 +289,13 @@ def process_measurement(
             adaptive_kalman_config.get("observation_covariance", 3.49)
             * noise_multiplier
         )
+        _log(f"  noise_multiplier: {_format_num(noise_multiplier)}")
+        _log(f"  observation_covariance: {_format_num(observation_covariance)}")
 
         kalman_state = KalmanFilterManager.initialize_immediate(
             cleaned_weight, timestamp, adaptive_kalman_config, observation_covariance
         )
+        _log(f"  Initial state: {_format_vec(kalman_state.get('last_state'))}")
         # Merge Kalman state with existing state to preserve reset parameters
         state.update(kalman_state)
 
@@ -266,6 +332,7 @@ def process_measurement(
         # Continue to quality validation - no early return during initialization
 
     # Step 5: Quality scoring (replaces physiological validation)
+    _log("Step 5: Quality scoring")
     processing_config = config.get("processing", {})
     quality_config = config.get("quality_scoring", {})
 
@@ -351,6 +418,16 @@ def process_measurement(
     kalman_state_with_timestamp = state.copy() if state else {}
     kalman_state_with_timestamp["current_timestamp"] = timestamp
 
+    # Log quality scoring inputs
+    if kalman_prediction is not None:
+        _log(f"  kalman_prediction: {_format_num(kalman_prediction)}")
+    if innovation_covariance is not None:
+        _log(f"  innovation_covariance: {_format_num(innovation_covariance)}")
+    if previous_weight is not None:
+        _log(f"  previous_weight: {_format_num(previous_weight)}")
+    if time_diff_hours is not None:
+        _log(f"  time_diff_hours: {_format_num(time_diff_hours)}")
+
     # Calculate quality score
     quality_score = unified_scorer.calculate_quality_score(
         weight=cleaned_weight,
@@ -365,7 +442,14 @@ def process_measurement(
         user_height_m=user_height,
     )
 
+    _log(f"  quality_score.overall: {_format_num(quality_score.overall)}")
+    _log(f"  quality_components: {quality_score.components}")
+
     if not quality_score.accepted:
+        _log(f"  Rejected by quality scorer: {quality_score.rejection_reason}")
+        _log("Result: REJECTED")
+        _log(f"  stage: unified_quality_scoring")
+        _log("=" * 80)
         return {
             "accepted": False,
             "timestamp": timestamp,
@@ -385,6 +469,7 @@ def process_measurement(
 
     # Only do Kalman update if not already done during initialization
     if not kalman_already_updated:
+        _log("Step 6: Kalman update")
         # Check if we should use adaptive parameters (within 7 days of reset)
         reset_timestamp = get_reset_timestamp(state)
         adaptive_kalman_config = get_adaptive_kalman_params(
@@ -413,12 +498,17 @@ def process_measurement(
             adaptive_kalman_config.get("observation_covariance", 3.49)
             * noise_multiplier
         )
+        _log(f"  Using adaptive parameters: Q_weight={_format_num(adaptive_kalman_config.get('transition_covariance_weight'))}, Q_trend={_format_num(adaptive_kalman_config.get('transition_covariance_trend'))}")
+        _log(f"  observation_covariance: {_format_num(observation_covariance)}")
 
         # Apply trend limiting before update
         current_weight, current_trend = KalmanFilterManager.get_current_state_values(
             state
         )
+        if state.get("last_state") is not None:
+            _log(f"  State before update: {_format_vec(state.get('last_state'))}")
         if current_trend is not None:
+            _log(f"  Trend before limiting: {_format_num(current_trend)}")
             # Limit trend to ±5kg/week (±0.714kg/day)
             max_daily_trend = 0.714  # 5kg/week
             if abs(current_trend) > max_daily_trend:
@@ -437,11 +527,17 @@ def process_measurement(
             state, cleaned_weight, timestamp, source, {}, observation_covariance
         )
 
+        if state.get("last_state") is not None:
+            _log(f"  State after update: {_format_vec(state.get('last_state'))}")
+
         # Apply trend limiting after update
         current_weight, current_trend = KalmanFilterManager.get_current_state_values(
             state
         )
+        if current_trend is not None:
+            _log(f"  Trend after update (before limiting): {_format_num(current_trend)}")
         if current_trend is not None and abs(current_trend) > 0.714:
+            _log(f"  Limiting trend from {_format_num(current_trend)} to ±0.714")
             # Clamp the trend after update
             limited_trend = 0.714 if current_trend > 0 else -0.714
             if state.get("last_state") is not None:
@@ -539,9 +635,6 @@ def process_measurement(
             if reset_occurred:
                 try:
                     db.save_state_snapshot(user_id, timestamp)
-                    logger.debug(
-                        f"Saved post-reset snapshot for user {user_id} at {timestamp}"
-                    )
                 except Exception as e:
                     logger.warning(
                         f"Failed to save post-reset snapshot for {user_id}: {e}"
@@ -570,6 +663,17 @@ def process_measurement(
     # if result.get("quality_score") < 0.5:
     #     result["warning"] = "Low quality score - review measurement history"
     #     result["accepted"] = False  # Mark as not accepted for downstream handling
+
+    # Log final result
+    _log(f"Result: {'ACCEPTED' if result.get('accepted', True) else 'REJECTED'}")
+    if result.get("kalman_estimate") is not None:
+        _log(f"  kalman_estimate: {_format_num(result.get('kalman_estimate'))}")
+    if result.get("kalman_uncertainty") is not None:
+        _log(f"  kalman_uncertainty: {_format_num(result.get('kalman_uncertainty'))}")
+    if result.get("quality_score") is not None:
+        _log(f"  quality_score: {_format_num(result.get('quality_score'))}")
+    _log(f"  stage: {result.get('stage', 'unknown')}")
+    _log("=" * 80)
 
     return result
 
@@ -671,7 +775,6 @@ def _perform_transactional_reset(
             reset_type_value = (
                 reset_type.value if hasattr(reset_type, "value") else reset_type
             )
-            logger.info(f"Applying {reset_type_value} reset for user {user_id}")
             new_state, reset_event = ResetManager.perform_reset(
                 state, reset_type, timestamp, weight, source, config
             )

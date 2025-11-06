@@ -195,9 +195,9 @@ export class ReplayManager {
 
       if (
         current_backup_state &&
-        (current_backup_state as any).last_state !== null &&
+        (current_backup_state as any).lastState !== null &&
         restored_state &&
-        (restored_state as any).last_state !== null
+        (restored_state as any).lastState !== null
       ) {
         try {
           const [backup_weight] = KalmanFilterManager.getCurrentStateValues(current_backup_state);
@@ -221,7 +221,6 @@ export class ReplayManager {
           }
         } catch (e) {
           const error = e as Error;
-          console.debug(`Trajectory continuity check failed: ${error.message}`);
           // Continue with replay if check fails
         }
       }
@@ -291,7 +290,6 @@ export class ReplayManager {
       if (current_state) {
         // Create deep copy for backup
         this._backup_states.set(user_id, JSON.parse(JSON.stringify(current_state)));
-        console.debug(`Created state backup for user ${user_id}`);
         return true;
       } else {
         console.warn(`No current state found for user ${user_id}`);
@@ -315,7 +313,6 @@ export class ReplayManager {
       const backup_state = this._backup_states.get(user_id);
       if (backup_state) {
         this.db.save_state(user_id, backup_state);
-        console.info(`Restored state from backup for user ${user_id}`);
         return true;
       } else {
         console.error(`No backup found for user ${user_id}`);
@@ -336,7 +333,6 @@ export class ReplayManager {
   private _clear_state_backup(user_id: string): void {
     if (this._backup_states.has(user_id)) {
       this._backup_states.delete(user_id);
-      console.debug(`Cleared backup for user ${user_id}`);
     }
   }
 
@@ -365,7 +361,6 @@ export class ReplayManager {
       }
 
       this.db.save_state(user_id, state);
-      console.debug(`Set replay_in_progress=${in_progress} for ${user_id}`);
       return true;
 
     } catch (e) {
@@ -398,7 +393,7 @@ export class ReplayManager {
     }
 
     // Validate last_state structure
-    const last_state = snapshot.last_state;
+    const last_state = snapshot.lastState;
     if (last_state === null) {
       console.warn(`Snapshot has null last_state for ${user_id}`);
       return false;
@@ -425,7 +420,7 @@ export class ReplayManager {
     }
 
     // Validate timestamp
-    const timestamp = snapshot.last_timestamp;
+    const timestamp = snapshot.lastTimestamp;
     try {
       if (typeof timestamp === 'string') {
         new Date(timestamp.replace('Z', '+00:00'));
@@ -461,7 +456,6 @@ export class ReplayManager {
       try {
         // Log retry attempt if not first try
         if (attempt > 0) {
-          console.info(`Retry ${attempt + 1}/${max_retries} for state restoration of ${user_id}`);
           // Exponential backoff: 0.1s, 0.2s, 0.4s
           const delay = 100 * Math.pow(2, attempt);
           // Sleep equivalent in JavaScript
@@ -497,10 +491,6 @@ export class ReplayManager {
         }
 
         if (result.success) {
-          console.info(
-            `Successfully restored state for ${user_id} to ${result.snapshot_timestamp} ` +
-            `(attempt ${attempt + 1}/${max_retries})`
-          );
           return {
             success: true,
             user_id,
@@ -629,9 +619,6 @@ export class ReplayManager {
           last_result = result;
 
           if (!result.accepted) {
-            console.debug(
-              `Measurement rejected during replay: ${user_id} ${weight}kg at ${timestamp}`
-            );
             // Continue processing - rejection is normal and expected
           }
 
@@ -651,7 +638,6 @@ export class ReplayManager {
         }
       }
 
-      console.info(`Successfully replayed ${processed_count} measurements for user ${user_id}`);
       return {
         success: true,
         user_id,
@@ -717,7 +703,6 @@ export class ReplayManager {
   cleanup_old_backups(): number {
     const cleaned_count = this._backup_states.size;
     this._backup_states.clear();
-    console.info(`Cleaned up ${cleaned_count} backup states`);
     return cleaned_count;
   }
 }

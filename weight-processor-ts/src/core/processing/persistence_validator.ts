@@ -73,7 +73,6 @@ export class PersistenceValidator {
     if (!success) {
       console.warn('Persistence audit log:', logEntry);
     } else {
-      console.debug('Persistence audit log:', logEntry);
     }
   }
 }

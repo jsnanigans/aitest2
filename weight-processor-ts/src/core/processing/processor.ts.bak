@@ -55,7 +55,6 @@ function _maybe_create_periodic_snapshot(
     // Create snapshot if none exists (initial snapshot)
     if (!latest_snapshot) {
       db.save_state_snapshot(user_id, timestamp);
-      console.debug(`Created initial periodic snapshot for user ${user_id}`);
       return true;
     }
 
@@ -64,7 +63,6 @@ function _maybe_create_periodic_snapshot(
     if (!last_snapshot_time) {
       // Fallback: if no last_timestamp in snapshot, create new one
       db.save_state_snapshot(user_id, timestamp);
-      console.debug(`Created periodic snapshot for user ${user_id} (no timestamp in last snapshot)`);
       return true;
     }
 
@@ -79,9 +77,6 @@ function _maybe_create_periodic_snapshot(
     // Create snapshot if interval elapsed
     if (hours_since >= snapshot_interval_hours) {
       db.save_state_snapshot(user_id, timestamp);
-      console.debug(
-        `Created periodic snapshot for user ${user_id} (${hours_since.toFixed(1)} hours since last)`
-      );
       return true;
     }
 
@@ -151,7 +146,6 @@ function _perform_transactional_reset(
 
     // Step 1: Perform the actual reset
     const reset_type_value = typeof reset_type === 'string' ? reset_type : reset_type;
-    console.info(`Applying ${reset_type_value} reset for user ${user_id}`);
 
     const [new_state, reset_event] = ResetManager.perform_reset(
       state,
@@ -188,7 +182,6 @@ function _perform_transactional_reset(
 
     // All operations succeeded
     txn.commit();
-    console.info(`Reset transaction completed successfully for user ${user_id}`);
     return [new_state, reset_event, true];
 
   } catch (e) {
@@ -680,7 +673,6 @@ export function process_measurement(
       if (reset_occurred) {
         try {
           db.save_state_snapshot(user_id, timestamp);
-          console.debug(`Saved post-reset snapshot for user ${user_id} at ${timestamp}`);
         } catch (e) {
           const error = e as Error;
           console.warn(`Failed to save post-reset snapshot for ${user_id}: ${error.message}`);

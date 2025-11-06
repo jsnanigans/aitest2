@@ -185,7 +185,6 @@ export class WeightProcessorService {
 
       // Delete the state
       this.state_store.delete_state(user_id);
-      console.info(`Reset state for user ${user_id}`);
       return true;
     } catch (e) {
       const error = e as Error;
@@ -216,17 +215,17 @@ export class WeightProcessorService {
    * @param progress_callback - Optional callback for progress updates
    * @returns Map of user_id to batch results
    */
-  process_multi_user(
+  async process_multi_user(
     measurements_by_user: Map<string, MeasurementInput[]>,
     progress_callback?: (user_id: string, progress: number, total: number) => void
-  ): Map<string, BatchProcessResult> {
+  ): Promise<Map<string, BatchProcessResult>> {
     const results = new Map<string, BatchProcessResult>();
     const total_users = measurements_by_user.size;
     let processed_users = 0;
 
     for (const [user_id, measurements] of measurements_by_user.entries()) {
       try {
-        const result = this.process_batch(user_id, measurements);
+        const result = await this.process_batch(user_id, measurements);
         results.set(user_id, result);
 
         processed_users++;
@@ -251,5 +250,19 @@ export class WeightProcessorService {
     }
 
     return results;
+  }
+
+  /**
+   * CamelCase wrapper for process_batch (for compatibility)
+   */
+  async processBatch(user_id: string, measurements: MeasurementInput[]): Promise<BatchProcessResult> {
+    return this.process_batch(user_id, measurements);
+  }
+
+  /**
+   * CamelCase wrapper for process_single (for compatibility)
+   */
+  async processSingle(user_id: string, measurement: MeasurementInput): Promise<ProcessResult> {
+    return this.process_single(user_id, measurement);
   }
 }
