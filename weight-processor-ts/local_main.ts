@@ -295,8 +295,11 @@ function loadCsvData(
     const filteredRows = originalRows.filter((row) =>
       remainingUserSet.has(row.user_id)
     );
+    // Replace array contents without spread operator to avoid stack overflow
     originalRows.length = 0;
-    originalRows.push(...filteredRows);
+    for (const row of filteredRows) {
+      originalRows.push(row);
+    }
 
     const usersFiltered = usersBeforeFilter - userMeasurements.size;
     const measurementsFiltered =
@@ -750,13 +753,13 @@ async function main(): Promise<number> {
       0
     ),
     processingResults: null,
-    replayMode: "manual",
+    replayMode: "automatic",
   };
 
-  // Process measurements (manual replay only)
-  console.log("\n=== Processing Measurements (Manual Replay) ===");
+  // Process measurements with automatic buffered replay
+  console.log("\n=== Processing Measurements (Automatic Buffered Replay) ===");
   console.log(
-    "Note: Use manual replay endpoints for historical conflict resolution"
+    "Note: Replay triggers automatically at end of batch or when time window/buffer exceeded"
   );
 
   // Process all measurements first
@@ -786,6 +789,7 @@ async function main(): Promise<number> {
       measurementsRejected: 0,
       errors: [],
       results: [],
+      replayMetadata: [],
     };
 
     try {
@@ -803,6 +807,17 @@ async function main(): Promise<number> {
       userResults.measurementsAccepted = responseData.measurements_accepted;
       userResults.measurementsRejected = responseData.measurements_rejected;
       userResults.results = responseData.results;
+
+      // Capture replay metadata if present
+      if (responseData.replay_metadata && responseData.replay_metadata.length > 0) {
+        userResults.replayMetadata = responseData.replay_metadata;
+        console.log(`  🔄 Replay triggered ${responseData.replay_metadata.length} time(s)`);
+        for (const replay of responseData.replay_metadata) {
+          console.log(`    - Trigger: ${replay.trigger}, ` +
+                      `Buffer size: ${replay.buffer_size}, ` +
+                      `From: ${replay.replay_from} to ${replay.replay_to}`);
+        }
+      }
 
       // Track acceptance - convert BatchProcessResult to ProcessResponseData format
       const processResponseData: ProcessResponseData = {

@@ -531,7 +531,7 @@ export class UnifiedQualityScorer {
 
     // Linear regression
     const x = Array.from({ length: weights.length }, (_, i) => i);
-    const { slope, intercept } = linearRegression(x, weights);
+    const [slope, intercept] = linearRegression(x, weights);
     const predictedNext = slope * weights.length + intercept;
 
     metadata.trend_slope = slope;

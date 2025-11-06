@@ -15,12 +15,73 @@ Filtering to 1 specific user ID(s)...
 
 ✓ Processing 1 user(s) with 120 measurements
 
-=== Processing Measurements (Manual Replay) ===
-Note: Use manual replay endpoints for historical conflict resolution
+=== Processing Measurements (Automatic Buffered Replay) ===
+Note: Replay triggers automatically at end of batch or when time window/buffer exceeded
 
 Processing 1 users...
 Total measurements: 120
 [1/1] Processing user ADC64C0B-CB4... (120 measurements)
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 104.326160, Unit: kg, Timestamp: 2025-01-14T00:00:00+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 104.326160
+[PY] Step 2: Load or create user state
+[PY] Creating new state (no existing state)
+[PY] Step 3: Check for reset
+[PY] Reset needed: type=ResetType.INITIAL
+[PY]   Reset completed: reason=initial_measurement, gap_days=None
+[PY] Step 4: Initialize Kalman if needed
+[PY] Initializing Kalman filter
+[PY]   Using adaptive parameters: Q_weight=0.900000, Q_trend=0.006000
+[PY]   noise_multiplier: 3.000000
+[PY]   observation_covariance: 300.000000
+[PY]   Initial state: [104.326160, 0.000000]
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 104.326160
+[PY]   innovation_covariance: 904.540010
+[PY]   previous_weight: 104.326160
+[PY]   time_diff_hours: 0.000000
+[PY]   quality_score.overall: 0.824742
+[PY]   quality_components: {'kalman_fit': 1.0, 'temporal_consistency': 1.0, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.824742
+[PY]   stage: accepted
+[PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-01-14T00:00:00+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 104.330000, Unit: kg, Timestamp: 2025-02-03T00:00:00+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 104.330000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 104.326160
+[PY]   last_timestamp: 2025-01-14T00:00:00+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 104.326160
+[PY]   innovation_covariance: 904.940000
+[PY]   previous_weight: 104.326160
+[PY]   time_diff_hours: 480.000000
+[PY]   quality_score.overall: 0.824709
+[PY]   quality_components: {'kalman_fit': 0.999991490098585, 'temporal_consistency': 0.9998463329020952, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [104.326160, 0.000000]
+[PY]   Trend before limiting: 0.000000
+[PY]   State after update: [104.326160, 0.000000, 104.327111, 0.000004]
+[PY]   Trend after update (before limiting): 0.000004
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.824709
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-01-14 00:00:00+00:00 to 2025-02-03 00:00:00+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-01-14 00:00:00+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 104.326160, Unit: kg, Timestamp: 2025-01-14T00:00:00+00:00, Source: https://api.iglucose.com
@@ -109,6 +170,7 @@ Total measurements: 120
 [PY]   quality_score: 0.824742
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-03-08T00:00:00+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 117.933920, Unit: kg, Timestamp: 2025-03-08T00:00:00+00:00, Source: https://api.iglucose.com
@@ -132,6 +194,69 @@ Total measurements: 120
 [PY]   Rejected by quality scorer: Quality score 0.23 below threshold 0.46 (weakest: anomaly_detection=0.10)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 115.400000, Unit: kg, Timestamp: 2025-03-26T17:30:46+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 115.400000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 113.398000
+[PY]   last_timestamp: 2025-03-08T00:00:00+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 113.398000
+[PY]   innovation_covariance: 33.032802
+[PY]   previous_weight: 113.398000
+[PY]   time_diff_hours: 449.512778
+[PY]   quality_score.overall: 0.803803
+[PY]   quality_components: {'kalman_fit': 0.9747189186625566, 'temporal_consistency': 0.9339663288124903, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [113.398000, 0.000000]
+[PY]   Trend before limiting: 0.000000
+[PY]   State after update: [113.398000, 0.000000, 113.583611, 0.002268]
+[PY]   Trend after update (before limiting): 0.002268
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.803803
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-03-08 00:00:00+00:00 to 2025-03-26 17:30:46+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-03-08 00:00:00+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 113.398000, Unit: kg, Timestamp: 2025-03-08T00:00:00+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 113.398000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 104.330000
+[PY]   last_timestamp: 2025-02-03T00:00:00+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] Reset needed: type=ResetType.HARD
+[PY]   Reset completed: reason=gap_exceeded_33_days, gap_days=33.0
+[PY] Step 4: Initialize Kalman if needed
+[PY] Initializing Kalman filter
+[PY]   Using adaptive parameters: Q_weight=0.090000, Q_trend=0.006000
+[PY]   noise_multiplier: 3.000000
+[PY]   observation_covariance: 10.500000
+[PY]   Initial state: [113.398000, 0.000000]
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 113.398000
+[PY]   innovation_covariance: 32.682010
+[PY]   previous_weight: 113.398000
+[PY]   time_diff_hours: 0.000000
+[PY]   quality_score.overall: 0.824742
+[PY]   quality_components: {'kalman_fit': 1.0, 'temporal_consistency': 1.0, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.824742
+[PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
@@ -338,6 +463,101 @@ Total measurements: 120
 [PY]   quality_score: 0.824742
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-05-15T01:30:10+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 60.000000, Unit: kg, Timestamp: 2025-05-15T01:30:46+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 60.000000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 60.500000
+[PY]   last_timestamp: 2025-05-15T01:30:10+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.500000
+[PY]   innovation_covariance: 32.682010
+[PY]   previous_weight: 60.500000
+[PY]   time_diff_hours: 0.010000
+[PY]   quality_score.overall: 0.779898
+[PY]   quality_components: {'kalman_fit': 0.9826600942593939, 'temporal_consistency': 0.8737136994306052, 'anomaly_detection': 0.912, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.066263, Q_trend=0.004061
+[PY]   observation_covariance: 11.983560
+[PY]   State before update: [60.500000, 0.000000]
+[PY]   Trend before limiting: 0.000000
+[PY]   State after update: [60.500000, 0.000000, 60.455932, -0.000004]
+[PY]   Trend after update (before limiting): -0.000004
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.779898
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 60.300000, Unit: kg, Timestamp: 2025-05-19T11:49:36+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 60.300000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 60.000000
+[PY]   last_timestamp: 2025-05-15T01:30:46+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.455915
+[PY]   innovation_covariance: 32.722578
+[PY]   previous_weight: 60.455932
+[PY]   time_diff_hours: 106.313889
+[PY]   quality_score.overall: 0.822087
+[PY]   quality_components: {'kalman_fit': 0.9953663343503497, 'temporal_consistency': 0.9932013810809175, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.050352, Q_trend=0.002762
+[PY]   observation_covariance: 12.978020
+[PY]   State before update: [60.500000, 0.000000, 60.455932, -0.000004]
+[PY]   Trend before limiting: -0.000004
+[PY]   State after update: [60.455932, -0.000004, 60.442652, -0.000251]
+[PY]   Trend after update (before limiting): -0.000251
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.822087
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=3, time_range=2025-05-15 01:30:10+00:00 to 2025-05-19 11:49:36+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=3, replay_from=2025-05-15 01:30:10+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 60.500000, Unit: kg, Timestamp: 2025-05-15T01:30:10+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 60.500000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 115.400000
+[PY]   last_timestamp: 2025-03-26T17:30:46+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] Reset needed: type=ResetType.HARD
+[PY]   Reset completed: reason=gap_exceeded_49_days, gap_days=49.33291666666667
+[PY] Step 4: Initialize Kalman if needed
+[PY] Initializing Kalman filter
+[PY]   Using adaptive parameters: Q_weight=0.090000, Q_trend=0.006000
+[PY]   noise_multiplier: 3.000000
+[PY]   observation_covariance: 10.500000
+[PY]   Initial state: [60.500000, 0.000000]
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.500000
+[PY]   innovation_covariance: 32.682010
+[PY]   previous_weight: 60.500000
+[PY]   time_diff_hours: 0.000000
+[PY]   quality_score.overall: 0.824742
+[PY]   quality_components: {'kalman_fit': 1.0, 'temporal_consistency': 1.0, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.824742
+[PY]   stage: accepted
+[PY] ================================================================================
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 60.000000, Unit: kg, Timestamp: 2025-05-15T01:30:46+00:00, Source: https://api.iglucose.com
@@ -455,6 +675,7 @@ Total measurements: 120
 [PY]   quality_score: 0.789321
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-05-25T16:11:57+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 58.900000, Unit: kg, Timestamp: 2025-05-30T03:42:18+00:00, Source: https://api.iglucose.com
@@ -486,6 +707,135 @@ Total measurements: 120
 [PY]   quality_score: 0.785933
 [PY]   stage: accepted
 [PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-05-25 16:11:57+00:00 to 2025-05-30 03:42:18+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-05-25 16:11:57+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 59.200000, Unit: kg, Timestamp: 2025-05-25T16:11:57+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 59.200000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 60.300000
+[PY]   last_timestamp: 2025-05-19T11:49:36+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.441098
+[PY]   innovation_covariance: 33.206686
+[PY]   previous_weight: 60.442652
+[PY]   time_diff_hours: 148.372500
+[PY]   quality_score.overall: 0.789321
+[PY]   quality_components: {'kalman_fit': 0.9665278190017299, 'temporal_consistency': 0.9543444513414688, 'anomaly_detection': 0.8841419067445715, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [60.455932, -0.000004, 60.442652, -0.000251]
+[PY]   Trend before limiting: -0.000251
+[PY]   State after update: [60.442652, -0.000251, 60.314313, -0.005358]
+[PY]   Trend after update (before limiting): -0.005358
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.789321
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 58.900000, Unit: kg, Timestamp: 2025-05-30T03:42:18+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 58.900000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 59.200000
+[PY]   last_timestamp: 2025-05-25T16:11:57+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.290312
+[PY]   innovation_covariance: 33.841640
+[PY]   previous_weight: 60.314313
+[PY]   time_diff_hours: 107.505833
+[PY]   quality_score.overall: 0.785933
+[PY]   quality_components: {'kalman_fit': 0.9602947392955445, 'temporal_consistency': 0.9462725045760394, 'anomaly_detection': 0.8837797696628173, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [60.442652, -0.000251, 60.314313, -0.005358]
+[PY]   Trend before limiting: -0.005358
+[PY]   State after update: [60.314313, -0.005358, 60.102578, -0.013993]
+[PY]   Trend after update (before limiting): -0.013993
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.785933
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 60.300000, Unit: kg, Timestamp: 2025-06-01T05:42:25+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 60.300000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 58.900000
+[PY]   last_timestamp: 2025-05-30T03:42:18+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.073425
+[PY]   innovation_covariance: 34.017659
+[PY]   previous_weight: 60.102578
+[PY]   time_diff_hours: 50.001944
+[PY]   quality_score.overall: 0.791664
+[PY]   quality_components: {'kalman_fit': 0.9927981224446445, 'temporal_consistency': 0.9887567691998774, 'anomaly_detection': 0.8168073550245232, 'source_reliability': 0.2, 'trend_alignment': 0.8065414401773227}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [60.314313, -0.005358, 60.102578, -0.013993]
+[PY]   Trend before limiting: -0.013993
+[PY]   State after update: [60.102578, -0.013993, 60.105988, -0.012455]
+[PY]   Trend after update (before limiting): -0.012455
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.791664
+[PY]   stage: accepted
+[PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-01T05:42:25+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 63.400000, Unit: kg, Timestamp: 2025-06-03T15:59:25+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 63.400000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 60.300000
+[PY]   last_timestamp: 2025-06-01T05:42:25+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.075741
+[PY]   innovation_covariance: 34.285157
+[PY]   previous_weight: 60.105988
+[PY]   time_diff_hours: 58.283333
+[PY]   quality_score.overall: 0.734112
+[PY]   quality_components: {'kalman_fit': 0.9013519651888962, 'temporal_consistency': 0.8813893010606634, 'anomaly_detection': 0.8168455589621263, 'source_reliability': 0.2, 'trend_alignment': 0.6009962003579477}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [60.102578, -0.013993, 60.105988, -0.012455]
+[PY]   Trend before limiting: -0.012455
+[PY]   State after update: [60.105988, -0.012455, 60.596320, 0.013075]
+[PY]   Trend after update (before limiting): 0.013075
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.734112
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-06-01 05:42:25+00:00 to 2025-06-03 15:59:25+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-06-01 05:42:25+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 60.300000, Unit: kg, Timestamp: 2025-06-01T05:42:25+00:00, Source: https://api.iglucose.com
@@ -579,6 +929,7 @@ Total measurements: 120
 [PY]   quality_score: 0.792709
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-06T17:19:49+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 112.700000, Unit: kg, Timestamp: 2025-06-09T17:30:34+00:00, Source: https://api.iglucose.com
@@ -650,6 +1001,70 @@ Total measurements: 120
 [PY] Preprocessing rejected: Implied BMI 16.1 physiologically impossible (weight: 44.8kg, height: 1.67m)
 [PY] Result: REJECTED
 [PY]   stage: preprocessing
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 58.700000, Unit: kg, Timestamp: 2025-06-15T22:17:13+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 58.700000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 61.700000
+[PY]   last_timestamp: 2025-06-06T17:19:49+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 61.034314
+[PY]   innovation_covariance: 38.175400
+[PY]   previous_weight: 60.825853
+[PY]   time_diff_hours: 220.956667
+[PY]   quality_score.overall: 0.774160
+[PY]   quality_components: {'kalman_fit': 0.9495572482921095, 'temporal_consistency': 0.9302268530464063, 'anomaly_detection': 0.8616658588515197, 'source_reliability': 0.2, 'trend_alignment': 0.7591502862054174}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [60.596320, 0.013075, 60.825853, 0.022643]
+[PY]   Trend before limiting: 0.022643
+[PY]   State after update: [60.825853, 0.022643, 60.315413, -0.009053]
+[PY]   Trend after update (before limiting): -0.009053
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.774160
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-06-06 17:19:49+00:00 to 2025-06-15 22:17:13+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-06-06 17:19:49+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 61.700000, Unit: kg, Timestamp: 2025-06-06T17:19:49+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 61.700000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 63.400000
+[PY]   last_timestamp: 2025-06-03T15:59:25+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.636275
+[PY]   innovation_covariance: 34.753086
+[PY]   previous_weight: 60.596320
+[PY]   time_diff_hours: 73.340000
+[PY]   quality_score.overall: 0.792709
+[PY]   quality_components: {'kalman_fit': 0.9681658503918003, 'temporal_consistency': 0.9520201200000965, 'anomaly_detection': 0.8605564935364157, 'source_reliability': 0.2, 'trend_alignment': 0.9839127448403906}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [60.105988, -0.012455, 60.596320, 0.013075]
+[PY]   Trend before limiting: 0.013075
+[PY]   State after update: [60.596320, 0.013075, 60.825853, 0.022643]
+[PY]   Trend after update (before limiting): 0.022643
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.792709
+[PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
@@ -793,6 +1208,7 @@ Total measurements: 120
 [PY]   quality_score: 0.803794
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-19T01:11:15+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 45.000000, Unit: kg, Timestamp: 2025-06-23T18:44:51+00:00, Source: https://api.iglucose.com
@@ -800,6 +1216,70 @@ Total measurements: 120
 [PY] Preprocessing rejected: Implied BMI 16.1 physiologically impossible (weight: 45.0kg, height: 1.67m)
 [PY] Result: REJECTED
 [PY]   stage: preprocessing
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 60.000000, Unit: kg, Timestamp: 2025-06-26T23:14:51+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 60.000000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 59.900000
+[PY]   last_timestamp: 2025-06-19T01:11:15+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.066677
+[PY]   innovation_covariance: 39.734321
+[PY]   previous_weight: 60.175261
+[PY]   time_diff_hours: 190.060000
+[PY]   quality_score.overall: 0.807364
+[PY]   quality_components: {'kalman_fit': 0.9961175103857425, 'temporal_consistency': 0.9929928461856794, 'anomaly_detection': 0.8584865889050406, 'source_reliability': 0.2, 'trend_alignment': 0.962382611576035}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [60.315413, -0.009053, 60.175261, -0.013711]
+[PY]   Trend before limiting: -0.013711
+[PY]   State after update: [60.175261, -0.013711, 60.043047, -0.014588]
+[PY]   Trend after update (before limiting): -0.014588
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.807364
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-06-19 01:11:15+00:00 to 2025-06-26 23:14:51+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-06-19 01:11:15+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 59.900000, Unit: kg, Timestamp: 2025-06-19T01:11:15+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 59.900000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 58.700000
+[PY]   last_timestamp: 2025-06-15T22:17:13+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 60.287159
+[PY]   innovation_covariance: 37.597796
+[PY]   previous_weight: 60.315413
+[PY]   time_diff_hours: 74.900556
+[PY]   quality_score.overall: 0.803794
+[PY]   quality_components: {'kalman_fit': 0.9887567087905079, 'temporal_consistency': 0.9805246911649272, 'anomaly_detection': 0.8683014398454241, 'source_reliability': 0.2, 'trend_alignment': 0.9388343592506765}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [60.825853, 0.022643, 60.315413, -0.009053]
+[PY]   Trend before limiting: -0.009053
+[PY]   State after update: [60.315413, -0.009053, 60.175261, -0.013711]
+[PY]   Trend after update (before limiting): -0.013711
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.803794
+[PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
@@ -863,6 +1343,7 @@ Total measurements: 120
 [PY]   quality_score: 0.599790
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-28T02:17:29+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 44.300000, Unit: kg, Timestamp: 2025-06-29T23:46:06+00:00, Source: https://api.iglucose.com
@@ -934,6 +1415,66 @@ Total measurements: 120
 [PY]   quality_score: 0.774705
 [PY]   stage: accepted
 [PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-06-28 02:17:29+00:00 to 2025-07-09 23:16:28+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-06-28 02:17:29+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.000000, Unit: kg, Timestamp: 2025-06-28T02:17:29+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.000000
+[PY] Step 2: Load or create user state
+[PY] Creating new state (no existing state)
+[PY] Step 3: Check for reset
+[PY] Reset needed: type=ResetType.INITIAL
+[PY]   Reset completed: reason=initial_measurement, gap_days=None
+[PY] Step 4: Initialize Kalman if needed
+[PY] Initializing Kalman filter
+[PY]   Using adaptive parameters: Q_weight=0.900000, Q_trend=0.006000
+[PY]   noise_multiplier: 3.000000
+[PY]   observation_covariance: 300.000000
+[PY]   Initial state: [57.000000, 0.000000]
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.000000
+[PY]   innovation_covariance: 904.540010
+[PY]   previous_weight: 57.000000
+[PY]   time_diff_hours: 0.000000
+[PY]   quality_score.overall: 0.824742
+[PY]   quality_components: {'kalman_fit': 1.0, 'temporal_consistency': 1.0, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.824742
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.100000, Unit: kg, Timestamp: 2025-07-09T23:16:28+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.100000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.000000
+[PY]   last_timestamp: 2025-06-28T02:17:29+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.000000
+[PY]   innovation_covariance: 904.680999
+[PY]   previous_weight: 57.000000
+[PY]   time_diff_hours: 284.983056
+[PY]   quality_score.overall: 0.823821
+[PY]   quality_components: {'kalman_fit': 0.9995983834911928, 'temporal_consistency': 0.9960303984853927, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.000000, 0.000000]
+[PY]   Trend before limiting: 0.000000
+[PY]   State after update: [57.000000, 0.000000, 57.023784, 0.000060]
+[PY]   Trend after update (before limiting): 0.000060
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.823821
+[PY]   stage: accepted
+[PY] ================================================================================
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 45.700000, Unit: kg, Timestamp: 2025-07-10T20:19:11+00:00, Source: https://api.iglucose.com
@@ -956,23 +1497,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.889084
-[PY]   innovation_covariance: 38.415629
-[PY]   previous_weight: 58.021537
+[PY]   kalman_prediction: 57.023905
+[PY]   innovation_covariance: 904.532009
+[PY]   previous_weight: 57.023784
 [PY]   time_diff_hours: 48.095833
-[PY]   quality_score.overall: 0.749830
-[PY]   quality_components: {'kalman_fit': 0.8796923431480792, 'temporal_consistency': 0.9248148035239632, 'anomaly_detection': 0.8012392121055859, 'source_reliability': 0.2, 'trend_alignment': 0.9102796178919977}
+[PY]   quality_score.overall: 0.796799
+[PY]   quality_components: {'kalman_fit': 0.984149605380019, 'temporal_consistency': 0.89264755972427, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [59.179575, -0.045626, 58.021537, -0.066094]
-[PY]   Trend before limiting: -0.066094
-[PY]   State after update: [58.021537, -0.066094, 58.428976, -0.048407]
-[PY]   Trend after update (before limiting): -0.048407
+[PY]   State before update: [57.000000, 0.000000, 57.023784, 0.000060]
+[PY]   Trend before limiting: 0.000060
+[PY]   State after update: [57.023784, 0.000060, 57.621636, 0.003102]
+[PY]   Trend after update (before limiting): 0.003102
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.749830
+[PY]   quality_score: 0.796799
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-11T23:22:13+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 58.400000, Unit: kg, Timestamp: 2025-07-11T23:22:46+00:00, Source: https://api.iglucose.com
@@ -987,13 +1529,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.424135
-[PY]   innovation_covariance: 36.314859
-[PY]   previous_weight: 58.428976
+[PY]   kalman_prediction: 57.621946
+[PY]   innovation_covariance: 904.384120
+[PY]   previous_weight: 57.621636
 [PY]   time_diff_hours: 0.009167
-[PY]   quality_score.overall: 0.328611
-[PY]   quality_components: {'kalman_fit': 0.9979995132331875, 'temporal_consistency': 0.9887579227431672, 'anomaly_detection': 0.09816450347691953, 'source_reliability': 0.2, 'trend_alignment': 0.9708891913740897}
-[PY]   Rejected by quality scorer: Quality score 0.33 below threshold 0.46 (weakest: anomaly_detection=0.10)
+[PY]   quality_score.overall: 0.293722
+[PY]   quality_components: {'kalman_fit': 0.9948389934270881, 'temporal_consistency': 0.4596911174011692, 'anomaly_detection': 0.09816450347691953, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY]   Rejected by quality scorer: Quality score 0.29 below threshold 0.46 (weakest: anomaly_detection=0.10)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -1011,13 +1553,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.424135
-[PY]   innovation_covariance: 36.314859
-[PY]   previous_weight: 58.428976
+[PY]   kalman_prediction: 57.621946
+[PY]   innovation_covariance: 904.384120
+[PY]   previous_weight: 57.621636
 [PY]   time_diff_hours: 0.013333
-[PY]   quality_score.overall: 0.407619
-[PY]   quality_components: {'kalman_fit': 0.9070468920349104, 'temporal_consistency': 0.210272196843369, 'anomaly_detection': 0.7141565431778273, 'source_reliability': 0.2, 'trend_alignment': 0.9008283792640064}
-[PY]   Rejected by quality scorer: Quality score 0.41 below threshold 0.46 (weakest: source_reliability=0.20)
+[PY]   quality_score.overall: 0.401470
+[PY]   quality_components: {'kalman_fit': 0.9869313686072713, 'temporal_consistency': 0.2, 'anomaly_detection': 0.7324604512773342, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY]   Rejected by quality scorer: Quality score 0.40 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -1035,21 +1577,85 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.329880
-[PY]   innovation_covariance: 36.976667
-[PY]   previous_weight: 58.428976
+[PY]   kalman_prediction: 57.627987
+[PY]   innovation_covariance: 904.507304
+[PY]   previous_weight: 57.621636
 [PY]   time_diff_hours: 49.131667
-[PY]   quality_score.overall: 0.780912
-[PY]   quality_components: {'kalman_fit': 0.9573285354893509, 'temporal_consistency': 0.9740059355720221, 'anomaly_detection': 0.7949533726459856, 'source_reliability': 0.2, 'trend_alignment': 0.9410582291633682}
+[PY]   quality_score.overall: 0.779621
+[PY]   quality_components: {'kalman_fit': 0.9921515334415106, 'temporal_consistency': 0.9370644875820953, 'anomaly_detection': 0.8101713075704581, 'source_reliability': 0.2, 'trend_alignment': 0.8}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [58.021537, -0.066094, 58.428976, -0.048407]
-[PY]   Trend before limiting: -0.048407
-[PY]   State after update: [58.428976, -0.048407, 58.482364, -0.043300]
-[PY]   Trend after update (before limiting): -0.043300
+[PY]   State before update: [57.023784, 0.000060, 57.621636, 0.003102]
+[PY]   Trend before limiting: 0.003102
+[PY]   State after update: [57.621636, 0.003102, 57.921895, 0.005988]
+[PY]   Trend after update (before limiting): 0.005988
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.780912
+[PY]   quality_score: 0.779621
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-07-11 23:22:13+00:00 to 2025-07-14 00:30:07+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-07-11 23:22:13+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 59.600000, Unit: kg, Timestamp: 2025-07-11T23:22:13+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 59.600000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.100000
+[PY]   last_timestamp: 2025-07-09T23:16:28+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.023905
+[PY]   innovation_covariance: 904.532009
+[PY]   previous_weight: 57.023784
+[PY]   time_diff_hours: 48.095833
+[PY]   quality_score.overall: 0.796799
+[PY]   quality_components: {'kalman_fit': 0.984149605380019, 'temporal_consistency': 0.89264755972427, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.000000, 0.000000, 57.023784, 0.000060]
+[PY]   Trend before limiting: 0.000060
+[PY]   State after update: [57.023784, 0.000060, 57.621636, 0.003102]
+[PY]   Trend after update (before limiting): 0.003102
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.796799
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 58.900000, Unit: kg, Timestamp: 2025-07-14T00:30:07+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 58.900000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 59.600000
+[PY]   last_timestamp: 2025-07-11T23:22:13+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.627987
+[PY]   innovation_covariance: 904.507304
+[PY]   previous_weight: 57.621636
+[PY]   time_diff_hours: 49.131667
+[PY]   quality_score.overall: 0.779621
+[PY]   quality_components: {'kalman_fit': 0.9921515334415106, 'temporal_consistency': 0.9370644875820953, 'anomaly_detection': 0.8101713075704581, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.023784, 0.000060, 57.621636, 0.003102]
+[PY]   Trend before limiting: 0.003102
+[PY]   State after update: [57.621636, 0.003102, 57.921895, 0.005988]
+[PY]   Trend after update (before limiting): 0.005988
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.779621
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1074,23 +1680,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.093179
-[PY]   innovation_covariance: 39.187037
-[PY]   previous_weight: 58.482364
+[PY]   kalman_prediction: 57.975715
+[PY]   innovation_covariance: 906.501655
+[PY]   previous_weight: 57.921895
 [PY]   time_diff_hours: 215.716389
-[PY]   quality_score.overall: 0.777862
-[PY]   quality_components: {'kalman_fit': 0.9262420988683632, 'temporal_consistency': 0.939522106203443, 'anomaly_detection': 0.8627686881205104, 'source_reliability': 0.2, 'trend_alignment': 0.9505784573268141}
+[PY]   quality_score.overall: 0.791766
+[PY]   quality_components: {'kalman_fit': 0.9940897887055707, 'temporal_consistency': 0.9562497445560173, 'anomaly_detection': 0.8532594338642071, 'source_reliability': 0.2, 'trend_alignment': 0.8}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [58.428976, -0.048407, 58.482364, -0.043300]
-[PY]   Trend before limiting: -0.043300
-[PY]   State after update: [58.482364, -0.043300, 57.621129, -0.059813]
-[PY]   Trend after update (before limiting): -0.059813
+[PY]   State before update: [57.621636, 0.003102, 57.921895, 0.005988]
+[PY]   Trend before limiting: 0.005988
+[PY]   State after update: [57.921895, 0.005988, 57.589966, -0.006091]
+[PY]   Trend after update (before limiting): -0.006091
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.777862
+[PY]   quality_score: 0.791766
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-23T00:13:06+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 56.200000, Unit: kg, Timestamp: 2025-07-23T00:14:23+00:00, Source: https://api.iglucose.com
@@ -1105,12 +1712,12 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.615147
-[PY]   innovation_covariance: 36.668499
-[PY]   previous_weight: 57.621129
+[PY]   kalman_prediction: 57.589356
+[PY]   innovation_covariance: 905.464325
+[PY]   previous_weight: 57.589966
 [PY]   time_diff_hours: 0.021389
-[PY]   quality_score.overall: 0.397067
-[PY]   quality_components: {'kalman_fit': 0.8897227777948515, 'temporal_consistency': 0.2, 'anomaly_detection': 0.7459528693953162, 'source_reliability': 0.2, 'trend_alignment': 0.9847513608696977}
+[PY]   quality_score.overall: 0.402996
+[PY]   quality_components: {'kalman_fit': 0.9908083939044727, 'temporal_consistency': 0.2, 'anomaly_detection': 0.7459528693953162, 'source_reliability': 0.2, 'trend_alignment': 0.8390821469172004}
 [PY]   Rejected by quality scorer: Quality score 0.40 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
@@ -1145,13 +1752,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.605062
-[PY]   innovation_covariance: 36.729366
-[PY]   previous_weight: 57.621129
+[PY]   kalman_prediction: 57.588329
+[PY]   innovation_covariance: 905.513650
+[PY]   previous_weight: 57.589966
 [PY]   time_diff_hours: 6.446944
-[PY]   quality_score.overall: 0.367799
-[PY]   quality_components: {'kalman_fit': 0.6980189938763546, 'temporal_consistency': 0.2, 'anomaly_detection': 0.6017563408433182, 'source_reliability': 0.2, 'trend_alignment': 0.787869891036469}
-[PY]   Rejected by quality scorer: Quality score 0.37 below threshold 0.46 (weakest: temporal_consistency=0.20)
+[PY]   quality_score.overall: 0.388891
+[PY]   quality_components: {'kalman_fit': 0.9715122940764127, 'temporal_consistency': 0.2, 'anomaly_detection': 0.6017563408433182, 'source_reliability': 0.2, 'trend_alignment': 0.6466105980292458}
+[PY]   Rejected by quality scorer: Quality score 0.39 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -1169,21 +1776,21 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.605037
-[PY]   innovation_covariance: 36.729513
-[PY]   previous_weight: 57.621129
+[PY]   kalman_prediction: 57.588327
+[PY]   innovation_covariance: 905.513770
+[PY]   previous_weight: 57.589966
 [PY]   time_diff_hours: 6.456667
-[PY]   quality_score.overall: 0.764201
-[PY]   quality_components: {'kalman_fit': 0.943999378507989, 'temporal_consistency': 0.901704236828819, 'anomaly_detection': 0.7991799975146251, 'source_reliability': 0.2, 'trend_alignment': 0.9639842176339898}
+[PY]   quality_score.overall: 0.775349
+[PY]   quality_components: {'kalman_fit': 0.9954765276825877, 'temporal_consistency': 0.9047202716481011, 'anomaly_detection': 0.7991799975146251, 'source_reliability': 0.2, 'trend_alignment': 0.8916796774285469}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [58.482364, -0.043300, 57.621129, -0.059813]
-[PY]   Trend before limiting: -0.059813
-[PY]   State after update: [57.621129, -0.059813, 57.422779, -0.066146]
-[PY]   Trend after update (before limiting): -0.066146
+[PY]   State before update: [57.921895, 0.005988, 57.589966, -0.006091]
+[PY]   Trend before limiting: -0.006091
+[PY]   State after update: [57.589966, -0.006091, 57.403316, -0.011064]
+[PY]   Trend after update (before limiting): -0.011064
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.764201
+[PY]   quality_score: 0.775349
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1208,15 +1815,79 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.327031
-[PY]   innovation_covariance: 35.850900
-[PY]   previous_weight: 57.422779
+[PY]   kalman_prediction: 57.387300
+[PY]   innovation_covariance: 905.303873
+[PY]   previous_weight: 57.403316
 [PY]   time_diff_hours: 34.740278
-[PY]   quality_score.overall: 0.250616
-[PY]   quality_components: {'kalman_fit': 0.3140946619559333, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.25 below threshold 0.46 (weakest: temporal_consistency=0.20)
+[PY]   quality_score.overall: 0.316759
+[PY]   quality_components: {'kalman_fit': 0.9084646591924005, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.32 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-07-23 00:13:06+00:00 to 2025-07-23 06:40:30+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-07-23 00:13:06+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 56.700000, Unit: kg, Timestamp: 2025-07-23T00:13:06+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 56.700000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 58.900000
+[PY]   last_timestamp: 2025-07-14T00:30:07+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.975715
+[PY]   innovation_covariance: 906.501655
+[PY]   previous_weight: 57.921895
+[PY]   time_diff_hours: 215.716389
+[PY]   quality_score.overall: 0.791766
+[PY]   quality_components: {'kalman_fit': 0.9940897887055707, 'temporal_consistency': 0.9562497445560173, 'anomaly_detection': 0.8532594338642071, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.621636, 0.003102, 57.921895, 0.005988]
+[PY]   Trend before limiting: 0.005988
+[PY]   State after update: [57.921895, 0.005988, 57.589966, -0.006091]
+[PY]   Trend after update (before limiting): -0.006091
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.791766
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 56.900000, Unit: kg, Timestamp: 2025-07-23T06:40:30+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 56.900000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 56.700000
+[PY]   last_timestamp: 2025-07-23T00:13:06+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.588327
+[PY]   innovation_covariance: 905.513770
+[PY]   previous_weight: 57.589966
+[PY]   time_diff_hours: 6.456667
+[PY]   quality_score.overall: 0.775349
+[PY]   quality_components: {'kalman_fit': 0.9954765276825877, 'temporal_consistency': 0.9047202716481011, 'anomaly_detection': 0.7991799975146251, 'source_reliability': 0.2, 'trend_alignment': 0.8916796774285469}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.921895, 0.005988, 57.589966, -0.006091]
+[PY]   Trend before limiting: -0.006091
+[PY]   State after update: [57.589966, -0.006091, 57.403316, -0.011064]
+[PY]   Trend after update (before limiting): -0.011064
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.775349
+[PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
@@ -1240,23 +1911,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.244155
-[PY]   innovation_covariance: 36.269990
-[PY]   previous_weight: 57.422779
+[PY]   kalman_prediction: 57.373437
+[PY]   innovation_covariance: 905.720248
+[PY]   previous_weight: 57.403316
 [PY]   time_diff_hours: 64.810278
-[PY]   quality_score.overall: 0.775681
-[PY]   quality_components: {'kalman_fit': 0.9384081311843304, 'temporal_consistency': 0.9531670034725022, 'anomaly_detection': 0.807789115572522, 'source_reliability': 0.2, 'trend_alignment': 0.988024302868036}
+[PY]   quality_score.overall: 0.787761
+[PY]   quality_components: {'kalman_fit': 0.9941322503848712, 'temporal_consistency': 0.9539465920653613, 'anomaly_detection': 0.807789115572522, 'source_reliability': 0.2, 'trend_alignment': 0.9093022883547932}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [57.621129, -0.059813, 57.422779, -0.066146]
-[PY]   Trend before limiting: -0.066146
-[PY]   State after update: [57.422779, -0.066146, 57.040482, -0.073707]
-[PY]   Trend after update (before limiting): -0.073707
+[PY]   State before update: [57.589966, -0.006091, 57.403316, -0.011064]
+[PY]   Trend before limiting: -0.011064
+[PY]   State after update: [57.403316, -0.011064, 57.104700, -0.019691]
+[PY]   Trend after update (before limiting): -0.019691
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.775681
+[PY]   quality_score: 0.787761
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T23:29:07+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 43.900000, Unit: kg, Timestamp: 2025-07-26T03:06:46+00:00, Source: https://api.iglucose.com
@@ -1279,21 +1951,21 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.028427
-[PY]   innovation_covariance: 35.213861
-[PY]   previous_weight: 57.040482
+[PY]   kalman_prediction: 57.101480
+[PY]   innovation_covariance: 905.085400
+[PY]   previous_weight: 57.104700
 [PY]   time_diff_hours: 3.925278
-[PY]   quality_score.overall: 0.576060
-[PY]   quality_components: {'kalman_fit': 0.8872220967799445, 'temporal_consistency': 0.402051335162984, 'anomaly_detection': 0.8522384377831349, 'source_reliability': 0.2, 'trend_alignment': 0.9219287076753548}
+[PY]   quality_score.overall: 0.571755
+[PY]   quality_components: {'kalman_fit': 0.9901220958812148, 'temporal_consistency': 0.3729057724965877, 'anomaly_detection': 0.8522384377831349, 'source_reliability': 0.2, 'trend_alignment': 0.8953843035988263}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [57.422779, -0.066146, 57.040482, -0.073707]
-[PY]   Trend before limiting: -0.073707
-[PY]   State after update: [57.040482, -0.073707, 56.744948, -0.084172]
-[PY]   Trend after update (before limiting): -0.084172
+[PY]   State before update: [57.403316, -0.011064, 57.104700, -0.019691]
+[PY]   Trend before limiting: -0.019691
+[PY]   State after update: [57.104700, -0.019691, 56.721322, -0.030022]
+[PY]   Trend after update (before limiting): -0.030022
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.576060
+[PY]   quality_score: 0.571755
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1310,13 +1982,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.736531
-[PY]   innovation_covariance: 34.549342
-[PY]   previous_weight: 56.744948
+[PY]   kalman_prediction: 56.718319
+[PY]   innovation_covariance: 904.718848
+[PY]   previous_weight: 56.721322
 [PY]   time_diff_hours: 0.225556
-[PY]   quality_score.overall: 0.021576
-[PY]   quality_components: {'kalman_fit': 0.009167933954440231, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.02 below threshold 0.46 (weakest: kalman_fit=0.01)
+[PY]   quality_score.overall: 0.303450
+[PY]   quality_components: {'kalman_fit': 0.6911234159052443, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.30 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -1334,13 +2006,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.736531
-[PY]   innovation_covariance: 34.549342
-[PY]   previous_weight: 56.744948
+[PY]   kalman_prediction: 56.718319
+[PY]   innovation_covariance: 904.718848
+[PY]   previous_weight: 56.721322
 [PY]   time_diff_hours: 0.236944
-[PY]   quality_score.overall: 0.021611
-[PY]   quality_components: {'kalman_fit': 0.009183611749609038, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.02 below threshold 0.46 (weakest: kalman_fit=0.01)
+[PY]   quality_score.overall: 0.303450
+[PY]   quality_components: {'kalman_fit': 0.6911283032156008, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.30 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -1366,21 +2038,116 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.672600
-[PY]   innovation_covariance: 34.729837
-[PY]   previous_weight: 56.744948
+[PY]   kalman_prediction: 56.695517
+[PY]   innovation_covariance: 904.902808
+[PY]   previous_weight: 56.721322
 [PY]   time_diff_hours: 20.628889
-[PY]   quality_score.overall: 0.779200
-[PY]   quality_components: {'kalman_fit': 0.9574936511153372, 'temporal_consistency': 0.9605653814485867, 'anomaly_detection': 0.8170967669673748, 'source_reliability': 0.2, 'trend_alignment': 0.8543338023754414}
+[PY]   quality_score.overall: 0.790540
+[PY]   quality_components: {'kalman_fit': 0.9967474583809236, 'temporal_consistency': 0.9587448969921921, 'anomaly_detection': 0.8170967669673748, 'source_reliability': 0.2, 'trend_alignment': 0.8932547022835449}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [57.040482, -0.073707, 56.744948, -0.084172]
-[PY]   Trend before limiting: -0.084172
-[PY]   State after update: [56.744948, -0.084172, 56.766041, -0.080530]
-[PY]   Trend after update (before limiting): -0.080530
+[PY]   State before update: [57.104700, -0.019691, 56.721322, -0.030022]
+[PY]   Trend before limiting: -0.030022
+[PY]   State after update: [56.721322, -0.030022, 56.819790, -0.026593]
+[PY]   Trend after update (before limiting): -0.026593
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.779200
+[PY]   quality_score: 0.790540
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=3, time_range=2025-07-25 23:29:07+00:00 to 2025-07-27 00:02:22+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=3, replay_from=2025-07-25 23:29:07+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 56.400000, Unit: kg, Timestamp: 2025-07-25T23:29:07+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 56.400000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 56.900000
+[PY]   last_timestamp: 2025-07-23T06:40:30+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.373437
+[PY]   innovation_covariance: 905.720248
+[PY]   previous_weight: 57.403316
+[PY]   time_diff_hours: 64.810278
+[PY]   quality_score.overall: 0.787761
+[PY]   quality_components: {'kalman_fit': 0.9941322503848712, 'temporal_consistency': 0.9539465920653613, 'anomaly_detection': 0.807789115572522, 'source_reliability': 0.2, 'trend_alignment': 0.9093022883547932}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.589966, -0.006091, 57.403316, -0.011064]
+[PY]   Trend before limiting: -0.011064
+[PY]   State after update: [57.403316, -0.011064, 57.104700, -0.019691]
+[PY]   Trend after update (before limiting): -0.019691
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.787761
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 55.600000, Unit: kg, Timestamp: 2025-07-26T03:24:38+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 55.600000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 56.400000
+[PY]   last_timestamp: 2025-07-25T23:29:07+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.101480
+[PY]   innovation_covariance: 905.085400
+[PY]   previous_weight: 57.104700
+[PY]   time_diff_hours: 3.925278
+[PY]   quality_score.overall: 0.571755
+[PY]   quality_components: {'kalman_fit': 0.9901220958812148, 'temporal_consistency': 0.3729057724965877, 'anomaly_detection': 0.8522384377831349, 'source_reliability': 0.2, 'trend_alignment': 0.8953843035988263}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.403316, -0.011064, 57.104700, -0.019691]
+[PY]   Trend before limiting: -0.019691
+[PY]   State after update: [57.104700, -0.019691, 56.721322, -0.030022]
+[PY]   Trend after update (before limiting): -0.030022
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.571755
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.200000, Unit: kg, Timestamp: 2025-07-27T00:02:22+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.200000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 55.600000
+[PY]   last_timestamp: 2025-07-26T03:24:38+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 56.695517
+[PY]   innovation_covariance: 904.902808
+[PY]   previous_weight: 56.721322
+[PY]   time_diff_hours: 20.628889
+[PY]   quality_score.overall: 0.790540
+[PY]   quality_components: {'kalman_fit': 0.9967474583809236, 'temporal_consistency': 0.9587448969921921, 'anomaly_detection': 0.8170967669673748, 'source_reliability': 0.2, 'trend_alignment': 0.8932547022835449}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.104700, -0.019691, 56.721322, -0.030022]
+[PY]   Trend before limiting: -0.030022
+[PY]   State after update: [56.721322, -0.030022, 56.819790, -0.026593]
+[PY]   Trend after update (before limiting): -0.026593
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.790540
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1397,23 +2164,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.697650
-[PY]   innovation_covariance: 34.398670
-[PY]   previous_weight: 56.766041
+[PY]   kalman_prediction: 56.797205
+[PY]   innovation_covariance: 904.798769
+[PY]   previous_weight: 56.819790
 [PY]   time_diff_hours: 20.382222
-[PY]   quality_score.overall: 0.765537
-[PY]   quality_components: {'kalman_fit': 0.9280542416727504, 'temporal_consistency': 0.9333372739389942, 'anomaly_detection': 0.8149887070980927, 'source_reliability': 0.2, 'trend_alignment': 0.8556598671114138}
+[PY]   quality_score.overall: 0.784576
+[PY]   quality_components: {'kalman_fit': 0.994827168570715, 'temporal_consistency': 0.936867360149485, 'anomaly_detection': 0.8149887070980927, 'source_reliability': 0.2, 'trend_alignment': 0.879116185817158}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [56.744948, -0.084172, 56.766041, -0.080530]
-[PY]   Trend before limiting: -0.080530
-[PY]   State after update: [56.766041, -0.080530, 56.843785, -0.074430]
-[PY]   Trend after update (before limiting): -0.074430
+[PY]   State before update: [56.721322, -0.030022, 56.819790, -0.026593]
+[PY]   Trend before limiting: -0.026593
+[PY]   State after update: [56.819790, -0.026593, 56.991784, -0.021001]
+[PY]   Trend after update (before limiting): -0.021001
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.765537
+[PY]   quality_score: 0.784576
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-27T20:25:18+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 44.600000, Unit: kg, Timestamp: 2025-07-31T01:42:59+00:00, Source: https://api.iglucose.com
@@ -1436,13 +2204,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.528555
-[PY]   innovation_covariance: 35.241072
-[PY]   previous_weight: 56.843785
+[PY]   kalman_prediction: 56.902840
+[PY]   innovation_covariance: 906.271161
+[PY]   previous_weight: 56.991784
 [PY]   time_diff_hours: 101.646111
-[PY]   quality_score.overall: 0.187953
-[PY]   quality_components: {'kalman_fit': 0.1536212795297392, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.19 below threshold 0.46 (weakest: kalman_fit=0.15)
+[PY]   quality_score.overall: 0.286397
+[PY]   quality_components: {'kalman_fit': 0.5161383796011043, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.29 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -1460,21 +2228,85 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.456351
-[PY]   innovation_covariance: 35.643356
-[PY]   previous_weight: 56.843785
+[PY]   kalman_prediction: 56.882467
+[PY]   innovation_covariance: 906.908078
+[PY]   previous_weight: 56.991784
 [PY]   time_diff_hours: 124.928333
-[PY]   quality_score.overall: 0.779949
-[PY]   quality_components: {'kalman_fit': 0.924511977034185, 'temporal_consistency': 0.9700803657388777, 'anomaly_detection': 0.8504476782649465, 'source_reliability': 0.2, 'trend_alignment': 0.9082339519045148}
+[PY]   quality_score.overall: 0.798919
+[PY]   quality_components: {'kalman_fit': 0.9902122594049635, 'temporal_consistency': 0.9755607759233209, 'anomaly_detection': 0.8504476782649465, 'source_reliability': 0.2, 'trend_alignment': 0.9082339519045148}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [56.766041, -0.080530, 56.843785, -0.074430]
-[PY]   Trend before limiting: -0.074430
-[PY]   State after update: [56.843785, -0.074430, 56.703880, -0.061393]
-[PY]   Trend after update (before limiting): -0.061393
+[PY]   State before update: [56.819790, -0.026593, 56.991784, -0.021001]
+[PY]   Trend before limiting: -0.021001
+[PY]   State after update: [56.991784, -0.021001, 57.108721, -0.009496]
+[PY]   Trend after update (before limiting): -0.009496
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.779949
+[PY]   quality_score: 0.798919
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-07-27 20:25:18+00:00 to 2025-08-02 01:21:00+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-07-27 20:25:18+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.600000, Unit: kg, Timestamp: 2025-07-27T20:25:18+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.600000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.200000
+[PY]   last_timestamp: 2025-07-27T00:02:22+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 56.797205
+[PY]   innovation_covariance: 904.798769
+[PY]   previous_weight: 56.819790
+[PY]   time_diff_hours: 20.382222
+[PY]   quality_score.overall: 0.784576
+[PY]   quality_components: {'kalman_fit': 0.994827168570715, 'temporal_consistency': 0.936867360149485, 'anomaly_detection': 0.8149887070980927, 'source_reliability': 0.2, 'trend_alignment': 0.879116185817158}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [56.721322, -0.030022, 56.819790, -0.026593]
+[PY]   Trend before limiting: -0.026593
+[PY]   State after update: [56.819790, -0.026593, 56.991784, -0.021001]
+[PY]   Trend after update (before limiting): -0.021001
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.784576
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.600000, Unit: kg, Timestamp: 2025-08-02T01:21:00+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.600000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.600000
+[PY]   last_timestamp: 2025-07-27T20:25:18+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 56.882467
+[PY]   innovation_covariance: 906.908078
+[PY]   previous_weight: 56.991784
+[PY]   time_diff_hours: 124.928333
+[PY]   quality_score.overall: 0.798919
+[PY]   quality_components: {'kalman_fit': 0.9902122594049635, 'temporal_consistency': 0.9755607759233209, 'anomaly_detection': 0.8504476782649465, 'source_reliability': 0.2, 'trend_alignment': 0.9082339519045148}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [56.819790, -0.026593, 56.991784, -0.021001]
+[PY]   Trend before limiting: -0.021001
+[PY]   State after update: [56.991784, -0.021001, 57.108721, -0.009496]
+[PY]   Trend after update (before limiting): -0.009496
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.798919
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1515,13 +2347,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.557311
-[PY]   innovation_covariance: 35.742895
-[PY]   previous_weight: 56.703880
+[PY]   kalman_prediction: 57.086050
+[PY]   innovation_covariance: 907.050511
+[PY]   previous_weight: 57.108721
 [PY]   time_diff_hours: 57.297778
-[PY]   quality_score.overall: 0.141299
-[PY]   quality_components: {'kalman_fit': 0.09173182132430589, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.14 below threshold 0.46 (weakest: kalman_fit=0.09)
+[PY]   quality_score.overall: 0.280699
+[PY]   quality_components: {'kalman_fit': 0.47288620877843535, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.28 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -1539,23 +2371,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.507991
-[PY]   innovation_covariance: 36.119447
-[PY]   previous_weight: 56.703880
+[PY]   kalman_prediction: 57.078421
+[PY]   innovation_covariance: 907.651038
+[PY]   previous_weight: 57.108721
 [PY]   time_diff_hours: 76.578333
-[PY]   quality_score.overall: 0.761448
-[PY]   quality_components: {'kalman_fit': 0.8826571444989749, 'temporal_consistency': 0.9386943675420804, 'anomaly_detection': 0.860619001479675, 'source_reliability': 0.2, 'trend_alignment': 0.8602035865043044}
+[PY]   quality_score.overall: 0.792412
+[PY]   quality_components: {'kalman_fit': 0.9835195927519021, 'temporal_consistency': 0.9531353262847704, 'anomaly_detection': 0.860619001479675, 'source_reliability': 0.2, 'trend_alignment': 0.8602035865043044}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [56.843785, -0.074430, 56.703880, -0.061393]
-[PY]   Trend before limiting: -0.061393
-[PY]   State after update: [56.703880, -0.061393, 56.906378, -0.040394]
-[PY]   Trend after update (before limiting): -0.040394
+[PY]   State before update: [56.991784, -0.021001, 57.108721, -0.009496]
+[PY]   Trend before limiting: -0.009496
+[PY]   State after update: [57.108721, -0.009496, 57.457266, 0.009961]
+[PY]   Trend after update (before limiting): 0.009961
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.761448
+[PY]   quality_score: 0.792412
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-05T05:55:42+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 45.200000, Unit: kg, Timestamp: 2025-08-06T03:12:29+00:00, Source: https://api.iglucose.com
@@ -1642,21 +2475,85 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.683534
-[PY]   innovation_covariance: 37.819657
-[PY]   previous_weight: 56.906378
+[PY]   kalman_prediction: 57.512220
+[PY]   innovation_covariance: 910.267036
+[PY]   previous_weight: 57.457266
 [PY]   time_diff_hours: 132.402500
-[PY]   quality_score.overall: 0.807627
-[PY]   quality_components: {'kalman_fit': 0.9989081668552083, 'temporal_consistency': 0.991434215271972, 'anomaly_detection': 0.8538233334491054, 'source_reliability': 0.2, 'trend_alignment': 0.9818292231759121}
+[PY]   quality_score.overall: 0.800798
+[PY]   quality_components: {'kalman_fit': 0.9890884345129495, 'temporal_consistency': 0.9703235954257665, 'anomaly_detection': 0.8538233334491054, 'source_reliability': 0.2, 'trend_alignment': 0.9818292231759121}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [56.703880, -0.061393, 56.906378, -0.040394]
-[PY]   Trend before limiting: -0.040394
-[PY]   State after update: [56.906378, -0.040394, 56.688415, -0.040155]
-[PY]   Trend after update (before limiting): -0.040155
+[PY]   State before update: [57.108721, -0.009496, 57.457266, 0.009961]
+[PY]   Trend before limiting: 0.009961
+[PY]   State after update: [57.457266, 0.009961, 57.182182, -0.006731]
+[PY]   Trend after update (before limiting): -0.006731
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.807627
+[PY]   quality_score: 0.800798
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-08-05 05:55:42+00:00 to 2025-08-10 18:19:51+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-08-05 05:55:42+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 58.200000, Unit: kg, Timestamp: 2025-08-05T05:55:42+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 58.200000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.600000
+[PY]   last_timestamp: 2025-08-02T01:21:00+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.078421
+[PY]   innovation_covariance: 907.651038
+[PY]   previous_weight: 57.108721
+[PY]   time_diff_hours: 76.578333
+[PY]   quality_score.overall: 0.792412
+[PY]   quality_components: {'kalman_fit': 0.9835195927519021, 'temporal_consistency': 0.9531353262847704, 'anomaly_detection': 0.860619001479675, 'source_reliability': 0.2, 'trend_alignment': 0.8602035865043044}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [56.991784, -0.021001, 57.108721, -0.009496]
+[PY]   Trend before limiting: -0.009496
+[PY]   State after update: [57.108721, -0.009496, 57.457266, 0.009961]
+[PY]   Trend after update (before limiting): 0.009961
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.792412
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 56.700000, Unit: kg, Timestamp: 2025-08-10T18:19:51+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 56.700000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 58.200000
+[PY]   last_timestamp: 2025-08-05T05:55:42+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.512220
+[PY]   innovation_covariance: 910.267036
+[PY]   previous_weight: 57.457266
+[PY]   time_diff_hours: 132.402500
+[PY]   quality_score.overall: 0.800798
+[PY]   quality_components: {'kalman_fit': 0.9890884345129495, 'temporal_consistency': 0.9703235954257665, 'anomaly_detection': 0.8538233334491054, 'source_reliability': 0.2, 'trend_alignment': 0.9818292231759121}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.108721, -0.009496, 57.457266, 0.009961]
+[PY]   Trend before limiting: 0.009961
+[PY]   State after update: [57.457266, 0.009961, 57.182182, -0.006731]
+[PY]   Trend after update (before limiting): -0.006731
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.800798
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1681,23 +2578,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.665071
-[PY]   innovation_covariance: 36.257351
-[PY]   previous_weight: 56.688415
+[PY]   kalman_prediction: 57.178268
+[PY]   innovation_covariance: 907.367839
+[PY]   previous_weight: 57.182182
 [PY]   time_diff_hours: 13.952222
-[PY]   quality_score.overall: 0.789244
-[PY]   quality_components: {'kalman_fit': 0.9866502758560456, 'temporal_consistency': 0.9782316436943568, 'anomaly_detection': 0.7964412811958956, 'source_reliability': 0.2, 'trend_alignment': 0.9288446906730667}
+[PY]   quality_score.overall: 0.780425
+[PY]   quality_components: {'kalman_fit': 0.9890216021986445, 'temporal_consistency': 0.9317754982456019, 'anomaly_detection': 0.7964412811958956, 'source_reliability': 0.2, 'trend_alignment': 0.9288446906730667}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [56.906378, -0.040394, 56.688415, -0.040155]
-[PY]   Trend before limiting: -0.040155
-[PY]   State after update: [56.688415, -0.040155, 56.625324, -0.042078]
-[PY]   Trend after update (before limiting): -0.042078
+[PY]   State before update: [57.457266, 0.009961, 57.182182, -0.006731]
+[PY]   Trend before limiting: -0.006731
+[PY]   State after update: [57.182182, -0.006731, 56.954851, -0.016825]
+[PY]   Trend after update (before limiting): -0.016825
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.789244
+[PY]   quality_score: 0.780425
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-11T08:16:59+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 50.900000, Unit: kg, Timestamp: 2025-08-11T08:17:28+00:00, Source: https://api.iglucose.com
@@ -1712,12 +2610,12 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.621116
-[PY]   innovation_covariance: 35.197346
-[PY]   previous_weight: 56.625324
+[PY]   kalman_prediction: 56.953168
+[PY]   innovation_covariance: 905.885992
+[PY]   previous_weight: 56.954851
 [PY]   time_diff_hours: 0.008056
 [PY]   quality_score.overall: 0.000000
-[PY]   quality_components: {'kalman_fit': 0.6174493626047206, 'temporal_consistency': 0.2, 'anomaly_detection': 0.0, 'source_reliability': 0.2, 'trend_alignment': 0.4467155084829742}
+[PY]   quality_components: {'kalman_fit': 0.904333868418986, 'temporal_consistency': 0.2, 'anomaly_detection': 0.0, 'source_reliability': 0.2, 'trend_alignment': 0.4467155084829742}
 [PY]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
@@ -1752,21 +2650,85 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.517440
-[PY]   innovation_covariance: 36.195023
-[PY]   previous_weight: 56.625324
+[PY]   kalman_prediction: 56.911713
+[PY]   innovation_covariance: 907.270401
+[PY]   previous_weight: 56.954851
 [PY]   time_diff_hours: 61.533889
-[PY]   quality_score.overall: 0.745055
-[PY]   quality_components: {'kalman_fit': 0.8675463396974189, 'temporal_consistency': 0.9246153194675604, 'anomaly_detection': 0.8012301221732767, 'source_reliability': 0.2, 'trend_alignment': 0.8766331574354205}
+[PY]   quality_score.overall: 0.777438
+[PY]   quality_components: {'kalman_fit': 0.9776830077737358, 'temporal_consistency': 0.9360571994047814, 'anomaly_detection': 0.8012301221732767, 'source_reliability': 0.2, 'trend_alignment': 0.8766331574354205}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [56.688415, -0.040155, 56.625324, -0.042078]
-[PY]   Trend before limiting: -0.042078
-[PY]   State after update: [56.625324, -0.042078, 56.966217, -0.020277]
-[PY]   Trend after update (before limiting): -0.020277
+[PY]   State before update: [57.182182, -0.006731, 56.954851, -0.016825]
+[PY]   Trend before limiting: -0.016825
+[PY]   State after update: [56.954851, -0.016825, 57.397580, 0.005517]
+[PY]   Trend after update (before limiting): 0.005517
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.745055
+[PY]   quality_score: 0.777438
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-08-11 08:16:59+00:00 to 2025-08-13 21:49:01+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-08-11 08:16:59+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 56.500000, Unit: kg, Timestamp: 2025-08-11T08:16:59+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 56.500000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 56.700000
+[PY]   last_timestamp: 2025-08-10T18:19:51+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.178268
+[PY]   innovation_covariance: 907.367839
+[PY]   previous_weight: 57.182182
+[PY]   time_diff_hours: 13.952222
+[PY]   quality_score.overall: 0.780425
+[PY]   quality_components: {'kalman_fit': 0.9890216021986445, 'temporal_consistency': 0.9317754982456019, 'anomaly_detection': 0.7964412811958956, 'source_reliability': 0.2, 'trend_alignment': 0.9288446906730667}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.457266, 0.009961, 57.182182, -0.006731]
+[PY]   Trend before limiting: -0.006731
+[PY]   State after update: [57.182182, -0.006731, 56.954851, -0.016825]
+[PY]   Trend after update (before limiting): -0.016825
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.780425
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 58.400000, Unit: kg, Timestamp: 2025-08-13T21:49:01+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 58.400000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 56.500000
+[PY]   last_timestamp: 2025-08-11T08:16:59+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 56.911713
+[PY]   innovation_covariance: 907.270401
+[PY]   previous_weight: 56.954851
+[PY]   time_diff_hours: 61.533889
+[PY]   quality_score.overall: 0.777438
+[PY]   quality_components: {'kalman_fit': 0.9776830077737358, 'temporal_consistency': 0.9360571994047814, 'anomaly_detection': 0.8012301221732767, 'source_reliability': 0.2, 'trend_alignment': 0.8766331574354205}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.182182, -0.006731, 56.954851, -0.016825]
+[PY]   Trend before limiting: -0.016825
+[PY]   State after update: [56.954851, -0.016825, 57.397580, 0.005517]
+[PY]   Trend after update (before limiting): 0.005517
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.777438
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1783,13 +2745,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.964189
-[PY]   innovation_covariance: 35.161096
-[PY]   previous_weight: 56.966217
+[PY]   kalman_prediction: 57.398131
+[PY]   innovation_covariance: 905.842383
+[PY]   previous_weight: 57.397580
 [PY]   time_diff_hours: 0.006667
-[PY]   quality_score.overall: 0.313393
-[PY]   quality_components: {'kalman_fit': 0.8281796142814442, 'temporal_consistency': 0.2, 'anomaly_detection': 0.2225131656659791, 'source_reliability': 0.2, 'trend_alignment': 0.8464817248906116}
-[PY]   Rejected by quality scorer: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
+[PY]   quality_score.overall: 0.320508
+[PY]   quality_components: {'kalman_fit': 0.9705097184077064, 'temporal_consistency': 0.2, 'anomaly_detection': 0.2225131656659791, 'source_reliability': 0.2, 'trend_alignment': 0.8464817248906116}
+[PY]   Rejected by quality scorer: Quality score 0.32 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -1815,23 +2777,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.845033
-[PY]   innovation_covariance: 37.949317
-[PY]   previous_weight: 56.966217
+[PY]   kalman_prediction: 57.430552
+[PY]   innovation_covariance: 910.071194
+[PY]   previous_weight: 57.397580
 [PY]   time_diff_hours: 143.432500
-[PY]   quality_score.overall: 0.796527
-[PY]   quality_components: {'kalman_fit': 0.9647297294231315, 'temporal_consistency': 0.98262597926888, 'anomaly_detection': 0.8601454259294258, 'source_reliability': 0.2, 'trend_alignment': 0.9433354498734945}
+[PY]   quality_score.overall: 0.809248
+[PY]   quality_components: {'kalman_fit': 0.9995946025565208, 'temporal_consistency': 0.9998986079766017, 'anomaly_detection': 0.8601454259294258, 'source_reliability': 0.2, 'trend_alignment': 0.9433354498734945}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [56.625324, -0.042078, 56.966217, -0.020277]
-[PY]   Trend before limiting: -0.020277
-[PY]   State after update: [56.966217, -0.020277, 57.011898, -0.012549]
-[PY]   Trend after update (before limiting): -0.012549
+[PY]   State before update: [56.954851, -0.016825, 57.397580, 0.005517]
+[PY]   Trend before limiting: 0.005517
+[PY]   State after update: [57.397580, 0.005517, 57.418279, 0.004920]
+[PY]   Trend after update (before limiting): 0.004920
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.796527
+[PY]   quality_score: 0.809248
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-19T21:14:58+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 38.600000, Unit: kg, Timestamp: 2025-08-19T21:49:11+00:00, Source: https://api.iglucose.com
@@ -1862,21 +2825,81 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 56.972724
-[PY]   innovation_covariance: 37.554801
-[PY]   previous_weight: 57.011898
+[PY]   kalman_prediction: 57.433638
+[PY]   innovation_covariance: 909.152969
+[PY]   previous_weight: 57.418279
 [PY]   time_diff_hours: 74.920833
-[PY]   quality_score.overall: 0.706221
-[PY]   quality_components: {'kalman_fit': 0.7814455146550404, 'temporal_consistency': 0.8867317593553846, 'anomaly_detection': 0.8074966367366219, 'source_reliability': 0.2, 'trend_alignment': 0.7340584167609795}
+[PY]   quality_score.overall: 0.758359
+[PY]   quality_components: {'kalman_fit': 0.9569950423559049, 'temporal_consistency': 0.8958737846318081, 'anomaly_detection': 0.8074966367366219, 'source_reliability': 0.2, 'trend_alignment': 0.7340584167609795}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [56.966217, -0.020277, 57.011898, -0.012549]
-[PY]   Trend before limiting: -0.012549
-[PY]   State after update: [57.011898, -0.012549, 57.958317, 0.031369]
-[PY]   Trend after update (before limiting): 0.031369
+[PY]   State before update: [57.397580, 0.005517, 57.418279, 0.004920]
+[PY]   Trend before limiting: 0.004920
+[PY]   State after update: [57.418279, 0.004920, 58.557766, 0.056545]
+[PY]   Trend after update (before limiting): 0.056545
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.706221
+[PY]   quality_score: 0.758359
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-08-19 21:14:58+00:00 to 2025-08-23 00:10:13+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-08-19 21:14:58+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.400000, Unit: kg, Timestamp: 2025-08-19T21:14:58+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.400000
+[PY] Step 2: Load or create user state
+[PY] Creating new state (no existing state)
+[PY] Step 3: Check for reset
+[PY] Reset needed: type=ResetType.INITIAL
+[PY]   Reset completed: reason=initial_measurement, gap_days=None
+[PY] Step 4: Initialize Kalman if needed
+[PY] Initializing Kalman filter
+[PY]   Using adaptive parameters: Q_weight=0.900000, Q_trend=0.006000
+[PY]   noise_multiplier: 3.000000
+[PY]   observation_covariance: 300.000000
+[PY]   Initial state: [57.400000, 0.000000]
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.400000
+[PY]   innovation_covariance: 904.540010
+[PY]   previous_weight: 57.400000
+[PY]   time_diff_hours: 0.000000
+[PY]   quality_score.overall: 0.824742
+[PY]   quality_components: {'kalman_fit': 1.0, 'temporal_consistency': 1.0, 'anomaly_detection': 1.0, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.824742
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 60.400000, Unit: kg, Timestamp: 2025-08-23T00:10:13+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 60.400000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.400000
+[PY]   last_timestamp: 2025-08-19T21:14:58+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.400000
+[PY]   innovation_covariance: 904.549745
+[PY]   previous_weight: 57.400000
+[PY]   time_diff_hours: 74.920833
+[PY]   quality_score.overall: 0.785053
+[PY]   quality_components: {'kalman_fit': 0.9823033632941155, 'temporal_consistency': 0.8954425960613478, 'anomaly_detection': 0.912977879843832, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.609222, Q_trend=0.004061
+[PY]   observation_covariance: 206.041213
+[PY]   State before update: [57.400000, 0.000000]
+[PY]   Trend before limiting: 0.000000
+[PY]   State after update: [57.400000, 0.000000, 57.460756, 0.000045]
+[PY]   Trend after update (before limiting): 0.000045
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.785053
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1893,23 +2916,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.013049
-[PY]   innovation_covariance: 36.591992
-[PY]   previous_weight: 57.958317
+[PY]   kalman_prediction: 57.460833
+[PY]   innovation_covariance: 904.808019
+[PY]   previous_weight: 57.460756
 [PY]   time_diff_hours: 41.875000
-[PY]   quality_score.overall: 0.741923
-[PY]   quality_components: {'kalman_fit': 0.9683871928832953, 'temporal_consistency': 0.9782957647295357, 'anomaly_detection': 0.6246651424817387, 'source_reliability': 0.2, 'trend_alignment': 0.862603551572482}
+[PY]   quality_score.overall: 0.761051
+[PY]   quality_components: {'kalman_fit': 0.9991289087985623, 'temporal_consistency': 0.9912682146590106, 'anomaly_detection': 0.6700605497837306, 'source_reliability': 0.2, 'trend_alignment': 0.8}
 [PY] Step 6: Kalman update
-[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
-[PY]   observation_covariance: 15.000000
-[PY]   State before update: [57.011898, -0.012549, 57.958317, 0.031369]
-[PY]   Trend before limiting: 0.031369
-[PY]   State after update: [57.958317, 0.031369, 57.908368, 0.026742]
-[PY]   Trend after update (before limiting): 0.026742
+[PY]   Using adaptive parameters: Q_weight=0.414308, Q_trend=0.002762
+[PY]   observation_covariance: 143.058755
+[PY]   State before update: [57.400000, 0.000000, 57.460756, 0.000045]
+[PY]   Trend before limiting: 0.000045
+[PY]   State after update: [57.460756, 0.000045, 57.465181, 0.000056]
+[PY]   Trend after update (before limiting): 0.000056
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.741923
+[PY]   quality_score: 0.761051
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-24T18:02:43+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 43.800000, Unit: kg, Timestamp: 2025-08-24T19:08:10+00:00, Source: https://api.iglucose.com
@@ -1940,21 +2964,85 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.967844
-[PY]   innovation_covariance: 36.193498
-[PY]   previous_weight: 57.908368
+[PY]   kalman_prediction: 57.465305
+[PY]   innovation_covariance: 904.973232
+[PY]   previous_weight: 57.465181
 [PY]   time_diff_hours: 53.377222
-[PY]   quality_score.overall: 0.800518
-[PY]   quality_components: {'kalman_fit': 0.9947941741612475, 'temporal_consistency': 0.9995250942113074, 'anomaly_detection': 0.8208014082867607, 'source_reliability': 0.2, 'trend_alignment': 0.9382396652062505}
+[PY]   quality_score.overall: 0.790413
+[PY]   quality_components: {'kalman_fit': 0.9973281172110796, 'temporal_consistency': 0.976759249267291, 'anomaly_detection': 0.8181561051951566, 'source_reliability': 0.2, 'trend_alignment': 0.8}
 [PY] Step 6: Kalman update
-[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
-[PY]   observation_covariance: 15.000000
-[PY]   State before update: [57.958317, 0.031369, 57.908368, 0.026742]
-[PY]   Trend before limiting: 0.026742
-[PY]   State after update: [57.908368, 0.026742, 57.951675, 0.026017]
-[PY]   Trend after update (before limiting): 0.026017
+[PY]   Using adaptive parameters: Q_weight=0.283653, Q_trend=0.001891
+[PY]   observation_covariance: 100.840350
+[PY]   State before update: [57.460756, 0.000045, 57.465181, 0.000056]
+[PY]   Trend before limiting: 0.000056
+[PY]   State after update: [57.465181, 0.000056, 57.485735, 0.000175]
+[PY]   Trend after update (before limiting): 0.000175
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.800518
+[PY]   quality_score: 0.790413
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-08-24 18:02:43+00:00 to 2025-08-26 23:25:21+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-08-24 18:02:43+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.600000, Unit: kg, Timestamp: 2025-08-24T18:02:43+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.600000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 60.400000
+[PY]   last_timestamp: 2025-08-23T00:10:13+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.460833
+[PY]   innovation_covariance: 904.808019
+[PY]   previous_weight: 57.460756
+[PY]   time_diff_hours: 41.875000
+[PY]   quality_score.overall: 0.761051
+[PY]   quality_components: {'kalman_fit': 0.9991289087985623, 'temporal_consistency': 0.9912682146590106, 'anomaly_detection': 0.6700605497837306, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.414308, Q_trend=0.002762
+[PY]   observation_covariance: 143.058755
+[PY]   State before update: [57.400000, 0.000000, 57.460756, 0.000045]
+[PY]   Trend before limiting: 0.000045
+[PY]   State after update: [57.460756, 0.000045, 57.465181, 0.000056]
+[PY]   Trend after update (before limiting): 0.000056
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.761051
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.900000, Unit: kg, Timestamp: 2025-08-26T23:25:21+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.900000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.600000
+[PY]   last_timestamp: 2025-08-24T18:02:43+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.465305
+[PY]   innovation_covariance: 904.973232
+[PY]   previous_weight: 57.465181
+[PY]   time_diff_hours: 53.377222
+[PY]   quality_score.overall: 0.790413
+[PY]   quality_components: {'kalman_fit': 0.9973281172110796, 'temporal_consistency': 0.976759249267291, 'anomaly_detection': 0.8181561051951566, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.283653, Q_trend=0.001891
+[PY]   observation_covariance: 100.840350
+[PY]   State before update: [57.460756, 0.000045, 57.465181, 0.000056]
+[PY]   Trend before limiting: 0.000056
+[PY]   State after update: [57.465181, 0.000056, 57.485735, 0.000175]
+[PY]   Trend after update (before limiting): 0.000175
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.790413
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -1995,23 +3083,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.072968
-[PY]   innovation_covariance: 37.045034
-[PY]   previous_weight: 57.951675
+[PY]   kalman_prediction: 57.486549
+[PY]   innovation_covariance: 905.640619
+[PY]   previous_weight: 57.485735
 [PY]   time_diff_hours: 111.888611
-[PY]   quality_score.overall: 0.778983
-[PY]   quality_components: {'kalman_fit': 0.9287405112450365, 'temporal_consistency': 0.9623470335414146, 'anomaly_detection': 0.8566792431610935, 'source_reliability': 0.2, 'trend_alignment': 0.8645036237597767}
+[PY]   quality_score.overall: 0.797861
+[PY]   quality_components: {'kalman_fit': 0.9972733635001915, 'temporal_consistency': 0.9798022185078956, 'anomaly_detection': 0.8562621224209095, 'source_reliability': 0.2, 'trend_alignment': 0.8}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [57.908368, 0.026742, 57.951675, 0.026017]
-[PY]   Trend before limiting: 0.026017
-[PY]   State after update: [57.951675, 0.026017, 57.783377, 0.012881]
-[PY]   Trend after update (before limiting): 0.012881
+[PY]   State before update: [57.465181, 0.000056, 57.485735, 0.000175]
+[PY]   Trend before limiting: 0.000175
+[PY]   State after update: [57.485735, 0.000175, 57.353586, -0.001637]
+[PY]   Trend after update (before limiting): -0.001637
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.778983
+[PY]   quality_score: 0.797861
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-31T15:18:40+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 43.700000, Unit: kg, Timestamp: 2025-08-31T18:08:11+00:00, Source: https://api.iglucose.com
@@ -2042,13 +3131,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.809642
-[PY]   innovation_covariance: 36.427738
-[PY]   previous_weight: 57.783377
+[PY]   kalman_prediction: 57.350247
+[PY]   innovation_covariance: 904.795531
+[PY]   previous_weight: 57.353586
 [PY]   time_diff_hours: 48.935278
-[PY]   quality_score.overall: 0.128024
-[PY]   quality_components: {'kalman_fit': 0.07851836496426301, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.13 below threshold 0.46 (weakest: kalman_fit=0.08)
+[PY]   quality_score.overall: 0.305347
+[PY]   quality_components: {'kalman_fit': 0.7164706248567988, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -2066,13 +3155,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.822696
-[PY]   innovation_covariance: 36.899317
-[PY]   previous_weight: 57.783377
+[PY]   kalman_prediction: 57.348588
+[PY]   innovation_covariance: 904.976098
+[PY]   previous_weight: 57.353586
 [PY]   time_diff_hours: 73.257500
-[PY]   quality_score.overall: 0.160084
-[PY]   quality_components: {'kalman_fit': 0.11331217036074026, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.16 below threshold 0.46 (weakest: kalman_fit=0.11)
+[PY]   quality_score.overall: 0.306439
+[PY]   quality_components: {'kalman_fit': 0.7317689561452299, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -2090,13 +3179,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.836457
-[PY]   innovation_covariance: 37.439248
-[PY]   previous_weight: 57.783377
+[PY]   kalman_prediction: 57.346839
+[PY]   innovation_covariance: 905.195464
+[PY]   previous_weight: 57.353586
 [PY]   time_diff_hours: 98.896111
-[PY]   quality_score.overall: 0.191781
-[PY]   quality_components: {'kalman_fit': 0.16015261919685894, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.19 below threshold 0.46 (weakest: kalman_fit=0.16)
+[PY]   quality_score.overall: 0.309468
+[PY]   quality_components: {'kalman_fit': 0.7771687246701321, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -2114,21 +3203,85 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 57.941020
-[PY]   innovation_covariance: 42.978029
-[PY]   previous_weight: 57.783377
+[PY]   kalman_prediction: 57.333547
+[PY]   innovation_covariance: 907.835629
+[PY]   previous_weight: 57.353586
 [PY]   time_diff_hours: 293.716111
-[PY]   quality_score.overall: 0.783381
-[PY]   quality_components: {'kalman_fit': 0.9457938916511186, 'temporal_consistency': 0.9505703828486871, 'anomaly_detection': 0.8619159327423503, 'source_reliability': 0.2, 'trend_alignment': 0.8936140518709557}
+[PY]   quality_score.overall: 0.790317
+[PY]   quality_components: {'kalman_fit': 0.9927100884875544, 'temporal_consistency': 0.938144712806728, 'anomaly_detection': 0.8619159327423503, 'source_reliability': 0.2, 'trend_alignment': 0.8256845943648725}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [57.951675, 0.026017, 57.783377, 0.012881]
-[PY]   Trend before limiting: 0.012881
-[PY]   State after update: [57.783377, 0.012881, 58.486778, 0.032819]
-[PY]   Trend after update (before limiting): 0.032819
+[PY]   State before update: [57.485735, 0.000175, 57.353586, -0.001637]
+[PY]   Trend before limiting: -0.001637
+[PY]   State after update: [57.353586, -0.001637, 57.973987, 0.015984]
+[PY]   Trend after update (before limiting): 0.015984
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.783381
+[PY]   quality_score: 0.790317
+[PY]   stage: accepted
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-08-31 15:18:40+00:00 to 2025-09-12 21:01:38+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-08-31 15:18:40+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 57.000000, Unit: kg, Timestamp: 2025-08-31T15:18:40+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 57.000000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.900000
+[PY]   last_timestamp: 2025-08-26T23:25:21+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.486549
+[PY]   innovation_covariance: 905.640619
+[PY]   previous_weight: 57.485735
+[PY]   time_diff_hours: 111.888611
+[PY]   quality_score.overall: 0.797861
+[PY]   quality_components: {'kalman_fit': 0.9972733635001915, 'temporal_consistency': 0.9798022185078956, 'anomaly_detection': 0.8562621224209095, 'source_reliability': 0.2, 'trend_alignment': 0.8}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.465181, 0.000056, 57.485735, 0.000175]
+[PY]   Trend before limiting: 0.000175
+[PY]   State after update: [57.485735, 0.000175, 57.353586, -0.001637]
+[PY]   Trend after update (before limiting): -0.001637
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.797861
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 59.200000, Unit: kg, Timestamp: 2025-09-12T21:01:38+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 59.200000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 57.000000
+[PY]   last_timestamp: 2025-08-31T15:18:40+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.333547
+[PY]   innovation_covariance: 907.835629
+[PY]   previous_weight: 57.353586
+[PY]   time_diff_hours: 293.716111
+[PY]   quality_score.overall: 0.790317
+[PY]   quality_components: {'kalman_fit': 0.9927100884875544, 'temporal_consistency': 0.938144712806728, 'anomaly_detection': 0.8619159327423503, 'source_reliability': 0.2, 'trend_alignment': 0.8256845943648725}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.485735, 0.000175, 57.353586, -0.001637]
+[PY]   Trend before limiting: -0.001637
+[PY]   State after update: [57.353586, -0.001637, 57.973987, 0.015984]
+[PY]   Trend after update (before limiting): 0.015984
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.790317
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -2145,22 +3298,15 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.490060
-[PY]   innovation_covariance: 38.100405
-[PY]   previous_weight: 58.486778
+[PY]   kalman_prediction: 57.975585
+[PY]   innovation_covariance: 905.589746
+[PY]   previous_weight: 57.973987
 [PY]   time_diff_hours: 0.007222
-[PY]   quality_score.overall: 0.635063
-[PY]   quality_components: {'kalman_fit': 0.9441150991542381, 'temporal_consistency': 0.5232698931138353, 'anomaly_detection': 0.7283882811798327, 'source_reliability': 0.2, 'trend_alignment': 0.9421146825287221}
-[PY] Step 6: Kalman update
-[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
-[PY]   observation_covariance: 15.000000
-[PY]   State before update: [57.783377, 0.012881, 58.486778, 0.032819]
-[PY]   Trend before limiting: 0.032819
-[PY]   State after update: [58.486778, 0.032819, 58.706996, 0.040678]
-[PY]   Trend after update (before limiting): 0.040678
-[PY] Result: ACCEPTED
-[PY]   quality_score: 0.635063
-[PY]   stage: accepted
+[PY]   quality_score.overall: 0.402827
+[PY]   quality_components: {'kalman_fit': 0.9918955661216162, 'temporal_consistency': 0.2, 'anomaly_detection': 0.7283882811798327, 'source_reliability': 0.2, 'trend_alignment': 0.9155836736417393}
+[PY]   Rejected by quality scorer: Quality score 0.40 below threshold 0.46 (weakest: temporal_consistency=0.20)
+[PY] Result: REJECTED
+[PY]   stage: unified_quality_scoring
 [PY] ================================================================================
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
@@ -2170,29 +3316,30 @@ Total measurements: 120
 [PY] Step 2: Load or create user state
 [PY] State exists
 [PY]   last_raw_weight: 59.200000
-[PY]   last_timestamp: 2025-09-12T21:02:04+00:00
+[PY]   last_timestamp: 2025-09-12T21:01:38+00:00
 [PY]   kalman_params: present
 [PY] Step 3: Check for reset
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.732614
-[PY]   innovation_covariance: 36.349157
-[PY]   previous_weight: 58.706996
-[PY]   time_diff_hours: 15.115000
-[PY]   quality_score.overall: 0.781459
-[PY]   quality_components: {'kalman_fit': 0.9706213442892551, 'temporal_consistency': 0.959053635047085, 'anomaly_detection': 0.7855993319141313, 'source_reliability': 0.2, 'trend_alignment': 0.9968183015018082}
+[PY]   kalman_prediction: 57.984058
+[PY]   innovation_covariance: 905.745222
+[PY]   previous_weight: 57.973987
+[PY]   time_diff_hours: 15.122222
+[PY]   quality_score.overall: 0.776550
+[PY]   quality_components: {'kalman_fit': 0.9927666336230164, 'temporal_consistency': 0.9037694306681893, 'anomaly_detection': 0.8040496097127424, 'source_reliability': 0.2, 'trend_alignment': 0.9233809716071676}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [58.486778, 0.032819, 58.706996, 0.040678]
-[PY]   Trend before limiting: 0.040678
-[PY]   State after update: [58.706996, 0.040678, 58.822367, 0.043931]
-[PY]   Trend after update (before limiting): 0.043931
+[PY]   State before update: [57.353586, -0.001637, 57.973987, 0.015984]
+[PY]   Trend before limiting: 0.015984
+[PY]   State after update: [57.973987, 0.015984, 58.293109, 0.024070]
+[PY]   Trend after update (before limiting): 0.024070
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.781459
+[PY]   quality_score: 0.776550
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-09-13T12:08:58+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 58.800000, Unit: kg, Timestamp: 2025-09-13T22:42:44+00:00, Source: https://api.iglucose.com
@@ -2207,21 +3354,21 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.841701
-[PY]   innovation_covariance: 35.335027
-[PY]   previous_weight: 58.822367
+[PY]   kalman_prediction: 58.303703
+[PY]   innovation_covariance: 904.667091
+[PY]   previous_weight: 58.293109
 [PY]   time_diff_hours: 10.562778
-[PY]   quality_score.overall: 0.793530
-[PY]   quality_components: {'kalman_fit': 0.9965498471625378, 'temporal_consistency': 0.9968049768808331, 'anomaly_detection': 0.7817461272701179, 'source_reliability': 0.2, 'trend_alignment': 0.9613925981317741}
+[PY]   quality_score.overall: 0.785373
+[PY]   quality_components: {'kalman_fit': 0.9967536706665325, 'temporal_consistency': 0.9388441748151402, 'anomaly_detection': 0.7940944222206356, 'source_reliability': 0.2, 'trend_alignment': 0.9886092308039648}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [58.706996, 0.040678, 58.822367, 0.043931]
-[PY]   Trend before limiting: 0.043931
-[PY]   State after update: [58.822367, 0.043931, 58.833211, 0.043621]
-[PY]   Trend after update (before limiting): 0.043621
+[PY]   State before update: [57.973987, 0.015984, 58.293109, 0.024070]
+[PY]   Trend before limiting: 0.024070
+[PY]   State after update: [58.293109, 0.024070, 58.421476, 0.026984]
+[PY]   Trend after update (before limiting): 0.026984
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.793530
+[PY]   quality_score: 0.785373
 [PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
@@ -2238,15 +3385,79 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.989310
-[PY]   innovation_covariance: 35.639488
-[PY]   previous_weight: 58.833211
+[PY]   kalman_prediction: 58.518039
+[PY]   innovation_covariance: 904.828803
+[PY]   previous_weight: 58.421476
 [PY]   time_diff_hours: 85.885278
-[PY]   quality_score.overall: 0.175508
-[PY]   quality_components: {'kalman_fit': 0.13418018676497517, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.18 below threshold 0.46 (weakest: kalman_fit=0.13)
+[PY]   quality_score.overall: 0.307984
+[PY]   quality_components: {'kalman_fit': 0.754351966069217, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
+[PY] ================================================================================
+Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=2, time_range=2025-09-13 12:08:58+00:00 to 2025-09-13 22:42:44+00:00
+Executing buffered replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: buffer_size=2, replay_from=2025-09-13 12:08:58+00:00
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 59.100000, Unit: kg, Timestamp: 2025-09-13T12:08:58+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 59.100000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 59.200000
+[PY]   last_timestamp: 2025-09-12T21:01:38+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 57.984058
+[PY]   innovation_covariance: 905.745222
+[PY]   previous_weight: 57.973987
+[PY]   time_diff_hours: 15.122222
+[PY]   quality_score.overall: 0.776550
+[PY]   quality_components: {'kalman_fit': 0.9927666336230164, 'temporal_consistency': 0.9037694306681893, 'anomaly_detection': 0.8040496097127424, 'source_reliability': 0.2, 'trend_alignment': 0.9233809716071676}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.353586, -0.001637, 57.973987, 0.015984]
+[PY]   Trend before limiting: 0.015984
+[PY]   State after update: [57.973987, 0.015984, 58.293109, 0.024070]
+[PY]   Trend after update (before limiting): 0.024070
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.776550
+[PY]   stage: accepted
+[PY] ================================================================================
+[PY] ================================================================================
+[PY] Processing measurement for user: ADC64C0B-CB4...
+[PY] Weight: 58.800000, Unit: kg, Timestamp: 2025-09-13T22:42:44+00:00, Source: https://api.iglucose.com
+[PY] Step 1: Data cleaning and preprocessing
+[PY] Cleaned weight: 58.800000
+[PY] Step 2: Load or create user state
+[PY] State exists
+[PY]   last_raw_weight: 59.100000
+[PY]   last_timestamp: 2025-09-13T12:08:58+00:00
+[PY]   kalman_params: present
+[PY] Step 3: Check for reset
+[PY] No reset needed
+[PY] Step 4: Initialize Kalman if needed
+[PY] Step 5: Quality scoring
+[PY]   kalman_prediction: 58.303703
+[PY]   innovation_covariance: 904.667091
+[PY]   previous_weight: 58.293109
+[PY]   time_diff_hours: 10.562778
+[PY]   quality_score.overall: 0.785373
+[PY]   quality_components: {'kalman_fit': 0.9967536706665325, 'temporal_consistency': 0.9388441748151402, 'anomaly_detection': 0.7940944222206356, 'source_reliability': 0.2, 'trend_alignment': 0.9886092308039648}
+[PY] Step 6: Kalman update
+[PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
+[PY]   observation_covariance: 15.000000
+[PY]   State before update: [57.973987, 0.015984, 58.293109, 0.024070]
+[PY]   Trend before limiting: 0.024070
+[PY]   State after update: [58.293109, 0.024070, 58.421476, 0.026984]
+[PY]   Trend after update (before limiting): 0.026984
+[PY] Result: ACCEPTED
+[PY]   quality_score: 0.785373
+[PY]   stage: accepted
 [PY] ================================================================================
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
@@ -2270,23 +3481,24 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 59.479874
-[PY]   innovation_covariance: 41.962787
-[PY]   previous_weight: 58.833211
+[PY]   kalman_prediction: 58.821498
+[PY]   innovation_covariance: 910.439115
+[PY]   previous_weight: 58.421476
 [PY]   time_diff_hours: 355.790833
-[PY]   quality_score.overall: 0.783773
-[PY]   quality_components: {'kalman_fit': 0.9488938271263474, 'temporal_consistency': 0.9726997970343888, 'anomaly_detection': 0.8288922334243721, 'source_reliability': 0.2, 'trend_alignment': 0.915229586720263}
+[PY]   quality_score.overall: 0.803346
+[PY]   quality_components: {'kalman_fit': 0.997586650841301, 'temporal_consistency': 0.9875357117095005, 'anomaly_detection': 0.8455263791792353, 'source_reliability': 0.2, 'trend_alignment': 0.9345759135291548}
 [PY] Step 6: Kalman update
 [PY]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [PY]   observation_covariance: 15.000000
-[PY]   State before update: [58.822367, 0.043931, 58.833211, 0.043621]
-[PY]   Trend before limiting: 0.043621
-[PY]   State after update: [58.833211, 0.043621, 58.912877, 0.022773]
-[PY]   Trend after update (before limiting): 0.022773
+[PY]   State before update: [58.293109, 0.024070, 58.421476, 0.026984]
+[PY]   Trend before limiting: 0.026984
+[PY]   State after update: [58.421476, 0.026984, 58.525427, 0.017113]
+[PY]   Trend after update (before limiting): 0.017113
 [PY] Result: ACCEPTED
-[PY]   quality_score: 0.783773
+[PY]   quality_score: 0.803346
 [PY]   stage: accepted
 [PY] ================================================================================
+Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-09-28T18:30:11+00:00
 [PY] ================================================================================
 [PY] Processing measurement for user: ADC64C0B-CB4...
 [PY] Weight: 101.800000, Unit: kg, Timestamp: 2025-09-28T22:20:14+00:00, Source: https://api.iglucose.com
@@ -2301,13 +3513,13 @@ Total measurements: 120
 [PY] No reset needed
 [PY] Step 4: Initialize Kalman if needed
 [PY] Step 5: Quality scoring
-[PY]   kalman_prediction: 58.916515
-[PY]   innovation_covariance: 37.786730
-[PY]   previous_weight: 58.912877
+[PY]   kalman_prediction: 58.528160
+[PY]   innovation_covariance: 906.635628
+[PY]   previous_weight: 58.525427
 [PY]   time_diff_hours: 3.834167
-[PY]   quality_score.overall: 0.071867
-[PY]   quality_components: {'kalman_fit': 0.03572101323217804, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
-[PY]   Rejected by quality scorer: Quality score 0.07 below threshold 0.46 (weakest: kalman_fit=0.04)
+[PY]   quality_score.overall: 0.307795
+[PY]   quality_components: {'kalman_fit': 0.75152586395605, 'temporal_consistency': 0.2, 'anomaly_detection': 0.25, 'source_reliability': 0.2, 'trend_alignment': 0.3}
+[PY]   Rejected by quality scorer: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [PY] Result: REJECTED
 [PY]   stage: unified_quality_scoring
 [PY] ================================================================================
@@ -2319,19 +3531,19 @@ Processing complete:
   Total measurements processed: 120
 
 Writing filtered CSV to filtered_weights_py.csv...
-Filtered CSV written: 41/120 measurements accepted (34.2%)
+Filtered CSV written: 40/120 measurements accepted (33.3%)
 
 === Processing Complete ===
-Duration: 0.0 seconds
-Results saved to: output_local/local_processing_results_20251106_085556.json
+Duration: 0.1 seconds
+Results saved to: output_local/local_processing_results_20251106_111001.json
 Filtered CSV saved to: filtered_weights_py.csv
 
 Processing Summary:
   Measurements processed: 120
-  Measurements accepted: 40
+  Measurements accepted: 39
 
   NOTE: Manual replay can be triggered via service.replay_measurements()
         Use this for historical conflict resolution when needed
 
-Filtered CSV: 41 accepted measurements written
-Acceptance rate: 34.2% (41/120)
+Filtered CSV: 40 accepted measurements written
+Acceptance rate: 33.3% (40/120)

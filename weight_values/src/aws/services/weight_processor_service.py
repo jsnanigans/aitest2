@@ -1,7 +1,7 @@
 """Service layer for weight processing operations."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 
 from src.aws.api.models import (
@@ -85,12 +85,20 @@ class WeightProcessorService:
             current_state.get("last_raw_weight") if current_state else None
         )
 
+        # Check if buffered replay is enabled
+        buffered_replay_enabled = self.config.get("replay", {}).get("buffered_replay_enabled", True)
+
+        # Initialize buffer for replay processing (only if enabled)
+        buffer: List[Measurement] = []
+        buffer_start_time: Optional[datetime] = None
+        replay_metadata: List[Dict[str, Any]] = []
+
         # Process each measurement
         results = []
         accepted_count = 0
         rejected_count = 0
 
-        for measurement in sorted_measurements:
+        for i, measurement in enumerate(sorted_measurements):
             try:
                 result = self._process_single(user_id, measurement, user_height_m)
                 results.append(result)
@@ -99,6 +107,18 @@ class WeightProcessorService:
                     accepted_count += 1
                 else:
                     rejected_count += 1
+
+                # Buffer management: Buffer ALL measurements (accepted or rejected) for replay
+                # Replay will re-evaluate them together to determine best accept/reject decisions
+                if buffered_replay_enabled:
+                    if not buffer:
+                        buffer_start_time = measurement.measured_at
+                        self.state_store.save_state_snapshot(user_id, buffer_start_time)
+                        logger.info(f"Created snapshot for user {user_id} at {buffer_start_time}")
+
+                    # Add ALL measurements to buffer (not just accepted ones)
+                    # Replay will re-score them all against the snapshot state
+                    buffer.append(measurement)
 
             except Exception as e:
                 logger.error(f"Error processing {measurement.measurement_id}: {e}")
@@ -111,6 +131,60 @@ class WeightProcessorService:
                     )
                 )
                 rejected_count += 1
+
+            # Check if replay should be triggered (only if feature is enabled)
+            if buffered_replay_enabled:
+                # Filter buffer to only keep measurements within the time window (sliding window)
+                buffer_hours = self.config.get("replay", {}).get("buffer_hours", 24)
+                cutoff_time = measurement.measured_at - timedelta(hours=buffer_hours)
+                buffer = [m for m in buffer if m.measured_at >= cutoff_time]
+
+                logger.debug(f"  Buffer size after filtering: {len(buffer)} measurements")
+
+                is_last = (i == len(sorted_measurements) - 1)
+                should_replay = self._should_trigger_replay(buffer, measurement.measured_at, is_last)
+
+                if should_replay and buffer:
+                    # Determine trigger reason
+                    if is_last:
+                        trigger_reason = "batch_end"
+                    elif len(buffer) >= self.config.get("replay", {}).get("max_buffer_measurements", 100):
+                        trigger_reason = "buffer_overflow"
+                    else:
+                        trigger_reason = "time_window"
+
+                    # Console output to match TypeScript logging
+                    print(
+                        f"Triggering replay for user {user_id}: trigger={trigger_reason}, "
+                        f"buffer_size={len(buffer)}, time_range={buffer[0].measured_at} to {buffer[-1].measured_at}"
+                    )
+                    logger.info(
+                        f"Triggering replay for user {user_id}: trigger={trigger_reason}, "
+                        f"buffer_size={len(buffer)}, time_range={buffer[0].measured_at} to {buffer[-1].measured_at}"
+                    )
+
+                    # Execute replay
+                    replay_output = self._execute_buffered_replay(
+                        user_id, buffer, buffer_start_time, user_height_m
+                    )
+
+                    # Merge replay results into original results
+                    results = self._merge_replay_results(results, replay_output, buffer)
+
+                    # Track replay metadata
+                    replay_metadata.append({
+                        "trigger": trigger_reason,
+                        "buffer_size": len(buffer),
+                        "replay_from": buffer_start_time.isoformat(),
+                        "replay_to": buffer[-1].measured_at.isoformat(),
+                        "measurements_replayed": len(buffer),
+                        "duration_seconds": replay_output.get("duration_seconds", 0),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    })
+
+                    # Clear buffer for next window
+                    buffer.clear()
+                    buffer_start_time = None
 
         # Get final state
         final_state = self.state_store.get_state(user_id)
@@ -133,6 +207,7 @@ class WeightProcessorService:
             measurements_rejected=rejected_count,
             results=results,
             state_update=state_update,
+            replay_metadata=replay_metadata if replay_metadata else None,
         )
 
     def cleanup(
@@ -475,3 +550,172 @@ class WeightProcessorService:
                 measurement_results=[],
                 error=str(e)
             )
+
+    def _should_trigger_replay(
+        self, buffer: List[Measurement], current_timestamp: datetime, is_last: bool
+    ) -> bool:
+        """
+        Determine if replay should be triggered for the current buffer.
+
+        Replay is triggered when:
+        1. Last measurement in batch (is_last=True) AND buffer has >= 2 measurements
+        2. Buffer has enough measurements for meaningful replay (>= min_replay_buffer_size)
+        3. Buffer size limit reached (safety)
+
+        Args:
+            buffer: List of buffered measurements (already filtered to time window)
+            current_timestamp: Timestamp of current measurement being processed
+            is_last: Whether this is the last measurement in the batch
+
+        Returns:
+            True if replay should be triggered, False otherwise
+        """
+        # Minimum buffer size: need at least 2 measurements to replay
+        if len(buffer) < 2:
+            return False
+
+        # Trigger 1: Last measurement in batch
+        if is_last:
+            return True
+
+        # Trigger 2: Buffer has enough measurements within the time window for meaningful replay
+        # This ensures we trigger replay when we have clustered measurements that should be
+        # evaluated together, rather than waiting until batch end when they might be filtered out
+        min_replay_size = self.config.get("replay", {}).get("min_replay_buffer_size", 2)
+        if len(buffer) >= min_replay_size:
+            return True
+
+        # Trigger 3: Buffer size limit (safety)
+        max_buffer = self.config.get("replay", {}).get("max_buffer_measurements", 100)
+        if len(buffer) >= max_buffer:
+            return True
+
+        return False
+
+    def _execute_buffered_replay(
+        self,
+        user_id: str,
+        buffer: List[Measurement],
+        buffer_start_time: datetime,
+        user_height_m: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute replay for buffered measurements.
+
+        Args:
+            user_id: User identifier
+            buffer: List of buffered measurements to replay
+            buffer_start_time: Timestamp to replay from (snapshot timestamp)
+            user_height_m: User height in meters (optional)
+
+        Returns:
+            Replay result dictionary with processing results (includes 'duration_seconds')
+
+        Raises:
+            Exception: If replay fails, exception is logged and re-raised
+        """
+        import time
+
+        try:
+            print(
+                f"Executing buffered replay for user {user_id}: "
+                f"buffer_size={len(buffer)}, replay_from={buffer_start_time}"
+            )
+            logger.info(
+                f"Executing buffered replay for user {user_id}: "
+                f"buffer_size={len(buffer)}, replay_from={buffer_start_time}"
+            )
+
+            # Track replay performance
+            replay_start = time.time()
+
+            # Import replay service
+            from src.aws.services.replay_service import replay_measurements
+
+            replay_output = replay_measurements(
+                user_id=user_id,
+                measurements=buffer,
+                replay_from=buffer_start_time,
+                state_store=self.state_store,
+                config=self.config,
+                user_height_m=user_height_m,
+            )
+
+            replay_duration = time.time() - replay_start
+
+            if not replay_output.get("success", False):
+                error_msg = replay_output.get("error", "Unknown error")
+                logger.error(f"Replay failed for user {user_id}: {error_msg}")
+                raise Exception(f"Replay failed: {error_msg}")
+
+            logger.info(
+                f"Replay completed for user {user_id}: "
+                f"processed={replay_output.get('processed_count', 0)}, "
+                f"accepted={replay_output.get('accepted_count', 0)}, "
+                f"duration={replay_duration:.2f}s"
+            )
+
+            # Add duration to output
+            replay_output["duration_seconds"] = round(replay_duration, 2)
+
+            return replay_output
+
+        except Exception as e:
+            logger.error(f"Replay execution failed for user {user_id}: {str(e)}", exc_info=True)
+            raise
+
+    def _merge_replay_results(
+        self,
+        original_results: List[MeasurementResult],
+        replay_output: Dict[str, Any],
+        buffer: List[Measurement],
+    ) -> List[MeasurementResult]:
+        """
+        Merge replay results back into original results list.
+
+        Args:
+            original_results: Original processing results
+            replay_output: Replay service output dictionary
+            buffer: List of buffered measurements that were replayed
+
+        Returns:
+            Updated list of MeasurementResult with replay data merged
+        """
+        # Create lookup map: measurement_id -> replay result
+        replay_map = {
+            r["uuid"]: r for r in replay_output.get("results", [])
+        }
+
+        # Create set of buffered measurement IDs for quick lookup
+        buffered_ids = {m.measurement_id for m in buffer}
+
+        # Update original results with replay data
+        updated_results = []
+        for original in original_results:
+            # Check if this measurement was in the buffer and has replay data
+            if original.measurement_id in buffered_ids and original.measurement_id in replay_map:
+                replay_data = replay_map[original.measurement_id]
+
+                # Create updated result with replay data
+                # Use model_dump() and model_validate() to properly create new instance
+                updated_dict = original.model_dump()
+                updated_dict.update({
+                    "accepted": replay_data.get("accepted", original.accepted),
+                    "quality_score": replay_data.get("quality_score", original.quality_score),
+                    "kalman_estimate": replay_data.get("kalman_estimate", original.kalman_estimate),
+                    # Note: replay service doesn't return these fields, so keep originals
+                    # kalman_uncertainty, rejection_reason, processing_stage, reset_triggered, quality_components
+                })
+
+                updated_result = MeasurementResult.model_validate(updated_dict)
+                updated_results.append(updated_result)
+
+                logger.debug(
+                    f"Updated result for measurement {original.measurement_id}: "
+                    f"accepted={updated_result.accepted}, quality_score={updated_result.quality_score}"
+                )
+            else:
+                # Keep original result unchanged
+                updated_results.append(original)
+
+        return updated_results

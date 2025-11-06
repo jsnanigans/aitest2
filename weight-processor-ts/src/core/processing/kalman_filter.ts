@@ -193,7 +193,7 @@ export class KalmanFilter {
     const KT = transpose2x2(K);
     const term2: Matrix2x2 = [
       [K[0][0]! * this.R * KT[0][0]!, K[0][0]! * this.R * KT[0][1]!],
-      [K[1][0]! * this.R * KT[1][0]!, K[1][0]! * this.R * KT[1][1]!],
+      [K[1][0]! * this.R * KT[0][0]!, K[1][0]! * this.R * KT[0][1]!],
     ];
 
     const filteredStateCovariance = add2x2(term1, term2);

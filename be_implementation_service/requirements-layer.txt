@@ -1,0 +1,4 @@
+# Lambda Layer requirements
+# Heavy dependencies deployed separately from function code
+
+numpy==1.26.4

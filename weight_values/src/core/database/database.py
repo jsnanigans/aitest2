@@ -146,9 +146,9 @@ class ProcessorStateDB:
         if user_id not in self._snapshots or not self._snapshots[user_id]:
             return None
 
-        # Find the most recent snapshot before the timestamp
+        # Find the most recent snapshot before or at the timestamp
         suitable_snapshots = [
-            s for s in self._snapshots[user_id] if s["timestamp"] < timestamp
+            s for s in self._snapshots[user_id] if s["timestamp"] <= timestamp
         ]
 
         if not suitable_snapshots:

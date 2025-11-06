@@ -1,0 +1,5 @@
+id,user_id,timestamp,effective_date_time,source_type,value_quantity,unit
+test-001,TEST-USER-001,2025-01-01T10:00:00.000Z,2025-01-01T10:00:00.000Z,https://api.iglucose.com,99,kg
+test-002,TEST-USER-001,2025-01-20T15:00:00.000Z,2025-01-20T15:00:00.000Z,https://api.iglucose.com,106,kg
+test-003,TEST-USER-001,2025-01-20T15:20:00.000Z,2025-01-20T15:20:00.000Z,https://api.iglucose.com,100,kg
+test-004,TEST-USER-001,2025-01-25T12:00:00.000Z,2025-01-25T12:00:00.000Z,https://api.iglucose.com,98,kg

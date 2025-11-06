@@ -571,12 +571,12 @@ def main():
         "users_loaded": len(user_measurements),
         "total_measurements": sum(len(m) for m in user_measurements.values()),
         "processing_results": None,
-        "replay_mode": "manual",
+        "replay_mode": "automatic",
     }
 
-    # Process measurements (manual replay only)
-    print("\n=== Processing Measurements (Manual Replay) ===")
-    print("Note: Use manual replay endpoints for historical conflict resolution")
+    # Process measurements with automatic buffered replay
+    print("\n=== Processing Measurements (Automatic Buffered Replay) ===")
+    print("Note: Replay triggers automatically at end of batch or when time window/buffer exceeded")
 
     # Process all measurements first
     processing_results = {}
@@ -597,7 +597,8 @@ def main():
             "measurements_processed": 0,
             "measurements_accepted": 0,
             "measurements_rejected": 0,
-            "errors": []
+            "errors": [],
+            "replay_metadata": []
         }
 
         # Sort by timestamp
@@ -609,6 +610,15 @@ def main():
             user_results["measurements_processed"] = response.measurements_processed
             user_results["measurements_accepted"] = response.measurements_accepted
             user_results["measurements_rejected"] = response.measurements_rejected
+
+            # Capture replay metadata if present
+            if response.replay_metadata:
+                user_results["replay_metadata"] = response.replay_metadata
+                print(f"  🔄 Replay triggered {len(response.replay_metadata)} time(s)")
+                for replay in response.replay_metadata:
+                    print(f"    - Trigger: {replay.get('trigger', 'unknown')}, "
+                          f"Buffer size: {replay.get('buffer_size', 0)}, "
+                          f"From: {replay.get('replay_from', 'N/A')} to {replay.get('replay_to', 'N/A')}")
 
             processed_measurements += response.measurements_processed
 

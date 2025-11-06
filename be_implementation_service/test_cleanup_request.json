@@ -1,0 +1,7 @@
+{
+  "action": "cleanup",
+  "user_id": "5845fbd9-e241-4255-a877-84dee539a521",
+  "body": {
+    "cleanup_type": "clear_all"
+  }
+}

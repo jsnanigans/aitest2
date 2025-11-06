@@ -1,0 +1,25 @@
+{
+  "measurements": [
+    {
+      "uuid": "2b342dcb-c730-43e6-99aa-847cbe729403",
+      "weight": 99.4,
+      "unit": "kg",
+      "effectiveDateTime": "2019-10-10T00:00:00",
+      "source": "CONNECTIVEHEALTH_SIMULATION"
+    },
+    {
+      "uuid": "cb53e383-83a8-4859-8027-6ea92402da91",
+      "weight": 143.1,
+      "unit": "kg",
+      "effectiveDateTime": "2021-11-06T00:00:00",
+      "source": "CONNECTIVEHEALTH_SIMULATION"
+    },
+    {
+      "uuid": "7826e411-2ed8-4c69-8774-b4f342b6b115",
+      "weight": 50.5,
+      "unit": "kg",
+      "effectiveDateTime": "2021-11-14T00:00:00",
+      "source": "CONNECTIVEHEALTH_SIMULATION"
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "action": "process",
+  "user_id": "5845fbd9-e241-4255-a877-84dee539a521",
+  "body": {
+    "measurements": [
+      {
+        "uuid": "2b342dcb-c730-43e6-99aa-847cbe729403",
+        "weight": 99.4,
+        "unit": "kg",
+        "effectiveDateTime": "2019-10-10T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "cb53e383-83a8-4859-8027-6ea92402da91",
+        "weight": 143.1,
+        "unit": "kg",
+        "effectiveDateTime": "2021-11-06T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "7826e411-2ed8-4c69-8774-b4f342b6b115",
+        "weight": 50.5,
+        "unit": "kg",
+        "effectiveDateTime": "2021-11-14T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "276da750-4356-481b-b75c-44365ebbbd15",
+        "weight": 80.8,
+        "unit": "kg",
+        "effectiveDateTime": "2021-12-30T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "82b79d10-5dd9-4b03-a6a9-1974cc925791",
+        "weight": 204.5,
+        "unit": "kg",
+        "effectiveDateTime": "2022-05-04T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "d2678612-b6b0-4ea6-b8bc-8ef1226e6efb",
+        "weight": 121.8,
+        "unit": "kg",
+        "effectiveDateTime": "2022-06-02T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "94ce6864-a2c8-4037-a68d-1e8f3c5a7a7a",
+        "weight": 134.7,
+        "unit": "kg",
+        "effectiveDateTime": "2022-07-18T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "c81aec6c-b12d-476a-b5f4-d7a6e6b30739",
+        "weight": 82.5,
+        "unit": "kg",
+        "effectiveDateTime": "2022-09-05T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "b378ce07-0d2b-4c29-9a1b-7ac315f62716",
+        "weight": 142.7,
+        "unit": "kg",
+        "effectiveDateTime": "2022-10-25T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "4b8a9107-6d8a-4503-9fe4-6de0a1044333",
+        "weight": 84.4,
+        "unit": "kg",
+        "effectiveDateTime": "2022-11-14T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "16ce6091-1f11-4346-a4dc-1f2da1562fa8",
+        "weight": 163.29312,
+        "unit": "kg",
+        "effectiveDateTime": "2024-03-27T23:00:00",
+        "source": "CARE_TEAM_UPLOAD"
+      },
+      {
+        "uuid": "55f4de82-01ee-4455-a4a5-0589d6021971",
+        "weight": 108.6,
+        "unit": "kg",
+        "effectiveDateTime": "2024-05-26T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "c65a61ae-b8f9-4ce2-94a8-5a7ec1bc3dba",
+        "weight": 109.8,
+        "unit": "kg",
+        "effectiveDateTime": "2025-01-07T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "9289da1c-ec6e-45ee-9d9e-6699b3515bd9",
+        "weight": 82.1,
+        "unit": "kg",
+        "effectiveDateTime": "2025-01-07T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      },
+      {
+        "uuid": "7b9a2228-ab50-4c8d-be20-150ebccbdf34",
+        "weight": 46.8,
+        "unit": "kg",
+        "effectiveDateTime": "2025-01-07T00:00:00",
+        "source": "CONNECTIVEHEALTH_SIMULATION"
+      }
+    ],
+    "user_height_m": 1.635
+  }
+}

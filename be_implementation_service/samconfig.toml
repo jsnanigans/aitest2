@@ -1,0 +1,65 @@
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "WeightProcessorProdUsEast"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "weight-processor"
+region = "us-east-1"
+disable_rollback = false
+# Note: Update MonitoringAlarmNotificationTopic with actual ARN from BackendProdUsEast-LoggingStack once available
+# Pattern: arn:aws:sns:us-east-1:{AccountId}:MonitoringAlarmNotificationTopic-BackendProdUsEast-LoggingStack-{StackId}
+parameter_overrides = "Environment=\"prod-us\" LogRetentionDays=3653 MonitoringAlarmNotificationTopic=\"arn:aws:sns:us-east-1:ACCOUNT_ID:TOPIC_NAME\""
+
+# Development environment configuration
+[dev]
+[dev.global.parameters]
+stack_name = "WeightProcessorDevUs"
+
+[dev.deploy.parameters]
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "weight-processor-dev"
+region = "us-east-1"
+disable_rollback = false
+parameter_overrides = "Environment=\"dev-us\" LogRetentionDays=30 MonitoringAlarmNotificationTopic=\"arn:aws:sns:us-east-1:387257169268:MonitoringAlarmNotificationTopic-BackendDevUs-LoggingStack-NZRIHZGA2RI4\" CoreServiceTaskRoleName=\"BackendDevUs-CoreServiceStack-CWJIKZ38BRUS-TaskRole\""
+
+# QA environment configuration (aligned with backend infrastructure naming)
+[qa]
+[qa.global.parameters]
+stack_name = "WeightProcessorQaUs"
+
+[qa.deploy.parameters]
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "weight-processor-qa"
+region = "us-east-1"
+disable_rollback = false
+parameter_overrides = "Environment=\"qa-us\" LogRetentionDays=30 MonitoringAlarmNotificationTopic=\"arn:aws:sns:us-east-1:387257169268:MonitoringAlarmNotificationTopic-BackendQaUs-LoggingStack-MYC4XN0B0U4C\""
+
+# Legacy alias for backwards compatibility
+[staging]
+[staging.global.parameters]
+stack_name = "WeightProcessorQaUs"
+
+[staging.deploy.parameters]
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "weight-processor-qa"
+region = "us-east-1"
+disable_rollback = false
+parameter_overrides = "Environment=\"qa-us\" LogRetentionDays=30 MonitoringAlarmNotificationTopic=\"arn:aws:sns:us-east-1:387257169268:MonitoringAlarmNotificationTopic-BackendQaUs-LoggingStack-MYC4XN0B0U4C\""

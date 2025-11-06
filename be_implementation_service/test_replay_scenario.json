@@ -1,0 +1,32 @@
+{
+  "measurements": [
+    {
+      "uuid": "test-001",
+      "weight": 99.0,
+      "unit": "kg",
+      "effectiveDateTime": "2024-01-01T10:00:00",
+      "source": "MANUAL"
+    },
+    {
+      "uuid": "test-002",
+      "weight": 106.0,
+      "unit": "kg",
+      "effectiveDateTime": "2024-01-20T15:00:00",
+      "source": "MANUAL"
+    },
+    {
+      "uuid": "test-003",
+      "weight": 100.0,
+      "unit": "kg",
+      "effectiveDateTime": "2024-01-20T15:20:00",
+      "source": "MANUAL"
+    },
+    {
+      "uuid": "test-004",
+      "weight": 98.0,
+      "unit": "kg",
+      "effectiveDateTime": "2024-01-25T12:00:00",
+      "source": "MANUAL"
+    }
+  ]
+}

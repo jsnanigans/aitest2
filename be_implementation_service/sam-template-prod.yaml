@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Weight Processor Service - Production Lambda Only (No API Gateway)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod-us
+    AllowedValues:
+      - dev-us
+      - qa-us
+      - prod-us
+    Description: Environment name
+
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    AllowedValues:
+      - 30
+      - 3653
+    Description: CloudWatch Logs retention in days (30 for dev/qa, 3653 for prod)
+
+  MonitoringAlarmNotificationTopic:
+    Type: String
+    Description: SNS topic ARN for monitoring alarm notifications from main backend stack
+
+  CoreServiceTaskRoleName:
+    Type: String
+    Default: ""
+    Description: (Optional) Name of the CoreService TaskRole to grant invoke permission. Leave empty to skip.
+
+Conditions:
+  HasCoreServiceTaskRole: !Not [!Equals [!Ref CoreServiceTaskRoleName, ""]]
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 1024
+    Tracing: Active # Enable AWS X-Ray for distributed tracing
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        DYNAMODB_TABLE_NAME: !Ref StateTable
+        ENVIRONMENT: !Ref Environment
+
+Resources:
+  # Lambda Layer for Heavy Dependencies (numpy)
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub weight-processor-deps-${Environment}
+      Description: NumPy dependencies for Weight Processor
+      ContentUri: build/layer
+      CompatibleRuntimes:
+        - python3.12
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: python3.12
+
+  # Lambda Function Only - No API Gateway
+  WeightProcessorFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.12
+    Properties:
+      CodeUri: build/function
+      Handler: src.aws.lambda_handler.handler
+      Runtime: python3.12
+      Architectures:
+        - x86_64
+      Description: Process weight measurements with Kalman filtering
+      ReservedConcurrentExecutions: 100 # Limit concurrent executions
+      Environment:
+        Variables:
+          KALMAN_ENABLED: "true"
+          KALMAN_ADAPTIVE: "true"
+          KALMAN_PROCESS_NOISE: "1.0"
+          KALMAN_OBS_NOISE: "4.0"
+          KALMAN_HARD_GAP_DAYS: "30"
+          QUALITY_SCORING_ENABLED: "true"
+          QS_WEIGHT_KALMAN: "0.4"
+          QS_WEIGHT_TEMPORAL: "0.3"
+          QS_WEIGHT_SOURCE: "0.3"
+          QS_OUTLIER_OVERRIDE: "0.8"
+          OUTLIER_DETECTION_ENABLED: "true"
+          OUTLIER_IQR_MULTIPLIER: "1.5"
+          REPLAY_ENABLED: "true"
+      Policies:
+        # Specific IAM permissions following principle of least privilege
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt StateTable.Arn
+                - !Sub "${StateTable.Arn}/index/*"
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource:
+                - !GetAtt StateTable.Arn
+        - CloudWatchLambdaInsightsExecutionRolePolicy
+      Layers:
+        - !Ref DependenciesLayer
+        - !Sub arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:38
+      Tags:
+        Environment: !Ref Environment
+        Service: weight-processor
+        CostCenter: health-services
+        DataClassification: PII
+        ManagedBy: SAM
+
+  WeightProcessorInvokePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: HasCoreServiceTaskRole
+    Properties:
+      ManagedPolicyName: !Sub WeightProcessorInvokePolicy-${Environment}
+      Description: Allows CoreService TaskRole to invoke WeightProcessor Lambda
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt WeightProcessorFunction.Arn
+      Roles:
+        - !Ref CoreServiceTaskRoleName
+
+  # DynamoDB Table for State Storage
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub weight-processor-state-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS  # Uses AWS-managed key (aws/dynamodb)
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: stateType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: stateType
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: weight-processor
+
+  # CloudWatch Log Group
+  ProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${WeightProcessorFunction}
+      RetentionInDays: !Ref LogRetentionDays
+
+  # CloudWatch Alarms
+  ProcessorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub weight-processor-errors-${Environment}
+      AlarmDescription: Alert when processor function errors occur
+      AlarmActions:
+        - !Ref MonitoringAlarmNotificationTopic
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WeightProcessorFunction
+      TreatMissingData: missing
+
+Outputs:
+  FunctionArn:
+    Description: Lambda function ARN for direct invocation
+    Value: !GetAtt WeightProcessorFunction.Arn
+    Export:
+      Name: !Sub weight-processor-function-${Environment}
+
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref WeightProcessorFunction
+    Export:
+      Name: !Sub weight-processor-function-name-${Environment}
+
+  StateTableName:
+    Description: DynamoDB table name
+    Value: !Ref StateTable
+    Export:
+      Name: !Sub weight-processor-table-${Environment}
+
+  StateTableArn:
+    Description: DynamoDB table ARN
+    Value: !GetAtt StateTable.Arn
+    Export:
+      Name: !Sub weight-processor-table-arn-${Environment}

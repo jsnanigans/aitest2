@@ -218,6 +218,7 @@ class ProcessResponseData(BaseModel):
     measurements_rejected: int = Field(ge=0)
     results: List[MeasurementResult]
     state_update: Optional[StateInfo] = None
+    replay_metadata: Optional[List[Dict[str, Any]]] = None
 
 
 class StandardResponse(BaseModel):
