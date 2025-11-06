@@ -140,29 +140,92 @@ export class WeightProcessorService {
     for (let i = 0; i < sorted_measurements.length; i++) {
       const measurement = sorted_measurements[i];
 
+      // Check if replay should be triggered BEFORE processing current measurement
+      if (buffered_replay_enabled && buffer.length > 0) {
+        const buffer_hours = this.config.replay?.buffer_hours ?? 24;
+
+        // Check if current measurement is outside the time window from the last buffered measurement
+        const last_buffered = buffer[buffer.length - 1];
+        const last_buffered_time = typeof last_buffered.timestamp === 'string'
+          ? new Date(last_buffered.timestamp)
+          : last_buffered.timestamp;
+        const current_timestamp = typeof measurement.timestamp === 'string'
+          ? new Date(measurement.timestamp)
+          : measurement.timestamp;
+        const time_gap_hours = (current_timestamp.getTime() - last_buffered_time.getTime()) / (1000 * 3600);
+
+        // If time gap exceeds buffer window
+        if (time_gap_hours >= buffer_hours) {
+          // Trigger replay if we have enough measurements
+          if (buffer.length >= 2) {
+            const buffer_first_ts = typeof buffer[0].timestamp === 'string'
+              ? new Date(buffer[0].timestamp)
+              : buffer[0].timestamp;
+            const buffer_last_ts = typeof buffer[buffer.length - 1].timestamp === 'string'
+              ? new Date(buffer[buffer.length - 1].timestamp)
+              : buffer[buffer.length - 1].timestamp;
+
+            console.log(
+              `Triggering replay for user ${user_id}: trigger=time_gap, ` +
+              `buffer_size=${buffer.length}, time_gap=${time_gap_hours.toFixed(1)}h, ` +
+              `buffer_range=${buffer_first_ts.toISOString()} to ${buffer_last_ts.toISOString()}`
+            );
+
+            // Execute replay
+            const replay_output = await this._execute_buffered_replay(
+              user_id, buffer, buffer_start_time!
+            );
+
+            // Merge replay results into original results
+            this._merge_replay_results(results, replay_output, buffer);
+
+            // Track replay metadata
+            replay_metadata.push({
+              trigger: "time_gap",
+              buffer_size: buffer.length,
+              replay_from: buffer_start_time!.toISOString(),
+              replay_to: buffer_last_ts.toISOString(),
+              measurements_replayed: buffer.length,
+              duration_seconds: replay_output.duration_seconds || 0,
+              timestamp: new Date().toISOString(),
+            });
+          } else {
+            console.log(
+              `Time gap ${time_gap_hours.toFixed(1)}h exceeds buffer window but only ${buffer.length} measurement(s) in buffer - no replay`
+            );
+          }
+
+          // Clear buffer for next window (regardless of whether replay triggered)
+          buffer.length = 0;
+          buffer_start_time = null;
+        }
+      }
+
       try {
         const result = await this.process_single(user_id, measurement);
         results.push(result);
 
         if (result.accepted) {
           accepted_count++;
-
-          // Buffer management: Create snapshot before first buffered measurement
-          if (buffered_replay_enabled) {
-            if (buffer.length === 0) {
-              const ts = typeof measurement.timestamp === 'string'
-                ? new Date(measurement.timestamp)
-                : measurement.timestamp;
-              buffer_start_time = ts;
-              this.state_store.save_state_snapshot(user_id, buffer_start_time);
-              console.log(`Created snapshot for user ${user_id} at ${buffer_start_time.toISOString()}`);
-            }
-
-            // Add accepted measurement to buffer
-            buffer.push(measurement);
-          }
         } else {
           rejected_count++;
+        }
+
+        // Buffer management: Add ALL measurements to buffer (accepted or rejected)
+        // This allows replays to reconsider rejected measurements with better context
+        if (buffered_replay_enabled) {
+          // Create snapshot before first buffered measurement in the window
+          if (buffer.length === 0) {
+            const ts = typeof measurement.timestamp === 'string'
+              ? new Date(measurement.timestamp)
+              : measurement.timestamp;
+            buffer_start_time = ts;
+            this.state_store.save_state_snapshot(user_id, buffer_start_time);
+            console.log(`Created snapshot for user ${user_id} at ${buffer_start_time.toISOString()}`);
+          }
+
+          // Add measurement to buffer (both accepted and rejected)
+          buffer.push(measurement);
         }
       } catch (e) {
         const error = e as Error;
@@ -184,7 +247,7 @@ export class WeightProcessorService {
         rejected_count++;
       }
 
-      // Check if replay should be triggered (only if feature is enabled)
+      // Check if replay should be triggered at batch end
       if (buffered_replay_enabled) {
         const is_last = (i === sorted_measurements.length - 1);
         const current_timestamp = typeof measurement.timestamp === 'string'
@@ -507,12 +570,14 @@ export class WeightProcessorService {
       if (buffered_ids.has(measurement_id) && replay_map.has(measurement_id)) {
         const replay_data = replay_map.get(measurement_id);
 
-        // Update result with replay data
+        // Update result with replay data - use replay data for all processing fields
         original_results[i] = {
           ...original,
           accepted: replay_data.accepted ?? original.accepted,
           quality_score: replay_data.quality_score ?? original.quality_score,
           kalman_estimate: replay_data.kalman_estimate ?? original.kalman_estimate,
+          reason: replay_data.rejection_reason ?? original.reason,
+          stage: replay_data.processing_stage ?? original.stage,
         };
 
         console.log(
