@@ -68,8 +68,8 @@ Time gap 480.0h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   innovation_covariance: 904.940000
 [TS]   previous_weight: 104.326160
 [TS]   time_diff_hours: 480.000000
-[TS]   quality_score.overall: 0.824709
-[TS]   quality_components: {"kalman_fit":0.999991490098585,"temporal_consistency":0.9998463329020952,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.824704
+[TS]   quality_components: {"kalman_fit":0.999974470295755,"temporal_consistency":0.9998463329020952,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -78,7 +78,7 @@ Time gap 480.0h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   State after update: [104.327111, 0.000004]
 [TS]   Trend after update (before limiting): 0.000004
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.824709
+[TS]   quality_score: 0.824704
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-02-03T00:00:00.000Z
@@ -214,8 +214,8 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=2, acc
 [TS]   innovation_covariance: 33.032802
 [TS]   previous_weight: 113.398000
 [TS]   time_diff_hours: 449.512778
-[TS]   quality_score.overall: 0.803803
-[TS]   quality_components: {"kalman_fit":0.9747189186625566,"temporal_consistency":0.9339663288124903,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.792035
+[TS]   quality_components: {"kalman_fit":0.9327052183337339,"temporal_consistency":0.9339663288124903,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -224,7 +224,7 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=2, acc
 [TS]   State after update: [113.583611, 0.002268]
 [TS]   Trend after update (before limiting): 0.002268
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.803803
+[TS]   quality_score: 0.792035
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-03-26T17:30:46.000Z
@@ -255,7 +255,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-03-26T17:
 [TS]   previous_weight: 113.583611
 [TS]   time_diff_hours: 5.839444
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.17616433089879127,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.16942811089385712,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -281,8 +281,8 @@ Restored state from snapshot at 2025-03-26T17:30:46.000Z
 [TS]   innovation_covariance: 33.032802
 [TS]   previous_weight: 113.398000
 [TS]   time_diff_hours: 449.512778
-[TS]   quality_score.overall: 0.803803
-[TS]   quality_components: {"kalman_fit":0.9747189186625566,"temporal_consistency":0.9339663288124903,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.792035
+[TS]   quality_components: {"kalman_fit":0.9327052183337339,"temporal_consistency":0.9339663288124903,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -291,7 +291,7 @@ Restored state from snapshot at 2025-03-26T17:30:46.000Z
 [TS]   State after update: [113.583611, 0.002268]
 [TS]   Trend after update (before limiting): 0.002268
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.803803
+[TS]   quality_score: 0.792035
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -321,7 +321,7 @@ Restored state from snapshot at 2025-03-26T17:30:46.000Z
 [TS]   previous_weight: 113.583611
 [TS]   time_diff_hours: 5.839444
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.17616433089879127,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.16942811089385712,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -346,7 +346,7 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=3, acc
 [TS]   previous_weight: 113.583611
 [TS]   time_diff_hours: 118.852222
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.29864593932640976,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.1599820504174672,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -372,7 +372,7 @@ Time gap 71.5h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   previous_weight: 113.583611
 [TS]   time_diff_hours: 190.331944
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.3836137520655589,"temporal_consistency":0.4,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.1621203244977482,"temporal_consistency":0.4,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -398,7 +398,7 @@ Time gap 92.0h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   previous_weight: 113.583611
 [TS]   time_diff_hours: 282.326389
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.4941039678693029,"temporal_consistency":0.4,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.1677699228669469,"temporal_consistency":0.4,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -424,7 +424,7 @@ Time gap 207.6h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   previous_weight: 113.583611
 [TS]   time_diff_hours: 489.895833
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.735750875053922,"temporal_consistency":0.4,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.17315982271286057,"temporal_consistency":0.4,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -501,7 +501,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-05-15T01:
 [TS]   previous_weight: 60.500000
 [TS]   time_diff_hours: 0.010000
 [TS]   quality_score.overall: 0.791816
-[TS]   quality_components: {"kalman_fit":0.9826600942593939,"temporal_consistency":0.8737136994306052,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.9826598534240248,"temporal_consistency":0.8737136994306052,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.066263, Q_trend=0.004061
 [TS]   observation_covariance: 11.983560
@@ -565,7 +565,7 @@ Restored state from snapshot at 2025-05-15T01:30:10.000Z
 [TS]   previous_weight: 60.500000
 [TS]   time_diff_hours: 0.010000
 [TS]   quality_score.overall: 0.791816
-[TS]   quality_components: {"kalman_fit":0.9826600942593939,"temporal_consistency":0.8737136994306052,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.9826598534240248,"temporal_consistency":0.8737136994306052,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.066263, Q_trend=0.004061
 [TS]   observation_covariance: 11.983560
@@ -596,8 +596,8 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=2, acc
 [TS]   innovation_covariance: 32.804054
 [TS]   previous_weight: 60.455110
 [TS]   time_diff_hours: 106.313889
-[TS]   quality_score.overall: 0.822103
-[TS]   quality_components: {"kalman_fit":0.9953964093609367,"temporal_consistency":0.9932366083742104,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.821885
+[TS]   quality_components: {"kalman_fit":0.994598891517808,"temporal_consistency":0.9932366083742104,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.050352, Q_trend=0.002762
 [TS]   observation_covariance: 12.978020
@@ -606,7 +606,7 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=2, acc
 [TS]   State after update: [60.440932, -0.000342]
 [TS]   Trend after update (before limiting): -0.000342
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.822103
+[TS]   quality_score: 0.821885
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-05-19T11:49:36.000Z
@@ -630,7 +630,7 @@ Time gap 56.3h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   previous_weight: 60.440932
 [TS]   time_diff_hours: 56.334444
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.21608924350475706,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.1495479312556736,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -655,8 +655,8 @@ Time gap 92.0h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   innovation_covariance: 33.618662
 [TS]   previous_weight: 60.440932
 [TS]   time_diff_hours: 148.372500
-[TS]   quality_score.overall: 0.806078
-[TS]   quality_components: {"kalman_fit":0.9667889325359595,"temporal_consistency":0.9543998094062844,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.803667
+[TS]   quality_components: {"kalman_fit":0.9581686175453261,"temporal_consistency":0.9543998094062844,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -665,7 +665,7 @@ Time gap 92.0h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   State after update: [60.285500, -0.008172]
 [TS]   Trend after update (before limiting): -0.008172
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.806078
+[TS]   quality_score: 0.803667
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-05-25T16:11:57.000Z
@@ -688,8 +688,8 @@ Time gap 107.5h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   innovation_covariance: 34.662052
 [TS]   previous_weight: 60.285500
 [TS]   time_diff_hours: 107.505833
-[TS]   quality_score.overall: 0.803171
-[TS]   quality_components: {"kalman_fit":0.9618988927139124,"temporal_consistency":0.9472077306139662,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.801298
+[TS]   quality_components: {"kalman_fit":0.955211333039662,"temporal_consistency":0.9472077306139662,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -698,7 +698,7 @@ Time gap 107.5h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   State after update: [60.014048, -0.021285]
 [TS]   Trend after update (before limiting): -0.021285
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.803171
+[TS]   quality_score: 0.801298
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-05-30T03:42:18.000Z
@@ -721,8 +721,8 @@ Time gap 50.0h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   innovation_covariance: 34.906939
 [TS]   previous_weight: 60.014048
 [TS]   time_diff_hours: 50.001944
-[TS]   quality_score.overall: 0.818949
-[TS]   quality_components: {"kalman_fit":0.98965345167227,"temporal_consistency":0.9839223614212246,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8065414401773263}
+[TS]   quality_score.overall: 0.818738
+[TS]   quality_components: {"kalman_fit":0.9888812889318186,"temporal_consistency":0.9839223614212246,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8065414401773263}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -731,7 +731,7 @@ Time gap 50.0h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   State after update: [60.030837, -0.017826]
 [TS]   Trend after update (before limiting): -0.017826
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.818949
+[TS]   quality_score: 0.818738
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-01T05:42:25.000Z
@@ -754,8 +754,8 @@ Time gap 58.3h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   innovation_covariance: 35.285659
 [TS]   previous_weight: 60.030837
 [TS]   time_diff_hours: 58.283333
-[TS]   quality_score.overall: 0.758421
-[TS]   quality_components: {"kalman_fit":0.9002467273205503,"temporal_consistency":0.8797368522535634,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.6009962003579492}
+[TS]   quality_score.overall: 0.755910
+[TS]   quality_components: {"kalman_fit":0.8914605601654226,"temporal_consistency":0.8797368522535634,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.6009962003579492}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -764,7 +764,7 @@ Time gap 58.3h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   State after update: [60.675219, 0.022404]
 [TS]   Trend after update (before limiting): 0.022404
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.758421
+[TS]   quality_score: 0.755910
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-03T15:59:25.000Z
@@ -787,8 +787,8 @@ Time gap 73.3h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   innovation_covariance: 35.972798
 [TS]   previous_weight: 60.675219
 [TS]   time_diff_hours: 73.340000
-[TS]   quality_score.overall: 0.815297
-[TS]   quality_components: {"kalman_fit":0.9718108487093294,"temporal_consistency":0.9550305354891735,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9839127448403906}
+[TS]   quality_score.overall: 0.814395
+[TS]   quality_components: {"kalman_fit":0.9686138172621117,"temporal_consistency":0.9550305354891735,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9839127448403906}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -797,7 +797,7 @@ Time gap 73.3h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   State after update: [60.963344, 0.035577]
 [TS]   Trend after update (before limiting): 0.035577
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.815297
+[TS]   quality_score: 0.814395
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-06T17:19:49.000Z
@@ -821,7 +821,7 @@ Time gap 72.2h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   previous_weight: 60.963344
 [TS]   time_diff_hours: 72.179167
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.26338448720129803,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.18131195860728147,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -937,8 +937,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-15T19:
 [TS]   innovation_covariance: 41.569659
 [TS]   previous_weight: 60.963344
 [TS]   time_diff_hours: 220.956667
-[TS]   quality_score.overall: 0.792251
-[TS]   quality_components: {"kalman_fit":0.9464746028092927,"temporal_consistency":0.9266629532622204,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.7591502862054165}
+[TS]   quality_score.overall: 0.785496
+[TS]   quality_components: {"kalman_fit":0.9227756721647902,"temporal_consistency":0.9266629532622204,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.7591502862054165}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -947,7 +947,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-15T19:
 [TS]   State after update: [60.250209, -0.016421]
 [TS]   Trend after update (before limiting): -0.016421
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.792251
+[TS]   quality_score: 0.785496
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -969,7 +969,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-15T19:
 [TS]   previous_weight: 60.250209
 [TS]   time_diff_hours: 0.003056
 [TS]   quality_score.overall: 0.435454
-[TS]   quality_components: {"kalman_fit":0.963267229972177,"temporal_consistency":0.21822155161389278,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.88569968702134}
+[TS]   quality_components: {"kalman_fit":0.9632670740839883,"temporal_consistency":0.21822155161389278,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.88569968702134}
 [TS]   Rejected by quality scorer: Quality score 0.44 below threshold 0.46 (weakest: source_reliability=0.20)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1019,8 +1019,8 @@ Restored state from snapshot at 2025-06-15T19:02:30.000Z
 [TS]   innovation_covariance: 41.569659
 [TS]   previous_weight: 60.963344
 [TS]   time_diff_hours: 220.956667
-[TS]   quality_score.overall: 0.792251
-[TS]   quality_components: {"kalman_fit":0.9464746028092927,"temporal_consistency":0.9266629532622204,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.7591502862054165}
+[TS]   quality_score.overall: 0.785496
+[TS]   quality_components: {"kalman_fit":0.9227756721647902,"temporal_consistency":0.9266629532622204,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.7591502862054165}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1029,7 +1029,7 @@ Restored state from snapshot at 2025-06-15T19:02:30.000Z
 [TS]   State after update: [60.250209, -0.016421]
 [TS]   Trend after update (before limiting): -0.016421
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.792251
+[TS]   quality_score: 0.785496
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -1051,7 +1051,7 @@ Restored state from snapshot at 2025-06-15T19:02:30.000Z
 [TS]   previous_weight: 60.250209
 [TS]   time_diff_hours: 0.003056
 [TS]   quality_score.overall: 0.435454
-[TS]   quality_components: {"kalman_fit":0.963267229972177,"temporal_consistency":0.21822155161389278,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.88569968702134}
+[TS]   quality_components: {"kalman_fit":0.9632670740839883,"temporal_consistency":0.21822155161389278,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.88569968702134}
 [TS]   Rejected by quality scorer: Quality score 0.44 below threshold 0.46 (weakest: source_reliability=0.20)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1130,7 +1130,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-18T02:
 [TS]   previous_weight: 60.250209
 [TS]   time_diff_hours: 53.455833
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.26135891706668635,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.2021210201694774,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1153,8 +1153,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-18T02:
 [TS]   innovation_covariance: 39.767799
 [TS]   previous_weight: 60.250209
 [TS]   time_diff_hours: 74.900556
-[TS]   quality_score.overall: 0.825275
-[TS]   quality_components: {"kalman_fit":0.9915449155667748,"temporal_consistency":0.9834511111861799,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9388343592506735}
+[TS]   quality_score.overall: 0.825003
+[TS]   quality_components: {"kalman_fit":0.990563221152415,"temporal_consistency":0.9834511111861799,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9388343592506735}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1163,7 +1163,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-06-18T02:
 [TS]   State after update: [60.092732, -0.021416]
 [TS]   Trend after update (before limiting): -0.021416
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.825275
+[TS]   quality_score: 0.825003
 [TS]   stage: accepted
 [TS] ================================================================================
 Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_gap, buffer_size=3, time_gap=113.6h, buffer_range=2025-06-18T02:28:24.000Z to 2025-06-19T01:11:15.000Z
@@ -1196,7 +1196,7 @@ Restored state from snapshot at 2025-06-18T02:28:24.000Z
 [TS]   previous_weight: 60.250209
 [TS]   time_diff_hours: 53.455833
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.26135891706668635,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.2021210201694774,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1219,8 +1219,8 @@ Restored state from snapshot at 2025-06-18T02:28:24.000Z
 [TS]   innovation_covariance: 39.767799
 [TS]   previous_weight: 60.250209
 [TS]   time_diff_hours: 74.900556
-[TS]   quality_score.overall: 0.825275
-[TS]   quality_components: {"kalman_fit":0.9915449155667748,"temporal_consistency":0.9834511111861799,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9388343592506735}
+[TS]   quality_score.overall: 0.825003
+[TS]   quality_components: {"kalman_fit":0.990563221152415,"temporal_consistency":0.9834511111861799,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9388343592506735}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1229,7 +1229,7 @@ Restored state from snapshot at 2025-06-18T02:28:24.000Z
 [TS]   State after update: [60.092732, -0.021416]
 [TS]   Trend after update (before limiting): -0.021416
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.825275
+[TS]   quality_score: 0.825003
 [TS]   stage: accepted
 [TS] ================================================================================
 Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=3, accepted=1, duration=0.00s
@@ -1485,8 +1485,8 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=2, acc
 [TS]   innovation_covariance: 904.544016
 [TS]   previous_weight: 57.100000
 [TS]   time_diff_hours: 48.095833
-[TS]   quality_score.overall: 0.797430
-[TS]   quality_components: {"kalman_fit":0.9846140267798777,"temporal_consistency":0.8947809273869517,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.797141
+[TS]   quality_components: {"kalman_fit":0.983512677450051,"temporal_consistency":0.8947809273869517,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.609222, Q_trend=0.004061
 [TS]   observation_covariance: 206.041213
@@ -1495,7 +1495,7 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=2, acc
 [TS]   State after update: [57.153945, 0.000024]
 [TS]   Trend after update (before limiting): 0.000024
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.797430
+[TS]   quality_score: 0.797141
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-11T23:22:13.000Z
@@ -1518,7 +1518,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-11T23:
 [TS]   previous_weight: 57.153945
 [TS]   time_diff_hours: 0.009167
 [TS]   quality_score.overall: 0.233572
-[TS]   quality_components: {"kalman_fit":0.9917518575984099,"temporal_consistency":0.2,"anomaly_detection":0.09682827409697396,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.9917517525860007,"temporal_consistency":0.2,"anomaly_detection":0.09682827409697396,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.23 below threshold 0.46 (weakest: anomaly_detection=0.10)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1542,7 +1542,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-11T23:
 [TS]   previous_weight: 57.153945
 [TS]   time_diff_hours: 0.013333
 [TS]   quality_score.overall: 0.413384
-[TS]   quality_components: {"kalman_fit":0.9838729635750914,"temporal_consistency":0.2,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.983872664920738,"temporal_consistency":0.2,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.41 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1568,8 +1568,8 @@ Restored state from snapshot at 2025-07-11T23:22:13.000Z
 [TS]   innovation_covariance: 904.544016
 [TS]   previous_weight: 57.100000
 [TS]   time_diff_hours: 48.095833
-[TS]   quality_score.overall: 0.797430
-[TS]   quality_components: {"kalman_fit":0.9846140267798777,"temporal_consistency":0.8947809273869517,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.797141
+[TS]   quality_components: {"kalman_fit":0.983512677450051,"temporal_consistency":0.8947809273869517,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.609222, Q_trend=0.004061
 [TS]   observation_covariance: 206.041213
@@ -1578,7 +1578,7 @@ Restored state from snapshot at 2025-07-11T23:22:13.000Z
 [TS]   State after update: [57.153945, 0.000024]
 [TS]   Trend after update (before limiting): 0.000024
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.797430
+[TS]   quality_score: 0.797141
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -1600,7 +1600,7 @@ Restored state from snapshot at 2025-07-11T23:22:13.000Z
 [TS]   previous_weight: 57.153945
 [TS]   time_diff_hours: 0.009167
 [TS]   quality_score.overall: 0.233572
-[TS]   quality_components: {"kalman_fit":0.9917518575984099,"temporal_consistency":0.2,"anomaly_detection":0.09682827409697396,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.9917517525860007,"temporal_consistency":0.2,"anomaly_detection":0.09682827409697396,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.23 below threshold 0.46 (weakest: anomaly_detection=0.10)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1624,7 +1624,7 @@ Restored state from snapshot at 2025-07-11T23:22:13.000Z
 [TS]   previous_weight: 57.153945
 [TS]   time_diff_hours: 0.013333
 [TS]   quality_score.overall: 0.413384
-[TS]   quality_components: {"kalman_fit":0.9838729635750914,"temporal_consistency":0.2,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.983872664920738,"temporal_consistency":0.2,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.41 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1648,8 +1648,8 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=3, acc
 [TS]   innovation_covariance: 905.383329
 [TS]   previous_weight: 57.153945
 [TS]   time_diff_hours: 49.131667
-[TS]   quality_score.overall: 0.804403
-[TS]   quality_components: {"kalman_fit":0.9892490538303964,"temporal_consistency":0.9193677221343088,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.804194
+[TS]   quality_components: {"kalman_fit":0.988461698283397,"temporal_consistency":0.9193677221343088,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.414308, Q_trend=0.002762
 [TS]   observation_covariance: 143.058755
@@ -1658,7 +1658,7 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=3, acc
 [TS]   State after update: [57.217314, 0.000215]
 [TS]   Trend after update (before limiting): 0.000215
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.804403
+[TS]   quality_score: 0.804194
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-14T00:30:07.000Z
@@ -1690,8 +1690,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-22T17:
 [TS]   innovation_covariance: 907.420419
 [TS]   previous_weight: 57.217314
 [TS]   time_diff_hours: 215.716389
-[TS]   quality_score.overall: 0.819980
-[TS]   quality_components: {"kalman_fit":0.9975895620432951,"temporal_consistency":0.9801524635321393,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.819702
+[TS]   quality_components: {"kalman_fit":0.9965584538331443,"temporal_consistency":0.9801524635321393,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1700,7 +1700,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-22T17:
 [TS]   State after update: [57.047395, -0.002854]
 [TS]   Trend after update (before limiting): -0.002854
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.819980
+[TS]   quality_score: 0.819702
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -1721,8 +1721,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-22T17:
 [TS]   innovation_covariance: 905.882421
 [TS]   previous_weight: 57.047395
 [TS]   time_diff_hours: 0.021389
-[TS]   quality_score.overall: 0.602075
-[TS]   quality_components: {"kalman_fit":0.9943869471670321,"temporal_consistency":0.40205524159662975,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.602074
+[TS]   quality_components: {"kalman_fit":0.994386780416296,"temporal_consistency":0.40205524159662975,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1731,7 +1731,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-22T17:
 [TS]   State after update: [56.808485, -0.006525]
 [TS]   Trend after update (before limiting): -0.006525
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.602075
+[TS]   quality_score: 0.602074
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -1768,8 +1768,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-22T17:
 [TS]   innovation_covariance: 905.161899
 [TS]   previous_weight: 56.808485
 [TS]   time_diff_hours: 6.425556
-[TS]   quality_score.overall: 0.412329
-[TS]   quality_components: {"kalman_fit":0.9765203114359521,"temporal_consistency":0.2,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.7618251263316945}
+[TS]   quality_score.overall: 0.412314
+[TS]   quality_components: {"kalman_fit":0.9763088828394405,"temporal_consistency":0.2,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.7618251263316945}
 [TS]   Rejected by quality scorer: Quality score 0.41 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1792,8 +1792,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-22T17:
 [TS]   innovation_covariance: 905.161957
 [TS]   previous_weight: 56.808485
 [TS]   time_diff_hours: 6.435278
-[TS]   quality_score.overall: 0.827794
-[TS]   quality_components: {"kalman_fit":0.9993857461954159,"temporal_consistency":0.9835261050537741,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9477132111329811}
+[TS]   quality_score.overall: 0.827793
+[TS]   quality_components: {"kalman_fit":0.9993802065523597,"temporal_consistency":0.9835261050537741,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9477132111329811}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1802,7 +1802,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-22T17:
 [TS]   State after update: [56.830614, -0.006194]
 [TS]   Trend after update (before limiting): -0.006194
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.827794
+[TS]   quality_score: 0.827793
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -1842,8 +1842,8 @@ Restored state from snapshot at 2025-07-22T17:48:03.000Z
 [TS]   innovation_covariance: 907.420419
 [TS]   previous_weight: 57.217314
 [TS]   time_diff_hours: 215.716389
-[TS]   quality_score.overall: 0.819980
-[TS]   quality_components: {"kalman_fit":0.9975895620432951,"temporal_consistency":0.9801524635321393,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.819702
+[TS]   quality_components: {"kalman_fit":0.9965584538331443,"temporal_consistency":0.9801524635321393,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1852,7 +1852,7 @@ Restored state from snapshot at 2025-07-22T17:48:03.000Z
 [TS]   State after update: [57.047395, -0.002854]
 [TS]   Trend after update (before limiting): -0.002854
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.819980
+[TS]   quality_score: 0.819702
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -1873,8 +1873,8 @@ Restored state from snapshot at 2025-07-22T17:48:03.000Z
 [TS]   innovation_covariance: 905.882421
 [TS]   previous_weight: 57.047395
 [TS]   time_diff_hours: 0.021389
-[TS]   quality_score.overall: 0.602075
-[TS]   quality_components: {"kalman_fit":0.9943869471670321,"temporal_consistency":0.40205524159662975,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.602074
+[TS]   quality_components: {"kalman_fit":0.994386780416296,"temporal_consistency":0.40205524159662975,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1883,7 +1883,7 @@ Restored state from snapshot at 2025-07-22T17:48:03.000Z
 [TS]   State after update: [56.808485, -0.006525]
 [TS]   Trend after update (before limiting): -0.006525
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.602075
+[TS]   quality_score: 0.602074
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -1920,8 +1920,8 @@ Restored state from snapshot at 2025-07-22T17:48:03.000Z
 [TS]   innovation_covariance: 905.161899
 [TS]   previous_weight: 56.808485
 [TS]   time_diff_hours: 6.425556
-[TS]   quality_score.overall: 0.412329
-[TS]   quality_components: {"kalman_fit":0.9765203114359521,"temporal_consistency":0.2,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.7618251263316945}
+[TS]   quality_score.overall: 0.412314
+[TS]   quality_components: {"kalman_fit":0.9763088828394405,"temporal_consistency":0.2,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.7618251263316945}
 [TS]   Rejected by quality scorer: Quality score 0.41 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -1944,8 +1944,8 @@ Restored state from snapshot at 2025-07-22T17:48:03.000Z
 [TS]   innovation_covariance: 905.161957
 [TS]   previous_weight: 56.808485
 [TS]   time_diff_hours: 6.435278
-[TS]   quality_score.overall: 0.827794
-[TS]   quality_components: {"kalman_fit":0.9993857461954159,"temporal_consistency":0.9835261050537741,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9477132111329811}
+[TS]   quality_score.overall: 0.827793
+[TS]   quality_components: {"kalman_fit":0.9993802065523597,"temporal_consistency":0.9835261050537741,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9477132111329811}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -1954,7 +1954,7 @@ Restored state from snapshot at 2025-07-22T17:48:03.000Z
 [TS]   State after update: [56.830614, -0.006194]
 [TS]   Trend after update (before limiting): -0.006194
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.827794
+[TS]   quality_score: 0.827793
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -1985,7 +1985,7 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=8, acc
 [TS]   previous_weight: 56.830614
 [TS]   time_diff_hours: 34.740278
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.9052190948134895,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.9004140335098268,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -2019,8 +2019,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T21:
 [TS]   innovation_covariance: 905.242840
 [TS]   previous_weight: 56.830614
 [TS]   time_diff_hours: 64.810278
-[TS]   quality_score.overall: 0.827577
-[TS]   quality_components: {"kalman_fit":0.9974998530205275,"temporal_consistency":0.9787508907750941,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9836437379059689}
+[TS]   quality_score.overall: 0.827509
+[TS]   quality_components: {"kalman_fit":0.9972525426389248,"temporal_consistency":0.9787508907750941,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9836437379059689}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -2029,7 +2029,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T21:
 [TS]   State after update: [56.706691, -0.008913]
 [TS]   Trend after update (before limiting): -0.008913
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.827577
+[TS]   quality_score: 0.827509
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -2058,8 +2058,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T21:
 [TS]   innovation_covariance: 904.818115
 [TS]   previous_weight: 56.706691
 [TS]   time_diff_hours: 3.925278
-[TS]   quality_score.overall: 0.709550
-[TS]   quality_components: {"kalman_fit":0.9927182748458971,"temporal_consistency":0.5945078361299714,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9654204975730384}
+[TS]   quality_score.overall: 0.709542
+[TS]   quality_components: {"kalman_fit":0.9926783589082941,"temporal_consistency":0.5945078361299714,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9654204975730384}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -2068,7 +2068,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T21:
 [TS]   State after update: [56.436532, -0.014724]
 [TS]   Trend after update (before limiting): -0.014724
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.709550
+[TS]   quality_score: 0.709542
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -2090,7 +2090,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T21:
 [TS]   previous_weight: 56.436532
 [TS]   time_diff_hours: 0.225556
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.6898014500389791,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.6897042431892374,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -2114,7 +2114,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T21:
 [TS]   previous_weight: 56.436532
 [TS]   time_diff_hours: 0.236944
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.6898063582666137,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.6897042431892374,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -2145,8 +2145,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T21:
 [TS]   innovation_covariance: 904.711990
 [TS]   previous_weight: 56.436532
 [TS]   time_diff_hours: 20.628889
-[TS]   quality_score.overall: 0.811342
-[TS]   quality_components: {"kalman_fit":0.9950001069579016,"temporal_consistency":0.93835931198556,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8222417745579732}
+[TS]   quality_score.overall: 0.811302
+[TS]   quality_components: {"kalman_fit":0.994852628406982,"temporal_consistency":0.93835931198556,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8222417745579732}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -2155,7 +2155,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-25T21:
 [TS]   State after update: [56.609402, -0.010260]
 [TS]   Trend after update (before limiting): -0.010260
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.811342
+[TS]   quality_score: 0.811302
 [TS]   stage: accepted
 [TS] ================================================================================
 Triggering replay for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: trigger=time_window, buffer_size=8, time_range=2025-07-25T21:03:43.000Z to 2025-07-27T00:02:22.000Z
@@ -2187,8 +2187,8 @@ Restored state from snapshot at 2025-07-25T21:03:43.000Z
 [TS]   innovation_covariance: 905.242840
 [TS]   previous_weight: 56.830614
 [TS]   time_diff_hours: 64.810278
-[TS]   quality_score.overall: 0.827577
-[TS]   quality_components: {"kalman_fit":0.9974998530205275,"temporal_consistency":0.9787508907750941,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9836437379059689}
+[TS]   quality_score.overall: 0.827509
+[TS]   quality_components: {"kalman_fit":0.9972525426389248,"temporal_consistency":0.9787508907750941,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9836437379059689}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -2197,7 +2197,7 @@ Restored state from snapshot at 2025-07-25T21:03:43.000Z
 [TS]   State after update: [56.706691, -0.008913]
 [TS]   Trend after update (before limiting): -0.008913
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.827577
+[TS]   quality_score: 0.827509
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -2226,8 +2226,8 @@ Restored state from snapshot at 2025-07-25T21:03:43.000Z
 [TS]   innovation_covariance: 904.818115
 [TS]   previous_weight: 56.706691
 [TS]   time_diff_hours: 3.925278
-[TS]   quality_score.overall: 0.709550
-[TS]   quality_components: {"kalman_fit":0.9927182748458971,"temporal_consistency":0.5945078361299714,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9654204975730384}
+[TS]   quality_score.overall: 0.709542
+[TS]   quality_components: {"kalman_fit":0.9926783589082941,"temporal_consistency":0.5945078361299714,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9654204975730384}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -2236,7 +2236,7 @@ Restored state from snapshot at 2025-07-25T21:03:43.000Z
 [TS]   State after update: [56.436532, -0.014724]
 [TS]   Trend after update (before limiting): -0.014724
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.709550
+[TS]   quality_score: 0.709542
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -2258,7 +2258,7 @@ Restored state from snapshot at 2025-07-25T21:03:43.000Z
 [TS]   previous_weight: 56.436532
 [TS]   time_diff_hours: 0.225556
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.6898014500389791,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.6897042431892374,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -2282,7 +2282,7 @@ Restored state from snapshot at 2025-07-25T21:03:43.000Z
 [TS]   previous_weight: 56.436532
 [TS]   time_diff_hours: 0.236944
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.6898063582666137,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.6897042431892374,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -2313,8 +2313,8 @@ Restored state from snapshot at 2025-07-25T21:03:43.000Z
 [TS]   innovation_covariance: 904.711990
 [TS]   previous_weight: 56.436532
 [TS]   time_diff_hours: 20.628889
-[TS]   quality_score.overall: 0.811342
-[TS]   quality_components: {"kalman_fit":0.9950001069579016,"temporal_consistency":0.93835931198556,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8222417745579732}
+[TS]   quality_score.overall: 0.811302
+[TS]   quality_components: {"kalman_fit":0.994852628406982,"temporal_consistency":0.93835931198556,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8222417745579732}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -2323,7 +2323,7 @@ Restored state from snapshot at 2025-07-25T21:03:43.000Z
 [TS]   State after update: [56.609402, -0.010260]
 [TS]   Trend after update (before limiting): -0.010260
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.811342
+[TS]   quality_score: 0.811302
 [TS]   stage: accepted
 [TS] ================================================================================
 Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=8, accepted=3, duration=0.00s
@@ -2345,8 +2345,8 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=8, acc
 [TS]   innovation_covariance: 904.664980
 [TS]   previous_weight: 56.609402
 [TS]   time_diff_hours: 20.382222
-[TS]   quality_score.overall: 0.808153
-[TS]   quality_components: {"kalman_fit":0.9935646377651445,"temporal_consistency":0.9235604924074049,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8337577269250921}
+[TS]   quality_score.overall: 0.808103
+[TS]   quality_components: {"kalman_fit":0.9933771539885486,"temporal_consistency":0.9235604924074049,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8337577269250921}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -2355,7 +2355,7 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=8, acc
 [TS]   State after update: [56.837748, -0.003912]
 [TS]   Trend after update (before limiting): -0.003912
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.808153
+[TS]   quality_score: 0.808103
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-07-27T20:25:18.000Z
@@ -2953,8 +2953,8 @@ No snapshot found, starting fresh
 [TS]   innovation_covariance: 904.540338
 [TS]   previous_weight: 56.700000
 [TS]   time_diff_hours: 13.952222
-[TS]   quality_score.overall: 0.819610
-[TS]   quality_components: {"kalman_fit":0.9986966566338479,"temporal_consistency":0.9769732712458465,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.819603
+[TS]   quality_components: {"kalman_fit":0.9986709012432797,"temporal_consistency":0.9769732712458465,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.609222, Q_trend=0.004061
 [TS]   observation_covariance: 206.041213
@@ -2963,7 +2963,7 @@ No snapshot found, starting fresh
 [TS]   State after update: [56.695688, -0.000001]
 [TS]   Trend after update (before limiting): -0.000001
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.819610
+[TS]   quality_score: 0.819603
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -2985,7 +2985,7 @@ No snapshot found, starting fresh
 [TS]   previous_weight: 56.695688
 [TS]   time_diff_hours: 0.008056
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.9622092803953889,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.9622088575778233,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -3026,8 +3026,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-13T21:
 [TS]   innovation_covariance: 905.391376
 [TS]   previous_weight: 56.695688
 [TS]   time_diff_hours: 61.533889
-[TS]   quality_score.overall: 0.806259
-[TS]   quality_components: {"kalman_fit":0.9896983997296942,"temporal_consistency":0.9269748248994125,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.806003
+[TS]   quality_components: {"kalman_fit":0.9887357115735169,"temporal_consistency":0.9269748248994125,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.414308, Q_trend=0.002762
 [TS]   observation_covariance: 143.058755
@@ -3036,7 +3036,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-13T21:
 [TS]   State after update: [56.757583, 0.000212]
 [TS]   Trend after update (before limiting): 0.000212
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.806259
+[TS]   quality_score: 0.806003
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3058,7 +3058,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-13T21:
 [TS]   previous_weight: 56.757583
 [TS]   time_diff_hours: 0.006667
 [TS]   quality_score.overall: 0.365163
-[TS]   quality_components: {"kalman_fit":0.9839033671069338,"temporal_consistency":0.2,"anomaly_detection":0.38501411420401593,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.9839032180626567,"temporal_consistency":0.2,"anomaly_detection":0.38501411420401593,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.37 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -3100,8 +3100,8 @@ Restored state from snapshot at 2025-08-13T21:46:53.000Z
 [TS]   innovation_covariance: 904.549893
 [TS]   previous_weight: 56.700000
 [TS]   time_diff_hours: 75.486111
-[TS]   quality_score.overall: 0.807382
-[TS]   quality_components: {"kalman_fit":0.989937406107371,"temporal_consistency":0.9316625313285214,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.807068
+[TS]   quality_components: {"kalman_fit":0.9887588650491567,"temporal_consistency":0.9316625313285214,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.609222, Q_trend=0.004061
 [TS]   observation_covariance: 206.041213
@@ -3110,7 +3110,7 @@ Restored state from snapshot at 2025-08-13T21:46:53.000Z
 [TS]   State after update: [56.736729, 0.000025]
 [TS]   Trend after update (before limiting): 0.000025
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.807382
+[TS]   quality_score: 0.807068
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3132,7 +3132,7 @@ Restored state from snapshot at 2025-08-13T21:46:53.000Z
 [TS]   previous_weight: 56.736729
 [TS]   time_diff_hours: 0.006667
 [TS]   quality_score.overall: 0.365155
-[TS]   quality_components: {"kalman_fit":0.983760286286481,"temporal_consistency":0.2,"anomaly_detection":0.38501411420401593,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.9837601359173692,"temporal_consistency":0.2,"anomaly_detection":0.38501411420401593,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.37 below threshold 0.46 (weakest: temporal_consistency=0.20)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -3166,8 +3166,8 @@ Time gap 52.1h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   innovation_covariance: 905.638389
 [TS]   previous_weight: 56.736729
 [TS]   time_diff_hours: 143.432500
-[TS]   quality_score.overall: 0.818394
-[TS]   quality_components: {"kalman_fit":0.9964786822430808,"temporal_consistency":0.9740535144165032,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.818158
+[TS]   quality_components: {"kalman_fit":0.9956026852276935,"temporal_consistency":0.9740535144165032,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.414308, Q_trend=0.002762
 [TS]   observation_covariance: 143.058755
@@ -3176,7 +3176,7 @@ Time gap 52.1h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   State after update: [56.762025, 0.000226]
 [TS]   Trend after update (before limiting): 0.000226
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.818394
+[TS]   quality_score: 0.818158
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-19T21:14:58.000Z
@@ -3209,8 +3209,8 @@ Restored state from snapshot at 2025-08-19T21:14:58.000Z
 [TS]   innovation_covariance: 905.638389
 [TS]   previous_weight: 56.736729
 [TS]   time_diff_hours: 143.432500
-[TS]   quality_score.overall: 0.818394
-[TS]   quality_components: {"kalman_fit":0.9964786822430808,"temporal_consistency":0.9740535144165032,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.818158
+[TS]   quality_components: {"kalman_fit":0.9956026852276935,"temporal_consistency":0.9740535144165032,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.414308, Q_trend=0.002762
 [TS]   observation_covariance: 143.058755
@@ -3219,7 +3219,7 @@ Restored state from snapshot at 2025-08-19T21:14:58.000Z
 [TS]   State after update: [56.762025, 0.000226]
 [TS]   Trend after update (before limiting): 0.000226
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.818394
+[TS]   quality_score: 0.818158
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3259,8 +3259,8 @@ Time gap 48.6h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   innovation_covariance: 906.720910
 [TS]   previous_weight: 56.762025
 [TS]   time_diff_hours: 74.920833
-[TS]   quality_score.overall: 0.792675
-[TS]   quality_components: {"kalman_fit":0.9786147721841801,"temporal_consistency":0.881548835947895,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.792022
+[TS]   quality_components: {"kalman_fit":0.976131047438792,"temporal_consistency":0.881548835947895,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3269,7 +3269,7 @@ Time gap 48.6h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   State after update: [57.888178, 0.014250]
 [TS]   Trend after update (before limiting): 0.014250
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.792675
+[TS]   quality_score: 0.792022
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-23T00:10:13.000Z
@@ -3292,8 +3292,8 @@ Time gap 41.9h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   innovation_covariance: 905.799954
 [TS]   previous_weight: 57.888178
 [TS]   time_diff_hours: 41.875000
-[TS]   quality_score.overall: 0.812337
-[TS]   quality_components: {"kalman_fit":0.9980427748890109,"temporal_consistency":0.9823503264785168,"anomaly_detection":0.9418785877677329,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.812305
+[TS]   quality_components: {"kalman_fit":0.9979219139835397,"temporal_consistency":0.9823503264785168,"anomaly_detection":0.9418785877677329,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3302,7 +3302,7 @@ Time gap 41.9h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   State after update: [57.825751, 0.012889]
 [TS]   Trend after update (before limiting): 0.012889
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.812337
+[TS]   quality_score: 0.812305
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-24T18:02:43.000Z
@@ -3335,8 +3335,8 @@ Restored state from snapshot at 2025-08-24T18:02:43.000Z
 [TS]   innovation_covariance: 905.799954
 [TS]   previous_weight: 57.888178
 [TS]   time_diff_hours: 41.875000
-[TS]   quality_score.overall: 0.812337
-[TS]   quality_components: {"kalman_fit":0.9980427748890109,"temporal_consistency":0.9823503264785168,"anomaly_detection":0.9418785877677329,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.812305
+[TS]   quality_components: {"kalman_fit":0.9979219139835397,"temporal_consistency":0.9823503264785168,"anomaly_detection":0.9418785877677329,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3345,7 +3345,7 @@ Restored state from snapshot at 2025-08-24T18:02:43.000Z
 [TS]   State after update: [57.825751, 0.012889]
 [TS]   Trend after update (before limiting): 0.012889
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.812337
+[TS]   quality_score: 0.812305
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3384,8 +3384,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-26T23:
 [TS]   innovation_covariance: 905.492699
 [TS]   previous_weight: 57.825751
 [TS]   time_diff_hours: 53.377222
-[TS]   quality_score.overall: 0.828132
-[TS]   quality_components: {"kalman_fit":0.9997195421567223,"temporal_consistency":0.9958254868507911,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8901945563399637}
+[TS]   quality_score.overall: 0.828126
+[TS]   quality_components: {"kalman_fit":0.9996970855873946,"temporal_consistency":0.9958254868507911,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8901945563399637}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3394,7 +3394,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-26T23:
 [TS]   State after update: [57.866635, 0.013154]
 [TS]   Trend after update (before limiting): 0.013154
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.828132
+[TS]   quality_score: 0.828126
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3434,8 +3434,8 @@ Restored state from snapshot at 2025-08-26T23:19:56.000Z
 [TS]   innovation_covariance: 905.492699
 [TS]   previous_weight: 57.825751
 [TS]   time_diff_hours: 53.377222
-[TS]   quality_score.overall: 0.828132
-[TS]   quality_components: {"kalman_fit":0.9997195421567223,"temporal_consistency":0.9958254868507911,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8901945563399637}
+[TS]   quality_score.overall: 0.828126
+[TS]   quality_components: {"kalman_fit":0.9996970855873946,"temporal_consistency":0.9958254868507911,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8901945563399637}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3444,7 +3444,7 @@ Restored state from snapshot at 2025-08-26T23:19:56.000Z
 [TS]   State after update: [57.866635, 0.013154]
 [TS]   Trend after update (before limiting): 0.013154
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.828132
+[TS]   quality_score: 0.828126
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3491,8 +3491,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-30T17:
 [TS]   innovation_covariance: 906.376661
 [TS]   previous_weight: 57.866635
 [TS]   time_diff_hours: 111.888611
-[TS]   quality_score.overall: 0.818871
-[TS]   quality_components: {"kalman_fit":0.9948093962314241,"temporal_consistency":0.9654012982039697,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8568177729802364}
+[TS]   quality_score.overall: 0.818612
+[TS]   quality_components: {"kalman_fit":0.9938543582941224,"temporal_consistency":0.9654012982039697,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8568177729802364}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3501,7 +3501,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-08-30T17:
 [TS]   State after update: [57.651150, 0.003382]
 [TS]   Trend after update (before limiting): 0.003382
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.818871
+[TS]   quality_score: 0.818612
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3549,8 +3549,8 @@ Restored state from snapshot at 2025-08-30T17:47:29.000Z
 [TS]   innovation_covariance: 906.376661
 [TS]   previous_weight: 57.866635
 [TS]   time_diff_hours: 111.888611
-[TS]   quality_score.overall: 0.818871
-[TS]   quality_components: {"kalman_fit":0.9948093962314241,"temporal_consistency":0.9654012982039697,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8568177729802364}
+[TS]   quality_score.overall: 0.818612
+[TS]   quality_components: {"kalman_fit":0.9938543582941224,"temporal_consistency":0.9654012982039697,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8568177729802364}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3559,7 +3559,7 @@ Restored state from snapshot at 2025-08-30T17:47:29.000Z
 [TS]   State after update: [57.651150, 0.003382]
 [TS]   Trend after update (before limiting): 0.003382
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.818871
+[TS]   quality_score: 0.818612
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3600,7 +3600,7 @@ Time gap 40.2h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   previous_weight: 57.651150
 [TS]   time_diff_hours: 48.935278
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.717975293569113,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.6974095315906113,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -3626,7 +3626,7 @@ Time gap 24.3h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   previous_weight: 57.651150
 [TS]   time_diff_hours: 73.257500
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.7332862819655579,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.7030752162030509,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -3652,7 +3652,7 @@ Time gap 25.6h exceeds buffer window but only 1 measurement(s) in buffer - no re
 [TS]   previous_weight: 57.651150
 [TS]   time_diff_hours: 98.896111
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.7787382509196458,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.743507548112689,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -3677,8 +3677,8 @@ Time gap 194.8h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   innovation_covariance: 914.214437
 [TS]   previous_weight: 57.651150
 [TS]   time_diff_hours: 293.716111
-[TS]   quality_score.overall: 0.816207
-[TS]   quality_components: {"kalman_fit":0.9941257061813631,"temporal_consistency":0.9466329666133171,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8944163074460116}
+[TS]   quality_score.overall: 0.815113
+[TS]   quality_components: {"kalman_fit":0.990078228008,"temporal_consistency":0.9466329666133171,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8944163074460116}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3687,7 +3687,7 @@ Time gap 194.8h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   State after update: [58.426001, 0.032503]
 [TS]   Trend after update (before limiting): 0.032503
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.816207
+[TS]   quality_score: 0.815113
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-09-12T21:01:38.000Z
@@ -3710,7 +3710,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-09-12T21:
 [TS]   previous_weight: 58.426001
 [TS]   time_diff_hours: 0.007222
 [TS]   quality_score.overall: 0.644218
-[TS]   quality_components: {"kalman_fit":0.9948981928051778,"temporal_consistency":0.46345381459993845,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9451112766394999}
+[TS]   quality_components: {"kalman_fit":0.9948981416291293,"temporal_consistency":0.46345381459993845,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9451112766394999}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3740,8 +3740,8 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-09-12T21:
 [TS]   innovation_covariance: 906.475166
 [TS]   previous_weight: 58.702883
 [TS]   time_diff_hours: 15.115000
-[TS]   quality_score.overall: 0.823340
-[TS]   quality_components: {"kalman_fit":0.9975932081742592,"temporal_consistency":0.95867281893092,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9868319738887203}
+[TS]   quality_score.overall: 0.823326
+[TS]   quality_components: {"kalman_fit":0.9975415988217463,"temporal_consistency":0.95867281893092,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.9868319738887203}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3750,7 +3750,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-09-12T21:
 [TS]   State after update: [58.841185, 0.045789]
 [TS]   Trend after update (before limiting): 0.045789
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.823340
+[TS]   quality_score: 0.823326
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3863,8 +3863,8 @@ No snapshot found, starting fresh
 [TS]   innovation_covariance: 905.345030
 [TS]   previous_weight: 59.200000
 [TS]   time_diff_hours: 15.115000
-[TS]   quality_score.overall: 0.822235
-[TS]   quality_components: {"kalman_fit":0.999349474420305,"temporal_consistency":0.9886755723334804,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.822232
+[TS]   quality_components: {"kalman_fit":0.9993355250609952,"temporal_consistency":0.9886755723334804,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.414308, Q_trend=0.002762
 [TS]   observation_covariance: 143.058755
@@ -3873,7 +3873,7 @@ No snapshot found, starting fresh
 [TS]   State after update: [59.196398, -0.000003]
 [TS]   Trend after update (before limiting): -0.000003
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.822235
+[TS]   quality_score: 0.822232
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -3894,8 +3894,8 @@ No snapshot found, starting fresh
 [TS]   innovation_covariance: 906.058861
 [TS]   previous_weight: 59.196398
 [TS]   time_diff_hours: 10.562778
-[TS]   quality_score.overall: 0.813527
-[TS]   quality_components: {"kalman_fit":0.9974082577469754,"temporal_consistency":0.9503412330298862,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.813517
+[TS]   quality_components: {"kalman_fit":0.9973696694172142,"temporal_consistency":0.9503412330298862,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.283653, Q_trend=0.001891
 [TS]   observation_covariance: 100.840350
@@ -3904,7 +3904,7 @@ No snapshot found, starting fresh
 [TS]   State after update: [59.173930, -0.000040]
 [TS]   Trend after update (before limiting): -0.000040
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.813527
+[TS]   quality_score: 0.813517
 [TS]   stage: accepted
 [TS] ================================================================================
 Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=4, accepted=4, duration=0.00s
@@ -3927,7 +3927,7 @@ Replay completed for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7: processed=4, acc
 [TS]   previous_weight: 59.173930
 [TS]   time_diff_hours: 85.885278
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.7573650862378922,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_components: {"kalman_fit":0.7245023151386543,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.8}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -3962,8 +3962,8 @@ Time gap 170.8h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   innovation_covariance: 911.072354
 [TS]   previous_weight: 59.173930
 [TS]   time_diff_hours: 355.790833
-[TS]   quality_score.overall: 0.815653
-[TS]   quality_components: {"kalman_fit":0.9964152207615301,"temporal_consistency":0.9613143538036499,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.814712
+[TS]   quality_components: {"kalman_fit":0.9929133001365105,"temporal_consistency":0.9613143538036499,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -3972,7 +3972,7 @@ Time gap 170.8h exceeds buffer window but only 1 measurement(s) in buffer - no r
 [TS]   State after update: [58.717511, -0.012026]
 [TS]   Trend after update (before limiting): -0.012026
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.815653
+[TS]   quality_score: 0.814712
 [TS]   stage: accepted
 [TS] ================================================================================
 Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-09-28T18:30:11.000Z
@@ -3995,7 +3995,7 @@ Created snapshot for user ADC64C0B-CB46-41F9-BDA0-CC11A35942D7 at 2025-09-28T18:
 [TS]   previous_weight: 58.717511
 [TS]   time_diff_hours: 3.834167
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.7525365810679882,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.7512117259186266,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -4021,8 +4021,8 @@ Restored state from snapshot at 2025-09-28T18:30:11.000Z
 [TS]   innovation_covariance: 911.072354
 [TS]   previous_weight: 59.173930
 [TS]   time_diff_hours: 355.790833
-[TS]   quality_score.overall: 0.815653
-[TS]   quality_components: {"kalman_fit":0.9964152207615301,"temporal_consistency":0.9613143538036499,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
+[TS]   quality_score.overall: 0.814712
+[TS]   quality_components: {"kalman_fit":0.9929133001365105,"temporal_consistency":0.9613143538036499,"anomaly_detection":1,"source_reliability":0.2,"trend_alignment":0.8}
 [TS] Step 6: Kalman update
 [TS]   Using adaptive parameters: Q_weight=0.018000, Q_trend=0.000120
 [TS]   observation_covariance: 15.000000
@@ -4031,7 +4031,7 @@ Restored state from snapshot at 2025-09-28T18:30:11.000Z
 [TS]   State after update: [58.717511, -0.012026]
 [TS]   Trend after update (before limiting): -0.012026
 [TS] Result: ACCEPTED
-[TS]   quality_score: 0.815653
+[TS]   quality_score: 0.814712
 [TS]   stage: accepted
 [TS] ================================================================================
 [TS] ================================================================================
@@ -4053,7 +4053,7 @@ Restored state from snapshot at 2025-09-28T18:30:11.000Z
 [TS]   previous_weight: 58.717511
 [TS]   time_diff_hours: 3.834167
 [TS]   quality_score.overall: 0.000000
-[TS]   quality_components: {"kalman_fit":0.7525365810679882,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
+[TS]   quality_components: {"kalman_fit":0.7512117259186266,"temporal_consistency":0.2,"anomaly_detection":0,"source_reliability":0.2,"trend_alignment":0.3}
 [TS]   Rejected by quality scorer: Quality score 0.00 below threshold 0.46 (weakest: anomaly_detection=0.00)
 [TS] Result: REJECTED
 [TS]   stage: unified_quality_scoring
@@ -4098,6 +4098,6 @@ Acceptance rate: 34.2%
 Writing filtered CSV to filtered_weights_ts.csv...
 Filtered CSV written: 42/120 measurements accepted (35.0%)
 
-Results saved to: output_local/results_2025-11-06T14-17-13.json
+Results saved to: output_local/results_2025-11-06T15-26-40.json
 
 === Processing Complete ===

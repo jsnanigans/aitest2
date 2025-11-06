@@ -4,8 +4,8 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from src.aws.api.models import Measurement
-from src.core.processing.processor import process_measurement
+from aws.api.models import Measurement
+from weight_processor_lib.core.processing.processor import process_measurement
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,16 @@ def replay_measurements(
                 user_height_m=user_height_m,
             )
 
+            # Extract reset event if present
+            reset_event_data = result.get("reset_event")
+            reset_event_dict = None
+            if reset_event_data:
+                reset_event_dict = {
+                    "type": reset_event_data.get("type", "unknown"),
+                    "gap_days": reset_event_data.get("gap_days"),
+                    "reason": reset_event_data.get("reason", "unknown"),
+                }
+
             results.append(
                 {
                     "uuid": measurement.measurement_id,
@@ -79,6 +89,8 @@ def replay_measurements(
                     "kalman_estimate": result.get("kalman_estimate"),
                     "rejection_reason": result.get("reason"),
                     "processing_stage": result.get("stage"),
+                    "reset_triggered": result.get("was_reset", False) or result.get("reset_event") is not None,
+                    "reset_event": reset_event_dict,
                 }
             )
 

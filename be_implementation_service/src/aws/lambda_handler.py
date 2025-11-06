@@ -10,16 +10,16 @@ import numpy as np
 from aws_lambda_powertools import Logger
 from pydantic import ValidationError
 
-from src.aws.api.models import (ApiMeta, CleanupRequest, CleanupResponseData,
-                                HealthStatus, MeasurementResult,
+from aws.api.models import (ApiMeta, CleanupRequest, CleanupResponseData,
+                                HealthStatus, MeasurementResult, ResetEvent,
                                 ProcessRequest, ReplayRequest,
                                 ReplayResponseData, StandardResponse,
                                 StateInfo, create_error_response,
                                 create_success_response)
-from src.aws.config.config_manager import ConfigManager
-from src.aws.services.weight_processor_service import (HistoricalConflictError,
+from aws.config.config_manager import ConfigManager
+from aws.services.weight_processor_service import (HistoricalConflictError,
                                                        WeightProcessorService)
-from src.core.database import get_state_db
+from weight_processor_lib.core.database import get_state_db
 
 # Configure structured logging with PII redaction
 logger = Logger(
@@ -548,7 +548,7 @@ def handle_replay(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
             )
 
         # Import replay service
-        from src.aws.services.replay_service import replay_measurements
+        from aws.services.replay_service import replay_measurements
 
         # Get service dependencies
         state_store = get_state_db()
@@ -586,7 +586,8 @@ def handle_replay(event: Dict[str, Any], request_id: str) -> Dict[str, Any]:
                         quality_score=r.get("quality_score"),
                         rejection_reason=r.get("rejection_reason"),
                         processing_stage=r.get("stage"),
-                        reset_triggered=r.get("reset_triggered", False)
+                        reset_triggered=r.get("reset_triggered", False),
+                        reset_event=ResetEvent(**r["reset_event"]) if r.get("reset_event") else None
                     ) for r in result.get("results", [])
                 ]
             )

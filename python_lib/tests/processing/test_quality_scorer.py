@@ -9,7 +9,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 
-from src.core.processing.unified_quality_scorer import UnifiedQualityScorer, QualityScore
+from weight_processor_lib.core.processing.unified_quality_scorer import UnifiedQualityScorer, QualityScore
 
 
 class TestQualityScoring:

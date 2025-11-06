@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Any
 
-from src.core.processing.processor import process_measurement
-from src.core.constants import PHYSIOLOGICAL_LIMITS
+from weight_processor_lib.core.processing.processor import process_measurement
+from weight_processor_lib.core.constants import PHYSIOLOGICAL_LIMITS
 
 
 class TestProcessorCore:
@@ -352,7 +352,7 @@ class TestProcessorCore:
         mock_db.get_state.return_value = existing_state
 
         # Mock ResetManager.perform_reset to simulate validation failure
-        with patch('src.core.processing.processor.ResetManager.perform_reset') as mock_reset:
+        with patch('weight_processor_lib.core.processing.processor.ResetManager.perform_reset') as mock_reset:
             # Simulate reset returning invalid state (missing required fields)
             invalid_state = existing_state.copy()
             invalid_state["kalman_params"] = "invalid"  # Invalid type causes validation failure
@@ -410,7 +410,7 @@ class TestProcessorCore:
             }
 
         # Mock ResetManager.perform_reset to always fail
-        with patch('src.core.processing.processor.ResetManager.perform_reset') as mock_reset:
+        with patch('weight_processor_lib.core.processing.processor.ResetManager.perform_reset') as mock_reset:
             mock_reset.side_effect = Exception("Reset validation failed")
 
             # Attempt multiple measurements with failing resets

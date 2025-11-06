@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
-"""Test script to verify replay trigger logic."""
+"""Test script to verify replay trigger logic.
+
+This script manually tests the buffered replay system by processing measurements
+with specific time gaps to trigger replay. See tests/fixtures/replay_scenario.json
+for the test data referenced in this script.
+
+Usage:
+    python scripts/manual_testing/test_replay_trigger.py
+"""
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+# Add project root to path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.insert(0, project_root)
 
 from datetime import datetime
 from src.aws.api.models import Measurement
 from src.aws.services.weight_processor_service import WeightProcessorService
-from src.core.database import get_state_db
+from weight_processor_lib.core.database import get_state_db
 
 def test_replay_trigger():
     """Test that replay triggers correctly with time gap."""

@@ -1,32 +1,26 @@
 """
-Weight Stream Processor Package
+Weight Stream Processor Package - AWS Lambda Implementation
+
+This package provides AWS Lambda-specific code for the weight processor service.
+Core processing logic is provided by the weight_processor_lib package.
 """
 
-# Core processing
-from .core.processing.processor import process_measurement
-
-# Database
-from .core.database import get_state_db
-from .core.database.base import StateStore
-
-# Constants
-from .core.constants import KALMAN_DEFAULTS, PHYSIOLOGICAL_LIMITS, get_noise_multiplier
-
-# Validation
-from .core.processing.validation import DataQualityPreprocessor
-
-# Kalman filter
-from .core.processing.kalman import KalmanFilterManager
-
-# Quality scoring
-from .core.processing.unified_quality_scorer import (
+# Re-export core components from python_lib for convenience
+from weight_processor_lib.core.processing.processor import process_measurement
+from weight_processor_lib.core.database import get_state_db
+from weight_processor_lib.core.database.base import StateStore
+from weight_processor_lib.core.constants import (
+    KALMAN_DEFAULTS,
+    PHYSIOLOGICAL_LIMITS,
+    get_noise_multiplier,
+)
+from weight_processor_lib.core.processing.validation import DataQualityPreprocessor
+from weight_processor_lib.core.processing.kalman import KalmanFilterManager
+from weight_processor_lib.core.processing.unified_quality_scorer import (
     UnifiedQualityScorer,
     QualityScore,
     MeasurementHistory,
 )
-
-# Utilities (if type conversion is needed, import from processing)
-# Note: ensure_float is in core.processing.type_conversion if needed
 
 __all__ = [
     # Core processor

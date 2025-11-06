@@ -295,16 +295,20 @@ class UnifiedQualityScorer:
             ).total_seconds() / 86400.0
             metadata["days_since_last"] = days_since_last
 
-        # Apply decay factor based on time gap
+        # Apply decay factor based on time gap (but NOT during adaptation)
         # Linear decay: at 30 days, Kalman fit doesn't matter (score approaches 1.0)
         # Formula: final_score = score + (1 - score) * min(1, days/30)
-        if days_since_last > 0:
+        # During adaptation period, we should trust the Kalman filter more, not less
+        if days_since_last > 0 and not in_adaptive_period:
             decay_factor = min(1.0, days_since_last / 30.0)  # Linear decay over 30 days
             # Blend towards 1.0 (full acceptance) as time increases
             adjusted_score = score + (1.0 - score) * decay_factor
             metadata["decay_factor"] = decay_factor
             metadata["original_score"] = score
             score = adjusted_score
+        elif in_adaptive_period:
+            # During adaptation, no time decay - rely on Kalman uncertainty
+            metadata["decay_skipped"] = "adaptation_period"
 
         # Ensure score is in [0, 1]
         score = max(0.0, min(1.0, score))

@@ -290,12 +290,18 @@ export class UnifiedQualityScorer {
       metadata.days_since_last = daysSinceLast;
     }
 
-    if (daysSinceLast > 0) {
+    // Apply decay factor based on time gap (but NOT during adaptation)
+    // Linear decay: at 30 days, Kalman fit doesn't matter (score approaches 1.0)
+    // During adaptation period, we should trust the Kalman filter more, not less
+    if (daysSinceLast > 0 && !inAdaptivePeriod) {
       const decayFactor = Math.min(1.0, daysSinceLast / 30.0);
       const adjustedScore = score + (1.0 - score) * decayFactor;
       metadata.decay_factor = decayFactor;
       metadata.original_score = score;
       score = adjustedScore;
+    } else if (inAdaptivePeriod) {
+      // During adaptation, no time decay - rely on Kalman uncertainty
+      metadata.decay_skipped = "adaptation_period";
     }
 
     score = Math.max(0.0, Math.min(1.0, score));

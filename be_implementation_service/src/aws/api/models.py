@@ -158,6 +158,14 @@ class ApiMeta(BaseModel):
     request_id: Optional[str] = None
 
 
+class ResetEvent(BaseModel):
+    """Details about a reset event that occurred during processing."""
+
+    type: str = Field(description="Type of reset (temporal_gap, soft_reset, hard_reset, etc.)")
+    gap_days: Optional[float] = Field(None, description="Number of days in temporal gap (if applicable)")
+    reason: str = Field(description="Human-readable reason for the reset")
+
+
 class MeasurementResult(BaseModel):
     """Result of processing a single measurement with consistent naming."""
 
@@ -173,6 +181,7 @@ class MeasurementResult(BaseModel):
     rejection_reason: Optional[str] = None
     processing_stage: Optional[str] = None
     reset_triggered: bool = False
+    reset_event: Optional[ResetEvent] = Field(None, description="Details about reset that occurred (if any)")
     quality_components: Optional[Dict[str, float]] = None
 
 

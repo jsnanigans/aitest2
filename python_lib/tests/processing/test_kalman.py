@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 
-from src.core.processing.kalman import KalmanFilterManager, get_adaptive_kalman_params
+from weight_processor_lib.core.processing.kalman import KalmanFilterManager, get_adaptive_kalman_params
 
 
 class TestKalmanFilterOperations:

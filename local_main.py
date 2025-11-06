@@ -3,8 +3,13 @@
 Local Weight Stream Processor
 
 Processes weight measurements from CSV data using direct method calls instead of API.
-Uses in-memory storage for state management.
+Uses python_lib core library with InMemoryStore for fast, in-memory state management.
+Uses be_implementation_service for API models and orchestration layer.
 Outputs a filtered CSV with only accepted (non-rejected) measurements.
+
+Dependencies:
+    - python_lib: Core weight processing library (infrastructure-agnostic)
+    - be_implementation_service: AWS Lambda implementation layer
 """
 
 import argparse
@@ -17,16 +22,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# Add weight_values to path for imports
-sys.path.insert(0, str(Path(__file__).parent / "weight_values"))
+# Add python_lib and be_implementation_service to path for imports
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root / "python_lib" / "src"))
+sys.path.insert(0, str(project_root / "be_implementation_service" / "src"))
 # Add local to path for visualization imports
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(project_root))
 
-from weight_values.src.aws.api.models import Measurement, ProcessResponseData
-from weight_values.src.aws.services.weight_processor_service import WeightProcessorService
-from weight_values.src.core.database.database import ProcessorStateDB
-from weight_values.src.aws.config.config_manager import ConfigManager
-from weight_values.src.core.constants import SUPPORTED_WEIGHT_UNITS
+# Import from be_implementation_service (API/service layer)
+from aws.api.models import Measurement, ProcessResponseData
+from aws.services.weight_processor_service import WeightProcessorService
+from aws.config.config_manager import ConfigManager
+
+# Import from python_lib (core library)
+from weight_processor_lib.core.database import InMemoryStore
+from weight_processor_lib.core.constants import SUPPORTED_WEIGHT_UNITS
 
 # Visualization imports (optional)
 try:
@@ -41,7 +51,7 @@ except ImportError as e:
 
 def get_default_config() -> Dict[str, Any]:
     """
-    Load configuration from weight_values/config.toml.
+    Load configuration from be_implementation_service/config.toml.
     Override database backend for local processing.
 
     Returns:
@@ -497,7 +507,7 @@ def main():
 
     # Initialize in-memory storage
     print("Initializing in-memory storage...")
-    state_store = ProcessorStateDB()
+    state_store = InMemoryStore()
 
     # Load configuration
     print("Loading configuration...")

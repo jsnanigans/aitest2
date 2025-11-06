@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 
-from src.core.processing.kalman import ResetManager, ResetType
+from weight_processor_lib.core.processing.kalman import ResetManager, ResetType
 
 
 class TestResetDetection:

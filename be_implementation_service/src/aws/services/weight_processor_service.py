@@ -1,22 +1,17 @@
 """Service layer for weight processing operations."""
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
-from src.aws.api.models import (
-    Measurement,
-    MeasurementResult,
-    ProcessResponseData,
-    CleanupResponseData,
-    StateInfo,
-    HistoricalConflictDetails,
-    HistoricalConflictResponse,
-)
-from src.core.database.base import StateStore
-from src.core.processing.processor import process_measurement
-from src.aws.config.config_manager import ConfigManager
-from src.aws.services.replay_service import replay_measurements
+from aws.api.models import (CleanupResponseData, HistoricalConflictDetails,
+                                HistoricalConflictResponse, Measurement,
+                                MeasurementResult, ProcessResponseData,
+                                StateInfo)
+from aws.config.config_manager import ConfigManager
+from aws.services.replay_service import replay_measurements
+from weight_processor_lib.core.database.base import StateStore
+from weight_processor_lib.core.processing.processor import process_measurement
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +41,7 @@ class WeightProcessorService:
         """
         # Use factory pattern if not provided
         if state_store is None:
-            from ..database import get_state_db
+            from weight_processor_lib.core.database import get_state_db
 
             state_store = get_state_db()
 
@@ -342,6 +337,17 @@ class WeightProcessorService:
         )
 
         # Convert to API model
+        # Extract reset event if present
+        reset_event_data = result.get("reset_event")
+        reset_event = None
+        if reset_event_data:
+            from aws.api.models import ResetEvent
+            reset_event = ResetEvent(
+                type=reset_event_data.get("type", "unknown"),
+                gap_days=reset_event_data.get("gap_days"),
+                reason=reset_event_data.get("reason", "unknown"),
+            )
+
         return MeasurementResult(
             measurement_id=measurement.measurement_id,
             accepted=result.get("accepted", False),
@@ -354,7 +360,8 @@ class WeightProcessorService:
             kalman_uncertainty=result.get("kalman_uncertainty"),
             rejection_reason=result.get("reason"),
             processing_stage=result.get("stage"),
-            reset_triggered=result.get("reset_triggered", False),
+            reset_triggered=result.get("was_reset", False) or result.get("reset_event") is not None,
+            reset_event=reset_event,
             quality_components=result.get("quality_components"),
         )
 

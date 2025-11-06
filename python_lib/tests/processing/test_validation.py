@@ -8,8 +8,8 @@ import pytest
 from datetime import datetime, timezone
 from typing import Tuple, Optional, Dict, Any
 
-from src.core.processing.validation import DataQualityPreprocessor
-from src.core.constants import PHYSIOLOGICAL_LIMITS, BMI_LIMITS
+from weight_processor_lib.core.processing.validation import DataQualityPreprocessor
+from weight_processor_lib.core.constants import PHYSIOLOGICAL_LIMITS, BMI_LIMITS
 
 
 class TestDataValidation:
