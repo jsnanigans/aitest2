@@ -1,3 +1,0 @@
-# Core dependencies for weight processing only
-numpy==1.26.4
-pydantic>=2.11.9

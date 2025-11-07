@@ -40,6 +40,11 @@ export function ensureNumericTypes(data: any): any {
    * Returns:
    *     Data with proper numeric types
    */
+  // Preserve Date objects - don't recurse into them
+  if (data instanceof Date) {
+    return data;
+  }
+
   if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
     // Handle objects (dictionaries)
     const result: Record<string, any> = {};
@@ -57,6 +62,9 @@ export function ensureNumericTypes(data: any): any {
       ) {
         // These are numeric fields that should be numbers
         result[key] = ensureFloat(value);
+      } else if (value instanceof Date) {
+        // Preserve Date objects
+        result[key] = value;
       } else if (typeof value === 'object' && value !== null) {
         result[key] = ensureNumericTypes(value);
       } else {
@@ -67,7 +75,10 @@ export function ensureNumericTypes(data: any): any {
   } else if (Array.isArray(data)) {
     // Handle arrays (lists)
     return data.map((item) => {
-      if (typeof item === 'object' && item !== null) {
+      if (item instanceof Date) {
+        // Preserve Date objects
+        return item;
+      } else if (typeof item === 'object' && item !== null) {
         return ensureNumericTypes(item);
       }
       return item;
@@ -75,6 +86,61 @@ export function ensureNumericTypes(data: any): any {
   }
 
   return data;
+}
+
+export function deserializeState(state: any): any {
+  /**
+   * Deserialize state retrieved from storage, converting date strings back to Date objects.
+   *
+   * When state is serialized (e.g., via JSON.stringify in InMemoryStore), Date objects
+   * become ISO strings. This function converts them back to Date objects.
+   *
+   * Args:
+   *     state: State object from storage
+   *
+   * Returns:
+   *     State with Date fields properly deserialized
+   */
+  if (!state || typeof state !== 'object') {
+    return state;
+  }
+
+  const dateFields = ['last_timestamp', 'last_accepted_timestamp', 'reset_timestamp'];
+
+  // Convert top-level date fields
+  for (const field of dateFields) {
+    if (field in state && state[field] !== null && state[field] !== undefined) {
+      if (typeof state[field] === 'string') {
+        state[field] = new Date(state[field]);
+      }
+    }
+  }
+
+  // Convert dates in measurement_history
+  if (Array.isArray(state.measurement_history)) {
+    state.measurement_history = state.measurement_history.map((measurement: any) => {
+      if (measurement && typeof measurement === 'object') {
+        if (measurement.timestamp && typeof measurement.timestamp === 'string') {
+          measurement.timestamp = new Date(measurement.timestamp);
+        }
+      }
+      return measurement;
+    });
+  }
+
+  // Convert dates in reset_events
+  if (Array.isArray(state.reset_events)) {
+    state.reset_events = state.reset_events.map((event: any) => {
+      if (event && typeof event === 'object') {
+        if (event.timestamp && typeof event.timestamp === 'string') {
+          event.timestamp = new Date(event.timestamp);
+        }
+      }
+      return event;
+    });
+  }
+
+  return state;
 }
 
 export function prepareMeasurementForProcessing(measurement: Record<string, any>): Record<string, any> {

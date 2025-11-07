@@ -18,7 +18,7 @@ import {
 import { ResetType } from './reset_manager.js';
 import { DataQualityPreprocessor } from './validation.js';
 import { UnifiedQualityScorer, QualityScore } from './unified_quality_scorer.js';
-import { ensureFloat, ensureNumericTypes } from './type_conversion.js';
+import { ensureFloat, ensureNumericTypes, deserializeState } from './type_conversion.js';
 import { StateStore } from '../database/base.js';
 
 // TODO: These modules need to be ported from Python
@@ -604,6 +604,9 @@ export async function processMeasurement(
 
   // Step 2: Load or create user state
   let state: KalmanState = await db.getState(userId) || db.createInitialState();
+
+  // Deserialize date fields if state was loaded from DB (JSON serialization converts Dates to strings)
+  state = deserializeState(state);
 
   // If state was loaded from DB, normalize and validate it
   if (state.kalman_params || state.last_state) {

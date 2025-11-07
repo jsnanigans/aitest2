@@ -37,4 +37,4 @@ export { ResetTransaction, atomicReset, atomicResetSync } from './reset_transact
 export { ResetManager, ResetType } from './reset_manager.js';
 
 // Type conversion utilities
-export { ensureFloat, ensureNumericTypes, prepareMeasurementForProcessing } from './type_conversion.js';
+export { ensureFloat, ensureNumericTypes, deserializeState, prepareMeasurementForProcessing } from './type_conversion.js';
