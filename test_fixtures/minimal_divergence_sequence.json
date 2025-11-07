@@ -1,0 +1,382 @@
+{
+  "description": "Minimal sequence from full batch that causes divergence",
+  "total_measurements": 49,
+  "target_measurement_id": "4f07af66-cd5e-4a38-9403-80d6da1d1542",
+  "target_measurement_index": 48,
+  "measurements": [
+    {
+      "id": "1a928309-f8d8-49a5-a5f1-8d34aba405d9",
+      "timestamp": "2025-01-14T23:33:34.522000+00:00",
+      "weight": 104.32616,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "456ffb2d-67d2-41f9-b943-f333230b2edc",
+      "timestamp": "2025-03-08T14:44:57.321000+00:00",
+      "weight": 113.398,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "4fb3e848-9fbd-4cd1-b7e7-380283ae3e71",
+      "timestamp": "2025-03-08T14:51:56.961000+00:00",
+      "weight": 117.93392,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "0bb4ca6c-d123-4461-8cae-a40297230843",
+      "timestamp": "2025-03-08T14:57:22.966000+00:00",
+      "weight": 104.33,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "f79e25c9-c5e8-4125-90ff-3bdfe9141acf",
+      "timestamp": "2025-03-26T17:32:06.355000+00:00",
+      "weight": 115.4,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "f7e38f50-77b2-4599-9a6a-f4666ffd1728",
+      "timestamp": "2025-03-26T23:12:02.322000+00:00",
+      "weight": 43.2,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "79a367ed-e395-4159-bb7d-3558db1f05f0",
+      "timestamp": "2025-03-26T23:21:40.696000+00:00",
+      "weight": 62.6,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "f6dcd595-5690-4f99-9c77-b4a5f6cfb578",
+      "timestamp": "2025-03-31T16:22:26.835000+00:00",
+      "weight": 60.7,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "ccdc7a2a-c27d-47d1-9931-10d52dd9dad4",
+      "timestamp": "2025-04-03T15:51:11.237000+00:00",
+      "weight": 60.8,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "db0f26ec-d143-4ab8-b190-6522bfc3fa81",
+      "timestamp": "2025-04-07T11:50:57.827000+00:00",
+      "weight": 61.3,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "18d420b7-bb06-4041-8099-4e02d2a7ae32",
+      "timestamp": "2025-04-16T03:24:59.984000+00:00",
+      "weight": 60.6,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "45c8f957-68b9-4f21-9581-b11abe87e1f3",
+      "timestamp": "2025-05-01T01:36:10.203000+00:00",
+      "weight": 43.3,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "b8c1b6e9-9e19-45bc-b5a5-57413c65cf1d",
+      "timestamp": "2025-05-11T23:38:47.150000+00:00",
+      "weight": 43.6,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "80220068-9db5-42b1-93a5-636a350a5528",
+      "timestamp": "2025-05-15T01:30:39.205000+00:00",
+      "weight": 60.5,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "dedafa0b-0726-4e2a-8cad-fb1678187bf7",
+      "timestamp": "2025-05-15T01:30:51.342000+00:00",
+      "weight": 60.0,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "9f3da2af-1cb0-4733-8721-b3fa1b59d1ce",
+      "timestamp": "2025-05-19T11:49:57.657000+00:00",
+      "weight": 60.3,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "d957b0de-58fc-4e96-b351-a81cfc10e54c",
+      "timestamp": "2025-05-21T20:10:04.280000+00:00",
+      "weight": 115.0,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "2268ec86-f6ce-4542-9f3a-3eda85a02745",
+      "timestamp": "2025-05-25T16:14:21.258000+00:00",
+      "weight": 59.2,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "95d57f52-46c0-41c8-b384-524f9bbb067a",
+      "timestamp": "2025-05-30T03:42:43.607000+00:00",
+      "weight": 58.9,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "8b173b43-35af-4e77-abc5-71fca3c14bc3",
+      "timestamp": "2025-06-01T05:42:52.359000+00:00",
+      "weight": 60.3,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "8531f113-496e-4377-8362-6cb7c9406e66",
+      "timestamp": "2025-06-03T15:59:55.209000+00:00",
+      "weight": 63.4,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "2fbd4605-e07d-45a3-820b-6d885519e0f9",
+      "timestamp": "2025-06-06T17:20:16.853000+00:00",
+      "weight": 61.7,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "ea39b724-f0e5-4c24-ad03-b0b89090abf4",
+      "timestamp": "2025-06-09T17:31:01.918000+00:00",
+      "weight": 112.7,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "6f3f44fb-5247-422e-92d0-279f20f8b3dd",
+      "timestamp": "2025-06-11T23:09:41.809000+00:00",
+      "weight": 44.8,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "66aa7745-e538-491a-b347-3a0d48372886",
+      "timestamp": "2025-06-11T23:10:19.993000+00:00",
+      "weight": 44.8,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "76b90961-6d27-4560-b4b4-3b6f1511dc42",
+      "timestamp": "2025-06-14T17:38:04.088000+00:00",
+      "weight": 44.4,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "afa109a4-daf7-461c-9136-9e9a17caec91",
+      "timestamp": "2025-06-14T17:40:35.138000+00:00",
+      "weight": 44.4,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "b91a4bd8-1922-45a2-a40d-15e6b4c99d69",
+      "timestamp": "2025-06-15T19:02:58.214000+00:00",
+      "weight": 44.8,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "93b63876-44fc-4cea-850e-d6e089c88bb1",
+      "timestamp": "2025-06-15T22:17:05.853000+00:00",
+      "weight": 44.8,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "da75bc73-1900-4aa7-bde1-755c72554fa3",
+      "timestamp": "2025-06-15T22:17:18.984000+00:00",
+      "weight": 58.7,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "d13a086a-0118-496e-bc54-b232916719bb",
+      "timestamp": "2025-06-15T22:17:30.924000+00:00",
+      "weight": 59.1,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "da16c043-3bba-4925-8273-35b1021d182c",
+      "timestamp": "2025-06-15T22:17:42.947000+00:00",
+      "weight": 44.5,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "b8fef2fc-1cef-4640-a739-8288cce7c88a",
+      "timestamp": "2025-06-16T22:49:03.750000+00:00",
+      "weight": 44.8,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "0a928777-a462-4695-b2a9-266cc20e2710",
+      "timestamp": "2025-06-17T00:42:18.268000+00:00",
+      "weight": 45.3,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "abf0706a-8014-461f-9db5-ce4bb66afe27",
+      "timestamp": "2025-06-18T02:28:52.065000+00:00",
+      "weight": 42.9,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "06ff5b04-0ae0-4555-943a-f11b6aab1803",
+      "timestamp": "2025-06-18T03:45:02.605000+00:00",
+      "weight": 110.2,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "2c74c42b-3b98-4927-92ae-23c93d950b0f",
+      "timestamp": "2025-06-19T01:11:36.812000+00:00",
+      "weight": 59.9,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "69f9dffe-c13d-41d2-aa28-d1cedd871cb4",
+      "timestamp": "2025-06-23T18:45:19.289000+00:00",
+      "weight": 45.0,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "4f03121a-c2b2-4b72-a6cc-d0db9c37e297",
+      "timestamp": "2025-06-26T23:15:11.440000+00:00",
+      "weight": 60.0,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "ced2d669-5ba1-4737-8a2f-324ea6b68fbc",
+      "timestamp": "2025-06-28T02:17:55.044000+00:00",
+      "weight": 57.0,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "0f274dcc-48f9-46cd-94cc-f90fdbab7a35",
+      "timestamp": "2025-06-29T23:46:26.691000+00:00",
+      "weight": 44.3,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "31fb97ba-1605-4cb1-82e0-622b05551158",
+      "timestamp": "2025-07-08T20:57:28.301000+00:00",
+      "weight": 45.6,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "ef5c45df-e53e-4665-8e07-ccab2d78f901",
+      "timestamp": "2025-07-08T20:57:47.476000+00:00",
+      "weight": 45.6,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "f57d7147-9f9d-42be-930c-285144e70f0a",
+      "timestamp": "2025-07-09T20:00:36.040000+00:00",
+      "weight": 45.8,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "fb7a50a0-8702-497e-8bc3-dfb5ec226db1",
+      "timestamp": "2025-07-09T22:34:59.498000+00:00",
+      "weight": 45.9,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "3154f7ed-594e-40b1-ba01-8a7aa9fdef98",
+      "timestamp": "2025-07-09T23:16:55.770000+00:00",
+      "weight": 57.1,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "a946bb40-8917-4078-bdd5-9561bbf0d3c4",
+      "timestamp": "2025-07-10T20:19:29.976000+00:00",
+      "weight": 45.7,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "52ec2c45-c6a8-4946-887b-e5e8907f19b9",
+      "timestamp": "2025-07-11T23:22:41.324000+00:00",
+      "weight": 59.6,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    },
+    {
+      "id": "4f07af66-cd5e-4a38-9403-80d6da1d1542",
+      "timestamp": "2025-07-11T23:22:51.338000+00:00",
+      "weight": 58.4,
+      "unit": "kg",
+      "source": "https://api.iglucose.com"
+    }
+  ],
+  "config": {
+    "kalman": {
+      "process_noise_position": 0.01,
+      "process_noise_velocity": 0.0001,
+      "initial_position_variance": 1.0,
+      "initial_velocity_variance": 0.01,
+      "trend_limit_kg_per_week": 5.0
+    },
+    "quality_weights": {
+      "kalman_fit": 0.35,
+      "temporal_consistency": 0.25,
+      "plausibility": 0.25,
+      "anomaly_detection": 0.15
+    },
+    "quality_threshold": 0.55,
+    "replay": {
+      "buffer_hours": 24,
+      "max_buffer_measurements": 100,
+      "buffered_replay_enabled": true
+    }
+  },
+  "results": {
+    "python": {
+      "accepted": false,
+      "quality_score": 0.009308080750420552
+    },
+    "typescript": {
+      "accepted": false,
+      "quality_score": 0.009308080750420559
+    }
+  }
+}

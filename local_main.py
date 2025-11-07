@@ -15,12 +15,19 @@ Dependencies:
 import argparse
 import csv
 import json
+import logging
 import math
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(message)s'
+)
 
 # Add python_lib and be_implementation_service to path for imports
 project_root = Path(__file__).parent

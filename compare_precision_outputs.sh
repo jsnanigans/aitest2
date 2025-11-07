@@ -1,0 +1,43 @@
+#!/bin/bash
+# Compare Python and TypeScript full precision outputs side-by-side
+
+echo "Running Python test..."
+uv run python python_lib/tests/processing/test_single_measurement_with_state.py > /tmp/python_precision.txt 2>&1
+
+echo "Running TypeScript test..."
+bun test typescript_lib/tests/single_measurement_with_state.test.ts > /tmp/typescript_precision.txt 2>&1
+
+echo ""
+echo "=========================================="
+echo "SIDE-BY-SIDE COMPARISON"
+echo "=========================================="
+echo ""
+echo "Quality Scores:"
+echo "  Python:    $(grep "Quality score:" /tmp/python_precision.txt | head -1 | awk '{print $3}')"
+echo "  TypeScript: $(grep "Quality score:" /tmp/typescript_precision.txt | tail -2 | head -1 | awk '{print $3}')"
+echo ""
+echo "Quality Components:"
+echo ""
+echo "kalman_fit:"
+echo "  Python:    $(grep "kalman_fit:" /tmp/python_precision.txt | awk '{print $2}')"
+echo "  TypeScript: $(grep "kalman_fit:" /tmp/typescript_precision.txt | awk '{print $2}')"
+echo ""
+echo "temporal_consistency:"
+echo "  Python:    $(grep "temporal_consistency:" /tmp/python_precision.txt | awk '{print $2}')"
+echo "  TypeScript: $(grep "temporal_consistency:" /tmp/typescript_precision.txt | awk '{print $2}')"
+echo ""
+echo "anomaly_detection:"
+echo "  Python:    $(grep "anomaly_detection:" /tmp/python_precision.txt | awk '{print $2}')"
+echo "  TypeScript: $(grep "anomaly_detection:" /tmp/typescript_precision.txt | awk '{print $2}')"
+echo ""
+echo "source_reliability:"
+echo "  Python:    $(grep "source_reliability:" /tmp/python_precision.txt | awk '{print $2}')"
+echo "  TypeScript: $(grep "source_reliability:" /tmp/typescript_precision.txt | awk '{print $2}')"
+echo ""
+echo "trend_alignment:"
+echo "  Python:    $(grep "trend_alignment:" /tmp/python_precision.txt | awk '{print $2}')"
+echo "  TypeScript: $(grep "trend_alignment:" /tmp/typescript_precision.txt | awk '{print $2}')"
+echo ""
+echo "Full outputs saved to:"
+echo "  /tmp/python_precision.txt"
+echo "  /tmp/typescript_precision.txt"

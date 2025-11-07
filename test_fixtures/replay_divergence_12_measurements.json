@@ -1,0 +1,160 @@
+{
+  "description": "Minimal replay sequence (12 measurements) to reproduce TS/PY divergence on 4f07af66",
+  "note": "Tests the service layer replay mechanism. Core processing shows both implementations agree.",
+  "target_measurement_id": "4f07af66-cd5e-4a38-9403-80d6da1d1542",
+  "target_measurement_index": 6,
+  "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+  "total_measurements": 12,
+  "measurements": [
+    {
+      "id": "ef5c45df-e53e-4665-8e07-ccab2d78f901",
+      "timestamp": "2025-07-08T20:57:47.476Z",
+      "weight": 45.6,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "f57d7147-9f9d-42be-930c-285144e70f0a",
+      "timestamp": "2025-07-09T20:00:36.040Z",
+      "weight": 45.8,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "fb7a50a0-8702-497e-8bc3-dfb5ec226db1",
+      "timestamp": "2025-07-09T22:34:59.498Z",
+      "weight": 45.9,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "3154f7ed-594e-40b1-ba01-8a7aa9fdef98",
+      "timestamp": "2025-07-09T23:16:55.770Z",
+      "weight": 57.1,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "a946bb40-8917-4078-bdd5-9561bbf0d3c4",
+      "timestamp": "2025-07-10T20:19:29.976Z",
+      "weight": 45.7,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "52ec2c45-c6a8-4946-887b-e5e8907f19b9",
+      "timestamp": "2025-07-11T23:22:41.324Z",
+      "weight": 59.6,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "4f07af66-cd5e-4a38-9403-80d6da1d1542",
+      "timestamp": "2025-07-11T23:22:51.338Z",
+      "weight": 58.4,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "726b441f-eb43-47d9-8f3c-845d164e5a5b",
+      "timestamp": "2025-07-11T23:23:06.616Z",
+      "weight": 59.6,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "c6297536-4c03-49b5-8993-e959c36afbb3",
+      "timestamp": "2025-07-14T00:30:35.311Z",
+      "weight": 58.9,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "34f89faa-b612-4762-a1e0-ef5eaee7137f",
+      "timestamp": "2025-07-22T17:48:24.787Z",
+      "weight": 43.4,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "25338926-e37a-4323-b62f-30f9fbde39ca",
+      "timestamp": "2025-07-23T00:13:31.946Z",
+      "weight": 56.7,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    },
+    {
+      "id": "df8e3da2-5f5d-4177-b535-4e4fc8e59bd0",
+      "timestamp": "2025-07-23T00:14:50.443Z",
+      "weight": 56.2,
+      "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+      "source": "https://api.iglucose.com",
+      "unit": "kg"
+    }
+  ],
+  "config": {
+    "kalman": {
+      "initial_variance": 0.364,
+      "transition_covariance_weight": 0.018,
+      "transition_covariance_trend": 0.00015,
+      "observation_covariance": 3.49
+    },
+    "quality_scoring": {
+      "threshold": 0.5,
+      "components": {
+        "kalman_fit": {
+          "weight": 0.3,
+          "enabled": true
+        },
+        "temporal_consistency": {
+          "weight": 0.25,
+          "enabled": true
+        },
+        "anomaly_detection": {
+          "weight": 0.25,
+          "enabled": true
+        },
+        "source_reliability": {
+          "weight": 0.1,
+          "enabled": true
+        },
+        "trend_alignment": {
+          "weight": 0.1,
+          "enabled": true
+        }
+      }
+    },
+    "processing": {
+      "enable_validation": true,
+      "enable_quality_scoring": true
+    },
+    "reset": {
+      "time_gap_days": 30,
+      "weight_change_threshold_kg": 10
+    },
+    "replay": {
+      "buffered_replay_enabled": true,
+      "buffer_hours": 24,
+      "max_buffer_measurements": 100
+    }
+  },
+  "expected_results": {
+    "python": {
+      "note": "Expected to reject 4f07af66 during replay"
+    },
+    "typescript": {
+      "note": "Expected to accept 4f07af66 during replay"
+    }
+  }
+}

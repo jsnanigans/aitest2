@@ -568,7 +568,7 @@ class WeightProcessorService:
                 updated_result = MeasurementResult.model_validate(updated_dict)
                 updated_results.append(updated_result)
 
-                logger.debug(
+                logger.info(
                     f"Updated result for measurement {original.measurement_id}: "
                     f"accepted={updated_result.accepted}, quality_score={updated_result.quality_score}"
                 )

@@ -11,6 +11,7 @@
  */
 
 import type { StateStore, KalmanState } from '../database/base';
+import { isEffectivelyZero } from '../utils';
 
 /**
  * Measurement structure for outlier detection
@@ -242,8 +243,8 @@ export class OutlierDetector {
     const deviations = weights.map((w) => Math.abs(w - median));
     const mad = this._median(deviations);
 
-    if (mad === 0) {
-      // All values are identical
+    if (isEffectivelyZero(mad)) {
+      // All values are identical (within epsilon)
       return new Set();
     }
 

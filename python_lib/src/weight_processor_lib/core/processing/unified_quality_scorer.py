@@ -690,11 +690,11 @@ class UnifiedQualityScorer:
 
         # Short-term (< 1 hour): Limited by water/food intake
         elif time_hours < 1:
-            max_5min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_5MIN", 0.3)
+            max_5min = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_5MIN", 1.0)
             max_1h = PHYSIOLOGICAL_LIMITS.get("MAX_CHANGE_1H", 1.0)
             minutes = time_hours * 60
             # Use smooth curve from 5 min to 60 min
-            # At 5 min: 0.3kg, at 60 min: 1.0kg
+            # At 5 min: 1.0kg, at 60 min: 1.0kg (flat - rapid water/bathroom effects)
             if minutes <= 5:
                 return max_5min
             else:

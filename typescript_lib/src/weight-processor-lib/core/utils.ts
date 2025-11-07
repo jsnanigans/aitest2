@@ -172,12 +172,82 @@ export function formatTimestamp(ts: Date | string | any): string {
   return String(ts);
 }
 
+// ============================================================================
+// Floating-Point Comparison Utilities
+// ============================================================================
+
+/**
+ * Default epsilon for floating-point comparisons.
+ * Set to 1e-10 to handle typical floating-point precision issues.
+ */
+export const DEFAULT_EPSILON = 1e-10;
+
+/**
+ * Compare two floating-point numbers for equality within epsilon tolerance.
+ *
+ * @param a - First number
+ * @param b - Second number
+ * @param epsilon - Tolerance (default: DEFAULT_EPSILON)
+ * @returns true if |a - b| < epsilon
+ */
+export function floatsEqual(a: number, b: number, epsilon: number = DEFAULT_EPSILON): boolean {
+  return Math.abs(a - b) < epsilon;
+}
+
+/**
+ * Check if a floating-point number is effectively zero.
+ *
+ * @param value - Number to check
+ * @param epsilon - Tolerance (default: DEFAULT_EPSILON)
+ * @returns true if |value| < epsilon
+ */
+export function isEffectivelyZero(value: number, epsilon: number = DEFAULT_EPSILON): boolean {
+  return Math.abs(value) < epsilon;
+}
+
+/**
+ * Round a number to a specified number of significant digits.
+ *
+ * @param num - Number to round
+ * @param significantDigits - Number of significant digits
+ * @returns Rounded number
+ */
+export function roundToSignificant(num: number, significantDigits: number): number {
+  if (num === 0) return 0;
+  const multiplier = Math.pow(10, significantDigits - Math.floor(Math.log10(Math.abs(num))) - 1);
+  return Math.round(num * multiplier) / multiplier;
+}
+
+/**
+ * Clamp a value within epsilon of bounds.
+ * Useful for ensuring values stay within [0, 1] despite floating-point errors.
+ *
+ * @param value - Value to clamp
+ * @param min - Minimum value
+ * @param max - Maximum value
+ * @param epsilon - Tolerance (default: DEFAULT_EPSILON)
+ * @returns Clamped value
+ */
+export function epsilonClamp(
+  value: number,
+  min: number,
+  max: number,
+  epsilon: number = DEFAULT_EPSILON
+): number {
+  // If value is within epsilon of bounds, snap to bounds
+  if (floatsEqual(value, min, epsilon)) return min;
+  if (floatsEqual(value, max, epsilon)) return max;
+
+  // Otherwise clamp normally
+  return Math.max(min, Math.min(max, value));
+}
+
 export function safeDivide(numerator: number, denominator: number, defaultValue: number = 0.0): number {
   /**
-   * Safely divide two numbers.
+   * Safely divide two numbers, using epsilon comparison for zero check.
    */
   try {
-    if (denominator === 0) {
+    if (isEffectivelyZero(denominator)) {
       return defaultValue;
     }
     return numerator / denominator;

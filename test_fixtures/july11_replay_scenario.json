@@ -1,0 +1,122 @@
+{
+  "description": "Three measurements in quick succession after 49-hour gap, triggering replay",
+  "scenario": "july11_replay",
+  "user_id": "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7",
+  "setup": {
+    "description": "Prior measurements to establish Kalman filter state",
+    "measurements": [
+      {
+        "id": "31fb97ba-1605-4cb1-82e0-622b05551158",
+        "timestamp": "2025-07-08T20:57:08.000Z",
+        "weight": 45.6,
+        "unit": "kg",
+        "source": "https://api.iglucose.com"
+      },
+      {
+        "id": "ef5c45df-e53e-4665-8e07-ccab2d78f901",
+        "timestamp": "2025-07-08T20:57:42.000Z",
+        "weight": 45.6,
+        "unit": "kg",
+        "source": "https://api.iglucose.com"
+      },
+      {
+        "id": "f57d7147-9f9d-42be-930c-285144e70f0a",
+        "timestamp": "2025-07-09T20:00:17.000Z",
+        "weight": 45.8,
+        "unit": "kg",
+        "source": "https://api.iglucose.com"
+      },
+      {
+        "id": "fb7a50a0-8702-497e-8bc3-dfb5ec226db1",
+        "timestamp": "2025-07-09T22:34:31.000Z",
+        "weight": 45.9,
+        "unit": "kg",
+        "source": "https://api.iglucose.com"
+      },
+      {
+        "id": "3154f7ed-594e-40b1-ba01-8a7aa9fdef98",
+        "timestamp": "2025-07-09T23:16:28.000Z",
+        "weight": 57.1,
+        "unit": "kg",
+        "source": "https://api.iglucose.com"
+      },
+      {
+        "id": "a946bb40-8917-4078-bdd5-9561bbf0d3c4",
+        "timestamp": "2025-07-10T20:19:11.000Z",
+        "weight": 45.7,
+        "unit": "kg",
+        "source": "https://api.iglucose.com"
+      }
+    ]
+  },
+  "test_measurements": {
+    "description": "The 3 problematic measurements after 49-hour gap",
+    "time_gap_hours": 49.1,
+    "measurements": [
+      {
+        "id": "52ec2c45-c6a8-4946-887b-e5e8907f19b9",
+        "timestamp": "2025-07-11T23:22:13.000Z",
+        "weight": 59.6,
+        "unit": "kg",
+        "source": "https://api.iglucose.com"
+      },
+      {
+        "id": "4f07af66-cd5e-4a38-9403-80d6da1d1542",
+        "timestamp": "2025-07-11T23:22:46.000Z",
+        "weight": 58.4,
+        "unit": "kg",
+        "source": "https://api.iglucose.com",
+        "note": "THIS IS THE PROBLEMATIC MEASUREMENT - TypeScript accepts, Python rejects"
+      },
+      {
+        "id": "726b441f-eb43-47d9-8f3c-845d164e5a5b",
+        "timestamp": "2025-07-11T23:23:01.000Z",
+        "weight": 59.6,
+        "unit": "kg",
+        "source": "https://api.iglucose.com"
+      }
+    ]
+  },
+  "expected_results": {
+    "typescript": {
+      "52ec2c45-c6a8-4946-887b-e5e8907f19b9": {
+        "accepted": false,
+        "quality_score": 0.006323658549819266
+      },
+      "4f07af66-cd5e-4a38-9403-80d6da1d1542": {
+        "accepted": true,
+        "quality_score": 0.585141931403344
+      },
+      "726b441f-eb43-47d9-8f3c-845d164e5a5b": {
+        "accepted": false,
+        "quality_score": 0.006049037666887364
+      }
+    },
+    "python": {
+      "52ec2c45-c6a8-4946-887b-e5e8907f19b9": {
+        "accepted": false,
+        "quality_score": 0.006323658549819266
+      },
+      "4f07af66-cd5e-4a38-9403-80d6da1d1542": {
+        "accepted": false,
+        "quality_score": 0.34612947985303477,
+        "note": "DIVERGENCE - Should match TypeScript"
+      },
+      "726b441f-eb43-47d9-8f3c-845d164e5a5b": {
+        "accepted": false,
+        "quality_score": 0.41006812181723706
+      }
+    }
+  },
+  "analysis": {
+    "issue": "Python and TypeScript produce different quality scores for the same measurement sequence",
+    "divergence_point": "4f07af66-cd5e-4a38-9403-80d6da1d1542",
+    "quality_score_diff": 0.238,
+    "possible_causes": [
+      "Kalman filter implementation difference",
+      "Quality scorer weight differences",
+      "Floating point precision issues",
+      "Temporal consistency calculation difference"
+    ]
+  }
+}

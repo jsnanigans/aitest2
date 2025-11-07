@@ -1,7 +1,7 @@
 """Simple replay service for MVP."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from aws.api.models import Measurement
@@ -100,7 +100,7 @@ def replay_measurements(
                 rejected_count += 1
 
         # Step 4: Create snapshot after replay
-        state_store.save_state_snapshot(user_id, datetime.utcnow())
+        state_store.save_state_snapshot(user_id, datetime.now(timezone.utc))
 
         return {
             "success": True,
