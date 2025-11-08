@@ -29,5 +29,11 @@
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@stdlib/assert": "^0.3.3",
+    "@stdlib/math": "^0.3.3",
+    "@stdlib/stats": "^0.3.3",
+    "ml-matrix": "^6.12.1"
   }
 }

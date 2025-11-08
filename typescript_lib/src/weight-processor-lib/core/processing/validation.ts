@@ -14,37 +14,32 @@ import {
   categorizeRejectionEnhanced,
   getRejectionSeverity,
 } from '../constants';
+import { base as statsBase } from '@stdlib/stats';
 
 /**
- * Helper function to calculate mean of an array
+ * Helper function to calculate mean of an array using stdlib
  */
 function mean(values: number[]): number {
   if (values.length === 0) return 0;
-  return values.reduce((sum, val) => sum + val, 0) / values.length;
+  return (statsBase as any).mean(values.length, values, 1);
 }
 
 /**
- * Helper function to calculate standard deviation
+ * Helper function to calculate standard deviation using stdlib
  */
 function std(values: number[]): number {
   if (values.length === 0) return 0;
-  const meanVal = mean(values);
-  const squaredDiffs = values.map(val => Math.pow(val - meanVal, 2));
-  const variance = mean(squaredDiffs);
-  return Math.sqrt(variance);
+  // Using correction=0 for population stdev (matching original implementation)
+  return (statsBase as any).stdev(values.length, 0, values, 1);
 }
 
 /**
- * Helper function to calculate median
+ * Helper function to calculate median using stdlib
  */
 function median(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) {
-    return (sorted[mid - 1] + sorted[mid]) / 2;
-  }
-  return sorted[mid];
+  return (statsBase as any).mediansorted(sorted.length, sorted, 1);
 }
 
 /**

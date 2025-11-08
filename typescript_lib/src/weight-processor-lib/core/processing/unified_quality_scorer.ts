@@ -10,6 +10,9 @@ import {
   SOURCE_PROFILES,
   type SourceProfile,
 } from '../constants';
+import { base as statsBase } from '@stdlib/stats';
+import { base as mathBase } from '@stdlib/math';
+import { validateNumber, isNaN as stdlibIsNaN, isFinite as stdlibIsFinite } from '../stdlib-utils';
 
 /**
  * Container for quality score and its components.
@@ -237,11 +240,24 @@ export class UnifiedQualityScorer {
       metadata.trend_alignment = trendMeta;
     }
 
+    // Debug: Log component values to identify invalid ones
+    if (process.env.VERBOSE_LOGGING) {
+      const componentStatus = Object.entries(components).map(([name, value]) => {
+        const isValid = typeof value === 'number' && validateNumber(value);
+        return `${name}=${value} (${isValid ? 'valid' : 'INVALID'})`;
+      }).join(', ');
+      console.log(`[QualityScorer] Components: ${componentStatus}`);
+    }
+
     // Calculate overall score using configured mean type
     const useHarmonic = this.config.useHarmonicMean ?? false;
     const overall = useHarmonic
       ? this.calculateWeightedHarmonicMean(components)
       : this.calculateWeightedGeometricMean(components);
+
+    if (process.env.VERBOSE_LOGGING) {
+      console.log(`[QualityScorer] Overall score: ${overall}`);
+    }
 
     return createQualityScore(overall, components, this.threshold, metadata);
   }
@@ -259,8 +275,19 @@ export class UnifiedQualityScorer {
   ): [number, Record<string, any>] {
     const metadata: Record<string, any> = {};
 
-    // If no Kalman prediction available, return neutral score
-    if (kalmanPrediction === undefined || innovationCovariance === undefined) {
+    // Debug: Check if values are NaN (not just undefined)
+    if (process.env.VERBOSE_LOGGING) {
+      const predStatus = kalmanPrediction === undefined ? 'undefined' :
+                        stdlibIsNaN(kalmanPrediction) ? 'NaN' :
+                        kalmanPrediction;
+      const covStatus = innovationCovariance === undefined ? 'undefined' :
+                       stdlibIsNaN(innovationCovariance) ? 'NaN' :
+                       innovationCovariance;
+      console.log(`[KalmanFit] prediction=${predStatus}, covariance=${covStatus}`);
+    }
+
+    // If no Kalman prediction available, return neutral score using stdlib validation
+    if (!validateNumber(kalmanPrediction) || !validateNumber(innovationCovariance)) {
       metadata.reason = 'No Kalman prediction available';
       return [0.5, metadata];
     }
@@ -361,8 +388,19 @@ export class UnifiedQualityScorer {
   ): [number, Record<string, any>] {
     const metadata: Record<string, any> = {};
 
-    // If no previous weight, return neutral score
-    if (previousWeight === undefined || timeDiffHours === undefined) {
+    // Debug: Check if values are NaN (not just undefined)
+    if (process.env.VERBOSE_LOGGING) {
+      const prevStatus = previousWeight === undefined ? 'undefined' :
+                        stdlibIsNaN(previousWeight) ? 'NaN' :
+                        previousWeight;
+      const timeStatus = timeDiffHours === undefined ? 'undefined' :
+                        stdlibIsNaN(timeDiffHours) ? 'NaN' :
+                        timeDiffHours;
+      console.log(`[TemporalConsistency] previousWeight=${prevStatus}, timeDiffHours=${timeStatus}`);
+    }
+
+    // If no previous weight, return neutral score using stdlib validation
+    if (!validateNumber(previousWeight) || !validateNumber(timeDiffHours)) {
       metadata.reason = 'No previous weight for comparison';
       return [0.7, metadata];
     }
@@ -919,6 +957,11 @@ export class UnifiedQualityScorer {
     for (const [componentName, score] of Object.entries(components)) {
       const weight = this.weights[componentName] ?? 0.0;
       if (weight > 0) {
+        // Handle NaN, undefined, null, and invalid scores using stdlib validation
+        if (!validateNumber(score)) {
+          // Skip invalid scores or use neutral value
+          continue;
+        }
         // Clamp score to avoid numerical issues
         const clampedScore = Math.max(epsilon, Math.min(1.0, score));
         product *= clampedScore ** weight;
@@ -954,6 +997,11 @@ export class UnifiedQualityScorer {
     for (const [componentName, score] of Object.entries(components)) {
       const weight = this.weights[componentName] ?? 0.0;
       if (weight > 0) {
+        // Handle NaN, undefined, null, and invalid scores using stdlib validation
+        if (!validateNumber(score)) {
+          // Skip invalid scores
+          continue;
+        }
         // Clamp score to avoid numerical issues
         const clampedScore = Math.max(epsilon, Math.min(1.0, score));
         weightedSum += weight / clampedScore;
@@ -1008,61 +1056,46 @@ export class UnifiedQualityScorer {
   // Helper math functions
 
   /**
-   * Error function approximation for chi-squared calculation.
+   * Error function using stdlib for improved accuracy.
    */
   private erf(x: number): number {
-    // Using Abramowitz and Stegun approximation
-    const sign = x >= 0 ? 1 : -1;
-    x = Math.abs(x);
-
-    const a1 = 0.254829592;
-    const a2 = -0.284496736;
-    const a3 = 1.421413741;
-    const a4 = -1.453152027;
-    const a5 = 1.061405429;
-    const p = 0.3275911;
-
-    const t = 1.0 / (1.0 + p * x);
-    const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-
-    return sign * y;
+    return (mathBase as any).special.erf(x);
   }
 
   /**
-   * Calculate mean of an array.
+   * Calculate mean of an array using stdlib.
    */
   private mean(arr: number[]): number {
     if (arr.length === 0) return 0;
-    return arr.reduce((sum, val) => sum + val, 0) / arr.length;
+    return (statsBase as any).mean(arr.length, arr, 1);
   }
 
   /**
-   * Calculate variance of an array.
+   * Calculate variance of an array using stdlib.
    */
   private variance(arr: number[]): number {
     if (arr.length === 0) return 0;
-    const m = this.mean(arr);
-    return arr.reduce((sum, val) => sum + (val - m) ** 2, 0) / arr.length;
+    // Using correction=0 for population variance (matching original implementation)
+    return (statsBase as any).variance(arr.length, 0, arr, 1);
   }
 
   /**
-   * Calculate standard deviation of an array.
+   * Calculate standard deviation of an array using stdlib.
    */
   private std(arr: number[]): number {
-    return Math.sqrt(this.variance(arr));
+    if (arr.length === 0) return 0;
+    // Using correction=0 for population stdev (matching original implementation)
+    return (statsBase as any).stdev(arr.length, 0, arr, 1);
   }
 
   /**
-   * Calculate median of an array.
+   * Calculate median of an array using stdlib.
    */
   private median(arr: number[]): number {
     if (arr.length === 0) return 0;
+    // stdlib's mediansorted requires a sorted array
     const sorted = [...arr].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    if (sorted.length % 2 === 0) {
-      return (sorted[mid - 1] + sorted[mid]) / 2;
-    }
-    return sorted[mid];
+    return (statsBase as any).mediansorted(sorted.length, sorted, 1);
   }
 
   /**
@@ -1079,7 +1112,16 @@ export class UnifiedQualityScorer {
     const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0);
     const sumXX = x.reduce((sum, val) => sum + val * val, 0);
 
-    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const denominator = n * sumXX - sumX * sumX;
+
+    // Handle zero variance case (all x values are the same or nearly same)
+    if (Math.abs(denominator) < 1e-10) {
+      // Return horizontal line at mean y value
+      const meanY = sumY / n;
+      return [0, meanY];  // slope=0, intercept=mean
+    }
+
+    const slope = (n * sumXY - sumX * sumY) / denominator;
     const intercept = (sumY - slope * sumX) / n;
 
     return [slope, intercept];

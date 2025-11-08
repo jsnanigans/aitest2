@@ -1,192 +1,14 @@
 /**
- * Custom Kalman Filter implementation.
+ * Kalman Filter implementation using ml-matrix library.
  *
  * Implements the standard Kalman filter algorithm as specified at:
  * https://en.wikipedia.org/wiki/Kalman_filter
  *
- * This is a minimal, dependency-free implementation that provides
- * the same interface used by our weight processing system.
+ * Uses ml-matrix for numerical stability and proven matrix operations.
  */
 
-/**
- * Matrix operations helper functions
- */
-
-function matrixMultiply(a: number[][], b: number[][]): number[][] {
-  const rowsA = a.length;
-  const colsA = a[0].length;
-  const colsB = b[0].length;
-
-  const result: number[][] = Array(rowsA)
-    .fill(0)
-    .map(() => Array(colsB).fill(0));
-
-  for (let i = 0; i < rowsA; i++) {
-    for (let j = 0; j < colsB; j++) {
-      for (let k = 0; k < colsA; k++) {
-        result[i][j] += a[i][k] * b[k][j];
-      }
-    }
-  }
-
-  return result;
-}
-
-function matrixTranspose(matrix: number[][]): number[][] {
-  const rows = matrix.length;
-  const cols = matrix[0].length;
-
-  const result: number[][] = Array(cols)
-    .fill(0)
-    .map(() => Array(rows).fill(0));
-
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) {
-      result[j][i] = matrix[i][j];
-    }
-  }
-
-  return result;
-}
-
-function matrixAdd(a: number[][], b: number[][]): number[][] {
-  const rows = a.length;
-  const cols = a[0].length;
-
-  const result: number[][] = Array(rows)
-    .fill(0)
-    .map(() => Array(cols).fill(0));
-
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) {
-      result[i][j] = a[i][j] + b[i][j];
-    }
-  }
-
-  return result;
-}
-
-function matrixSubtract(a: number[][], b: number[][]): number[][] {
-  const rows = a.length;
-  const cols = a[0].length;
-
-  const result: number[][] = Array(rows)
-    .fill(0)
-    .map(() => Array(cols).fill(0));
-
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) {
-      result[i][j] = a[i][j] - b[i][j];
-    }
-  }
-
-  return result;
-}
-
-function matrixInverse2x2(matrix: number[][]): number[][] {
-  const [[a, b], [c, d]] = matrix;
-  const det = a * d - b * c;
-
-  if (Math.abs(det) < 1e-10) {
-    throw new Error('Matrix is singular and cannot be inverted');
-  }
-
-  return [
-    [d / det, -b / det],
-    [-c / det, a / det],
-  ];
-}
-
-function matrixInverse(matrix: number[][]): number[][] {
-  const n = matrix.length;
-
-  // Special case for 1x1 matrix
-  if (n === 1) {
-    return [[1 / matrix[0][0]]];
-  }
-
-  // Special case for 2x2 matrix (most common in Kalman filters)
-  if (n === 2) {
-    return matrixInverse2x2(matrix);
-  }
-
-  // General case using Gauss-Jordan elimination
-  // Create augmented matrix [A | I]
-  const augmented: number[][] = matrix.map((row, i) =>
-    [...row, ...Array(n).fill(0).map((_, j) => (i === j ? 1 : 0))]
-  );
-
-  // Forward elimination
-  for (let i = 0; i < n; i++) {
-    // Find pivot
-    let maxRow = i;
-    for (let k = i + 1; k < n; k++) {
-      if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
-        maxRow = k;
-      }
-    }
-
-    // Swap rows
-    [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
-
-    // Check for singular matrix
-    if (Math.abs(augmented[i][i]) < 1e-10) {
-      throw new Error('Matrix is singular and cannot be inverted');
-    }
-
-    // Scale pivot row
-    const pivot = augmented[i][i];
-    for (let j = 0; j < 2 * n; j++) {
-      augmented[i][j] /= pivot;
-    }
-
-    // Eliminate column
-    for (let k = 0; k < n; k++) {
-      if (k !== i) {
-        const factor = augmented[k][i];
-        for (let j = 0; j < 2 * n; j++) {
-          augmented[k][j] -= factor * augmented[i][j];
-        }
-      }
-    }
-  }
-
-  // Extract inverse from augmented matrix
-  return augmented.map((row) => row.slice(n));
-}
-
-function matrixVectorMultiply(matrix: number[][], vector: number[]): number[] {
-  const rows = matrix.length;
-  const result: number[] = Array(rows).fill(0);
-
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < vector.length; j++) {
-      result[i] += matrix[i][j] * vector[j];
-    }
-  }
-
-  return result;
-}
-
-function vectorSubtract(a: number[], b: number[]): number[] {
-  return a.map((val, i) => val - b[i]);
-}
-
-function vectorAdd(a: number[], b: number[]): number[] {
-  return a.map((val, i) => val + b[i]);
-}
-
-function identity(n: number): number[][] {
-  const result: number[][] = Array(n)
-    .fill(0)
-    .map(() => Array(n).fill(0));
-
-  for (let i = 0; i < n; i++) {
-    result[i][i] = 1;
-  }
-
-  return result;
-}
+import { Matrix } from 'ml-matrix';
+import { validateMatrix } from '../stdlib-utils';
 
 /**
  * Standard Kalman Filter implementation.
@@ -207,12 +29,12 @@ function identity(n: number): number[][] {
  *     v_k ~ N(0, R_k) is measurement noise
  */
 export class KalmanFilter {
-  private F: number[][];  // State transition matrix
-  private H: number[][];  // Observation matrix
-  private x: number[];    // Initial state mean
-  private P: number[][];  // Initial state covariance
-  private Q: number[][];  // Process noise covariance
-  private R: number[][];  // Measurement noise covariance
+  private F: Matrix;  // State transition matrix
+  private H: Matrix;  // Observation matrix
+  private x: Matrix;  // Initial state mean (column vector)
+  private P: Matrix;  // Initial state covariance
+  private Q: Matrix;  // Process noise covariance
+  private R: Matrix;  // Measurement noise covariance
 
   public readonly nStates: number;
   public readonly nObservations: number;
@@ -222,44 +44,54 @@ export class KalmanFilter {
    *
    * @param transitionMatrices - State transition matrix F (n_states x n_states)
    * @param observationMatrices - Observation matrix H (n_observations x n_states)
-   * @param initialStateMean - Initial state estimate x_0 (n_states,)
+   * @param initialStateMean - Initial state estimate x_0 (n_states,) or (n_states x 1)
    * @param initialStateCovariance - Initial covariance P_0 (n_states x n_states)
    * @param transitionCovariance - Process noise covariance Q (n_states x n_states)
    * @param observationCovariance - Measurement noise covariance R (n_observations x n_observations)
    */
   constructor(
-    transitionMatrices: number[][],
-    observationMatrices: number[][],
-    initialStateMean: number[],
-    initialStateCovariance: number[][],
-    transitionCovariance: number[][],
-    observationCovariance: number[][]
+    transitionMatrices: number[][] | Matrix,
+    observationMatrices: number[][] | Matrix,
+    initialStateMean: number[] | number[][] | Matrix,
+    initialStateCovariance: number[][] | Matrix,
+    transitionCovariance: number[][] | Matrix,
+    observationCovariance: number[][] | Matrix
   ) {
-    this.F = transitionMatrices;
-    this.H = observationMatrices;
-    this.x = initialStateMean;
-    this.P = initialStateCovariance;
-    this.Q = transitionCovariance;
-    this.R = observationCovariance;
+    // Convert to Matrix objects
+    this.F = transitionMatrices instanceof Matrix ? transitionMatrices : new Matrix(transitionMatrices);
+    this.H = observationMatrices instanceof Matrix ? observationMatrices : new Matrix(observationMatrices);
+    this.Q = transitionCovariance instanceof Matrix ? transitionCovariance : new Matrix(transitionCovariance);
+    this.R = observationCovariance instanceof Matrix ? observationCovariance : new Matrix(observationCovariance);
+    this.P = initialStateCovariance instanceof Matrix ? initialStateCovariance : new Matrix(initialStateCovariance);
+
+    // Handle state mean - convert 1D array to column vector
+    if (initialStateMean instanceof Matrix) {
+      this.x = initialStateMean;
+    } else if (Array.isArray(initialStateMean) && !Array.isArray(initialStateMean[0])) {
+      // Convert 1D array to column vector
+      this.x = Matrix.columnVector(initialStateMean as number[]);
+    } else {
+      this.x = new Matrix(initialStateMean as number[][]);
+    }
 
     // Validate dimensions
-    this.nStates = this.x.length;
-    this.nObservations = this.H.length;
+    this.nStates = this.x.rows;
+    this.nObservations = this.H.rows;
 
-    if (this.F.length !== this.nStates || this.F[0].length !== this.nStates) {
-      throw new Error('F must be n_states x n_states');
+    if (this.F.rows !== this.nStates || this.F.columns !== this.nStates) {
+      throw new Error(`F must be n_states x n_states, got ${this.F.rows}x${this.F.columns}`);
     }
-    if (this.H.length !== this.nObservations || this.H[0].length !== this.nStates) {
-      throw new Error('H must be n_obs x n_states');
+    if (this.H.rows !== this.nObservations || this.H.columns !== this.nStates) {
+      throw new Error(`H must be n_obs x n_states, got ${this.H.rows}x${this.H.columns}`);
     }
-    if (this.P.length !== this.nStates || this.P[0].length !== this.nStates) {
-      throw new Error('P must be n_states x n_states');
+    if (this.P.rows !== this.nStates || this.P.columns !== this.nStates) {
+      throw new Error(`P must be n_states x n_states, got ${this.P.rows}x${this.P.columns}`);
     }
-    if (this.Q.length !== this.nStates || this.Q[0].length !== this.nStates) {
-      throw new Error('Q must be n_states x n_states');
+    if (this.Q.rows !== this.nStates || this.Q.columns !== this.nStates) {
+      throw new Error(`Q must be n_states x n_states, got ${this.Q.rows}x${this.Q.columns}`);
     }
-    if (this.R.length !== this.nObservations || this.R[0].length !== this.nObservations) {
-      throw new Error('R must be n_obs x n_obs');
+    if (this.R.rows !== this.nObservations || this.R.columns !== this.nObservations) {
+      throw new Error(`R must be n_obs x n_obs, got ${this.R.rows}x${this.R.columns}`);
     }
   }
 
@@ -270,21 +102,22 @@ export class KalmanFilter {
    *     x̂_{k|k-1} = F * x_{k-1|k-1}
    *     P_{k|k-1} = F * P_{k-1|k-1} * F^T + Q
    *
-   * @param stateMean - Current state estimate x_{k-1|k-1} (n_states,)
-   * @param stateCovariance - Current covariance P_{k-1|k-1} (n_states x n_states)
+   * @param stateMean - Current state estimate x_{k-1|k-1}
+   * @param stateCovariance - Current covariance P_{k-1|k-1}
    * @returns Tuple of [predicted_state_mean, predicted_state_covariance]
    */
   predict(
-    stateMean: number[],
-    stateCovariance: number[][]
-  ): [number[], number[][]] {
+    stateMean: Matrix,
+    stateCovariance: Matrix
+  ): [Matrix, Matrix] {
     // x̂_{k|k-1} = F * x_{k-1|k-1}
-    const predictedStateMean = matrixVectorMultiply(this.F, stateMean);
+    const predictedStateMean = this.F.mmul(stateMean);
 
     // P_{k|k-1} = F * P_{k-1|k-1} * F^T + Q
-    const FP = matrixMultiply(this.F, stateCovariance);
-    const FPFt = matrixMultiply(FP, matrixTranspose(this.F));
-    const predictedStateCovariance = matrixAdd(FPFt, this.Q);
+    const predictedStateCovariance = this.F
+      .mmul(stateCovariance)
+      .mmul(this.F.transpose())
+      .add(this.Q);
 
     return [predictedStateMean, predictedStateCovariance];
   }
@@ -299,47 +132,83 @@ export class KalmanFilter {
    *     x̂_{k|k} = x̂_{k|k-1} + K_k * ỹ_k              (updated state)
    *     P_{k|k} = (I - K_k * H) * P_{k|k-1}           (updated covariance)
    *
-   * @param predictedStateMean - Predicted state x̂_{k|k-1} (n_states,)
-   * @param predictedStateCovariance - Predicted covariance P_{k|k-1} (n_states x n_states)
-   * @param observation - Measurement z_k (n_observations,)
+   * @param predictedStateMean - Predicted state x̂_{k|k-1}
+   * @param predictedStateCovariance - Predicted covariance P_{k|k-1}
+   * @param observation - Measurement z_k (column vector or 1D array)
    * @returns Tuple of [filtered_state_mean, filtered_state_covariance]
    */
   update(
-    predictedStateMean: number[],
-    predictedStateCovariance: number[][],
-    observation: number[]
-  ): [number[], number[][]] {
+    predictedStateMean: Matrix,
+    predictedStateCovariance: Matrix,
+    observation: number[] | Matrix
+  ): [Matrix, Matrix] {
+    // Convert observation to column vector if needed
+    const z = observation instanceof Matrix
+      ? observation
+      : Matrix.columnVector(observation);
+
     // ỹ_k = z_k - H * x̂_{k|k-1}  (innovation/measurement residual)
-    const Hx = matrixVectorMultiply(this.H, predictedStateMean);
-    const innovation = vectorSubtract(observation, Hx);
+    const innovation = z.sub(this.H.mmul(predictedStateMean));
 
     // S_k = H * P_{k|k-1} * H^T + R  (innovation covariance)
-    const HP = matrixMultiply(this.H, predictedStateCovariance);
-    const HPHt = matrixMultiply(HP, matrixTranspose(this.H));
-    const innovationCovariance = matrixAdd(HPHt, this.R);
+    const innovationCovariance = this.H
+      .mmul(predictedStateCovariance)
+      .mmul(this.H.transpose())
+      .add(this.R);
 
     // K_k = P_{k|k-1} * H^T * S_k^{-1}  (Kalman gain)
-    const PHt = matrixMultiply(predictedStateCovariance, matrixTranspose(this.H));
-    const Sinv = matrixInverse(innovationCovariance);
-    const kalmanGain = matrixMultiply(PHt, Sinv);
+    // IMPORTANT: Check if innovation covariance is invertible
+    let innovationCovInverse: Matrix;
+    try {
+      innovationCovInverse = innovationCovariance.inverse();
+
+      // Check for NaN or Infinity in the inverse using stdlib validation
+      const invData = innovationCovInverse.to2DArray();
+      const hasInvalidValues = !validateMatrix(invData);
+
+      if (hasInvalidValues) {
+        // Singular matrix - use pseudoinverse or return prediction unchanged
+        if (process.env.VERBOSE_LOGGING) {
+          console.log('[KalmanUpdate] Innovation covariance inverse has invalid values, using prediction as-is');
+        }
+        return [predictedStateMean, predictedStateCovariance];
+      }
+    } catch (e) {
+      // Matrix is singular - return prediction unchanged
+      if (process.env.VERBOSE_LOGGING) {
+        console.log('[KalmanUpdate] Innovation covariance is singular, using prediction as-is');
+      }
+      return [predictedStateMean, predictedStateCovariance];
+    }
+
+    const kalmanGain = predictedStateCovariance
+      .mmul(this.H.transpose())
+      .mmul(innovationCovInverse);
 
     // x̂_{k|k} = x̂_{k|k-1} + K_k * ỹ_k  (updated state estimate)
-    const Ky = matrixVectorMultiply(kalmanGain, innovation);
-    const filteredStateMean = vectorAdd(predictedStateMean, Ky);
+    const filteredStateMean = predictedStateMean.add(kalmanGain.mmul(innovation));
 
     // P_{k|k} = (I - K_k * H) * P_{k|k-1}  (updated covariance)
     // Using Joseph form for numerical stability:
     // P_{k|k} = (I - K*H) * P_{k|k-1} * (I - K*H)^T + K * R * K^T
-    const KH = matrixMultiply(kalmanGain, this.H);
-    const I_KH = matrixSubtract(identity(this.nStates), KH);
+    const I_KH = Matrix.eye(this.nStates).sub(kalmanGain.mmul(this.H));
 
-    const I_KH_P = matrixMultiply(I_KH, predictedStateCovariance);
-    const I_KH_P_I_KHt = matrixMultiply(I_KH_P, matrixTranspose(I_KH));
+    const filteredStateCovariance = I_KH
+      .mmul(predictedStateCovariance)
+      .mmul(I_KH.transpose())
+      .add(kalmanGain.mmul(this.R).mmul(kalmanGain.transpose()));
 
-    const KR = matrixMultiply(kalmanGain, this.R);
-    const KRKt = matrixMultiply(KR, matrixTranspose(kalmanGain));
+    // Final NaN check on output using stdlib validation
+    const filteredData = filteredStateMean.to2DArray();
+    const covData = filteredStateCovariance.to2DArray();
+    const hasNaN = !validateMatrix(filteredData) || !validateMatrix(covData);
 
-    const filteredStateCovariance = matrixAdd(I_KH_P_I_KHt, KRKt);
+    if (hasNaN) {
+      if (process.env.VERBOSE_LOGGING) {
+        console.log('[KalmanUpdate] NaN detected in output, returning prediction as-is');
+      }
+      return [predictedStateMean, predictedStateCovariance];
+    }
 
     return [filteredStateMean, filteredStateCovariance];
   }
@@ -350,16 +219,16 @@ export class KalmanFilter {
    * This is the interface expected by our existing code. It combines
    * the prediction and update steps into a single operation.
    *
-   * @param filteredStateMean - Current posterior state x_{k-1|k-1} (n_states,)
-   * @param filteredStateCovariance - Current posterior covariance P_{k-1|k-1} (n_states x n_states)
-   * @param observation - New measurement z_k (n_observations,)
+   * @param filteredStateMean - Current posterior state x_{k-1|k-1}
+   * @param filteredStateCovariance - Current posterior covariance P_{k-1|k-1}
+   * @param observation - New measurement z_k
    * @returns Tuple of [new_filtered_state_mean, new_filtered_state_covariance]
    */
   filterUpdate(
-    filteredStateMean: number[],
-    filteredStateCovariance: number[][],
-    observation: number[]
-  ): [number[], number[][]] {
+    filteredStateMean: Matrix,
+    filteredStateCovariance: Matrix,
+    observation: number[] | Matrix
+  ): [Matrix, Matrix] {
     // Predict step
     const [predictedMean, predictedCov] = this.predict(filteredStateMean, filteredStateCovariance);
 
@@ -376,21 +245,21 @@ export class KalmanFilter {
    * initial state (x_0, P_0) provided in the constructor.
    *
    * @param observations - Array of measurements, shape (n_timesteps, n_observations)
-   *                       or (n_observations,) for a single measurement
+   *                       or array of 1D arrays
    * @returns Tuple of:
-   *          - filtered_state_means: Array of state estimates, shape (n_timesteps, n_states)
-   *          - filtered_state_covariances: Array of covariances, shape (n_timesteps, n_states, n_states)
+   *          - filtered_state_means: Array of Matrix (column vectors)
+   *          - filtered_state_covariances: Array of Matrix
    */
-  filter(observations: number[][]): [number[][], number[][][]] {
+  filter(observations: number[][]): [Matrix[], Matrix[]] {
     const nTimesteps = observations.length;
 
     // Initialize output arrays
-    const filteredStateMeans: number[][] = [];
-    const filteredStateCovariances: number[][][] = [];
+    const filteredStateMeans: Matrix[] = [];
+    const filteredStateCovariances: Matrix[] = [];
 
     // Start with initial state
-    let currentMean = [...this.x];
-    let currentCov = this.P.map(row => [...row]);
+    let currentMean = this.x.clone();
+    let currentCov = this.P.clone();
 
     // Process each observation
     for (let t = 0; t < nTimesteps; t++) {
@@ -401,8 +270,8 @@ export class KalmanFilter {
       [currentMean, currentCov] = this.update(predictedMean, predictedCov, observations[t]);
 
       // Store results
-      filteredStateMeans.push([...currentMean]);
-      filteredStateCovariances.push(currentCov.map(row => [...row]));
+      filteredStateMeans.push(currentMean.clone());
+      filteredStateCovariances.push(currentCov.clone());
     }
 
     return [filteredStateMeans, filteredStateCovariances];

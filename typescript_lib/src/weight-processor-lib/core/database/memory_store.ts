@@ -2,6 +2,7 @@
  * In-memory implementation of StateStore for testing and development.
  */
 
+import { Matrix } from 'ml-matrix';
 import { StateStore, KalmanState, SnapshotResult } from './base.js';
 
 interface Snapshot {
@@ -313,8 +314,38 @@ export class InMemoryStore extends StateStore {
 
   /**
    * Deep copy helper to prevent external modifications.
+   * Handles Matrix objects specially to preserve their prototype.
    */
   private deepCopy<T>(obj: T): T {
-    return JSON.parse(JSON.stringify(obj));
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+
+    // Handle Date objects
+    if (obj instanceof Date) {
+      return new Date(obj.getTime()) as any;
+    }
+
+    // Handle Matrix objects
+    if (obj instanceof Matrix) {
+      return obj.clone() as any;
+    }
+
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.deepCopy(item)) as any;
+    }
+
+    // Handle objects
+    if (typeof obj === 'object') {
+      const copy: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        copy[key] = this.deepCopy(value);
+      }
+      return copy;
+    }
+
+    // Primitives
+    return obj;
   }
 }

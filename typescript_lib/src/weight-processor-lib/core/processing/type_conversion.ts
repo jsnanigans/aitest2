@@ -2,6 +2,8 @@
  * Type conversion utilities for handling numeric conversions.
  */
 
+import { Matrix } from 'ml-matrix';
+
 export function ensureFloat(value: any): number {
   /**
    * Convert a value to number, handling various types.
@@ -90,16 +92,17 @@ export function ensureNumericTypes(data: any): any {
 
 export function deserializeState(state: any): any {
   /**
-   * Deserialize state retrieved from storage, converting date strings back to Date objects.
+   * Deserialize state retrieved from storage, converting date strings back to Date objects
+   * and arrays back to Matrix objects.
    *
    * When state is serialized (e.g., via JSON.stringify in InMemoryStore), Date objects
-   * become ISO strings. This function converts them back to Date objects.
+   * become ISO strings and Matrix objects become plain arrays. This function converts them back.
    *
    * Args:
    *     state: State object from storage
    *
    * Returns:
-   *     State with Date fields properly deserialized
+   *     State with Date and Matrix fields properly deserialized
    */
   if (!state || typeof state !== 'object') {
     return state;
@@ -114,6 +117,63 @@ export function deserializeState(state: any): any {
         state[field] = new Date(state[field]);
       }
     }
+  }
+
+  // Convert last_state from arrays/objects to Matrix objects
+  if (state.last_state && Array.isArray(state.last_state)) {
+    state.last_state = state.last_state.map((stateVec: any) => {
+      // If it's already a Matrix, keep it
+      if (stateVec instanceof Matrix) {
+        return stateVec;
+      }
+      // If it's a serialized Matrix object (has rows, columns, data properties)
+      if (stateVec && typeof stateVec === 'object' && 'rows' in stateVec && 'columns' in stateVec && 'data' in stateVec) {
+        // Reconstruct Matrix from serialized data
+        const mat = new Matrix(stateVec.rows, stateVec.columns);
+        for (let i = 0; i < stateVec.rows; i++) {
+          for (let j = 0; j < stateVec.columns; j++) {
+            mat.set(i, j, stateVec.data[i * stateVec.columns + j]);
+          }
+        }
+        return mat;
+      }
+      // Convert array to Matrix column vector
+      if (Array.isArray(stateVec)) {
+        // If it's a 2D array [[w], [v]], convert directly
+        if (Array.isArray(stateVec[0])) {
+          return new Matrix(stateVec);
+        }
+        // If it's a 1D array [w, v], convert to column vector
+        return Matrix.columnVector(stateVec);
+      }
+      return stateVec;
+    });
+  }
+
+  // Convert last_covariance from arrays/objects to Matrix objects
+  if (state.last_covariance && Array.isArray(state.last_covariance)) {
+    state.last_covariance = state.last_covariance.map((covMat: any) => {
+      // If it's already a Matrix, keep it
+      if (covMat instanceof Matrix) {
+        return covMat;
+      }
+      // If it's a serialized Matrix object (has rows, columns, data properties)
+      if (covMat && typeof covMat === 'object' && 'rows' in covMat && 'columns' in covMat && 'data' in covMat) {
+        // Reconstruct Matrix from serialized data
+        const mat = new Matrix(covMat.rows, covMat.columns);
+        for (let i = 0; i < covMat.rows; i++) {
+          for (let j = 0; j < covMat.columns; j++) {
+            mat.set(i, j, covMat.data[i * covMat.columns + j]);
+          }
+        }
+        return mat;
+      }
+      // Convert 2D array to Matrix
+      if (Array.isArray(covMat)) {
+        return new Matrix(covMat);
+      }
+      return covMat;
+    });
   }
 
   // Convert dates in measurement_history

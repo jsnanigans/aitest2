@@ -1,7 +1,8 @@
 /**
- * Kalman filter logic for weight processing.
+ * Kalman filter logic for weight processing using ml-matrix.
  */
 
+import { Matrix } from 'ml-matrix';
 import { KALMAN_DEFAULTS } from '../constants.js';
 import { KalmanFilter } from './kalman_filter.js';
 import type { KalmanState } from '../database/base.js';
@@ -157,21 +158,18 @@ export class KalmanFilterManager {
       observation_covariance: [[obsCov]],
     };
 
-    // Return (2, 2) state by duplicating the initial row
-    const initialRow = [weight, 0];
+    // Create Matrix objects for initial state
+    const initialStateMean = Matrix.columnVector([weight, 0]);
+    const initialStateCovariance = new Matrix([
+      [initialVariance, 0],
+      [0, 0.001],
+    ]);
+
+    // Return state with 2 copies (history of 2)
     return {
       kalman_params: kalmanParams,
-      last_state: [initialRow, initialRow], // (2, 2) shape
-      last_covariance: [
-        [
-          [initialVariance, 0],
-          [0, 0.001],
-        ],
-        [
-          [initialVariance, 0],
-          [0, 0.001],
-        ],
-      ], // (2, 2, 2) shape
+      last_state: [initialStateMean.clone(), initialStateMean.clone()],
+      last_covariance: [initialStateCovariance.clone(), initialStateCovariance.clone()],
       last_timestamp: timestamp,
       last_raw_weight: weight,
       last_accepted_timestamp: null,
@@ -222,28 +220,53 @@ export class KalmanFilterManager {
       [[obsCov]]
     );
 
-    const observation = [[weight]];
+    const observation = [weight];
 
-    let newLastState: number[][];
-    let newLastCovariance: number[][][];
+    let newLastState: Matrix[];
+    let newLastCovariance: Matrix[];
 
     if (!state.last_state) {
-      const [filteredStateMeans, filteredStateCovariances] = kalman.filter(observation);
+      const [filteredStateMeans, filteredStateCovariances] = kalman.filter([[weight]]);
       newLastState = filteredStateMeans;
       newLastCovariance = filteredStateCovariances;
+
+      if (process.env.VERBOSE_LOGGING) {
+        const firstState = newLastState[0];
+        if (firstState instanceof Matrix) {
+          console.log(`[KalmanInit] First state: weight=${firstState.get(0, 0)}, velocity=${firstState.get(1, 0)}`);
+        }
+      }
     } else {
       const lastState = state.last_state;
       const lastCovariance = state.last_covariance!;
 
-      // Always 2D arrays - get last row
+      // Get the most recent state and covariance
       const currentState = lastState[lastState.length - 1];
       const currentCovariance = lastCovariance[lastCovariance.length - 1];
+
+      if (process.env.VERBOSE_LOGGING && currentState instanceof Matrix) {
+        const w = currentState.get(0, 0);
+        const v = currentState.get(1, 0);
+        if (isNaN(w) || isNaN(v)) {
+          console.log(`[KalmanBeforeUpdate] READING NaN from state! weight=${w}, velocity=${v}`);
+        }
+      }
 
       const [filteredStateMean, filteredStateCovariance] = kalman.filterUpdate(
         currentState,
         currentCovariance,
-        observation[0]
+        observation
       );
+
+      if (process.env.VERBOSE_LOGGING && filteredStateMean instanceof Matrix) {
+        const w = filteredStateMean.get(0, 0);
+        const v = filteredStateMean.get(1, 0);
+        if (isNaN(w) || isNaN(v)) {
+          console.log(`[KalmanAfterUpdate] filterUpdate RETURNED NaN! weight=${w}, velocity=${v}, input=${weight}`);
+        } else {
+          console.log(`[KalmanAfterUpdate] filterUpdate returned: weight=${w}, velocity=${v}`);
+        }
+      }
 
       // Keep last 2 states: previous and current
       newLastState = [lastState[lastState.length - 1], filteredStateMean];
@@ -257,6 +280,19 @@ export class KalmanFilterManager {
     state.last_covariance = newLastCovariance;
     state.last_timestamp = timestamp;
     state.last_raw_weight = weight;
+
+    // Debug: Check if we're storing NaN
+    if (process.env.VERBOSE_LOGGING) {
+      const lastStateVec = newLastState[newLastState.length - 1];
+      if (lastStateVec instanceof Matrix) {
+        const weight = lastStateVec.get(0, 0);
+        const velocity = lastStateVec.get(1, 0);
+        if (isNaN(weight) || isNaN(velocity)) {
+          console.log(`[KalmanUpdateState] STORING NaN! weight=${weight}, velocity=${velocity}`);
+          console.log(`[KalmanUpdateState] Input weight was: ${weight}`);
+        }
+      }
+    }
 
     return state;
   }
@@ -285,16 +321,16 @@ export class KalmanFilterManager {
     }
 
     const lastState = state.last_state;
-    // Always 2D - get last row
+    // Get the most recent state
     const currentState = lastState[lastState.length - 1];
 
-    const filteredWeight = currentState[0];
-    const trend = currentState[1];
+    const filteredWeight = currentState.get(0, 0);
+    const trend = currentState.get(1, 0);
 
     const innovation = weight - filteredWeight;
 
     const lastCovariance = state.last_covariance;
-    let currentCovariance: number[][] | null = null;
+    let currentCovariance: Matrix | null = null;
     let normalizedInnovation = 0;
     let kalmanUpper = filteredWeight;
     let kalmanLower = filteredWeight;
@@ -311,7 +347,7 @@ export class KalmanFilterManager {
           observationCovariance !== undefined
             ? observationCovariance
             : state.kalman_params!.observation_covariance[0][0];
-        const innovationVariance = currentCovariance[0][0] + obsCovariance;
+        const innovationVariance = currentCovariance.get(0, 0) + obsCovariance;
         normalizedInnovation =
           innovationVariance > 0
             ? Math.abs(innovation) / Math.sqrt(innovationVariance)
@@ -323,10 +359,10 @@ export class KalmanFilterManager {
 
     // Calculate confidence intervals (±2σ)
     if (currentCovariance) {
-      const confidenceInterval = 2.0 * Math.sqrt(currentCovariance[0][0]);
+      const confidenceInterval = 2.0 * Math.sqrt(currentCovariance.get(0, 0));
       kalmanUpper = filteredWeight + confidenceInterval;
       kalmanLower = filteredWeight - confidenceInterval;
-      kalmanVariance = currentCovariance[0][0];
+      kalmanVariance = currentCovariance.get(0, 0);
     }
 
     // Calculate prediction error
@@ -359,10 +395,48 @@ export class KalmanFilterManager {
     }
 
     const lastState = state.last_state;
-    // Always 2D - get last row
     const currentState = lastState[lastState.length - 1];
 
-    return [currentState[0], currentState[1]];
+    // Handle non-Matrix objects
+    if (!(currentState instanceof Matrix)) {
+      // If it's a serialized Matrix object (has rows, columns, data properties)
+      if (currentState && typeof currentState === 'object' && 'rows' in currentState && 'columns' in currentState && 'data' in currentState) {
+        const { rows, columns, data } = currentState as any;
+        const mat = new Matrix(rows, columns);
+        // ml-matrix stores data in a 1D array
+        for (let i = 0; i < rows; i++) {
+          for (let j = 0; j < columns; j++) {
+            mat.set(i, j, data[i * columns + j]);
+          }
+        }
+        return [mat.get(0, 0), mat.get(1, 0)];
+      }
+
+      // Try to convert if it's an array
+      if (Array.isArray(currentState)) {
+        if (Array.isArray(currentState[0])) {
+          // 2D array
+          const mat = new Matrix(currentState);
+          return [mat.get(0, 0), mat.get(1, 0)];
+        } else {
+          // 1D array
+          const mat = Matrix.columnVector(currentState);
+          return [mat.get(0, 0), mat.get(1, 0)];
+        }
+      }
+
+      throw new Error('getCurrentStateValues: currentState is not a Matrix and could not be converted');
+    }
+
+    const weight = currentState.get(0, 0);
+    const velocity = currentState.get(1, 0);
+
+    if (process.env.VERBOSE_LOGGING && (isNaN(weight) || isNaN(velocity))) {
+      console.log(`[KalmanGetState] NaN detected! weight=${weight}, velocity=${velocity}`);
+      console.log(`[KalmanGetState] currentState type:`, typeof currentState, currentState instanceof Matrix);
+    }
+
+    return [weight, velocity];
   }
 
   /**
@@ -412,59 +486,77 @@ export class KalmanFilterManager {
     const lastState = state.last_state;
     const lastCovariance = state.last_covariance!;
 
-    // Always 2D arrays - get last row
-    const posteriorState = lastState[lastState.length - 1];
-    const posteriorCovariance = lastCovariance[lastCovariance.length - 1];
+    let posteriorState = lastState[lastState.length - 1];
+    let posteriorCovariance = lastCovariance[lastCovariance.length - 1];
+
+    // Ensure they're actual Matrix objects (handle deserialized states)
+    if (!(posteriorState instanceof Matrix)) {
+      if (posteriorState && typeof posteriorState === 'object' && 'rows' in posteriorState && 'columns' in posteriorState && 'data' in posteriorState) {
+        const { rows, columns, data } = posteriorState as any;
+        const mat = new Matrix(rows, columns);
+        for (let i = 0; i < rows; i++) {
+          for (let j = 0; j < columns; j++) {
+            mat.set(i, j, data[i * columns + j]);
+          }
+        }
+        posteriorState = mat;
+      } else if (Array.isArray(posteriorState)) {
+        posteriorState = Array.isArray(posteriorState[0]) ? new Matrix(posteriorState) : Matrix.columnVector(posteriorState);
+      }
+    }
+
+    if (!(posteriorCovariance instanceof Matrix)) {
+      if (posteriorCovariance && typeof posteriorCovariance === 'object' && 'rows' in posteriorCovariance && 'columns' in posteriorCovariance && 'data' in posteriorCovariance) {
+        const { rows, columns, data } = posteriorCovariance as any;
+        const mat = new Matrix(rows, columns);
+        for (let i = 0; i < rows; i++) {
+          for (let j = 0; j < columns; j++) {
+            mat.set(i, j, data[i * columns + j]);
+          }
+        }
+        posteriorCovariance = mat;
+      } else if (Array.isArray(posteriorCovariance)) {
+        posteriorCovariance = new Matrix(posteriorCovariance);
+      }
+    }
 
     // Build transition matrix F
-    const F = [
+    const F = new Matrix([
       [1, timeDeltaDays],
       [0, 1],
-    ];
+    ]);
 
     // Get process noise Q from kalman_params
     const kalmanParams = state.kalman_params;
-    const Q = ensureFloat(kalmanParams.transition_covariance);
+    const Q = new Matrix(ensureFloat(kalmanParams.transition_covariance));
 
     // Predict state: x_pred = F * x_posterior
-    const predictedState = [
-      F[0][0] * posteriorState[0] + F[0][1] * posteriorState[1],
-      F[1][0] * posteriorState[0] + F[1][1] * posteriorState[1],
-    ];
+    const predictedState = F.mmul(posteriorState as Matrix);
 
     // Predict covariance: P_pred = F * P_posterior * F' + Q
-    // F * P_posterior
-    const FP = [
-      [
-        F[0][0] * posteriorCovariance[0][0] + F[0][1] * posteriorCovariance[1][0],
-        F[0][0] * posteriorCovariance[0][1] + F[0][1] * posteriorCovariance[1][1],
-      ],
-      [
-        F[1][0] * posteriorCovariance[0][0] + F[1][1] * posteriorCovariance[1][0],
-        F[1][0] * posteriorCovariance[0][1] + F[1][1] * posteriorCovariance[1][1],
-      ],
-    ];
-
-    // FP * F^T
-    const FPFt = [
-      [FP[0][0] * F[0][0] + FP[0][1] * F[0][1], FP[0][0] * F[1][0] + FP[0][1] * F[1][1]],
-      [FP[1][0] * F[0][0] + FP[1][1] * F[0][1], FP[1][0] * F[1][0] + FP[1][1] * F[1][1]],
-    ];
-
-    // P_pred = FPFt + Q
-    const predictedCovariance = [
-      [FPFt[0][0] + Q[0][0], FPFt[0][1] + Q[0][1]],
-      [FPFt[1][0] + Q[1][0], FPFt[1][1] + Q[1][1]],
-    ];
+    const predictedCovariance = F
+      .mmul(posteriorCovariance as Matrix)
+      .mmul(F.transpose())
+      .add(Q);
 
     // Extract predicted weight (first element of state vector)
-    const predictedWeight = predictedState[0];
+    const predictedWeight = predictedState.get(0, 0);
 
     // Calculate innovation covariance for the measurement
     // S = H * P_pred * H' + R, where H = [1, 0] for weight observation
     // Since H = [1, 0], this simplifies to P_pred[0,0] + R
     const R = kalmanParams.observation_covariance[0][0];
-    const innovationCovariance = predictedCovariance[0][0] + R;
+    const innovationCovariance = predictedCovariance.get(0, 0) + R;
+
+    if (process.env.VERBOSE_LOGGING) {
+      if (isNaN(predictedWeight) || isNaN(innovationCovariance)) {
+        console.log(`[KalmanPredict] NaN detected! predictedWeight=${predictedWeight}, innovationCovariance=${innovationCovariance}`);
+        console.log(`[KalmanPredict] posteriorState[0,0]=${(posteriorState as Matrix).get(0, 0)}, posteriorState[1,0]=${(posteriorState as Matrix).get(1, 0)}`);
+        console.log(`[KalmanPredict] posteriorCov[0,0]=${(posteriorCovariance as Matrix).get(0, 0)}, R=${R}`);
+        console.log(`[KalmanPredict] predictedCov[0,0]=${predictedCovariance.get(0, 0)}`);
+        console.log(`[KalmanPredict] timeDeltaDays=${timeDeltaDays}`);
+      }
+    }
 
     return [predictedWeight, innovationCovariance];
   }

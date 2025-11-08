@@ -2,11 +2,13 @@
  * Abstract base interface for state storage.
  */
 
+import { Matrix } from 'ml-matrix';
+
 export interface KalmanState {
   // Core Kalman filter state
   kalman_params: any;
-  last_state: number[][] | undefined; // (2, 2) array for weight and velocity state
-  last_covariance: number[][][] | undefined; // (2, 2, 2) array for covariance matrices
+  last_state: Matrix[] | undefined; // Array of 2 Matrix column vectors for state history
+  last_covariance: Matrix[] | undefined; // Array of 2 Matrix covariance matrices
   last_timestamp: Date | null;
   last_accepted_timestamp: Date | null;
   last_source: string | null;

@@ -328,21 +328,18 @@ export interface ProcessingResult {
 }
 
 /**
- * Normalize state arrays to correct 2D shape.
+ * Normalize state arrays to correct shape (Matrix objects).
+ * With Matrix objects, we just ensure we have exactly 2 items in each array.
  */
 function normalizeStateArrays(state: KalmanState): KalmanState {
   if (state.last_state) {
     const lastState = state.last_state;
 
-    // If 1D array, convert to 2D by duplicating
-    if (!Array.isArray(lastState[0])) {
-      state.last_state = [lastState as any, lastState as any];
+    // If only 1 Matrix, duplicate it
+    if (lastState.length === 1) {
+      state.last_state = [lastState[0].clone(), lastState[0].clone()];
     }
-    // If only 1 row, duplicate it
-    else if (lastState.length === 1) {
-      state.last_state = [lastState[0], lastState[0]];
-    }
-    // If >2 rows, keep only last 2
+    // If >2 matrices, keep only last 2
     else if (lastState.length > 2) {
       state.last_state = lastState.slice(-2);
     }
@@ -351,13 +348,9 @@ function normalizeStateArrays(state: KalmanState): KalmanState {
   if (state.last_covariance) {
     const lastCov = state.last_covariance;
 
-    // If 2D (2,2), convert to 3D (2,2,2)
-    if (!Array.isArray(lastCov[0][0])) {
-      state.last_covariance = [lastCov as any, lastCov as any];
-    }
     // If only 1 matrix, duplicate it
-    else if (lastCov.length === 1) {
-      state.last_covariance = [lastCov[0], lastCov[0]];
+    if (lastCov.length === 1) {
+      state.last_covariance = [lastCov[0].clone(), lastCov[0].clone()];
     }
     // If >2 matrices, keep only last 2
     else if (lastCov.length > 2) {
@@ -369,24 +362,32 @@ function normalizeStateArrays(state: KalmanState): KalmanState {
 }
 
 /**
- * Validate state array shapes.
+ * Validate state Matrix shapes.
  */
 function validateStateShapes(state: KalmanState, userId: string): void {
   if (state.last_state) {
-    const shape = [state.last_state.length, Array.isArray(state.last_state[0]) ? state.last_state[0].length : 0];
-    if (shape[0] !== 2 || shape[1] !== 2) {
-      throw new Error(`Invalid last_state shape for ${userId}: [${shape}], expected [2, 2]`);
+    if (state.last_state.length !== 2) {
+      throw new Error(`Invalid last_state array length for ${userId}: ${state.last_state.length}, expected 2`);
+    }
+    // Check that each is a Matrix with correct dimensions (2x1 column vector)
+    for (let i = 0; i < state.last_state.length; i++) {
+      const mat = state.last_state[i];
+      if (mat.rows !== 2 || mat.columns !== 1) {
+        throw new Error(`Invalid last_state Matrix shape for ${userId}: [${mat.rows}, ${mat.columns}], expected [2, 1]`);
+      }
     }
   }
 
   if (state.last_covariance) {
-    const shape = [
-      state.last_covariance.length,
-      Array.isArray(state.last_covariance[0]) ? state.last_covariance[0].length : 0,
-      Array.isArray(state.last_covariance[0]?.[0]) ? state.last_covariance[0][0].length : 0,
-    ];
-    if (shape[0] !== 2 || shape[1] !== 2 || shape[2] !== 2) {
-      throw new Error(`Invalid last_covariance shape for ${userId}: [${shape}], expected [2, 2, 2]`);
+    if (state.last_covariance.length !== 2) {
+      throw new Error(`Invalid last_covariance array length for ${userId}: ${state.last_covariance.length}, expected 2`);
+    }
+    // Check that each is a Matrix with correct dimensions (2x2)
+    for (let i = 0; i < state.last_covariance.length; i++) {
+      const mat = state.last_covariance[i];
+      if (mat.rows !== 2 || mat.columns !== 2) {
+        throw new Error(`Invalid last_covariance Matrix shape for ${userId}: [${mat.rows}, ${mat.columns}], expected [2, 2]`);
+      }
     }
   }
 }
@@ -599,6 +600,7 @@ export async function processMeasurement(
       reason: preprocessMetadata.rejected || 'Preprocessing failed',
       stage: 'preprocessing',
       metadata: preprocessMetadata,
+      quality_score: 0.0,  // Rejected during preprocessing
     };
   }
 
@@ -699,6 +701,7 @@ export async function processMeasurement(
       stage: 'initialization',
       preprocessing: preprocessMetadata,
       noise_multiplier: noiseMultiplier,
+      quality_score: 0.8,  // Initial measurement, will be updated by quality scoring
     };
 
     // Add reset event info if it occurred
@@ -729,6 +732,9 @@ export async function processMeasurement(
 
   if (state) {
     const [currentWeight] = KalmanFilterManager.getCurrentStateValues(state);
+    if (process.env.VERBOSE_LOGGING) {
+      console.log(`[Processor] getCurrentStateValues returned: ${currentWeight}`);
+    }
     if (currentWeight !== null) {
       previousWeight = currentWeight;
     } else if (state.last_raw_weight !== undefined && state.last_raw_weight !== null) {
@@ -764,6 +770,10 @@ export async function processMeasurement(
 
   if (state && state.kalman_params) {
     [kalmanPrediction, innovationCovariance] = KalmanFilterManager.predictNextState(state, timestamp);
+
+    if (process.env.VERBOSE_LOGGING) {
+      console.log(`[Processor] predictNextState returned: prediction=${kalmanPrediction}, covariance=${innovationCovariance}`);
+    }
 
     // Apply source-specific noise multiplier to innovation covariance
     if (innovationCovariance !== null) {
@@ -868,8 +878,9 @@ export async function processMeasurement(
       if (Math.abs(currentTrend) > maxDailyTrend) {
         const limitedTrend = currentTrend > 0 ? maxDailyTrend : -maxDailyTrend;
         if (state.last_state) {
-          // Always 2D - update last row
-          state.last_state[state.last_state.length - 1][1] = limitedTrend;
+          // Update the trend in the last state Matrix
+          const lastStateMatrix = state.last_state[state.last_state.length - 1];
+          lastStateMatrix.set(1, 0, limitedTrend); // Set row 1, col 0
         }
       }
     }
@@ -888,7 +899,9 @@ export async function processMeasurement(
     if (currentTrend !== null && Math.abs(currentTrend) > 0.714) {
       const limitedTrend = currentTrend > 0 ? 0.714 : -0.714;
       if (state.last_state) {
-        state.last_state[state.last_state.length - 1][1] = limitedTrend;
+        // Update the trend in the last state Matrix
+        const lastStateMatrix = state.last_state[state.last_state.length - 1];
+        lastStateMatrix.set(1, 0, limitedTrend); // Set row 1, col 0
       }
     }
 

@@ -12,6 +12,7 @@
 
 import type { StateStore, KalmanState } from '../database/base';
 import { isEffectivelyZero } from '../utils';
+import { base as statsBase } from '@stdlib/stats';
 
 /**
  * Measurement structure for outlier detection
@@ -537,7 +538,7 @@ export class OutlierDetector {
   // ============================================================================
 
   /**
-   * Calculate median of an array of numbers.
+   * Calculate median of an array of numbers using stdlib.
    */
   private _median(values: number[]): number {
     if (values.length === 0) {
@@ -545,13 +546,7 @@ export class OutlierDetector {
     }
 
     const sorted = [...values].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-
-    if (sorted.length % 2 === 0) {
-      return (sorted[mid - 1] + sorted[mid]) / 2;
-    } else {
-      return sorted[mid];
-    }
+    return (statsBase as any).mediansorted(sorted.length, sorted, 1);
   }
 
   /**
@@ -576,17 +571,14 @@ export class OutlierDetector {
   }
 
   /**
-   * Calculate standard deviation of an array of numbers.
+   * Calculate standard deviation of an array of numbers using stdlib.
    */
   private _std(values: number[]): number {
     if (values.length === 0) {
       return 0;
     }
 
-    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-    const squaredDiffs = values.map((val) => Math.pow(val - mean, 2));
-    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
-
-    return Math.sqrt(variance);
+    // Using correction=0 for population stdev (matching original implementation)
+    return (statsBase as any).stdev(values.length, 0, values, 1);
   }
 }
