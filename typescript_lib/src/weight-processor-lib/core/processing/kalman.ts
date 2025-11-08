@@ -708,17 +708,31 @@ export function getAdaptiveKalmanParams(
     resetParams = state.reset_parameters;
     adaptationDaysValue = resetParams.adaptation_days ?? adaptiveDays;
 
-    // Get multipliers from reset parameters
-    const initialVarMult = resetParams.initial_variance_multiplier ?? 5;
-    const weightNoiseMult = resetParams.weight_noise_multiplier ?? 20;
-    const trendNoiseMult = resetParams.trend_noise_multiplier ?? 200;
-    const obsNoiseMult = resetParams.observation_noise_multiplier ?? 0.5;
+    // Get multipliers from reset parameters (NO hardcoded defaults)
+    if (!resetParams || !resetParams.initial_variance_multiplier || !resetParams.weight_noise_multiplier ||
+        !resetParams.trend_noise_multiplier || !resetParams.observation_noise_multiplier) {
+      throw new Error(
+        'Reset parameters missing required multipliers. Must be provided or loaded from config.json.'
+      );
+    }
 
-    // Apply multipliers to base config
-    const baseInitialVar = baseConfig.initial_variance ?? 0.361;
-    const baseWeightCov = baseConfig.transition_covariance_weight ?? 0.016;
-    const baseTrendCov = baseConfig.transition_covariance_trend ?? 0.0001;
-    const baseObsCov = baseConfig.observation_covariance ?? 3.4;
+    const initialVarMult = resetParams.initial_variance_multiplier;
+    const weightNoiseMult = resetParams.weight_noise_multiplier;
+    const trendNoiseMult = resetParams.trend_noise_multiplier;
+    const obsNoiseMult = resetParams.observation_noise_multiplier;
+
+    // Apply multipliers to base config (NO hardcoded defaults - must come from config.json)
+    if (!baseConfig.initial_variance || !baseConfig.transition_covariance_weight ||
+        !baseConfig.transition_covariance_trend || !baseConfig.observation_covariance) {
+      throw new Error(
+        'Base Kalman config missing required values. Config must be loaded from config.json.'
+      );
+    }
+
+    const baseInitialVar = baseConfig.initial_variance;
+    const baseWeightCov = baseConfig.transition_covariance_weight;
+    const baseTrendCov = baseConfig.transition_covariance_trend;
+    const baseObsCov = baseConfig.observation_covariance;
 
     const adaptiveParams = {
       initial_variance: baseInitialVar * initialVarMult,

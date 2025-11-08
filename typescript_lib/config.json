@@ -1,0 +1,244 @@
+{
+  "kalman": {
+    "initial_variance": 0.364,
+    "transition_covariance_weight": 0.018,
+    "transition_covariance_trend": 0.00012,
+    "observation_covariance": 5,
+    "reset": {
+      "initial": {
+        "enabled": true,
+        "initial_variance_multiplier": 10,
+        "weight_noise_multiplier": 50,
+        "trend_noise_multiplier": 50,
+        "observation_noise_multiplier": 20,
+        "adaptation_measurements": 10,
+        "adaptation_days": 10,
+        "adaptation_decay_rate": 2.5
+      },
+      "hard": {
+        "enabled": true,
+        "gap_threshold_days": 30,
+        "initial_variance_multiplier": 3,
+        "weight_noise_multiplier": 5,
+        "trend_noise_multiplier": 50,
+        "observation_noise_multiplier": 0.7,
+        "adaptation_measurements": 10,
+        "adaptation_days": 7,
+        "adaptation_decay_rate": 2.5
+      },
+      "soft": {
+        "enabled": true,
+        "min_weight_change_kg": 5,
+        "cooldown_days": 3,
+        "trigger_sources": ["questionnaire", "care-team-upload"],
+        "initial_variance_multiplier": 2,
+        "weight_noise_multiplier": 5,
+        "trend_noise_multiplier": 20,
+        "observation_noise_multiplier": 0.7,
+        "adaptation_measurements": 15,
+        "adaptation_days": 10,
+        "adaptation_decay_rate": 2.5
+      }
+    }
+  },
+  "quality_scoring": {
+    "use_harmonic_mean": true,
+    "threshold": 0.46,
+    "component_weights": {
+      "kalman_fit": 0.40,
+      "temporal_consistency": 0.30,
+      "anomaly_detection": 0.20,
+      "source_reliability": 0.05,
+      "trend_alignment": 0.05
+    },
+    "temporal": {
+      "min_score": 0.2,
+      "max_score": 1.0,
+      "initial_threshold_kg": 0.5,
+      "max_threshold_kg": 5.0,
+      "time_constant_hours": 48
+    },
+    "trend_alignment": {
+      "trend_decay_constant": 0.1,
+      "trend_min_std_dev": 0.8
+    }
+  },
+  "processing": {
+    "quality_threshold": 0.46
+  },
+  "adaptive_ranges": {
+    "enabled": true,
+    "ema_alpha": 0.1,
+    "noise_alpha": 0.05,
+    "buffer_size": 7,
+    "thresholds": {
+      "base_multiplier": 3.0,
+      "min_threshold": 1.0,
+      "max_threshold": 10.0
+    },
+    "oscillation": {
+      "high_oscillation_score": 0.5,
+      "moderate_oscillation_score": 0.3
+    }
+  },
+  "sources": {
+    "care-team-upload": {
+      "outlier_rate": 3.6,
+      "reliability": "excellent",
+      "noise_multiplier": 0.5,
+      "priority": 1,
+      "base_threshold_kg": 2.0,
+      "max_threshold_kg": 8.0,
+      "spike_threshold_kg": 5.0,
+      "drift_threshold_kg": 3.0,
+      "noise_threshold_kg": 2.0,
+      "max_daily_change_kg": 6.44,
+      "high_confidence_multiplier": 0.8,
+      "low_confidence_multiplier": 1.5
+    },
+    "patient-upload": {
+      "outlier_rate": 13.0,
+      "reliability": "excellent",
+      "noise_multiplier": 0.7,
+      "priority": 4,
+      "base_threshold_kg": 2.0,
+      "max_threshold_kg": 10.0,
+      "spike_threshold_kg": 5.0,
+      "drift_threshold_kg": 3.0,
+      "noise_threshold_kg": 2.0,
+      "max_daily_change_kg": 6.44,
+      "high_confidence_multiplier": 0.8,
+      "low_confidence_multiplier": 1.5
+    },
+    "questionnaire": {
+      "outlier_rate": 14.0,
+      "reliability": "good",
+      "noise_multiplier": 0.8,
+      "priority": 1,
+      "base_threshold_kg": 3.0,
+      "max_threshold_kg": 12.0,
+      "spike_threshold_kg": 6.0,
+      "drift_threshold_kg": 4.0,
+      "noise_threshold_kg": 3.0,
+      "max_daily_change_kg": 8.0,
+      "high_confidence_multiplier": 0.9,
+      "low_confidence_multiplier": 1.8
+    },
+    "internal-questionnaire": {
+      "outlier_rate": 14.0,
+      "reliability": "good",
+      "noise_multiplier": 0.8,
+      "priority": 1,
+      "base_threshold_kg": 3.0,
+      "max_threshold_kg": 12.0,
+      "spike_threshold_kg": 6.0,
+      "drift_threshold_kg": 4.0,
+      "noise_threshold_kg": 3.0,
+      "max_daily_change_kg": 8.0,
+      "high_confidence_multiplier": 0.9,
+      "low_confidence_multiplier": 1.8
+    },
+    "initial-questionnaire": {
+      "outlier_rate": 14.0,
+      "reliability": "good",
+      "noise_multiplier": 0.8,
+      "priority": 1,
+      "base_threshold_kg": 3.0,
+      "max_threshold_kg": 12.0,
+      "spike_threshold_kg": 6.0,
+      "drift_threshold_kg": 4.0,
+      "noise_threshold_kg": 3.0,
+      "max_daily_change_kg": 8.0,
+      "high_confidence_multiplier": 0.9,
+      "low_confidence_multiplier": 1.8
+    },
+    "patient-device": {
+      "outlier_rate": 20.7,
+      "reliability": "good",
+      "noise_multiplier": 1.0,
+      "priority": 3,
+      "base_threshold_kg": 2.5,
+      "max_threshold_kg": 10.0,
+      "spike_threshold_kg": 5.5,
+      "drift_threshold_kg": 3.5,
+      "noise_threshold_kg": 2.5,
+      "max_daily_change_kg": 7.0,
+      "high_confidence_multiplier": 0.85,
+      "low_confidence_multiplier": 1.6
+    },
+    "https://connectivehealth.io": {
+      "outlier_rate": 35.8,
+      "reliability": "moderate",
+      "noise_multiplier": 1.5,
+      "priority": 2,
+      "base_threshold_kg": 4.0,
+      "max_threshold_kg": 15.0,
+      "spike_threshold_kg": 8.0,
+      "drift_threshold_kg": 5.0,
+      "noise_threshold_kg": 4.0,
+      "max_daily_change_kg": 10.0,
+      "high_confidence_multiplier": 1.0,
+      "low_confidence_multiplier": 2.0
+    },
+    "https://api.iglucose.com": {
+      "outlier_rate": 151.4,
+      "reliability": "poor",
+      "noise_multiplier": 3.0,
+      "priority": 2,
+      "base_threshold_kg": 5.0,
+      "max_threshold_kg": 20.0,
+      "spike_threshold_kg": 10.0,
+      "drift_threshold_kg": 7.0,
+      "noise_threshold_kg": 5.0,
+      "max_daily_change_kg": 15.0,
+      "high_confidence_multiplier": 1.2,
+      "low_confidence_multiplier": 2.5
+    },
+    "default": {
+      "outlier_rate": 20.0,
+      "reliability": "unknown",
+      "noise_multiplier": 1.0,
+      "priority": 999,
+      "base_threshold_kg": 3.0,
+      "max_threshold_kg": 10.0,
+      "spike_threshold_kg": 5.0,
+      "drift_threshold_kg": 3.0,
+      "noise_threshold_kg": 2.0,
+      "max_daily_change_kg": 6.44,
+      "high_confidence_multiplier": 1.0,
+      "low_confidence_multiplier": 1.5
+    }
+  },
+  "replay": {
+    "enabled": true,
+    "buffer_hours": 24,
+    "trigger_mode": "time_based",
+    "max_buffer_measurements": 100,
+    "state_history_limit": 100,
+    "outlier_detection": {
+      "iqr_multiplier": 1.5,
+      "z_score_threshold": 3.0,
+      "temporal_max_change_percent": 0.5,
+      "min_measurements_for_analysis": 2
+    },
+    "safety": {
+      "max_processing_time_seconds": 60,
+      "require_rollback_confirmation": false,
+      "preserve_immediate_results": true
+    }
+  },
+  "snapshot": {
+    "periodic_enabled": true,
+    "interval_hours": 24,
+    "retention_days": 10
+  },
+  "database": {
+    "backend": "memory",
+    "table_name": "weight-processor-state",
+    "region": "us-east-1"
+  },
+  "logging": {
+    "level": "INFO",
+    "verbose": false
+  }
+}

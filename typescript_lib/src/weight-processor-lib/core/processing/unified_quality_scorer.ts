@@ -957,12 +957,7 @@ export class UnifiedQualityScorer {
     for (const [componentName, score] of Object.entries(components)) {
       const weight = this.weights[componentName] ?? 0.0;
       if (weight > 0) {
-        // Handle NaN, undefined, null, and invalid scores using stdlib validation
-        if (!validateNumber(score)) {
-          // Skip invalid scores or use neutral value
-          continue;
-        }
-        // Clamp score to avoid numerical issues
+        // Clamp score to avoid numerical issues (matches Python implementation)
         const clampedScore = Math.max(epsilon, Math.min(1.0, score));
         product *= clampedScore ** weight;
         weightSum += weight;

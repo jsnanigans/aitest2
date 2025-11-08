@@ -36,42 +36,134 @@ function getDefaultConfig(): any {
   return {
     database: {
       backend: "memory",
+      table_name: "weight-processor-state",
+      region: "us-east-1",
     },
     kalman: {
       initial_variance: 0.364,
       transition_covariance_weight: 0.018,
-      transition_covariance_trend: 0.00015,
-      observation_covariance: 3.49,
+      transition_covariance_trend: 0.00012,  // Fixed: was 0.00015
+      observation_covariance: 5,  // Fixed: was 3.49
+      reset: {
+        initial: {
+          enabled: true,
+          initial_variance_multiplier: 10,
+          weight_noise_multiplier: 50,
+          trend_noise_multiplier: 500,
+          observation_noise_multiplier: 0.3,
+          adaptation_measurements: 20,
+          adaptation_days: 21,
+          adaptation_decay_rate: 1.5,
+        },
+        hard: {
+          enabled: true,
+          gap_threshold_days: 30,
+          initial_variance_multiplier: 5,
+          weight_noise_multiplier: 20,
+          trend_noise_multiplier: 200,
+          observation_noise_multiplier: 0.5,
+          adaptation_measurements: 10,
+          adaptation_days: 7,
+          adaptation_decay_rate: 2.5,
+        },
+        soft: {
+          enabled: true,
+          min_weight_change_kg: 5,
+          cooldown_days: 3,
+          trigger_sources: ["questionnaire", "care-team-upload"],
+          initial_variance_multiplier: 2,
+          weight_noise_multiplier: 5,
+          trend_noise_multiplier: 20,
+          observation_noise_multiplier: 0.7,
+          adaptation_measurements: 15,
+          adaptation_days: 10,
+          adaptation_decay_rate: 4,
+        },
+      },
     },
     quality_scoring: {
-      threshold: 0.5,
+      use_harmonic_mean: true,  // Added: was missing
+      threshold: 0.46,
       components: {
-        kalman_fit: { weight: 0.3, enabled: true },
-        temporal_consistency: { weight: 0.25, enabled: true },
-        anomaly_detection: { weight: 0.25, enabled: true },
-        source_reliability: { weight: 0.1, enabled: true },
-        trend_alignment: { weight: 0.1, enabled: true },
+        kalman_fit: { weight: 0.4, enabled: true },
+        temporal_consistency: { weight: 0.3, enabled: true },
+        anomaly_detection: { weight: 0.2, enabled: true },
+        source_reliability: { weight: 0.05, enabled: true },
+        trend_alignment: { weight: 0.05, enabled: true },
+      },
+      component_weights: {  // Added for compatibility
+        kalman_fit: 0.4,
+        temporal_consistency: 0.3,
+        anomaly_detection: 0.2,
+        source_reliability: 0.05,
+        trend_alignment: 0.05,
+      },
+      temporal: {  // Added: was missing
+        min_score: 0.2,
+        max_score: 1.0,
+        initial_threshold_kg: 0.5,
+        max_threshold_kg: 5.0,
+        time_constant_hours: 48,
+      },
+      trend_alignment: {  // Added: was missing
+        trend_decay_constant: 0.1,
+        trend_min_std_dev: 0.8,
       },
     },
     processing: {
       enable_validation: true,
       enable_quality_scoring: true,
+      quality_threshold: 0.46,  // Added: was missing
     },
     reset: {
       time_gap_days: 30,
       weight_change_threshold_kg: 10,
     },
     snapshot: {
-      interval_hours: 24,
       periodic_enabled: true,
+      interval_hours: 24,
+      retention_days: 10,  // Added: was missing
     },
     adaptive_noise: {
       enabled: true,
     },
+    adaptive_ranges: {  // Added: was missing
+      enabled: true,
+      ema_alpha: 0.1,
+      noise_alpha: 0.05,
+      buffer_size: 7,
+      thresholds: {
+        base_multiplier: 3.0,
+        min_threshold: 1.0,
+        max_threshold: 10.0,
+      },
+      oscillation: {
+        high_oscillation_score: 0.5,
+        moderate_oscillation_score: 0.3,
+      },
+    },
     replay: {
-      buffered_replay_enabled: true,
+      enabled: true,  // Added: was missing
       buffer_hours: 24,
+      trigger_mode: "time_based",  // Added: was missing
       max_buffer_measurements: 100,
+      state_history_limit: 100,  // Added: was missing
+      buffered_replay_enabled: true,
+      outlier_detection: {  // Added: was missing
+        iqr_multiplier: 1.5,
+        z_score_threshold: 3.0,
+        temporal_max_change_percent: 0.5,
+        min_measurements_for_analysis: 2,
+      },
+      safety: {  // Added: was missing
+        max_processing_time_seconds: 60,
+        require_rollback_confirmation: false,
+        preserve_immediate_results: true,
+      },
+    },
+    logging: {  // Added: was missing
+      level: "INFO",
+      verbose: false,
     },
   };
 }

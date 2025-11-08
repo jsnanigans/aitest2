@@ -78,8 +78,9 @@ export const BMI_LIMITS = {
 } as const;
 
 // Source profiles configuration
-// NOTE: In Python this is loaded from config.toml, but for TypeScript
-// we'll include default profiles here
+// NOTE: Loaded from config.json (converted from Python's config.toml)
+import { loadConfig, type SourceConfig } from './config.js';
+
 export interface SourceProfile {
   outlier_rate?: number;
   reliability: string;
@@ -88,68 +89,46 @@ export interface SourceProfile {
   base_threshold_kg?: number;
   max_threshold_kg?: number;
   max_daily_change_kg?: number;
+  spike_threshold_kg?: number;
+  drift_threshold_kg?: number;
+  noise_threshold_kg?: number;
+  high_confidence_multiplier?: number;
+  low_confidence_multiplier?: number;
 }
 
-export const SOURCE_PROFILES: Record<string, SourceProfile> = {
-  'patient-device': {
-    outlier_rate: 5.0,
-    reliability: 'high',
-    noise_multiplier: 0.7,
-    priority: 1,
-    base_threshold_kg: 1.5,
-    max_threshold_kg: 5.0,
-  },
-  'care-team-upload': {
-    outlier_rate: 2.0,
-    reliability: 'very_high',
-    noise_multiplier: 0.5,
-    priority: 0,
-    base_threshold_kg: 1.0,
-    max_threshold_kg: 4.0,
-  },
-  'patient-upload': {
-    outlier_rate: 10.0,
-    reliability: 'medium',
-    noise_multiplier: 1.0,
-    priority: 2,
-    base_threshold_kg: 2.0,
-    max_threshold_kg: 6.0,
-  },
-  'internal-questionnaire': {
-    outlier_rate: 15.0,
-    reliability: 'low',
-    noise_multiplier: 1.5,
-    priority: 3,
-    base_threshold_kg: 3.0,
-    max_threshold_kg: 8.0,
-  },
-  'initial-questionnaire': {
-    outlier_rate: 15.0,
-    reliability: 'low',
-    noise_multiplier: 1.5,
-    priority: 3,
-    base_threshold_kg: 3.0,
-    max_threshold_kg: 8.0,
-  },
-  'questionnaire': {
-    outlier_rate: 15.0,
-    reliability: 'low',
-    noise_multiplier: 1.5,
-    priority: 3,
-    base_threshold_kg: 3.0,
-    max_threshold_kg: 8.0,
-  },
-  default: {
-    outlier_rate: 20.0,
-    reliability: 'unknown',
-    noise_multiplier: 1.0,
-    priority: 999,
-    base_threshold_kg: 3.0,
-    max_threshold_kg: 10.0,
-  },
-};
+// Lazy-loaded source profiles from config.json
+let _sourceProfiles: Record<string, SourceProfile> | null = null;
 
-export const DEFAULT_PROFILE: SourceProfile = SOURCE_PROFILES.default;
+function ensureSourceProfilesLoaded(): Record<string, SourceProfile> {
+  if (!_sourceProfiles) {
+    const config = loadConfig();
+    _sourceProfiles = config.sources as Record<string, SourceProfile>;
+  }
+  return _sourceProfiles;
+}
+
+// Export as a getter to ensure lazy loading
+export const SOURCE_PROFILES = new Proxy({} as Record<string, SourceProfile>, {
+  get(target, prop: string) {
+    const profiles = ensureSourceProfilesLoaded();
+    return profiles[prop];
+  },
+  ownKeys(target) {
+    const profiles = ensureSourceProfilesLoaded();
+    return Reflect.ownKeys(profiles);
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    const profiles = ensureSourceProfilesLoaded();
+    return Reflect.getOwnPropertyDescriptor(profiles, prop);
+  },
+});
+
+export const DEFAULT_PROFILE: SourceProfile = new Proxy({} as SourceProfile, {
+  get(target, prop: string) {
+    const profiles = ensureSourceProfilesLoaded();
+    return profiles.default[prop as keyof SourceProfile];
+  },
+});
 
 // Questionnaire sources (for special handling)
 export const QUESTIONNAIRE_SOURCES = new Set([
@@ -159,13 +138,28 @@ export const QUESTIONNAIRE_SOURCES = new Set([
   'questionnaire',
 ]);
 
-// Kalman defaults
-export const KALMAN_DEFAULTS = {
-  initial_variance: 0.364,
-  transition_covariance_weight: 0.018,
-  transition_covariance_trend: 0.00015,
-  observation_covariance: 3.4,
-} as const;
+// Kalman defaults - loaded from config.json
+let _kalmanDefaults: any = null;
+
+function ensureKalmanDefaultsLoaded() {
+  if (!_kalmanDefaults) {
+    const config = loadConfig();
+    _kalmanDefaults = {
+      initial_variance: config.kalman.initial_variance,
+      transition_covariance_weight: config.kalman.transition_covariance_weight,
+      transition_covariance_trend: config.kalman.transition_covariance_trend,
+      observation_covariance: config.kalman.observation_covariance,
+    };
+  }
+  return _kalmanDefaults;
+}
+
+export const KALMAN_DEFAULTS = new Proxy({} as any, {
+  get(target, prop: string) {
+    const defaults = ensureKalmanDefaultsLoaded();
+    return defaults[prop];
+  },
+});
 
 // Visualization marker symbols for source types
 export const SOURCE_MARKER_SYMBOLS: Record<string, string> = {

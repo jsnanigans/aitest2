@@ -217,6 +217,46 @@ class ResetManager {
     newState.reset_timestamp = timestamp;
     newState.reset_type = resetType;
 
+    // FIX: Add reset_parameters from config with defaults
+    // Note: config structure is { kalman: { reset: { hard: {...}, soft: {...} } } }
+    const kalmanResetConfig = config.kalman?.reset || config.reset || {};
+    const resetConfigFromFile = kalmanResetConfig[resetType] || {};
+
+    // Merge with defaults (match Python's get_reset_parameters behavior)
+    const defaultResetParams: Record<string, any> = {
+      initial: {
+        initial_variance_multiplier: 10,
+        weight_noise_multiplier: 50,
+        trend_noise_multiplier: 500,
+        observation_noise_multiplier: 0.3,
+        adaptation_measurements: 20,
+        adaptation_days: 21,
+        adaptation_decay_rate: 1.5,
+      },
+      hard: {
+        initial_variance_multiplier: 5,
+        weight_noise_multiplier: 20,
+        trend_noise_multiplier: 200,
+        observation_noise_multiplier: 0.5,
+        adaptation_measurements: 10,
+        adaptation_days: 7,
+        adaptation_decay_rate: 2.5,
+      },
+      soft: {
+        initial_variance_multiplier: 2,
+        weight_noise_multiplier: 5,
+        trend_noise_multiplier: 20,
+        observation_noise_multiplier: 0.7,
+        adaptation_measurements: 15,
+        adaptation_days: 10,
+        adaptation_decay_rate: 4,
+      },
+    };
+
+    const defaults = defaultResetParams[resetType] || {};
+    const resetConfig = { ...defaults, ...resetConfigFromFile };
+    newState.reset_parameters = resetConfig;
+
     const resetEvent: ResetEvent = {
       timestamp,
       type: resetType,
@@ -227,7 +267,7 @@ class ResetManager {
         ? (timestamp.getTime() - state.last_timestamp.getTime()) / (1000 * 60 * 60 * 24)
         : undefined,
       reason: `${resetType} reset triggered`,
-      parameters: {} as ResetParameters,
+      parameters: resetConfig as ResetParameters,
     };
 
     return [newState, resetEvent];
@@ -667,10 +707,14 @@ export async function processMeasurement(
       state
     );
 
-    // Get adaptive noise for this source
+    // Get adaptive noise for this source (NO hardcoded defaults)
     const adaptiveConfig = config.adaptive_noise || {};
     const noiseMultiplier = getNoiseMultiplier(source);
-    const observationCovariance = (adaptiveKalmanConfig.observation_covariance || 3.49) * noiseMultiplier;
+
+    if (!adaptiveKalmanConfig.observation_covariance) {
+      throw new Error('observation_covariance missing from Kalman config. Must be loaded from config.json.');
+    }
+    const observationCovariance = adaptiveKalmanConfig.observation_covariance * noiseMultiplier;
 
     const kalmanState = KalmanFilterManager.initializeImmediate(
       cleanedWeight,
@@ -869,7 +913,11 @@ export async function processMeasurement(
     }
 
     const noiseMultiplier = getNoiseMultiplier(source);
-    const observationCovariance = (adaptiveKalmanConfig.observation_covariance || 3.49) * noiseMultiplier;
+
+    if (!adaptiveKalmanConfig.observation_covariance) {
+      throw new Error('observation_covariance missing from Kalman config. Must be loaded from config.json.');
+    }
+    const observationCovariance = adaptiveKalmanConfig.observation_covariance * noiseMultiplier;
 
     // Apply trend limiting before update
     let [currentWeight, currentTrend] = KalmanFilterManager.getCurrentStateValues(state);

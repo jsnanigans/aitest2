@@ -151,75 +151,71 @@ export class ResetManager {
   /**
    * Get parameters for specific reset type from config.
    *
-   * Returns dict with adaptation parameters using new naming convention.
+   * Returns dict with adaptation parameters.
+   * Loads all defaults from config.json (no hardcoded values).
    */
   static getResetParameters(
     resetType: ResetType,
     config: ResetConfig
   ): ResetParameters {
-    // Default parameters for each type (using new names)
-    const defaults: Record<ResetType, ResetParameters> = {
-      [ResetType.INITIAL]: {
-        // Multipliers for Kalman parameters
-        initial_variance_multiplier: 10,
-        weight_noise_multiplier: 50,
-        trend_noise_multiplier: 500,
-        observation_noise_multiplier: 0.3,
-        // Adaptation duration
-        adaptation_measurements: 20,
-        adaptation_days: 21,
-        adaptation_decay_rate: 1.5,
-        // Quality scoring
-        quality_acceptance_threshold: 0.25,
-        quality_safety_weight: 0.50,
-        quality_plausibility_weight: 0.05,
-        quality_consistency_weight: 0.05,
-        quality_reliability_weight: 0.40,
-      },
-      [ResetType.HARD]: {
-        // Multipliers for Kalman parameters
-        initial_variance_multiplier: 5,
-        weight_noise_multiplier: 20,
-        trend_noise_multiplier: 200,
-        observation_noise_multiplier: 0.5,
-        // Adaptation duration
-        adaptation_measurements: 10,
-        adaptation_days: 7,
-        adaptation_decay_rate: 2.5,
-        // Quality scoring
-        quality_acceptance_threshold: 0.35,
-        quality_safety_weight: 0.45,
-        quality_plausibility_weight: 0.10,
-        quality_consistency_weight: 0.10,
-        quality_reliability_weight: 0.35,
-      },
-      [ResetType.SOFT]: {
-        // Multipliers for Kalman parameters
-        initial_variance_multiplier: 2,
-        weight_noise_multiplier: 5,
-        trend_noise_multiplier: 20,
-        observation_noise_multiplier: 0.7,
-        // Adaptation duration
-        adaptation_measurements: 15,
-        adaptation_days: 10,
-        adaptation_decay_rate: 4,
-        // Quality scoring
-        quality_acceptance_threshold: 0.45,
-        quality_safety_weight: 0.40,
-        quality_plausibility_weight: 0.15,
-        quality_consistency_weight: 0.15,
-        quality_reliability_weight: 0.30,
-      },
+    // Try to load defaults from config.json FIRST
+    // Only fall back to passed config if global config not available
+    let resetConfig = config.kalman?.reset?.[resetType] ?? {};
+
+    // If config doesn't have these values, try to load from global config.json
+    if (Object.keys(resetConfig).length === 0) {
+      try {
+        // Dynamic import to avoid circular dependencies
+        const configModule = require('../config.js');
+        const globalConfig = configModule.loadConfig();
+
+        if (globalConfig.kalman?.reset?.[resetType]) {
+          resetConfig = globalConfig.kalman.reset[resetType];
+        } else {
+          throw new Error(`Reset config for ${resetType} not found in config.json`);
+        }
+      } catch (error) {
+        throw new Error(
+          `Failed to load reset parameters for ${resetType} from config.json. ` +
+          `Config must be provided or config.json must exist. Error: ${error}`
+        );
+      }
+    }
+
+    // Build params from config (NO hardcoded defaults)
+    const params: ResetParameters = {
+      initial_variance_multiplier: resetConfig.initial_variance_multiplier,
+      weight_noise_multiplier: resetConfig.weight_noise_multiplier,
+      trend_noise_multiplier: resetConfig.trend_noise_multiplier,
+      observation_noise_multiplier: resetConfig.observation_noise_multiplier,
+      adaptation_measurements: resetConfig.adaptation_measurements,
+      adaptation_days: resetConfig.adaptation_days,
+      adaptation_decay_rate: resetConfig.adaptation_decay_rate,
+      // Quality scoring params - use if provided, otherwise undefined
+      quality_acceptance_threshold: resetConfig.quality_acceptance_threshold,
+      quality_safety_weight: resetConfig.quality_safety_weight,
+      quality_plausibility_weight: resetConfig.quality_plausibility_weight,
+      quality_consistency_weight: resetConfig.quality_consistency_weight,
+      quality_reliability_weight: resetConfig.quality_reliability_weight,
     };
 
-    // Get from config or use defaults
-    const resetConfig = config.kalman?.reset?.[resetType] ?? {};
-    const defaultParams = defaults[resetType];
+    // Validate required params are present
+    const required = [
+      'initial_variance_multiplier',
+      'weight_noise_multiplier',
+      'trend_noise_multiplier',
+      'observation_noise_multiplier',
+      'adaptation_measurements',
+      'adaptation_days',
+      'adaptation_decay_rate',
+    ];
 
-    // Merge config with defaults
-    const params: ResetParameters = {};
-    for (const [key, defaultValue] of Object.entries(defaultParams)) {
-      params[key as keyof ResetParameters] = resetConfig[key] ?? defaultValue;
+    for (const key of required) {
+      if (params[key as keyof ResetParameters] === undefined) {
+        throw new Error(
+          `Required reset parameter '${key}' missing for reset type '${resetType}' in config`
+        );
+      }
     }
 
     return params;
