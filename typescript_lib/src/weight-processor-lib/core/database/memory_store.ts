@@ -1,32 +1,27 @@
 /**
- * In-memory implementation of StateStore for testing and development.
+ * Simple in-memory storage for Kalman filter states.
+ *
+ * Stores direct references - NO deepCopy, NO serialization/deserialization.
+ * Matrix objects stay as Matrix objects throughout.
  */
 
-import { Matrix } from 'ml-matrix';
-import { StateStore, KalmanState, SnapshotResult } from './base.js';
+import type { KalmanState } from '../types';
+import { StateStore } from './base';
 
 interface Snapshot {
   timestamp: Date;
   state: KalmanState;
 }
 
+export interface SnapshotResult {
+  snapshot_found: boolean;
+  snapshot_restored: boolean;
+  snapshot_timestamp: Date | null;
+}
+
 /**
- * In-memory state storage for testing and development.
- *
- * This implementation stores all data in memory using Maps.
- * Data is NOT persisted and will be lost when the process ends.
- *
- * Features:
- * - Thread-safe operations (in single-threaded JS, no locks needed)
- * - Fast for testing and development
- * - No external dependencies
- * - Supports snapshots for replay functionality
- *
- * Usage:
- *     const db = new InMemoryStore();
- *     const state = db.createInitialState();
- *     await db.saveState("user123", state);
- *     const retrieved = await db.getState("user123");
+ * Simple in-memory state store using direct references.
+ * No deepCopy, no serialization - just Map storage.
  */
 export class InMemoryStore extends StateStore {
   private states: Map<string, KalmanState>;
@@ -36,24 +31,23 @@ export class InMemoryStore extends StateStore {
     super();
     this.states = new Map();
     this.snapshots = new Map();
-    console.log('Initialized InMemoryStore');
+    console.log('Initialized InMemoryStore (direct references)');
   }
 
   /**
    * Retrieve state for a user.
+   * Returns direct reference - caller should not mutate!
    */
   async getState(userId: string): Promise<KalmanState | null> {
-    const state = this.states.get(userId);
-    // Return a deep copy to prevent external modifications
-    return state ? this.deepCopy(state) : null;
+    return this.states.get(userId) ?? null;
   }
 
   /**
    * Save state for a user.
+   * Stores direct reference - no copying.
    */
   async saveState(userId: string, state: KalmanState): Promise<boolean> {
-    // Store a deep copy to prevent external modifications
-    this.states.set(userId, this.deepCopy(state));
+    this.states.set(userId, state);
     return true;
   }
 
@@ -85,31 +79,35 @@ export class InMemoryStore extends StateStore {
       measurement_history: [],
       reset_events: [],
       measurements_since_reset: 0,
-      adaptation_state: {},
-      version: 0,
+      adaptation_state: null,
+      version: 1,
     };
   }
 
   /**
-   * Save a snapshot of current state.
+   * Save a snapshot of the current state at a specific timestamp.
+   * Stores direct reference to state - no copying.
    */
   async saveStateSnapshot(userId: string, timestamp: Date): Promise<boolean> {
     const currentState = this.states.get(userId);
     if (!currentState) {
-      console.warn(`Cannot save snapshot for ${userId}: no current state`);
+      console.warn(
+        `Cannot save snapshot for ${userId}: no state found`
+      );
       return false;
     }
 
-    // Initialize snapshots array if needed
-    if (!this.snapshots.has(userId)) {
-      this.snapshots.set(userId, []);
+    // Get or create snapshot array for this user
+    let userSnapshots = this.snapshots.get(userId);
+    if (!userSnapshots) {
+      userSnapshots = [];
+      this.snapshots.set(userId, userSnapshots);
     }
 
-    // Add snapshot
-    const userSnapshots = this.snapshots.get(userId)!;
+    // Add snapshot (direct reference to state)
     userSnapshots.push({
       timestamp,
-      state: this.deepCopy(currentState),
+      state: currentState,
     });
 
     // Sort snapshots by timestamp
@@ -125,18 +123,18 @@ export class InMemoryStore extends StateStore {
   /**
    * Restore state from the latest snapshot.
    */
-  async restoreStateSnapshot(userId: string): Promise<boolean> {
+  async restoreLatestSnapshot(userId: string): Promise<boolean> {
     const userSnapshots = this.snapshots.get(userId);
     if (!userSnapshots || userSnapshots.length === 0) {
-      console.warn(`Cannot restore snapshot for ${userId}: no snapshots exist`);
+      console.warn(`No snapshots found for ${userId}`);
       return false;
     }
 
     // Get the latest snapshot
     const latestSnapshot = userSnapshots[userSnapshots.length - 1];
 
-    // Restore state (deep copy to prevent modifications)
-    this.states.set(userId, this.deepCopy(latestSnapshot.state));
+    // Restore the state (direct reference)
+    this.states.set(userId, latestSnapshot.state);
 
     console.debug(
       `Restored latest snapshot for ${userId} ` +
@@ -154,18 +152,12 @@ export class InMemoryStore extends StateStore {
       return null;
     }
 
-    // Find the latest snapshot before or at the timestamp
-    let matchingSnapshot: KalmanState | null = null;
-    for (const snapshot of userSnapshots) {
-      if (snapshot.timestamp <= timestamp) {
-        matchingSnapshot = snapshot.state;
-      } else {
-        break; // List is sorted, so we can stop here
-      }
-    }
+    // Find the most recent snapshot before the given timestamp
+    const matchingSnapshot = userSnapshots
+      .filter((s) => s.timestamp <= timestamp)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
 
-    // Return deep copy to prevent modifications
-    return matchingSnapshot ? this.deepCopy(matchingSnapshot) : null;
+    return matchingSnapshot ? matchingSnapshot.state : null;
   }
 
   /**
@@ -180,8 +172,8 @@ export class InMemoryStore extends StateStore {
     // Get the latest snapshot
     const latestSnapshot = userSnapshots[userSnapshots.length - 1];
 
-    // Return deep copy to prevent modifications
-    return this.deepCopy(latestSnapshot.state);
+    // Return direct reference
+    return latestSnapshot.state;
   }
 
   /**
@@ -197,33 +189,25 @@ export class InMemoryStore extends StateStore {
       snapshot_timestamp: null,
     };
 
-    // Check if we have snapshots for this user
     const userSnapshots = this.snapshots.get(userId);
     if (!userSnapshots || userSnapshots.length === 0) {
       return result;
     }
 
-    // Find the nearest snapshot before buffer_start_time
-    let matchingSnapshot: Snapshot | null = null;
-
-    for (const snapshot of userSnapshots) {
-      if (snapshot.timestamp <= bufferStartTime) {
-        matchingSnapshot = snapshot;
-      } else {
-        break; // List is sorted
-      }
-    }
+    // Find snapshot at or before buffer start time
+    const matchingSnapshot = userSnapshots
+      .filter((s) => s.timestamp <= bufferStartTime)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
 
     if (!matchingSnapshot) {
       return result;
     }
 
-    // Found a snapshot
     result.snapshot_found = true;
     result.snapshot_timestamp = matchingSnapshot.timestamp;
 
-    // Restore it
-    this.states.set(userId, this.deepCopy(matchingSnapshot.state));
+    // Restore the snapshot state (direct reference)
+    this.states.set(userId, matchingSnapshot.state);
     result.snapshot_restored = true;
 
     console.info(
@@ -280,14 +264,21 @@ export class InMemoryStore extends StateStore {
   }
 
   /**
-   * Get list of all user IDs with stored states.
+   * Get the number of users with stored states.
    */
-  listUsers(): string[] {
+  getUserCount(): number {
+    return this.states.size;
+  }
+
+  /**
+   * Get all user IDs with stored states.
+   */
+  getUserIds(): string[] {
     return Array.from(this.states.keys());
   }
 
   /**
-   * Get number of snapshots stored for a user.
+   * Get snapshot count for a user.
    */
   getSnapshotCount(userId: string): number {
     const userSnapshots = this.snapshots.get(userId);
@@ -295,57 +286,18 @@ export class InMemoryStore extends StateStore {
   }
 
   /**
-   * Clear all snapshots for a user.
+   * Clear snapshots for a user.
    */
-  clearSnapshots(userId: string): number {
-    const userSnapshots = this.snapshots.get(userId);
-    if (!userSnapshots) {
-      return 0;
-    }
-    const count = userSnapshots.length;
+  clearSnapshots(userId: string): void {
     this.snapshots.delete(userId);
-    console.debug(`Cleared ${count} snapshots for ${userId}`);
-    return count;
-  }
-
-  toString(): string {
-    return `InMemoryStore(states=${this.states.size}, users_with_snapshots=${this.snapshots.size})`;
+    console.debug(`Cleared snapshots for ${userId}`);
   }
 
   /**
-   * Deep copy helper to prevent external modifications.
-   * Handles Matrix objects specially to preserve their prototype.
+   * Clear all snapshots for all users.
    */
-  private deepCopy<T>(obj: T): T {
-    if (obj === null || obj === undefined) {
-      return obj;
-    }
-
-    // Handle Date objects
-    if (obj instanceof Date) {
-      return new Date(obj.getTime()) as any;
-    }
-
-    // Handle Matrix objects
-    if (obj instanceof Matrix) {
-      return obj.clone() as any;
-    }
-
-    // Handle arrays
-    if (Array.isArray(obj)) {
-      return obj.map(item => this.deepCopy(item)) as any;
-    }
-
-    // Handle objects
-    if (typeof obj === 'object') {
-      const copy: any = {};
-      for (const [key, value] of Object.entries(obj)) {
-        copy[key] = this.deepCopy(value);
-      }
-      return copy;
-    }
-
-    // Primitives
-    return obj;
+  clearAllSnapshots(): void {
+    this.snapshots.clear();
+    console.debug('Cleared all snapshots');
   }
 }

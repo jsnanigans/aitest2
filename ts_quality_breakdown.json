@@ -1,0 +1,11 @@
+{
+  "measurementId": "0bb4ca6c-d123-4461-8cae-a40297230843",
+  "measurementIndex": 1,
+  "timestamp": "2025-02-03T00:00:00.000Z",
+  "weight": 104.33,
+  "unit": "kg",
+  "source": "https://api.iglucose.com",
+  "qualityScore": 0.6659266760411843,
+  "accepted": true,
+  "kalmanState": null
+}

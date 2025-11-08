@@ -202,22 +202,30 @@ export class WeightProcessorService {
         }
       } catch (e) {
         const error = e as Error;
+
+        // STRICT MODE: Crash immediately on processing errors instead of silently continuing
+        // This ensures bugs are caught early rather than causing divergent results
         console.error(
-          `Error processing measurement for ${userId}: ${error.message}`
+          `\n========================================`
+        );
+        console.error(
+          `FATAL ERROR processing measurement for ${userId}`
+        );
+        console.error(`  Timestamp: ${measurement.timestamp.toISOString()}`);
+        console.error(`  Weight: ${measurement.weight} ${measurement.unit}`);
+        console.error(`  Source: ${measurement.source}`);
+        console.error(`  Error: ${error.message}`);
+        console.error(`  Stack: ${error.stack}`);
+        console.error(
+          `========================================\n`
         );
 
-        // Create error result
-        const errorResult: ProcessingResult = {
-          accepted: false,
-          rejected: true,
-          timestamp: measurement.timestamp,
-          source: measurement.source,
-          raw_weight: measurement.weight,
-          reason: `Processing error: ${error.message}`,
-          stage: "processing",
-        };
-        results.push(errorResult);
-        rejectedCount++;
+        // Re-throw to crash the process and surface the bug
+        throw new Error(
+          `Processing error for user ${userId} at ${measurement.timestamp.toISOString()}: ${error.message}\n` +
+          `This indicates a bug in the processing pipeline that must be fixed.\n` +
+          `Original error: ${error.stack}`
+        );
       }
 
       // Check if replay should be triggered at batch end or buffer overflow

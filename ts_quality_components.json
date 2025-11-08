@@ -1,0 +1,60 @@
+[
+  {
+    "index": 0,
+    "measurementId": "1a928309-f8d8-49a5-a5f1-8d34aba405d9",
+    "timestamp": "2025-01-14T00:00:00.000Z",
+    "weight": 104.32616,
+    "qualityScore": 0.9779327685429285,
+    "accepted": true,
+    "componentScores": {
+      "kalman_fit": 1,
+      "temporal_consistency": 1,
+      "anomaly_detection": 1,
+      "source_reliability": 0.8,
+      "trend_alignment": 0.8
+    },
+    "componentWeights": {
+      "kalman_fit": 0.3,
+      "temporal_consistency": 0.25,
+      "anomaly_detection": 0.25,
+      "source_reliability": 0.1,
+      "trend_alignment": 0.1
+    },
+    "componentContributions": {
+      "kalman_fit": 0.3,
+      "temporal_consistency": 0.25,
+      "anomaly_detection": 0.25,
+      "source_reliability": 0.08000000000000002,
+      "trend_alignment": 0.08000000000000002
+    }
+  },
+  {
+    "index": 1,
+    "measurementId": "0bb4ca6c-d123-4461-8cae-a40297230843",
+    "timestamp": "2025-02-03T00:00:00.000Z",
+    "weight": 104.33,
+    "qualityScore": 0.977742350942442,
+    "accepted": true,
+    "componentScores": {
+      "kalman_fit": 0.9996284947852948,
+      "temporal_consistency": 0.9998463329020952,
+      "anomaly_detection": 1,
+      "source_reliability": 0.8,
+      "trend_alignment": 0.8
+    },
+    "componentWeights": {
+      "kalman_fit": 0.3,
+      "temporal_consistency": 0.25,
+      "anomaly_detection": 0.25,
+      "source_reliability": 0.1,
+      "trend_alignment": 0.1
+    },
+    "componentContributions": {
+      "kalman_fit": 0.29988854843558843,
+      "temporal_consistency": 0.2499615832255238,
+      "anomaly_detection": 0.25,
+      "source_reliability": 0.08000000000000002,
+      "trend_alignment": 0.08000000000000002
+    }
+  }
+]

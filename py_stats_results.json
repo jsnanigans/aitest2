@@ -1,0 +1,82 @@
+[
+  {
+    "data": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "mean": 3.0,
+    "std": 1.5811388300841898,
+    "variance": 2.5,
+    "description": "Simple sequence"
+  },
+  {
+    "data": [
+      104.3,
+      104.3,
+      113.4,
+      117.9,
+      115.4
+    ],
+    "mean": 111.05999999999999,
+    "std": 6.373617497151837,
+    "variance": 40.623000000000054,
+    "description": "Real weight data (kg)"
+  },
+  {
+    "data": [
+      42.0
+    ],
+    "mean": 42.0,
+    "std": NaN,
+    "variance": NaN,
+    "description": "Single value"
+  },
+  {
+    "data": [
+      10.0,
+      20.0
+    ],
+    "mean": 15.0,
+    "std": 7.0710678118654755,
+    "variance": 50.0,
+    "description": "Two values"
+  },
+  {
+    "data": [
+      -5,
+      0,
+      5,
+      10
+    ],
+    "mean": 2.5,
+    "std": 6.454972243679028,
+    "variance": 41.666666666666664,
+    "description": "With negative values"
+  },
+  {
+    "data": [
+      1,
+      100,
+      1,
+      100,
+      1
+    ],
+    "mean": 40.6,
+    "std": 54.224533193011446,
+    "variance": 2940.2999999999997,
+    "description": "Large variance"
+  },
+  {
+    "data": [
+      104.3,
+      104.3
+    ],
+    "mean": 104.3,
+    "std": 0.0,
+    "variance": 0.0,
+    "description": "Disputed measurement context"
+  }
+]

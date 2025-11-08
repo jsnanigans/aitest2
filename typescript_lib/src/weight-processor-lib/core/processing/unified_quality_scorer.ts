@@ -1066,36 +1066,90 @@ export class UnifiedQualityScorer {
    * Calculate mean of an array using stdlib.
    */
   private mean(arr: number[]): number {
-    if (arr.length === 0) return 0;
-    return (statsBase as any).mean(arr.length, arr, 1);
+    // Defensive checks to prevent stdlib errors
+    if (!arr || arr.length === 0) return 0;
+    if (!Array.isArray(arr)) {
+      throw new Error(`mean() requires array, got ${typeof arr}`);
+    }
+
+    // Filter out invalid values
+    const validArr = arr.filter(x => validateNumber(x));
+    if (validArr.length === 0) return 0;
+
+    try {
+      return (statsBase as any).mean(validArr.length, validArr, 1);
+    } catch (e) {
+      throw new Error(`mean() failed: ${(e as Error).message}. Array length=${validArr.length}, first 5 values=${validArr.slice(0, 5)}`);
+    }
   }
 
   /**
    * Calculate variance of an array using stdlib.
    */
   private variance(arr: number[]): number {
-    if (arr.length === 0) return 0;
-    // Using correction=0 for population variance (matching original implementation)
-    return (statsBase as any).variance(arr.length, 0, arr, 1);
+    // Defensive checks to prevent stdlib errors
+    if (!arr || arr.length === 0) return 0;
+    if (!Array.isArray(arr)) {
+      throw new Error(`variance() requires array, got ${typeof arr}`);
+    }
+
+    // Filter out invalid values
+    const validArr = arr.filter(x => validateNumber(x));
+    if (validArr.length === 0) return 0;
+    if (validArr.length === 1) return 0; // Variance undefined for single value
+
+    try {
+      // Using correction=0 for population variance (matching original implementation)
+      return (statsBase as any).variance(validArr.length, 0, validArr, 1);
+    } catch (e) {
+      throw new Error(`variance() failed: ${(e as Error).message}. Array length=${validArr.length}, first 5 values=${validArr.slice(0, 5)}`);
+    }
   }
 
   /**
    * Calculate standard deviation of an array using stdlib.
    */
   private std(arr: number[]): number {
-    if (arr.length === 0) return 0;
-    // Using correction=0 for population stdev (matching original implementation)
-    return (statsBase as any).stdev(arr.length, 0, arr, 1);
+    // Defensive checks to prevent stdlib errors
+    if (!arr || arr.length === 0) return 0;
+    if (!Array.isArray(arr)) {
+      throw new Error(`std() requires array, got ${typeof arr}`);
+    }
+
+    // Filter out invalid values
+    const validArr = arr.filter(x => validateNumber(x));
+    if (validArr.length === 0) return 0;
+    if (validArr.length === 1) return 0; // Std dev undefined for single value
+
+    try {
+      // Using correction=0 for population stdev (matching original implementation)
+      return (statsBase as any).stdev(validArr.length, 0, validArr, 1);
+    } catch (e) {
+      throw new Error(`std() failed: ${(e as Error).message}. Array length=${validArr.length}, first 5 values=${validArr.slice(0, 5)}`);
+    }
   }
 
   /**
    * Calculate median of an array using stdlib.
    */
   private median(arr: number[]): number {
-    if (arr.length === 0) return 0;
-    // stdlib's mediansorted requires a sorted array
-    const sorted = [...arr].sort((a, b) => a - b);
-    return (statsBase as any).mediansorted(sorted.length, sorted, 1);
+    // Defensive checks to prevent stdlib errors
+    if (!arr || arr.length === 0) return 0;
+    if (!Array.isArray(arr)) {
+      throw new Error(`median() requires array, got ${typeof arr}`);
+    }
+
+    // Filter out invalid values
+    const validArr = arr.filter(x => validateNumber(x));
+    if (validArr.length === 0) return 0;
+
+    try {
+      // stdlib's mediansorted requires a sorted array
+      const sorted = [...validArr].sort((a, b) => a - b);
+      return (statsBase as any).mediansorted(sorted.length, sorted, 1);
+    } catch (e) {
+      throw new Error(`median() failed: ${(e as Error).message}. Array length=${validArr.length}, first 5 values=${validArr.slice(0, 5)}`);
+    }
   }
 
   /**

@@ -110,6 +110,30 @@ export class KalmanFilter {
     stateMean: Matrix,
     stateCovariance: Matrix
   ): [Matrix, Matrix] {
+    // Strict validation of inputs
+    if (!(stateMean instanceof Matrix)) {
+      throw new Error(
+        `predict() stateMean must be a Matrix, got ${typeof stateMean}. ` +
+        `Value: ${JSON.stringify(stateMean)}`
+      );
+    }
+    if (!(stateCovariance instanceof Matrix)) {
+      throw new Error(
+        `predict() stateCovariance must be a Matrix, got ${typeof stateCovariance}. ` +
+        `Value: ${JSON.stringify(stateCovariance)}`
+      );
+    }
+    if (stateMean.rows !== this.nStates || stateMean.columns !== 1) {
+      throw new Error(
+        `predict() stateMean must be ${this.nStates}x1, got ${stateMean.rows}x${stateMean.columns}`
+      );
+    }
+    if (stateCovariance.rows !== this.nStates || stateCovariance.columns !== this.nStates) {
+      throw new Error(
+        `predict() stateCovariance must be ${this.nStates}x${this.nStates}, got ${stateCovariance.rows}x${stateCovariance.columns}`
+      );
+    }
+
     // x̂_{k|k-1} = F * x_{k-1|k-1}
     const predictedStateMean = this.F.mmul(stateMean);
 
@@ -142,6 +166,25 @@ export class KalmanFilter {
     predictedStateCovariance: Matrix,
     observation: number[] | Matrix
   ): [Matrix, Matrix] {
+    // Strict validation of inputs
+    if (!(predictedStateMean instanceof Matrix)) {
+      throw new Error(
+        `update() predictedStateMean must be a Matrix, got ${typeof predictedStateMean}. ` +
+        `Value: ${JSON.stringify(predictedStateMean)}`
+      );
+    }
+    if (!(predictedStateCovariance instanceof Matrix)) {
+      throw new Error(
+        `update() predictedStateCovariance must be a Matrix, got ${typeof predictedStateCovariance}. ` +
+        `Value: ${JSON.stringify(predictedStateCovariance)}`
+      );
+    }
+    if (!observation || (Array.isArray(observation) && observation.length === 0)) {
+      throw new Error(
+        `update() observation cannot be empty or undefined. Got: ${JSON.stringify(observation)}`
+      );
+    }
+
     // Convert observation to column vector if needed
     const z = observation instanceof Matrix
       ? observation
@@ -229,6 +272,25 @@ export class KalmanFilter {
     filteredStateCovariance: Matrix,
     observation: number[] | Matrix
   ): [Matrix, Matrix] {
+    // Strict validation of inputs
+    if (!(filteredStateMean instanceof Matrix)) {
+      throw new Error(
+        `filterUpdate() filteredStateMean must be a Matrix, got ${typeof filteredStateMean}. ` +
+        `Value: ${JSON.stringify(filteredStateMean)}`
+      );
+    }
+    if (!(filteredStateCovariance instanceof Matrix)) {
+      throw new Error(
+        `filterUpdate() filteredStateCovariance must be a Matrix, got ${typeof filteredStateCovariance}. ` +
+        `Value: ${JSON.stringify(filteredStateCovariance)}`
+      );
+    }
+    if (!observation || (Array.isArray(observation) && observation.length === 0)) {
+      throw new Error(
+        `filterUpdate() observation cannot be empty or undefined. Got: ${JSON.stringify(observation)}`
+      );
+    }
+
     // Predict step
     const [predictedMean, predictedCov] = this.predict(filteredStateMean, filteredStateCovariance);
 

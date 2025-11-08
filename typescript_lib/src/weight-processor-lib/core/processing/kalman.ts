@@ -9,6 +9,41 @@ import type { KalmanState } from '../database/base.js';
 import { ResetType } from './reset_manager.js';
 
 /**
+ * Reconstruct a Matrix object from serialized JSON data.
+ * Handles both Matrix instances and serialized plain objects.
+ */
+function reconstructMatrix(data: any): Matrix {
+  if (data instanceof Matrix) {
+    return data;
+  }
+
+  // Handle serialized ml-matrix format
+  if (data && typeof data === 'object' && 'rows' in data && 'columns' in data) {
+    // Convert the serialized data back to a 2D array
+    const rows = data.rows;
+    const cols = data.columns;
+    const arr: number[][] = [];
+
+    if (data.data && Array.isArray(data.data)) {
+      // Data is stored as array of row objects with numeric keys
+      for (let i = 0; i < rows; i++) {
+        const row: number[] = [];
+        for (let j = 0; j < cols; j++) {
+          const val = data.data[i]?.[j] ?? data.data[i]?.[j.toString()] ?? 0;
+          row.push(val);
+        }
+        arr.push(row);
+      }
+    }
+
+    return new Matrix(arr);
+  }
+
+  // Fallback: try to construct directly
+  return new Matrix(data);
+}
+
+/**
  * Convert value to number, handling nested arrays and objects.
  */
 function ensureFloat(value: any): any {
@@ -240,9 +275,14 @@ export class KalmanFilterManager {
       const lastState = state.last_state;
       const lastCovariance = state.last_covariance!;
 
+      // Reconstruct Matrix objects from serialized state if needed
+      // (State may have been serialized/deserialized from storage)
+      const reconstructedState = lastState.map(s => reconstructMatrix(s));
+      const reconstructedCovariance = lastCovariance.map(c => reconstructMatrix(c));
+
       // Get the most recent state and covariance
-      const currentState = lastState[lastState.length - 1];
-      const currentCovariance = lastCovariance[lastCovariance.length - 1];
+      const currentState = reconstructedState[reconstructedState.length - 1];
+      const currentCovariance = reconstructedCovariance[reconstructedCovariance.length - 1];
 
       if (process.env.VERBOSE_LOGGING && currentState instanceof Matrix) {
         const w = currentState.get(0, 0);
@@ -269,9 +309,9 @@ export class KalmanFilterManager {
       }
 
       // Keep last 2 states: previous and current
-      newLastState = [lastState[lastState.length - 1], filteredStateMean];
+      newLastState = [reconstructedState[reconstructedState.length - 1], filteredStateMean];
       newLastCovariance = [
-        lastCovariance[lastCovariance.length - 1],
+        reconstructedCovariance[reconstructedCovariance.length - 1],
         filteredStateCovariance,
       ];
     }
@@ -321,8 +361,12 @@ export class KalmanFilterManager {
     }
 
     const lastState = state.last_state;
+
+    // Reconstruct Matrix objects from serialized state if needed
+    const reconstructedState = lastState.map(s => reconstructMatrix(s));
+
     // Get the most recent state
-    const currentState = lastState[lastState.length - 1];
+    const currentState = reconstructedState[reconstructedState.length - 1];
 
     const filteredWeight = currentState.get(0, 0);
     const trend = currentState.get(1, 0);
@@ -338,7 +382,9 @@ export class KalmanFilterManager {
 
     if (lastCovariance) {
       if (lastCovariance.length > 0) {
-        currentCovariance = lastCovariance[lastCovariance.length - 1];
+        // Reconstruct Matrix objects from serialized covariance if needed
+        const reconstructedCovariance = lastCovariance.map(c => reconstructMatrix(c));
+        currentCovariance = reconstructedCovariance[reconstructedCovariance.length - 1];
       }
 
       if (currentCovariance) {
@@ -395,33 +441,81 @@ export class KalmanFilterManager {
     }
 
     const lastState = state.last_state;
+
+    if (process.env.VERBOSE_LOGGING) {
+      console.log(`[KalmanGetState] lastState type: ${typeof lastState}, is Array: ${Array.isArray(lastState)}, length: ${(lastState as any)?.length}`);
+    }
+
     const currentState = lastState[lastState.length - 1];
+
+    if (process.env.VERBOSE_LOGGING) {
+      console.log(`[KalmanGetState] currentState type: ${typeof currentState}, is Array: ${Array.isArray(currentState)}, is Matrix: ${currentState instanceof Matrix}`);
+      if (Array.isArray(currentState)) {
+        console.log(`[KalmanGetState] currentState (array): ${JSON.stringify(currentState)}`);
+      } else if (currentState && typeof currentState === 'object') {
+        console.log(`[KalmanGetState] currentState (object) keys: ${Object.keys(currentState).join(', ')}`);
+        console.log(`[KalmanGetState] currentState (object): ${JSON.stringify(currentState).substring(0, 200)}`);
+      }
+    }
 
     // Handle non-Matrix objects
     if (!(currentState instanceof Matrix)) {
       // If it's a serialized Matrix object (has rows, columns, data properties)
       if (currentState && typeof currentState === 'object' && 'rows' in currentState && 'columns' in currentState && 'data' in currentState) {
         const { rows, columns, data } = currentState as any;
-        const mat = new Matrix(rows, columns);
-        // ml-matrix stores data in a 1D array
-        for (let i = 0; i < rows; i++) {
-          for (let j = 0; j < columns; j++) {
-            mat.set(i, j, data[i * columns + j]);
+        if (process.env.VERBOSE_LOGGING) {
+          console.log(`[KalmanGetState] Serialized matrix: rows=${rows}, columns=${columns}, data=${JSON.stringify(data)}`);
+        }
+
+        // Use reconstructMatrix logic - handle both array and object data formats
+        const arr: number[][] = [];
+        if (data && Array.isArray(data)) {
+          for (let i = 0; i < rows; i++) {
+            const row: number[] = [];
+            for (let j = 0; j < columns; j++) {
+              // Handle both data[i][j] (array) and data[i]["j"] (object with string keys)
+              const val = data[i]?.[j] ?? data[i]?.[j.toString()] ?? 0;
+              row.push(val);
+            }
+            arr.push(row);
           }
         }
-        return [mat.get(0, 0), mat.get(1, 0)];
+
+        const mat = new Matrix(arr);
+        const weight = mat.get(0, 0);
+        const velocity = mat.get(1, 0);
+        if (process.env.VERBOSE_LOGGING) {
+          console.log(`[KalmanGetState] Converted from serialized: weight=${weight}, velocity=${velocity}`);
+        }
+        return [weight, velocity];
       }
 
       // Try to convert if it's an array
       if (Array.isArray(currentState)) {
         if (Array.isArray(currentState[0])) {
           // 2D array
+          if (process.env.VERBOSE_LOGGING) {
+            console.log(`[KalmanGetState] Converting 2D array to Matrix`);
+          }
           const mat = new Matrix(currentState);
-          return [mat.get(0, 0), mat.get(1, 0)];
+          const weight = mat.get(0, 0);
+          const velocity = mat.get(1, 0);
+          if (process.env.VERBOSE_LOGGING) {
+            console.log(`[KalmanGetState] Converted from 2D array: weight=${weight}, velocity=${velocity}`);
+          }
+          return [weight, velocity];
         } else {
           // 1D array
+          if (process.env.VERBOSE_LOGGING) {
+            console.log(`[KalmanGetState] Converting 1D array to column vector`);
+          }
           const mat = Matrix.columnVector(currentState);
-          return [mat.get(0, 0), mat.get(1, 0)];
+          const weight = mat.get(0, 0);
+          const velocity = mat.get(1, 0);
+          if (process.env.VERBOSE_LOGGING) {
+            console.log(`[KalmanGetState] Converted from 1D array: weight=${weight}, velocity=${velocity}`);
+          }
+          return [weight, velocity];
         }
       }
 
@@ -431,9 +525,12 @@ export class KalmanFilterManager {
     const weight = currentState.get(0, 0);
     const velocity = currentState.get(1, 0);
 
-    if (process.env.VERBOSE_LOGGING && (isNaN(weight) || isNaN(velocity))) {
-      console.log(`[KalmanGetState] NaN detected! weight=${weight}, velocity=${velocity}`);
-      console.log(`[KalmanGetState] currentState type:`, typeof currentState, currentState instanceof Matrix);
+    if (process.env.VERBOSE_LOGGING) {
+      console.log(`[KalmanGetState] Extracted from Matrix: weight=${weight}, velocity=${velocity}`);
+      if (isNaN(weight) || isNaN(velocity)) {
+        console.log(`[KalmanGetState] NaN detected! weight=${weight}, velocity=${velocity}`);
+        console.log(`[KalmanGetState] currentState:`, currentState);
+      }
     }
 
     return [weight, velocity];
@@ -491,33 +588,11 @@ export class KalmanFilterManager {
 
     // Ensure they're actual Matrix objects (handle deserialized states)
     if (!(posteriorState instanceof Matrix)) {
-      if (posteriorState && typeof posteriorState === 'object' && 'rows' in posteriorState && 'columns' in posteriorState && 'data' in posteriorState) {
-        const { rows, columns, data } = posteriorState as any;
-        const mat = new Matrix(rows, columns);
-        for (let i = 0; i < rows; i++) {
-          for (let j = 0; j < columns; j++) {
-            mat.set(i, j, data[i * columns + j]);
-          }
-        }
-        posteriorState = mat;
-      } else if (Array.isArray(posteriorState)) {
-        posteriorState = Array.isArray(posteriorState[0]) ? new Matrix(posteriorState) : Matrix.columnVector(posteriorState);
-      }
+      posteriorState = reconstructMatrix(posteriorState);
     }
 
     if (!(posteriorCovariance instanceof Matrix)) {
-      if (posteriorCovariance && typeof posteriorCovariance === 'object' && 'rows' in posteriorCovariance && 'columns' in posteriorCovariance && 'data' in posteriorCovariance) {
-        const { rows, columns, data } = posteriorCovariance as any;
-        const mat = new Matrix(rows, columns);
-        for (let i = 0; i < rows; i++) {
-          for (let j = 0; j < columns; j++) {
-            mat.set(i, j, data[i * columns + j]);
-          }
-        }
-        posteriorCovariance = mat;
-      } else if (Array.isArray(posteriorCovariance)) {
-        posteriorCovariance = new Matrix(posteriorCovariance);
-      }
+      posteriorCovariance = reconstructMatrix(posteriorCovariance);
     }
 
     // Build transition matrix F
