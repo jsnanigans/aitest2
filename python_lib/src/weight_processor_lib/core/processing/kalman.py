@@ -12,10 +12,17 @@ import numpy as np
 from .kalman_filter import KalmanFilter
 
 
-try:
-    from ..constants import KALMAN_DEFAULTS
-except ImportError:
-    from src.constants import KALMAN_DEFAULTS
+# Kalman defaults removed - config values are now required
+
+
+def _get_required_config(config: dict, key: str) -> Any:
+    """Get required config value with clear error message if missing."""
+    if key not in config:
+        raise ValueError(
+            f"kalman_config missing '{key}'. "
+            "Ensure config is loaded from config.toml via ConfigManager.load_config()"
+        )
+    return config[key]
 
 
 def ensure_float_from_decimal(value):
@@ -40,36 +47,35 @@ class KalmanFilterManager:
         observation_covariance: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Initialize Kalman filter immediately with first measurement."""
-        initial_variance = kalman_config.get(
-            "initial_variance", KALMAN_DEFAULTS["initial_variance"]
-        )
+        if "initial_variance" not in kalman_config:
+            raise ValueError(
+                "kalman_config missing 'initial_variance'. "
+                "Ensure config is loaded from config.toml via ConfigManager.load_config()"
+            )
+        initial_variance = kalman_config["initial_variance"]
 
         # Use passed observation_covariance if provided, otherwise use config value
-        obs_cov = (
-            observation_covariance
-            if observation_covariance is not None
-            else kalman_config.get(
-                "observation_covariance", KALMAN_DEFAULTS["observation_covariance"]
-            )
-        )
+        if observation_covariance is not None:
+            obs_cov = observation_covariance
+        else:
+            if "observation_covariance" not in kalman_config:
+                raise ValueError(
+                    "kalman_config missing 'observation_covariance'. "
+                    "Ensure config is loaded from config.toml via ConfigManager.load_config()"
+                )
+            obs_cov = kalman_config["observation_covariance"]
 
         kalman_params = {
             "initial_state_mean": [weight, 0],
             "initial_state_covariance": [[initial_variance, 0], [0, 0.001]],
             "transition_covariance": [
                 [
-                    kalman_config.get(
-                        "transition_covariance_weight",
-                        KALMAN_DEFAULTS["transition_covariance_weight"],
-                    ),
+                    _get_required_config(kalman_config, "transition_covariance_weight"),
                     0,
                 ],
                 [
                     0,
-                    kalman_config.get(
-                        "transition_covariance_trend",
-                        KALMAN_DEFAULTS["transition_covariance_trend"],
-                    ),
+                    _get_required_config(kalman_config, "transition_covariance_trend"),
                 ],
             ],
             "observation_covariance": [[obs_cov]],
@@ -362,14 +368,8 @@ class KalmanFilterManager:
         Returns:
             Dictionary with 'weight' and 'trend' covariance values
         """
-        base_weight_cov = config.get(
-            "transition_covariance_weight",
-            KALMAN_DEFAULTS["transition_covariance_weight"],
-        )
-        base_trend_cov = config.get(
-            "transition_covariance_trend",
-            KALMAN_DEFAULTS["transition_covariance_trend"],
-        )
+        base_weight_cov = _get_required_config(config, "transition_covariance_weight")
+        base_trend_cov = _get_required_config(config, "transition_covariance_trend")
 
         # Get adaptive settings from config
 

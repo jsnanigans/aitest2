@@ -16,7 +16,6 @@ try:
     from ..constants import (
         BMI_LIMITS,
         DEFAULT_PROFILE,
-        KALMAN_DEFAULTS,
         PHYSIOLOGICAL_LIMITS,
         SOURCE_PROFILES,
     )
@@ -24,7 +23,6 @@ except ImportError:
     from src.constants import (
         BMI_LIMITS,
         DEFAULT_PROFILE,
-        KALMAN_DEFAULTS,
         PHYSIOLOGICAL_LIMITS,
         SOURCE_PROFILES,
     )
@@ -122,6 +120,19 @@ class UnifiedQualityScorer:
         self.temporal_thresholds = self.config.get(
             "temporal_thresholds", self.TEMPORAL_THRESHOLDS.copy()
         )
+
+        # Get temporal consistency config
+        temporal_config = self.config.get("temporal", {})
+        self.temporal_min_score = temporal_config.get("min_score", 0.2)
+        self.temporal_max_score = temporal_config.get("max_score", 1.0)
+        self.temporal_initial_threshold_kg = temporal_config.get("initial_threshold_kg", 0.5)
+        self.temporal_max_threshold_kg = temporal_config.get("max_threshold_kg", 5.0)
+        self.temporal_time_constant_hours = temporal_config.get("time_constant_hours", 48)
+
+        # Get trend alignment config
+        trend_config = self.config.get("trend_alignment", {})
+        self.trend_decay_constant = trend_config.get("trend_decay_constant", 0.1)
+        self.trend_min_std_dev = trend_config.get("trend_min_std_dev", 0.8)
 
     def calculate_quality_score(
         self,
@@ -330,6 +341,11 @@ class UnifiedQualityScorer:
         """
         metadata = {}
 
+        # Debug logging
+        import os
+        if os.environ.get("VERBOSE_LOGGING"):
+            print(f"[TemporalConsistency] previousWeight={previous_weight}, timeDiffHours={time_diff_hours}")
+
         # If no previous weight, return neutral score
         if previous_weight is None or time_diff_hours is None:
             metadata["reason"] = "No previous weight for comparison"
@@ -338,12 +354,15 @@ class UnifiedQualityScorer:
         weight_change = abs(weight - previous_weight)
 
         # Exponential growth of acceptable change over time
-        # Starts at 0.5kg for immediate, grows to ~5kg at 7 days
+        # Uses config values: initial_threshold_kg, max_threshold_kg, time_constant_hours
         # Use absolute time difference and cap to prevent overflow
         abs_time_diff = abs(time_diff_hours)
         # Cap the exponent to prevent overflow for very large time differences
         capped_time = min(abs_time_diff, 336)  # Cap at 2 weeks (336 hours)
-        max_acceptable_change = 0.5 + 4.5 * (1 - math.exp(-capped_time / 48))
+        change_range = self.temporal_max_threshold_kg - self.temporal_initial_threshold_kg
+        max_acceptable_change = self.temporal_initial_threshold_kg + change_range * (
+            1 - math.exp(-capped_time / self.temporal_time_constant_hours)
+        )
 
         metadata["max_acceptable_change"] = max_acceptable_change
         metadata["actual_change"] = weight_change
@@ -366,8 +385,8 @@ class UnifiedQualityScorer:
             score = max(score, 0.4)
             metadata["gap_adjustment"] = True
 
-        # Clamp between 0.2 and 1.0
-        score = max(0.2, min(1.0, score))
+        # Clamp between configured min and max scores
+        score = max(self.temporal_min_score, min(self.temporal_max_score, score))
 
         return score, metadata
 
@@ -894,11 +913,9 @@ class UnifiedQualityScorer:
         std_dev = np.std(residuals)
 
         # Ensure minimum std_dev to avoid division by zero
-        # Use 0.5 kg as minimum expected variation (configurable)
-        trend_config = self.config.get("trend_alignment", {})
-        min_std_dev = trend_config.get("trend_min_std_dev", 0.5)
-        if std_dev < min_std_dev:
-            std_dev = min_std_dev
+        # Use configured minimum expected variation
+        if std_dev < self.trend_min_std_dev:
+            std_dev = self.trend_min_std_dev
 
         metadata["deviation"] = deviation
         metadata["std_dev"] = std_dev
@@ -906,13 +923,12 @@ class UnifiedQualityScorer:
         # Score based on deviation from trend
         normalized_deviation = deviation / std_dev
 
-        # More gradual scoring: use exponential decay
+        # More gradual scoring: use exponential decay with configured constant
         # Score = exp(-k * normalized_deviation)
-        # k=0.3 gives ~0.74 at 1 std dev, ~0.55 at 2 std devs, ~0.40 at 3 std devs
-        # k=0.2 gives ~0.82 at 1 std dev, ~0.67 at 2 std devs, ~0.55 at 3 std devs (more lenient)
-        trend_config = self.config.get("trend_alignment", {})
-        k = trend_config.get("trend_decay_constant", 0.3)  # Lower = more lenient
-        score = np.exp(-k * normalized_deviation)
+        # k=0.1 gives ~0.90 at 1 std dev, ~0.82 at 2 std devs, ~0.74 at 3 std devs (lenient)
+        # k=0.2 gives ~0.82 at 1 std dev, ~0.67 at 2 std devs, ~0.55 at 3 std devs (moderate)
+        # k=0.3 gives ~0.74 at 1 std dev, ~0.55 at 2 std devs, ~0.40 at 3 std devs (strict)
+        score = np.exp(-self.trend_decay_constant * normalized_deviation)
 
         # Ensure minimum score of 0.3 for reasonable deviations
         score = max(0.3, score)

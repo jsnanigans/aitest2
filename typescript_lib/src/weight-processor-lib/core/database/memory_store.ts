@@ -1,12 +1,14 @@
 /**
  * Simple in-memory storage for Kalman filter states.
  *
- * Stores direct references - NO deepCopy, NO serialization/deserialization.
+ * Current state uses direct references for performance.
+ * Snapshots use deep copies to preserve state at snapshot time.
  * Matrix objects stay as Matrix objects throughout.
  */
 
 import type { KalmanState } from '../types';
 import { StateStore } from './base';
+import { Matrix } from 'ml-matrix';
 
 interface Snapshot {
   timestamp: Date;
@@ -20,8 +22,44 @@ export interface SnapshotResult {
 }
 
 /**
- * Simple in-memory state store using direct references.
- * No deepCopy, no serialization - just Map storage.
+ * Deep copy a KalmanState, handling Matrix objects correctly.
+ */
+function deepCopyState(state: KalmanState): KalmanState {
+  const copied: any = {};
+
+  for (const [key, value] of Object.entries(state)) {
+    if (value === null || value === undefined) {
+      copied[key] = value;
+    } else if (value instanceof Date) {
+      copied[key] = new Date(value.getTime());
+    } else if (value instanceof Matrix) {
+      copied[key] = value.clone();
+    } else if (Array.isArray(value)) {
+      // Handle arrays (which may contain Matrix objects)
+      copied[key] = value.map(item => {
+        if (item instanceof Matrix) {
+          return item.clone();
+        } else if (item && typeof item === 'object') {
+          return JSON.parse(JSON.stringify(item));
+        } else {
+          return item;
+        }
+      });
+    } else if (typeof value === 'object') {
+      // Deep copy plain objects
+      copied[key] = JSON.parse(JSON.stringify(value));
+    } else {
+      // Primitives (number, string, boolean)
+      copied[key] = value;
+    }
+  }
+
+  return copied as KalmanState;
+}
+
+/**
+ * Simple in-memory state store using direct references for current state.
+ * Snapshots are deep copied to preserve state at snapshot time.
  */
 export class InMemoryStore extends StateStore {
   private states: Map<string, KalmanState>;
@@ -104,10 +142,10 @@ export class InMemoryStore extends StateStore {
       this.snapshots.set(userId, userSnapshots);
     }
 
-    // Add snapshot (direct reference to state)
+    // Add snapshot (deep copy to preserve state at this moment)
     userSnapshots.push({
       timestamp,
-      state: currentState,
+      state: deepCopyState(currentState),
     });
 
     // Sort snapshots by timestamp

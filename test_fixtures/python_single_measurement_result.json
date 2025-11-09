@@ -3,7 +3,7 @@
   "measurement_id": "4f07af66-cd5e-4a38-9403-80d6da1d1542",
   "result": {
     "accepted": false,
-    "quality_score": 0.009308080750420552,
+    "quality_score": 0.008830292664590601,
     "kalman_estimate": null
   }
 }

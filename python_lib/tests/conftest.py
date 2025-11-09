@@ -16,10 +16,10 @@ def base_config() -> Dict[str, Any]:
     """
     return {
         "kalman": {
-            "observation_covariance": 3.49,
-            "process_noise_weight": 0.1,
-            "process_noise_trend": 0.01,
-            "initial_variance_multiplier": 1.0,
+            "initial_variance": 0.364,
+            "transition_covariance_weight": 0.018,
+            "transition_covariance_trend": 0.00012,
+            "observation_covariance": 5,
         },
         "quality": {
             "acceptance_threshold": 0.46,

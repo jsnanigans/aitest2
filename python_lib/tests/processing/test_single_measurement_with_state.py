@@ -174,7 +174,8 @@ def test_single_measurement_with_kalman_state(kalman_state_fixture, store_with_s
 
     # Epsilon-based comparison to verify consistency with TypeScript implementation
     # within acceptable floating-point precision tolerance
-    expected_quality_score = 0.009308080750420552  # Reference value
+    # Updated after config externalization - now uses trend_decay_constant=0.1 from config.toml
+    expected_quality_score = 0.008830292664590601  # Reference value
     quality_score = result.get("quality_score", 0)
 
     # Use a larger epsilon for accumulated floating-point errors

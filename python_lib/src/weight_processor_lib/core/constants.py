@@ -7,8 +7,9 @@ Configurable parameters are now in config.toml
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-# NOTE: SOURCE_PROFILES and KALMAN_DEFAULTS have been moved to config.toml
+# NOTE: SOURCE_PROFILES have been moved to config.toml
 # Use ConfigManager to load these values dynamically
+# Kalman parameters must be loaded from config - no hardcoded defaults
 
 
 @dataclass
@@ -103,7 +104,7 @@ def _ensure_profiles_loaded():
     if not _PROFILES_LOADED:
         try:
             # Lazy import to avoid circular dependency
-            from ..aws.config.config_manager import ConfigManager
+            from .config import ConfigManager
             config = ConfigManager.load_config()
             _SOURCE_PROFILES = config.get("sources", {})
             _DEFAULT_PROFILE = _SOURCE_PROFILES.get("default", {
@@ -140,13 +141,9 @@ QUESTIONNAIRE_SOURCES = {
     "questionnaire",
 }
 
-# DEPRECATED: Kalman defaults now in config.toml
-KALMAN_DEFAULTS = {
-    "initial_variance": 0.364,
-    "transition_covariance_weight": 0.018,
-    "transition_covariance_trend": 0.00015,
-    "observation_covariance": 3.4,
-}
+# DEPRECATED: Kalman defaults removed - must be loaded from config.toml
+# Use ConfigManager.load_config() to get kalman configuration
+# Code will fail fast if config is not properly loaded
 
 # Visualization marker symbols for source types
 SOURCE_MARKER_SYMBOLS = {

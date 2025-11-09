@@ -21,7 +21,7 @@ from .reset_transaction import ResetOperation, ResetTransaction
 from .validation import DataQualityPreprocessor
 
 logger = logging.getLogger(__name__)
-from ..constants import KALMAN_DEFAULTS, PHYSIOLOGICAL_LIMITS, get_noise_multiplier
+from ..constants import PHYSIOLOGICAL_LIMITS, get_noise_multiplier
 
 from .unified_quality_scorer import (
     QualityScore,
@@ -389,10 +389,17 @@ def process_measurement(
                 # Adjust innovation covariance for source reliability
                 # Remove base R, apply multiplier, add back
                 kalman_params = state.get("kalman_params", {})
-                base_obs_cov = kalman_params.get(
-                    "observation_covariance",
-                    [[KALMAN_DEFAULTS["observation_covariance"]]],
-                )[0][0]
+                obs_cov_matrix = kalman_params.get("observation_covariance")
+                if obs_cov_matrix is None:
+                    # Fallback to config if kalman_params doesn't have it
+                    if "observation_covariance" not in kalman_config:
+                        raise ValueError(
+                            "observation_covariance missing from both kalman_params and kalman_config. "
+                            "Ensure config is loaded from config.toml via ConfigManager.load_config()"
+                        )
+                    base_obs_cov = kalman_config["observation_covariance"]
+                else:
+                    base_obs_cov = obs_cov_matrix[0][0]
                 # Ensure base_obs_cov is float (not Decimal from DB)
                 base_obs_cov = float(base_obs_cov)
                 # innovation_cov = P_pred[0,0] + R

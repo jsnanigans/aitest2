@@ -11,6 +11,10 @@ import {
   KalmanFilterManager,
   type ProcessingResult
 } from '../src/index';
+import { loadConfig } from '../src/weight-processor-lib/core/config';
+
+// Load config once for all tests
+const config = loadConfig();
 
 test('InMemoryStore basic operations', async () => {
   const store = new InMemoryStore();
@@ -86,7 +90,7 @@ test('processMeasurement basic flow', async () => {
     70.5,
     new Date(),
     'patient-device',
-    {},
+    config,
     'kg',
     store,
     1.75
@@ -113,7 +117,7 @@ test('processMeasurement rejects invalid weight', async () => {
     15.0,
     new Date(),
     'patient-device',
-    {},
+    config,
     'kg',
     store,
     1.75
@@ -136,7 +140,7 @@ test('processMeasurement multiple measurements', async () => {
     70.0,
     baseTime,
     'patient-device',
-    {},
+    config,
     'kg',
     store,
     1.75
@@ -151,7 +155,7 @@ test('processMeasurement multiple measurements', async () => {
     70.3,
     new Date(baseTime.getTime() + 60000), // 1 minute later
     'patient-device',
-    {},
+    config,
     'kg',
     store,
     1.75
@@ -166,7 +170,7 @@ test('processMeasurement multiple measurements', async () => {
     70.5,
     new Date(baseTime.getTime() + 120000), // 2 minutes later
     'patient-device',
-    {},
+    config,
     'kg',
     store,
     1.75

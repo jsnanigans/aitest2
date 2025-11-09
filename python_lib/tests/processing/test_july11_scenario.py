@@ -30,11 +30,10 @@ def base_config():
     """Base configuration for testing."""
     return {
         "kalman": {
-            "process_noise_position": 0.01,
-            "process_noise_velocity": 0.0001,
-            "initial_position_variance": 1.0,
-            "initial_velocity_variance": 0.01,
-            "trend_limit_kg_per_week": 5.0,
+            "initial_variance": 0.364,
+            "transition_covariance_weight": 0.018,
+            "transition_covariance_trend": 0.00012,
+            "observation_covariance": 5,
         },
         "quality_weights": {
             "kalman_fit": 0.35,

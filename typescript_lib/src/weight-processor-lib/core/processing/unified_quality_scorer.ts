@@ -70,9 +70,22 @@ export function createQualityScore(
  */
 export interface QualityScorerConfig {
   componentWeights?: Record<string, number>;
+  component_weights?: Record<string, number>;  // Python-style snake_case alias
   threshold?: number;
   temporalThresholds?: Record<string, number>;
   useHarmonicMean?: boolean;
+  use_harmonic_mean?: boolean;  // Python-style snake_case alias
+  temporal?: {
+    min_score?: number;
+    max_score?: number;
+    initial_threshold_kg?: number;
+    max_threshold_kg?: number;
+    time_constant_hours?: number;
+  };
+  trend_alignment?: {
+    trend_min_std_dev?: number;
+    trend_decay_constant?: number;
+  };
   trendAlignment?: {
     trendMinStdDev?: number;
     trendDecayConstant?: number;
@@ -116,13 +129,21 @@ export class UnifiedQualityScorer {
   private readonly weights: Record<string, number>;
   private readonly threshold: number;
   private readonly temporalThresholds: Record<string, number>;
+  private readonly temporalMinScore: number;
+  private readonly temporalMaxScore: number;
+  private readonly temporalInitialThresholdKg: number;
+  private readonly temporalMaxThresholdKg: number;
+  private readonly temporalTimeConstantHours: number;
+  private readonly trendDecayConstant: number;
+  private readonly trendMinStdDev: number;
   private currentSource?: string;
 
   constructor(config: QualityScorerConfig = {}) {
     this.config = config;
 
-    // Get component weights from config
-    this.weights = { ...UnifiedQualityScorer.DEFAULT_WEIGHTS, ...config.componentWeights };
+    // Get component weights from config (support both camelCase and snake_case)
+    const weights = config.componentWeights ?? config.component_weights ?? {};
+    this.weights = { ...UnifiedQualityScorer.DEFAULT_WEIGHTS, ...weights };
 
     // Normalize weights to sum to 1.0
     const weightSum = Object.values(this.weights).reduce((sum, w) => sum + w, 0);
@@ -138,6 +159,19 @@ export class UnifiedQualityScorer {
       ...UnifiedQualityScorer.TEMPORAL_THRESHOLDS,
       ...config.temporalThresholds,
     };
+
+    // Get temporal consistency config
+    const temporalConfig = config.temporal ?? {};
+    this.temporalMinScore = temporalConfig.min_score ?? 0.2;
+    this.temporalMaxScore = temporalConfig.max_score ?? 1.0;
+    this.temporalInitialThresholdKg = temporalConfig.initial_threshold_kg ?? 0.5;
+    this.temporalMaxThresholdKg = temporalConfig.max_threshold_kg ?? 5.0;
+    this.temporalTimeConstantHours = temporalConfig.time_constant_hours ?? 48;
+
+    // Get trend alignment config (support both camelCase and snake_case)
+    const trendConfig = config.trend_alignment ?? config.trendAlignment ?? {};
+    this.trendDecayConstant = trendConfig.trend_decay_constant ?? trendConfig.trendDecayConstant ?? 0.1;
+    this.trendMinStdDev = trendConfig.trend_min_std_dev ?? trendConfig.trendMinStdDev ?? 0.8;
   }
 
   /**
@@ -249,8 +283,8 @@ export class UnifiedQualityScorer {
       console.log(`[QualityScorer] Components: ${componentStatus}`);
     }
 
-    // Calculate overall score using configured mean type
-    const useHarmonic = this.config.useHarmonicMean ?? false;
+    // Calculate overall score using configured mean type (support both camelCase and snake_case)
+    const useHarmonic = this.config.useHarmonicMean ?? this.config.use_harmonic_mean ?? false;
     const overall = useHarmonic
       ? this.calculateWeightedHarmonicMean(components)
       : this.calculateWeightedGeometricMean(components);
@@ -408,11 +442,13 @@ export class UnifiedQualityScorer {
     const weightChange = Math.abs(weight - previousWeight);
 
     // Exponential growth of acceptable change over time
-    // Starts at 0.5kg for immediate, grows to ~5kg at 7 days
+    // Uses config values: initial_threshold_kg, max_threshold_kg, time_constant_hours
     const absTimeDiff = Math.abs(timeDiffHours);
     // Cap the exponent to prevent overflow for very large time differences
     const cappedTime = Math.min(absTimeDiff, 336); // Cap at 2 weeks (336 hours)
-    const maxAcceptableChange = 0.5 + 4.5 * (1 - Math.exp(-cappedTime / 48));
+    const changeRange = this.temporalMaxThresholdKg - this.temporalInitialThresholdKg;
+    const maxAcceptableChange = this.temporalInitialThresholdKg + changeRange *
+      (1 - Math.exp(-cappedTime / this.temporalTimeConstantHours));
 
     metadata.max_acceptable_change = maxAcceptableChange;
     metadata.actual_change = weightChange;
@@ -436,8 +472,8 @@ export class UnifiedQualityScorer {
       metadata.gap_adjustment = true;
     }
 
-    // Clamp between 0.2 and 1.0
-    score = Math.max(0.2, Math.min(1.0, score));
+    // Clamp between configured min and max scores
+    score = Math.max(this.temporalMinScore, Math.min(this.temporalMaxScore, score));
 
     return [score, metadata];
   }
@@ -917,11 +953,9 @@ export class UnifiedQualityScorer {
     const residuals: number[] = y.map((yi, i) => yi - trendLine[i]);
     let stdDev = this.std(residuals);
 
-    // Ensure minimum std_dev to avoid division by zero
-    const trendConfig = this.config.trendAlignment ?? {};
-    const minStdDev = trendConfig.trendMinStdDev ?? 0.5;
-    if (stdDev < minStdDev) {
-      stdDev = minStdDev;
+    // Ensure minimum std_dev to avoid division by zero using configured value
+    if (stdDev < this.trendMinStdDev) {
+      stdDev = this.trendMinStdDev;
     }
 
     metadata.deviation = deviation;
@@ -930,9 +964,11 @@ export class UnifiedQualityScorer {
     // Score based on deviation from trend
     const normalizedDeviation = deviation / stdDev;
 
-    // More gradual scoring: use exponential decay
-    const k = trendConfig.trendDecayConstant ?? 0.3;
-    let score = Math.exp(-k * normalizedDeviation);
+    // More gradual scoring: use exponential decay with configured constant
+    // k=0.1 gives ~0.90 at 1 std dev, ~0.82 at 2 std devs, ~0.74 at 3 std devs (lenient)
+    // k=0.2 gives ~0.82 at 1 std dev, ~0.67 at 2 std devs, ~0.55 at 3 std devs (moderate)
+    // k=0.3 gives ~0.74 at 1 std dev, ~0.55 at 2 std devs, ~0.40 at 3 std devs (strict)
+    let score = Math.exp(-this.trendDecayConstant * normalizedDeviation);
 
     // Ensure minimum score of 0.3
     score = Math.max(0.3, score);

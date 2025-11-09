@@ -7,7 +7,7 @@
  * Uses ml-matrix for numerical stability and proven matrix operations.
  */
 
-import { Matrix } from 'ml-matrix';
+import { Matrix, inverse, solve } from 'ml-matrix';
 import { validateMatrix } from '../stdlib-utils';
 
 /**
@@ -199,11 +199,12 @@ export class KalmanFilter {
       .mmul(this.H.transpose())
       .add(this.R);
 
+
     // K_k = P_{k|k-1} * H^T * S_k^{-1}  (Kalman gain)
     // IMPORTANT: Check if innovation covariance is invertible
     let innovationCovInverse: Matrix;
     try {
-      innovationCovInverse = innovationCovariance.inverse();
+      innovationCovInverse = inverse(innovationCovariance);
 
       // Check for NaN or Infinity in the inverse using stdlib validation
       const invData = innovationCovInverse.to2DArray();
