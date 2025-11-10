@@ -1,11 +1,11 @@
 # Cross-Language Test Report
 **Test Suite**: Phase 1: Integration Tests
-**Date**: 2025-11-10T13:11:27.114Z
+**Date**: 2025-11-10T14:59:47.211Z
 **Total Tests**: 5
 **Passed**: 0
 **Failed**: 5
 **Success Rate**: 0.0%
-**Duration**: 3.88s
+**Duration**: 4.86s
 
 ## Summary
 
@@ -16,44 +16,20 @@
 
 ## Performance Comparison
 
-- **Python avg**: 188.00ms
-- **TypeScript avg**: 586.11ms
-- **Speed ratio**: Python is 0.68x faster
+- **Python avg**: 200.69ms
+- **TypeScript avg**: 770.04ms
+- **Speed ratio**: Python is 0.74x faster
 
 ## Failed Tests
 
 ### Test 1: Single Measurement Processing
 **Description**: Process a single measurement and verify initialization
 
-**Comparison**: ✗ Found 35 difference(s): 13 numeric, 22 structural
+**Comparison**: ✗ Found 24 difference(s): 6 numeric, 18 structural
 
 **Differences**:
 ```
-Found 35 difference(s):
-
-  root.results[0].was_reset:
-    Type: missing
-    Python:     true
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_reason:
-    Type: missing
-    Python:     initial_measurement
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_type:
-    Type: missing
-    Python:     initial
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].gap_days:
-    Type: missing
-    Python:     null
-    TypeScript: undefined
-    Key missing in TypeScript output
+Found 24 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -61,32 +37,23 @@ Found 35 difference(s):
     TypeScript: 2025-11-10T10:24:32.710Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[0].kalman_confidence_upper:
-    Type: value
-    Python:     73.81575680566779
-    TypeScript: 71.20664825031987
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.534623%
-
-  root.results[0].kalman_confidence_lower:
-    Type: value
-    Python:     66.18424319433221
-    TypeScript: 68.79335174968013
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.792675%
-
-  root.results[0].kalman_variance:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.results[0].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:24:32.710000
     TypeScript: 2025-11-10T10:24:32.710Z
     Value mismatch: 2025-11-10T11:24:32.710000 !== 2025-11-10T10:24:32.710Z
+
+  root.results[0].reset_reason:
+    Type: value
+    Python:     initial_measurement
+    TypeScript: initial reset triggered
+    Value mismatch: initial_measurement !== initial reset triggered
+
+  root.results[0].gap_days:
+    Type: value
+    Python:     null
+    TypeScript: 0
+    Python value is null, TypeScript value is 0
 
   root.results[0].reset_event.gap_days:
     Type: missing
@@ -111,34 +78,6 @@ Found 35 difference(s):
     Python:     undefined
     TypeScript: 1
     Extra key in TypeScript output
-
-  root.finalState.kalman_params.initial_state_covariance[0][0]:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
-  root.finalState.kalman_params.transition_covariance[0][0]:
-    Type: value
-    Python:     0.8999999999999999
-    TypeScript: 0.018
-    Difference: 8.820e-1
-    Numeric difference exceeds tolerance: abs=8.820e-1, rel=98.000000%
-
-  root.finalState.kalman_params.transition_covariance[1][1]:
-    Type: value
-    Python:     0.006
-    TypeScript: 0.00012
-    Difference: 5.880e-3
-    Numeric difference exceeds tolerance: abs=5.880e-3, rel=98.000000%
-
-  root.finalState.kalman_params.observation_covariance[0][0]:
-    Type: value
-    Python:     100
-    TypeScript: 5
-    Difference: 9.500e+1
-    Numeric difference exceeds tolerance: abs=9.500e+1, rel=95.000000%
 
   root.finalState.last_state[0][0]:
     Type: type
@@ -171,20 +110,6 @@ Found 35 difference(s):
   0
 ]
     Type mismatch: Python number, TypeScript object
-
-  root.finalState.last_covariance[0][0][0]:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
-  root.finalState.last_covariance[1][0][0]:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
 
   root.finalState.reset_parameters.quality_acceptance_threshold:
     Type: missing
@@ -268,35 +193,11 @@ Found 35 difference(s):
 ### Test 2: Multi-Measurement Sequence
 **Description**: Process 10 measurements and verify state evolution
 
-**Comparison**: ✗ Found 192 difference(s): 144 numeric, 48 structural
+**Comparison**: ✗ Found 183 difference(s): 156 numeric, 27 structural
 
 **Differences**:
 ```
-Found 192 difference(s):
-
-  root.results[0].was_reset:
-    Type: missing
-    Python:     true
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_reason:
-    Type: missing
-    Python:     initial_measurement
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_type:
-    Type: missing
-    Python:     initial
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].gap_days:
-    Type: missing
-    Python:     null
-    TypeScript: undefined
-    Key missing in TypeScript output
+Found 183 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -304,32 +205,23 @@ Found 192 difference(s):
     TypeScript: 2025-11-10T10:24:32.710Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[0].kalman_confidence_upper:
-    Type: value
-    Python:     73.37575680566779
-    TypeScript: 70.76664825031988
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.555818%
-
-  root.results[0].kalman_confidence_lower:
-    Type: value
-    Python:     65.74424319433221
-    TypeScript: 68.35335174968013
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.817089%
-
-  root.results[0].kalman_variance:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.results[0].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:24:32.710000
     TypeScript: 2025-11-10T10:24:32.710Z
     Value mismatch: 2025-11-10T11:24:32.710000 !== 2025-11-10T10:24:32.710Z
+
+  root.results[0].reset_reason:
+    Type: value
+    Python:     initial_measurement
+    TypeScript: initial reset triggered
+    Value mismatch: initial_measurement !== initial reset triggered
+
+  root.results[0].gap_days:
+    Type: value
+    Python:     null
+    TypeScript: 0
+    Python value is null, TypeScript value is 0
 
   root.results[0].reset_event.gap_days:
     Type: missing
@@ -352,92 +244,78 @@ Found 192 difference(s):
   root.results[1].filtered_weight:
     Type: value
     Python:     69.56233059287037
-    TypeScript: 69.5628391623204
-    Difference: 5.086e-4
-    Numeric difference exceeds tolerance: abs=5.086e-4, rel=0.000731%
+    TypeScript: 69.57903566138819
+    Difference: 1.671e-2
+    Numeric difference exceeds tolerance: abs=1.671e-2, rel=0.024009%
 
   root.results[1].trend:
     Type: value
     Python:     5.4847386926894944e-8
-    TypeScript: 7.432167535919116e-7
-    Difference: 6.884e-7
-    Numeric difference exceeds tolerance: abs=6.884e-7, rel=92.620270%
+    TypeScript: 4.1928677223600443e-7
+    Difference: 3.644e-7
+    Numeric difference exceeds tolerance: abs=3.644e-7, rel=86.918885%
 
   root.results[1].trend_weekly:
     Type: value
     Python:     3.839317084882646e-7
-    TypeScript: 0.000005202517275143381
-    Difference: 4.819e-6
-    Numeric difference exceeds tolerance: abs=4.819e-6, rel=92.620270%
+    TypeScript: 0.000002935007405652031
+    Difference: 2.551e-6
+    Numeric difference exceeds tolerance: abs=2.551e-6, rel=86.918885%
 
   root.results[1].confidence:
     Type: value
     Python:     0.9999902384619538
-    TypeScript: 0.999871067615968
-    Difference: 1.192e-4
-    Numeric difference exceeds tolerance: abs=1.192e-4, rel=0.011917%
+    TypeScript: 0.9999702215956114
+    Difference: 2.002e-5
+    Numeric difference exceeds tolerance: abs=2.002e-5, rel=0.002002%
 
   root.results[1].innovation:
     Type: value
     Python:     0.037669407129627075
-    TypeScript: 0.03716083767959333
-    Difference: 5.086e-4
-    Numeric difference exceeds tolerance: abs=5.086e-4, rel=1.350086%
+    TypeScript: 0.020964338611804578
+    Difference: 1.671e-2
+    Numeric difference exceeds tolerance: abs=1.671e-2, rel=44.346513%
 
   root.results[1].normalized_innovation:
     Type: value
     Python:     0.00441850329645455
-    TypeScript: 0.016058685906781164
-    Difference: 1.164e-2
-    Numeric difference exceeds tolerance: abs=1.164e-2, rel=72.485275%
+    TypeScript: 0.007717363251018658
+    Difference: 3.299e-3
+    Numeric difference exceeds tolerance: abs=3.299e-3, rel=42.745946%
 
   root.results[1].kalman_confidence_upper:
     Type: value
     Python:     73.56315626723355
-    TypeScript: 70.75430093686397
-    Difference: 2.809e+0
-    Numeric difference exceeds tolerance: abs=2.809e+0, rel=3.818291%
+    TypeScript: 72.66413382742729
+    Difference: 8.990e-1
+    Numeric difference exceeds tolerance: abs=8.990e-1, rel=1.222110%
 
   root.results[1].kalman_confidence_lower:
     Type: value
     Python:     65.56150491850718
-    TypeScript: 68.37137738777683
-    Difference: 2.810e+0
-    Numeric difference exceeds tolerance: abs=2.810e+0, rel=4.109720%
+    TypeScript: 66.49393749534909
+    Difference: 9.324e-1
+    Numeric difference exceeds tolerance: abs=9.324e-1, rel=1.402282%
 
   root.results[1].kalman_variance:
     Type: value
     Python:     4.0016515191608955
-    TypeScript: 0.35489529004962833
-    Difference: 3.647e+0
-    Numeric difference exceeds tolerance: abs=3.647e+0, rel=91.131279%
+    TypeScript: 2.3794576735244517
+    Difference: 1.622e+0
+    Numeric difference exceeds tolerance: abs=1.622e+0, rel=40.538109%
 
   root.results[1].prediction_error:
     Type: value
     Python:     0.037669407129627075
-    TypeScript: 0.03716083767959333
-    Difference: 5.086e-4
-    Numeric difference exceeds tolerance: abs=5.086e-4, rel=1.350086%
+    TypeScript: 0.020964338611804578
+    Difference: 1.671e-2
+    Numeric difference exceeds tolerance: abs=1.671e-2, rel=44.346513%
 
   root.results[1].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:25:59.110000
     TypeScript: 2025-11-10T10:25:59.110Z
     Value mismatch: 2025-11-10T11:25:59.110000 !== 2025-11-10T10:25:59.110Z
-
-  root.results[1].quality_score:
-    Type: value
-    Python:     0.9566546516157678
-    TypeScript: 0.9556776396374415
-    Difference: 9.770e-4
-    Numeric difference exceeds tolerance: abs=9.770e-4, rel=0.102128%
-
-  root.results[1].quality_components.kalman_fit:
-    Type: value
-    Python:     0.99921787021379
-    TypeScript: 0.9965575381083879
-    Difference: 2.660e-3
-    Numeric difference exceeds tolerance: abs=2.660e-3, rel=0.266241%
 
   root.results[2].timestamp:
     Type: type
@@ -448,72 +326,72 @@ Found 192 difference(s):
   root.results[2].filtered_weight:
     Type: value
     Python:     69.6053590959197
-    TypeScript: 69.59804035352437
-    Difference: 7.319e-3
-    Numeric difference exceeds tolerance: abs=7.319e-3, rel=0.010515%
+    TypeScript: 69.77350743758205
+    Difference: 1.681e-1
+    Numeric difference exceeds tolerance: abs=1.681e-1, rel=0.240992%
 
   root.results[2].trend:
     Type: value
     Python:     0.000005904206563257916
-    TypeScript: 0.00002008430320323208
-    Difference: 1.418e-5
-    Numeric difference exceeds tolerance: abs=1.418e-5, rel=70.602881%
+    TypeScript: 0.00004503612453218308
+    Difference: 3.913e-5
+    Numeric difference exceeds tolerance: abs=3.913e-5, rel=86.890065%
 
   root.results[2].trend_weekly:
     Type: value
     Python:     0.00004132944594280541
-    TypeScript: 0.00014059012242262456
-    Difference: 9.926e-5
-    Numeric difference exceeds tolerance: abs=9.926e-5, rel=70.602881%
+    TypeScript: 0.00031525287172528156
+    Difference: 2.739e-4
+    Numeric difference exceeds tolerance: abs=2.739e-4, rel=86.890065%
 
   root.results[2].confidence:
     Type: value
     Python:     0.9979153833407085
-    TypeScript: 0.9793865285029923
-    Difference: 1.853e-2
-    Numeric difference exceeds tolerance: abs=1.853e-2, rel=1.856756%
+    TypeScript: 0.9937231174566352
+    Difference: 4.192e-3
+    Numeric difference exceeds tolerance: abs=4.192e-3, rel=0.420102%
 
   root.results[2].innovation:
     Type: value
     Python:     0.4646409040802979
-    TypeScript: 0.47195964647562505
-    Difference: 7.319e-3
-    Numeric difference exceeds tolerance: abs=7.319e-3, rel=1.550714%
+    TypeScript: 0.29649256241793864
+    Difference: 1.681e-1
+    Numeric difference exceeds tolerance: abs=1.681e-1, rel=36.188881%
 
   root.results[2].normalized_innovation:
     Type: value
     Python:     0.06460328934325016
-    TypeScript: 0.20410239908130254
-    Difference: 1.395e-1
-    Numeric difference exceeds tolerance: abs=1.395e-1, rel=68.347609%
+    TypeScript: 0.11222000708841132
+    Difference: 4.762e-2
+    Numeric difference exceeds tolerance: abs=4.762e-2, rel=42.431576%
 
   root.results[2].kalman_confidence_upper:
     Type: value
     Python:     73.62617496591466
-    TypeScript: 70.77624409091833
-    Difference: 2.850e+0
-    Numeric difference exceeds tolerance: abs=2.850e+0, rel=3.870812%
+    TypeScript: 72.58811782367049
+    Difference: 1.038e+0
+    Numeric difference exceeds tolerance: abs=1.038e+0, rel=1.409902%
 
   root.results[2].kalman_confidence_lower:
     Type: value
     Python:     65.58454322592473
-    TypeScript: 68.41983661613041
-    Difference: 2.835e+0
-    Numeric difference exceeds tolerance: abs=2.835e+0, rel=4.143964%
+    TypeScript: 66.95889705149362
+    Difference: 1.374e+0
+    Numeric difference exceeds tolerance: abs=1.374e+0, rel=2.052534%
 
   root.results[2].kalman_variance:
     Type: value
     Python:     4.041740065100835
-    TypeScript: 0.34704101170227364
-    Difference: 3.695e+0
-    Numeric difference exceeds tolerance: abs=3.695e+0, rel=91.413574%
+    TypeScript: 1.9805079063692226
+    Difference: 2.061e+0
+    Numeric difference exceeds tolerance: abs=2.061e+0, rel=50.998632%
 
   root.results[2].prediction_error:
     Type: value
     Python:     0.4646409040802979
-    TypeScript: 0.47195964647562505
-    Difference: 7.319e-3
-    Numeric difference exceeds tolerance: abs=7.319e-3, rel=1.550714%
+    TypeScript: 0.29649256241793864
+    Difference: 1.681e-1
+    Numeric difference exceeds tolerance: abs=1.681e-1, rel=36.188881%
 
   root.results[2].preprocessing.timestamp:
     Type: value
@@ -524,23 +402,23 @@ Found 192 difference(s):
   root.results[2].quality_score:
     Type: value
     Python:     0.8901620889765289
-    TypeScript: 0.8795778809475164
-    Difference: 1.058e-2
-    Numeric difference exceeds tolerance: abs=1.058e-2, rel=1.189020%
+    TypeScript: 0.9199841300071664
+    Difference: 2.982e-2
+    Numeric difference exceeds tolerance: abs=2.982e-2, rel=3.241582%
 
   root.results[2].quality_components.kalman_fit:
     Type: value
     Python:     0.9901220103742958
-    TypeScript: 0.9571843351680731
-    Difference: 3.294e-2
-    Numeric difference exceeds tolerance: abs=3.294e-2, rel=3.326628%
+    TypeScript: 0.990384400900456
+    Difference: 2.624e-4
+    Numeric difference exceeds tolerance: abs=2.624e-4, rel=0.026494%
 
   root.results[2].quality_components.temporal_consistency:
     Type: value
     Python:     0.7914133025655209
-    TypeScript: 0.792215080414027
-    Difference: 8.018e-4
-    Numeric difference exceeds tolerance: abs=8.018e-4, rel=0.101207%
+    TypeScript: 0.8752477858127202
+    Difference: 8.383e-2
+    Numeric difference exceeds tolerance: abs=8.383e-2, rel=9.578371%
 
   root.results[3].timestamp:
     Type: type
@@ -551,72 +429,72 @@ Found 192 difference(s):
   root.results[3].filtered_weight:
     Type: value
     Python:     69.63781267255982
-    TypeScript: 69.61790991965903
-    Difference: 1.990e-2
-    Numeric difference exceeds tolerance: abs=1.990e-2, rel=0.028580%
+    TypeScript: 69.81609309238165
+    Difference: 1.783e-1
+    Numeric difference exceeds tolerance: abs=1.783e-1, rel=0.255357%
 
   root.results[3].trend:
     Type: value
     Python:     0.00001589608071506883
-    TypeScript: 0.00003720851378517793
-    Difference: 2.131e-5
-    Numeric difference exceeds tolerance: abs=2.131e-5, rel=57.278378%
+    TypeScript: 0.00007096817696325693
+    Difference: 5.507e-5
+    Numeric difference exceeds tolerance: abs=5.507e-5, rel=77.601114%
 
   root.results[3].trend_weekly:
     Type: value
     Python:     0.00011127256500548181
-    TypeScript: 0.0002604595964962455
-    Difference: 1.492e-4
-    Numeric difference exceeds tolerance: abs=1.492e-4, rel=57.278378%
+    TypeScript: 0.0004967772387427985
+    Difference: 3.855e-4
+    Numeric difference exceeds tolerance: abs=3.855e-4, rel=77.601114%
 
   root.results[3].confidence:
     Type: value
     Python:     0.9991511550180204
-    TypeScript: 0.9930923592108624
-    Difference: 6.059e-3
-    Numeric difference exceeds tolerance: abs=6.059e-3, rel=0.606394%
+    TypeScript: 0.9996000750593443
+    Difference: 4.489e-4
+    Numeric difference exceeds tolerance: abs=4.489e-4, rel=0.044910%
 
   root.results[3].innovation:
     Type: value
     Python:     0.2521873274401827
-    TypeScript: 0.2720900803409734
-    Difference: 1.990e-2
-    Numeric difference exceeds tolerance: abs=1.990e-2, rel=7.314766%
+    TypeScript: 0.07390690761835117
+    Difference: 1.783e-1
+    Numeric difference exceeds tolerance: abs=1.783e-1, rel=70.693647%
 
   root.results[3].normalized_innovation:
     Type: value
     Python:     0.0412117812011586
-    TypeScript: 0.11774216729201478
-    Difference: 7.653e-2
-    Numeric difference exceeds tolerance: abs=7.653e-2, rel=64.998282%
+    TypeScript: 0.028284445618127697
+    Difference: 1.293e-2
+    Numeric difference exceeds tolerance: abs=1.293e-2, rel=31.368058%
 
   root.results[3].kalman_confidence_upper:
     Type: value
     Python:     73.55311830689307
-    TypeScript: 70.78452428153247
-    Difference: 2.769e+0
-    Numeric difference exceeds tolerance: abs=2.769e+0, rel=3.764074%
+    TypeScript: 72.51994557147793
+    Difference: 1.033e+0
+    Numeric difference exceeds tolerance: abs=1.033e+0, rel=1.404662%
 
   root.results[3].kalman_confidence_lower:
     Type: value
     Python:     65.72250703822657
-    TypeScript: 68.45129555778558
-    Difference: 2.729e+0
-    Numeric difference exceeds tolerance: abs=2.729e+0, rel=3.986467%
+    TypeScript: 67.11224061328537
+    Difference: 1.390e+0
+    Numeric difference exceeds tolerance: abs=1.390e+0, rel=2.070760%
 
   root.results[3].kalman_variance:
     Type: value
     Python:     3.8324045525604276
-    TypeScript: 0.3402472673323422
-    Difference: 3.492e+0
-    Numeric difference exceeds tolerance: abs=3.492e+0, rel=91.121833%
+    TypeScript: 1.827704557178785
+    Difference: 2.005e+0
+    Numeric difference exceeds tolerance: abs=2.005e+0, rel=52.309196%
 
   root.results[3].prediction_error:
     Type: value
     Python:     0.2521873274401827
-    TypeScript: 0.2720900803409734
-    Difference: 1.990e-2
-    Numeric difference exceeds tolerance: abs=1.990e-2, rel=7.314766%
+    TypeScript: 0.07390690761835117
+    Difference: 1.783e-1
+    Numeric difference exceeds tolerance: abs=1.783e-1, rel=70.693647%
 
   root.results[3].preprocessing.timestamp:
     Type: value
@@ -627,23 +505,23 @@ Found 192 difference(s):
   root.results[3].quality_score:
     Type: value
     Python:     0.8935392243805096
-    TypeScript: 0.8867496822737152
-    Difference: 6.790e-3
-    Numeric difference exceeds tolerance: abs=6.790e-3, rel=0.759848%
+    TypeScript: 0.9071352730793679
+    Difference: 1.360e-2
+    Numeric difference exceeds tolerance: abs=1.360e-2, rel=1.498790%
 
   root.results[3].quality_components.kalman_fit:
     Type: value
     Python:     0.9944454323790577
-    TypeScript: 0.9751057737348243
-    Difference: 1.934e-2
-    Numeric difference exceeds tolerance: abs=1.934e-2, rel=1.944768%
+    TypeScript: 0.9977057237199334
+    Difference: 3.260e-3
+    Numeric difference exceeds tolerance: abs=3.260e-3, rel=0.326779%
 
   root.results[3].quality_components.temporal_consistency:
     Type: value
     Python:     0.9134753026673629
-    TypeScript: 0.9118337382096611
-    Difference: 1.642e-3
-    Numeric difference exceeds tolerance: abs=1.642e-3, rel=0.179705%
+    TypeScript: 0.9585984788807085
+    Difference: 4.512e-2
+    Numeric difference exceeds tolerance: abs=4.512e-2, rel=4.707203%
 
   root.results[4].timestamp:
     Type: type
@@ -654,72 +532,72 @@ Found 192 difference(s):
   root.results[4].filtered_weight:
     Type: value
     Python:     69.62527261696026
-    TypeScript: 69.61337214518043
-    Difference: 1.190e-2
-    Numeric difference exceeds tolerance: abs=1.190e-2, rel=0.017092%
+    TypeScript: 69.72216366121945
+    Difference: 9.689e-2
+    Numeric difference exceeds tolerance: abs=9.689e-2, rel=0.138967%
 
   root.results[4].trend:
     Type: value
     Python:     0.000009198793110317915
-    TypeScript: 0.00003176785648127964
-    Difference: 2.257e-5
-    Numeric difference exceeds tolerance: abs=2.257e-5, rel=71.043709%
+    TypeScript: -0.00003277873735952792
+    Difference: 4.198e-5
+    Numeric difference exceeds tolerance: abs=4.198e-5, rel=128.063293%
 
   root.results[4].trend_weekly:
     Type: value
     Python:     0.0000643915517722254
-    TypeScript: 0.00022237499536895746
-    Difference: 1.580e-4
-    Numeric difference exceeds tolerance: abs=1.580e-4, rel=71.043709%
+    TypeScript: -0.00022945116151669543
+    Difference: 2.938e-4
+    Numeric difference exceeds tolerance: abs=2.938e-4, rel=128.063293%
 
   root.results[4].confidence:
     Type: value
     Python:     0.9998974856760499
-    TypeScript: 0.9996236404720705
-    Difference: 2.738e-4
-    Numeric difference exceeds tolerance: abs=2.738e-4, rel=0.027387%
+    TypeScript: 0.9978117055757455
+    Difference: 2.086e-3
+    Numeric difference exceeds tolerance: abs=2.086e-3, rel=0.208599%
 
   root.results[4].innovation:
     Type: value
     Python:     -0.07527261696026244
-    TypeScript: -0.06337214518043766
-    Difference: 1.190e-2
-    Numeric difference exceeds tolerance: abs=1.190e-2, rel=15.809829%
+    TypeScript: -0.17216366121945725
+    Difference: 9.689e-2
+    Numeric difference exceeds tolerance: abs=9.689e-2, rel=56.278452%
 
   root.results[4].normalized_innovation:
     Type: value
     Python:     0.01431918844785784
-    TypeScript: 0.027438307854226768
-    Difference: 1.312e-2
-    Numeric difference exceeds tolerance: abs=1.312e-2, rel=47.813150%
+    TypeScript: 0.06619202730269165
+    Difference: 5.187e-2
+    Numeric difference exceeds tolerance: abs=5.187e-2, rel=78.367201%
 
   root.results[4].kalman_confidence_upper:
     Type: value
     Python:     73.34194594088689
-    TypeScript: 70.76984629091437
-    Difference: 2.572e+0
-    Numeric difference exceeds tolerance: abs=2.572e+0, rel=3.506997%
+    TypeScript: 72.37927442183116
+    Difference: 9.627e-1
+    Numeric difference exceeds tolerance: abs=9.627e-1, rel=1.312580%
 
   root.results[4].kalman_confidence_lower:
     Type: value
     Python:     65.90859929303363
-    TypeScript: 68.4568979994465
-    Difference: 2.548e+0
-    Numeric difference exceeds tolerance: abs=2.548e+0, rel=3.722486%
+    TypeScript: 67.06505290060775
+    Difference: 1.156e+0
+    Numeric difference exceeds tolerance: abs=1.156e+0, rel=1.724376%
 
   root.results[4].kalman_variance:
     Type: value
     Python:     3.453415149196944
-    TypeScript: 0.33435811243776226
-    Difference: 3.119e+0
-    Numeric difference exceeds tolerance: abs=3.119e+0, rel=90.318045%
+    TypeScript: 1.7650593985396297
+    Difference: 1.688e+0
+    Numeric difference exceeds tolerance: abs=1.688e+0, rel=48.889452%
 
   root.results[4].prediction_error:
     Type: value
     Python:     -0.07527261696026244
-    TypeScript: -0.06337214518043766
-    Difference: 1.190e-2
-    Numeric difference exceeds tolerance: abs=1.190e-2, rel=15.809829%
+    TypeScript: -0.17216366121945725
+    Difference: 9.689e-2
+    Numeric difference exceeds tolerance: abs=9.689e-2, rel=56.278452%
 
   root.results[4].preprocessing.timestamp:
     Type: value
@@ -730,131 +608,23 @@ Found 192 difference(s):
   root.results[4].quality_score:
     Type: value
     Python:     0.909561513787953
-    TypeScript: 0.909969958739884
-    Difference: 4.084e-4
-    Numeric difference exceeds tolerance: abs=4.084e-4, rel=0.044886%
+    TypeScript: 0.8946202982577565
+    Difference: 1.494e-2
+    Numeric difference exceeds tolerance: abs=1.494e-2, rel=1.642683%
 
   root.results[4].quality_components.kalman_fit:
     Type: value
     Python:     0.9982802639482513
-    TypeScript: 0.9941494168296441
-    Difference: 4.131e-3
-    Numeric difference exceeds tolerance: abs=4.131e-3, rel=0.413796%
+    TypeScript: 0.9947629007575469
+    Difference: 3.517e-3
+    Numeric difference exceeds tolerance: abs=3.517e-3, rel=0.352342%
 
   root.results[4].quality_components.temporal_consistency:
     Type: value
     Python:     0.9679184759159902
-    TypeScript: 0.9747062211655353
-    Difference: 6.788e-3
-    Numeric difference exceeds tolerance: abs=6.788e-3, rel=0.696389%
-
-  root.results[5].filtered_weight:
-    Type: missing
-    Python:     69.76001648816205
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].trend:
-    Type: missing
-    Python:     0.00011974253872188602
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].trend_weekly:
-    Type: missing
-    Python:     0.0008381977710532021
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].confidence:
-    Type: missing
-    Python:     0.9892916331664391
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].innovation:
-    Type: missing
-    Python:     0.6699835118379553
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].normalized_innovation:
-    Type: missing
-    Python:     0.146738638508628
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].kalman_confidence_upper:
-    Type: missing
-    Python:     73.21830586276712
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].kalman_confidence_lower:
-    Type: missing
-    Python:     66.30172711355698
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].kalman_variance:
-    Type: missing
-    Python:     2.989941349626596
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].prediction_error:
-    Type: missing
-    Python:     0.6699835118379553
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].preprocessing:
-    Type: missing
-    Python:     {
-  "original_weight": 70.43,
-  "original_unit": "kg",
-  "source": "withings",
-  "timestamp": "2025-
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].noise_multiplier:
-    Type: missing
-    Python:     1
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].bmi_details:
-    Type: missing
-    Python:     {
-  "user_height_m": 1.67,
-  "implied_bmi": 25.3,
-  "original_weight": 70.43,
-  "original_unit": "kg
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].cleaned_weight:
-    Type: extra
-    Python:     undefined
-    TypeScript: 70.43
-    Extra key in TypeScript output
-
-  root.results[5].reason:
-    Type: extra
-    Python:     undefined
-    TypeScript: Quality score 0.46 below threshold 0.46 (weakest: anomaly_detection=0.21)
-    Extra key in TypeScript output
-
-  root.results[5].quality_details:
-    Type: extra
-    Python:     undefined
-    TypeScript: {
-  "overall": 0.4577709129994638,
-  "components": {
-    "kalman_fit": 0.9318388893374059,
-    "temp
-    Extra key in TypeScript output
+    TypeScript: 0.9177442262666116
+    Difference: 5.017e-2
+    Numeric difference exceeds tolerance: abs=5.017e-2, rel=5.183727%
 
   root.results[5].timestamp:
     Type: type
@@ -862,38 +632,102 @@ Found 192 difference(s):
     TypeScript: 2025-11-10T10:31:44.710Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[5].accepted:
+  root.results[5].filtered_weight:
     Type: value
-    Python:     true
-    TypeScript: false
-    Value mismatch: true !== false
+    Python:     69.76001648816205
+    TypeScript: 69.96830720947777
+    Difference: 2.083e-1
+    Numeric difference exceeds tolerance: abs=2.083e-1, rel=0.297693%
 
-  root.results[5].stage:
+  root.results[5].trend:
     Type: value
-    Python:     accepted
-    TypeScript: unified_quality_scoring
-    Value mismatch: accepted !== unified_quality_scoring
+    Python:     0.00011974253872188602
+    TypeScript: 0.0003780569539299731
+    Difference: 2.583e-4
+    Numeric difference exceeds tolerance: abs=2.583e-4, rel=68.326852%
+
+  root.results[5].trend_weekly:
+    Type: value
+    Python:     0.0008381977710532021
+    TypeScript: 0.0026463986775098116
+    Difference: 1.808e-3
+    Numeric difference exceeds tolerance: abs=1.808e-3, rel=68.326852%
+
+  root.results[5].confidence:
+    Type: value
+    Python:     0.9892916331664391
+    TypeScript: 0.98430833755207
+    Difference: 4.983e-3
+    Numeric difference exceeds tolerance: abs=4.983e-3, rel=0.503724%
+
+  root.results[5].innovation:
+    Type: value
+    Python:     0.6699835118379553
+    TypeScript: 0.46169279052223544
+    Difference: 2.083e-1
+    Numeric difference exceeds tolerance: abs=2.083e-1, rel=31.088932%
+
+  root.results[5].normalized_innovation:
+    Type: value
+    Python:     0.146738638508628
+    TypeScript: 0.1778543215291966
+    Difference: 3.112e-2
+    Numeric difference exceeds tolerance: abs=3.112e-2, rel=17.495039%
+
+  root.results[5].kalman_confidence_upper:
+    Type: value
+    Python:     73.21830586276712
+    TypeScript: 72.60551703469908
+    Difference: 6.128e-1
+    Numeric difference exceeds tolerance: abs=6.128e-1, rel=0.836934%
+
+  root.results[5].kalman_confidence_lower:
+    Type: value
+    Python:     66.30172711355698
+    TypeScript: 67.33109738425647
+    Difference: 1.029e+0
+    Numeric difference exceeds tolerance: abs=1.029e+0, rel=1.528818%
+
+  root.results[5].kalman_variance:
+    Type: value
+    Python:     2.989941349626596
+    TypeScript: 1.7387189155609415
+    Difference: 1.251e+0
+    Numeric difference exceeds tolerance: abs=1.251e+0, rel=41.847725%
+
+  root.results[5].prediction_error:
+    Type: value
+    Python:     0.6699835118379553
+    TypeScript: 0.46169279052223544
+    Difference: 2.083e-1
+    Numeric difference exceeds tolerance: abs=2.083e-1, rel=31.088932%
+
+  root.results[5].preprocessing.timestamp:
+    Type: value
+    Python:     2025-11-10T11:31:44.710000
+    TypeScript: 2025-11-10T10:31:44.710Z
+    Value mismatch: 2025-11-10T11:31:44.710000 !== 2025-11-10T10:31:44.710Z
 
   root.results[5].quality_score:
     Type: value
     Python:     0.4661584533390423
-    TypeScript: 0.4577709129994638
-    Difference: 8.388e-3
-    Numeric difference exceeds tolerance: abs=8.388e-3, rel=1.799290%
+    TypeScript: 0.49399895241721303
+    Difference: 2.784e-2
+    Numeric difference exceeds tolerance: abs=2.784e-2, rel=5.635741%
 
   root.results[5].quality_components.kalman_fit:
     Type: value
     Python:     0.9843156898703053
-    TypeScript: 0.9318388893374059
-    Difference: 5.248e-2
-    Numeric difference exceeds tolerance: abs=5.248e-2, rel=5.331298%
+    TypeScript: 0.9861253584309051
+    Difference: 1.810e-3
+    Numeric difference exceeds tolerance: abs=1.810e-3, rel=0.183513%
 
   root.results[5].quality_components.temporal_consistency:
     Type: value
     Python:     0.4380641095179947
-    TypeScript: 0.42780647100475716
-    Difference: 1.026e-2
-    Numeric difference exceeds tolerance: abs=1.026e-2, rel=2.341584%
+    TypeScript: 0.5312748311191138
+    Difference: 9.321e-2
+    Numeric difference exceeds tolerance: abs=9.321e-2, rel=17.544728%
 
   root.results[6].timestamp:
     Type: type
@@ -904,72 +738,72 @@ Found 192 difference(s):
   root.results[6].filtered_weight:
     Type: value
     Python:     69.86354986279649
-    TypeScript: 69.65990576379795
-    Difference: 2.036e-1
-    Numeric difference exceeds tolerance: abs=2.036e-1, rel=0.291488%
+    TypeScript: 70.0898475328516
+    Difference: 2.263e-1
+    Numeric difference exceeds tolerance: abs=2.263e-1, rel=0.322868%
 
   root.results[6].trend:
     Type: value
     Python:     0.00024196956971566568
-    TypeScript: 0.00010418689861239646
-    Difference: 1.378e-4
-    Numeric difference exceeds tolerance: abs=1.378e-4, rel=56.942148%
+    TypeScript: 0.0006543143777515837
+    Difference: 4.123e-4
+    Numeric difference exceeds tolerance: abs=4.123e-4, rel=63.019371%
 
   root.results[6].trend_weekly:
     Type: value
     Python:     0.0016937869880096598
-    TypeScript: 0.0007293082902867752
-    Difference: 9.645e-4
-    Numeric difference exceeds tolerance: abs=9.645e-4, rel=56.942148%
+    TypeScript: 0.004580200644261086
+    Difference: 2.886e-3
+    Numeric difference exceeds tolerance: abs=2.886e-3, rel=63.019371%
 
   root.results[6].confidence:
     Type: value
     Python:     0.993564751924342
-    TypeScript: 0.9599438318505354
-    Difference: 3.362e-2
-    Numeric difference exceeds tolerance: abs=3.362e-2, rel=3.383868%
+    TypeScript: 0.9960709483857568
+    Difference: 2.506e-3
+    Numeric difference exceeds tolerance: abs=2.506e-3, rel=0.251608%
 
   root.results[6].innovation:
     Type: value
     Python:     0.4564501372035039
-    TypeScript: 0.6600942362020419
-    Difference: 2.036e-1
-    Numeric difference exceeds tolerance: abs=2.036e-1, rel=30.850762%
+    TypeScript: 0.2301524671483861
+    Difference: 2.263e-1
+    Numeric difference exceeds tolerance: abs=2.263e-1, rel=49.577742%
 
   root.results[6].normalized_innovation:
     Type: value
     Python:     0.11363136493576545
-    TypeScript: 0.2859388211522499
-    Difference: 1.723e-1
-    Numeric difference exceeds tolerance: abs=1.723e-1, rel=60.260253%
+    TypeScript: 0.08873320252845887
+    Difference: 2.490e-2
+    Numeric difference exceeds tolerance: abs=2.490e-2, rel=21.911347%
 
   root.results[6].kalman_confidence_upper:
     Type: value
     Python:     73.03692950223387
-    TypeScript: 70.80750218638632
-    Difference: 2.229e+0
-    Numeric difference exceeds tolerance: abs=2.229e+0, rel=3.052466%
+    TypeScript: 72.71859730085806
+    Difference: 3.183e-1
+    Numeric difference exceeds tolerance: abs=3.183e-1, rel=0.435851%
 
   root.results[6].kalman_confidence_lower:
     Type: value
     Python:     66.6901702233591
-    TypeScript: 68.51230934120959
-    Difference: 1.822e+0
-    Numeric difference exceeds tolerance: abs=1.822e+0, rel=2.659579%
+    TypeScript: 67.46109776484515
+    Difference: 7.709e-1
+    Numeric difference exceeds tolerance: abs=7.709e-1, rel=1.142773%
 
   root.results[6].kalman_variance:
     Type: value
     Python:     2.517584583998928
-    TypeScript: 0.3292443872844016
-    Difference: 2.188e+0
-    Numeric difference exceeds tolerance: abs=2.188e+0, rel=86.922211%
+    TypeScript: 1.7275813356984977
+    Difference: 7.900e-1
+    Numeric difference exceeds tolerance: abs=7.900e-1, rel=31.379412%
 
   root.results[6].prediction_error:
     Type: value
     Python:     0.4564501372035039
-    TypeScript: 0.6600942362020419
-    Difference: 2.036e-1
-    Numeric difference exceeds tolerance: abs=2.036e-1, rel=30.850762%
+    TypeScript: 0.2301524671483861
+    Difference: 2.263e-1
+    Numeric difference exceeds tolerance: abs=2.263e-1, rel=49.577742%
 
   root.results[6].preprocessing.timestamp:
     Type: value
@@ -980,37 +814,23 @@ Found 192 difference(s):
   root.results[6].quality_score:
     Type: value
     Python:     0.7612391154514953
-    TypeScript: 0.6600491717336802
-    Difference: 1.012e-1
-    Numeric difference exceeds tolerance: abs=1.012e-1, rel=13.292794%
+    TypeScript: 0.816385406237894
+    Difference: 5.515e-2
+    Numeric difference exceeds tolerance: abs=5.515e-2, rel=6.754933%
 
   root.results[6].quality_components.kalman_fit:
     Type: value
     Python:     0.9890323074969029
-    TypeScript: 0.9407422429729183
-    Difference: 4.829e-2
-    Numeric difference exceeds tolerance: abs=4.829e-2, rel=4.882557%
+    TypeScript: 0.9930819659001825
+    Difference: 4.050e-3
+    Numeric difference exceeds tolerance: abs=4.050e-3, rel=0.407787%
 
   root.results[6].quality_components.temporal_consistency:
     Type: value
     Python:     0.7131278587506958
-    TypeScript: 0.5359043116682439
-    Difference: 1.772e-1
-    Numeric difference exceeds tolerance: abs=1.772e-1, rel=24.851581%
-
-  root.results[6].quality_components.anomaly_detection:
-    Type: value
-    Python:     0.5324767979862408
-    TypeScript: 0.4827617362875701
-    Difference: 4.972e-2
-    Numeric difference exceeds tolerance: abs=4.972e-2, rel=9.336569%
-
-  root.results[6].quality_components.trend_alignment:
-    Type: value
-    Python:     0.9915360228629635
-    TypeScript: 0.9388261130901062
-    Difference: 5.271e-2
-    Numeric difference exceeds tolerance: abs=5.271e-2, rel=5.315985%
+    TypeScript: 0.8992936932315927
+    Difference: 1.862e-1
+    Numeric difference exceeds tolerance: abs=1.862e-1, rel=20.701339%
 
   root.results[7].timestamp:
     Type: type
@@ -1021,72 +841,72 @@ Found 192 difference(s):
   root.results[7].filtered_weight:
     Type: value
     Python:     69.90938341577476
-    TypeScript: 69.6885038774724
-    Difference: 2.209e-1
-    Numeric difference exceeds tolerance: abs=2.209e-1, rel=0.315951%
+    TypeScript: 70.09338879035677
+    Difference: 1.840e-1
+    Numeric difference exceeds tolerance: abs=1.840e-1, rel=0.262515%
 
   root.results[7].trend:
     Type: value
     Python:     0.000316812908999397
-    TypeScript: 0.00015952633385148617
-    Difference: 1.573e-4
-    Numeric difference exceeds tolerance: abs=1.573e-4, rel=49.646517%
+    TypeScript: 0.0006643992068045659
+    Difference: 3.476e-4
+    Numeric difference exceeds tolerance: abs=3.476e-4, rel=52.315881%
 
   root.results[7].trend_weekly:
     Type: value
     Python:     0.002217690362995779
-    TypeScript: 0.0011166843369604033
-    Difference: 1.101e-3
-    Numeric difference exceeds tolerance: abs=1.101e-3, rel=49.646517%
+    TypeScript: 0.004650794447631961
+    Difference: 2.433e-3
+    Numeric difference exceeds tolerance: abs=2.433e-3, rel=52.315881%
 
   root.results[7].confidence:
     Type: value
     Python:     0.9985888523573752
-    TypeScript: 0.984225693995948
-    Difference: 1.436e-2
-    Numeric difference exceeds tolerance: abs=1.436e-2, rel=1.438346%
+    TypeScript: 0.999996749326322
+    Difference: 1.408e-3
+    Numeric difference exceeds tolerance: abs=1.408e-3, rel=0.140790%
 
   root.results[7].innovation:
     Type: value
     Python:     0.1906165842252392
-    TypeScript: 0.4114961225275948
-    Difference: 2.209e-1
-    Numeric difference exceeds tolerance: abs=2.209e-1, rel=53.677186%
+    TypeScript: 0.0066112096432249245
+    Difference: 1.840e-1
+    Numeric difference exceeds tolerance: abs=1.840e-1, rel=96.531671%
 
   root.results[7].normalized_innovation:
     Type: value
     Python:     0.053144035397069814
-    TypeScript: 0.17832579405527502
-    Difference: 1.252e-1
-    Numeric difference exceeds tolerance: abs=1.252e-1, rel=70.198346%
+    TypeScript: 0.002549776053502904
+    Difference: 5.059e-2
+    Numeric difference exceeds tolerance: abs=5.059e-2, rel=95.202141%
 
   root.results[7].kalman_confidence_upper:
     Type: value
     Python:     72.79944821519184
-    TypeScript: 70.82832543901604
-    Difference: 1.971e+0
-    Numeric difference exceeds tolerance: abs=1.971e+0, rel=2.707607%
+    TypeScript: 72.71858782952235
+    Difference: 8.086e-2
+    Numeric difference exceeds tolerance: abs=8.086e-2, rel=0.111073%
 
   root.results[7].kalman_confidence_lower:
     Type: value
     Python:     67.01931861635767
-    TypeScript: 68.54868231592876
-    Difference: 1.529e+0
-    Numeric difference exceeds tolerance: abs=1.529e+0, rel=2.231062%
+    TypeScript: 67.46818975119119
+    Difference: 4.489e-1
+    Numeric difference exceeds tolerance: abs=4.489e-1, rel=0.665308%
 
   root.results[7].kalman_variance:
     Type: value
     Python:     2.0881186362074304
-    TypeScript: 0.3247982980399501
-    Difference: 1.763e+0
-    Numeric difference exceeds tolerance: abs=1.763e+0, rel=84.445410%
+    TypeScript: 1.7229174988089617
+    Difference: 3.652e-1
+    Numeric difference exceeds tolerance: abs=3.652e-1, rel=17.489482%
 
   root.results[7].prediction_error:
     Type: value
     Python:     0.1906165842252392
-    TypeScript: 0.4114961225275948
-    Difference: 2.209e-1
-    Numeric difference exceeds tolerance: abs=2.209e-1, rel=53.677186%
+    TypeScript: 0.0066112096432249245
+    Difference: 1.840e-1
+    Numeric difference exceeds tolerance: abs=1.840e-1, rel=96.531671%
 
   root.results[7].preprocessing.timestamp:
     Type: value
@@ -1097,37 +917,23 @@ Found 192 difference(s):
   root.results[7].quality_score:
     Type: value
     Python:     0.7773749829236973
-    TypeScript: 0.8057882214618054
-    Difference: 2.841e-2
-    Numeric difference exceeds tolerance: abs=2.841e-2, rel=3.526142%
+    TypeScript: 0.7927475133667357
+    Difference: 1.537e-2
+    Numeric difference exceeds tolerance: abs=1.537e-2, rel=1.939146%
 
   root.results[7].quality_components.kalman_fit:
     Type: value
     Python:     0.9953430273240147
-    TypeScript: 0.9626529202861055
-    Difference: 3.269e-2
-    Numeric difference exceeds tolerance: abs=3.269e-2, rel=3.284306%
+    TypeScript: 0.9998008795705958
+    Difference: 4.458e-3
+    Numeric difference exceeds tolerance: abs=4.458e-3, rel=0.445874%
 
   root.results[7].quality_components.temporal_consistency:
     Type: value
     Python:     0.9249027060807666
-    TypeScript: 0.8832685575142813
-    Difference: 4.163e-2
-    Numeric difference exceeds tolerance: abs=4.163e-2, rel=4.501463%
-
-  root.results[7].quality_components.anomaly_detection:
-    Type: value
-    Python:     0.44872947451330913
-    TypeScript: 0.5363931609733014
-    Difference: 8.766e-2
-    Numeric difference exceeds tolerance: abs=8.766e-2, rel=16.343178%
-
-  root.results[7].quality_components.trend_alignment:
-    Type: value
-    Python:     0.9625066673625294
-    TypeScript: 0.9902148558062565
-    Difference: 2.771e-2
-    Numeric difference exceeds tolerance: abs=2.771e-2, rel=2.798200%
+    TypeScript: 0.9959977878108687
+    Difference: 7.110e-2
+    Numeric difference exceeds tolerance: abs=7.110e-2, rel=7.138076%
 
   root.results[8].timestamp:
     Type: type
@@ -1138,72 +944,72 @@ Found 192 difference(s):
   root.results[8].filtered_weight:
     Type: value
     Python:     69.96010854415746
-    TypeScript: 69.71942404571614
-    Difference: 2.407e-1
-    Numeric difference exceeds tolerance: abs=2.407e-1, rel=0.344031%
+    TypeScript: 70.11980241024361
+    Difference: 1.597e-1
+    Numeric difference exceeds tolerance: abs=1.597e-1, rel=0.227744%
 
   root.results[8].trend:
     Type: value
     Python:     0.00042842827197489227
-    TypeScript: 0.00023168310981248007
-    Difference: 1.967e-4
-    Numeric difference exceeds tolerance: abs=1.967e-4, rel=45.922544%
+    TypeScript: 0.0007577391197213973
+    Difference: 3.293e-4
+    Numeric difference exceeds tolerance: abs=3.293e-4, rel=43.459660%
 
   root.results[8].trend_weekly:
     Type: value
     Python:     0.002998997903824246
-    TypeScript: 0.0016217817686873604
-    Difference: 1.377e-3
-    Numeric difference exceeds tolerance: abs=1.377e-3, rel=45.922544%
+    TypeScript: 0.005304173838049781
+    Difference: 2.305e-3
+    Numeric difference exceeds tolerance: abs=2.305e-3, rel=43.459660%
 
   root.results[8].confidence:
     Type: value
     Python:     0.9979238101769797
-    TypeScript: 0.981103449688045
-    Difference: 1.682e-2
-    Numeric difference exceeds tolerance: abs=1.682e-2, rel=1.685536%
+    TypeScript: 0.9998125613493881
+    Difference: 1.889e-3
+    Numeric difference exceeds tolerance: abs=1.889e-3, rel=0.188911%
 
   root.results[8].innovation:
     Type: value
     Python:     0.20989145584253777
-    TypeScript: 0.4505759542838632
-    Difference: 2.407e-1
-    Numeric difference exceeds tolerance: abs=2.407e-1, rel=53.417076%
+    TypeScript: 0.05019758975639377
+    Difference: 1.597e-1
+    Numeric difference exceeds tolerance: abs=1.597e-1, rel=76.084024%
 
   root.results[8].normalized_innovation:
     Type: value
     Python:     0.06447244516763724
-    TypeScript: 0.19533239196724672
-    Difference: 1.309e-1
-    Numeric difference exceeds tolerance: abs=1.309e-1, rel=66.993470%
+    TypeScript: 0.01936265578019663
+    Difference: 4.511e-2
+    Numeric difference exceeds tolerance: abs=4.511e-2, rel=69.967549%
 
   root.results[8].kalman_confidence_upper:
     Type: value
     Python:     72.58766507247513
-    TypeScript: 70.85243643242548
-    Difference: 1.735e+0
-    Numeric difference exceeds tolerance: abs=1.735e+0, rel=2.390528%
+    TypeScript: 72.74356361573297
+    Difference: 1.559e-1
+    Numeric difference exceeds tolerance: abs=1.559e-1, rel=0.214312%
 
   root.results[8].kalman_confidence_lower:
     Type: value
     Python:     67.3325520158398
-    TypeScript: 68.5864116590068
-    Difference: 1.254e+0
-    Numeric difference exceeds tolerance: abs=1.254e+0, rel=1.828146%
+    TypeScript: 67.49604120475425
+    Difference: 1.635e-1
+    Numeric difference exceeds tolerance: abs=1.635e-1, rel=0.242220%
 
   root.results[8].kalman_variance:
     Type: value
     Python:     1.7260133273761955
-    TypeScript: 0.32092926710920067
-    Difference: 1.405e+0
-    Numeric difference exceeds tolerance: abs=1.405e+0, rel=81.406327%
+    TypeScript: 1.7210307158577463
+    Difference: 4.983e-3
+    Numeric difference exceeds tolerance: abs=4.983e-3, rel=0.288677%
 
   root.results[8].prediction_error:
     Type: value
     Python:     0.20989145584253777
-    TypeScript: 0.4505759542838632
-    Difference: 2.407e-1
-    Numeric difference exceeds tolerance: abs=2.407e-1, rel=53.417076%
+    TypeScript: 0.05019758975639377
+    Difference: 1.597e-1
+    Numeric difference exceeds tolerance: abs=1.597e-1, rel=76.084024%
 
   root.results[8].preprocessing.timestamp:
     Type: value
@@ -1214,37 +1020,23 @@ Found 192 difference(s):
   root.results[8].quality_score:
     Type: value
     Python:     0.7743640699347982
-    TypeScript: 0.759584794650416
-    Difference: 1.478e-2
-    Numeric difference exceeds tolerance: abs=1.478e-2, rel=1.908569%
+    TypeScript: 0.7860241689480075
+    Difference: 1.166e-2
+    Numeric difference exceeds tolerance: abs=1.166e-2, rel=1.483428%
 
   root.results[8].quality_components.kalman_fit:
     Type: value
     Python:     0.9948569776966091
-    TypeScript: 0.9591959496249064
-    Difference: 3.566e-2
-    Numeric difference exceeds tolerance: abs=3.566e-2, rel=3.584538%
+    TypeScript: 0.9984899469579456
+    Difference: 3.633e-3
+    Numeric difference exceeds tolerance: abs=3.633e-3, rel=0.363846%
 
   root.results[8].quality_components.temporal_consistency:
     Type: value
     Python:     0.9190351298797528
-    TypeScript: 0.8766797838916072
-    Difference: 4.236e-2
-    Numeric difference exceeds tolerance: abs=4.236e-2, rel=4.608675%
-
-  root.results[8].quality_components.anomaly_detection:
-    Type: value
-    Python:     0.44534773507219133
-    TypeScript: 0.450046862306353
-    Difference: 4.699e-3
-    Numeric difference exceeds tolerance: abs=4.699e-3, rel=1.044142%
-
-  root.results[8].quality_components.trend_alignment:
-    Type: value
-    Python:     0.9747005337838514
-    TypeScript: 0.9921736438053014
-    Difference: 1.747e-2
-    Numeric difference exceeds tolerance: abs=1.747e-2, rel=1.761094%
+    TypeScript: 0.971705566704649
+    Difference: 5.267e-2
+    Numeric difference exceeds tolerance: abs=5.267e-2, rel=5.420411%
 
   root.results[9].timestamp:
     Type: type
@@ -1255,72 +1047,72 @@ Found 192 difference(s):
   root.results[9].filtered_weight:
     Type: value
     Python:     69.97334581855951
-    TypeScript: 69.73917108713276
-    Difference: 2.342e-1
-    Numeric difference exceeds tolerance: abs=2.342e-1, rel=0.334663%
+    TypeScript: 70.08895398891374
+    Difference: 1.156e-1
+    Numeric difference exceeds tolerance: abs=1.156e-1, rel=0.164945%
 
   root.results[9].trend:
     Type: value
     Python:     0.0004667853739103754
-    TypeScript: 0.0002859686575619165
-    Difference: 1.808e-4
-    Numeric difference exceeds tolerance: abs=1.808e-4, rel=38.736586%
+    TypeScript: 0.0006281076661637135
+    Difference: 1.613e-4
+    Numeric difference exceeds tolerance: abs=1.613e-4, rel=25.683860%
 
   root.results[9].trend_weekly:
     Type: value
     Python:     0.003267497617372628
-    TypeScript: 0.0020017806029334153
-    Difference: 1.266e-3
-    Numeric difference exceeds tolerance: abs=1.266e-3, rel=38.736586%
+    TypeScript: 0.0043967536631459945
+    Difference: 1.129e-3
+    Numeric difference exceeds tolerance: abs=1.129e-3, rel=25.683860%
 
   root.results[9].confidence:
     Type: value
     Python:     0.9998223034455657
-    TypeScript: 0.9920785101094451
-    Difference: 7.744e-3
-    Numeric difference exceeds tolerance: abs=7.744e-3, rel=0.774517%
+    TypeScript: 0.9997414473210958
+    Difference: 8.086e-5
+    Numeric difference exceeds tolerance: abs=8.086e-5, rel=0.008087%
 
   root.results[9].innovation:
     Type: value
     Python:     0.056654181440492835
-    TypeScript: 0.2908289128672408
-    Difference: 2.342e-1
-    Numeric difference exceeds tolerance: abs=2.342e-1, rel=80.519756%
+    TypeScript: -0.058953988913742705
+    Difference: 1.156e-1
+    Numeric difference exceeds tolerance: abs=1.156e-1, rel=196.098979%
 
   root.results[9].normalized_innovation:
     Type: value
     Python:     0.01885271038008296
-    TypeScript: 0.12611924177886155
-    Difference: 1.073e-1
-    Numeric difference exceeds tolerance: abs=1.073e-1, rel=85.051678%
+    TypeScript: 0.022741420774023528
+    Difference: 3.889e-3
+    Numeric difference exceeds tolerance: abs=3.889e-3, rel=17.099681%
 
   root.results[9].kalman_confidence_upper:
     Type: value
     Python:     72.36904276828402
-    TypeScript: 70.86622160503806
-    Difference: 1.503e+0
-    Numeric difference exceeds tolerance: abs=1.503e+0, rel=2.076608%
+    TypeScript: 72.71218813188251
+    Difference: 3.431e-1
+    Numeric difference exceeds tolerance: abs=3.431e-1, rel=0.471923%
 
   root.results[9].kalman_confidence_lower:
     Type: value
     Python:     67.577648868835
-    TypeScript: 68.61212056922746
-    Difference: 1.034e+0
-    Numeric difference exceeds tolerance: abs=1.034e+0, rel=1.507710%
+    TypeScript: 67.46571984594497
+    Difference: 1.119e-1
+    Numeric difference exceeds tolerance: abs=1.119e-1, rel=0.165630%
 
   root.results[9].kalman_variance:
     Type: value
     Python:     1.4348409687298243
-    TypeScript: 0.3175607174776533
-    Difference: 1.117e+0
-    Numeric difference exceeds tolerance: abs=1.117e+0, rel=77.867881%
+    TypeScript: 1.7203393422092734
+    Difference: 2.855e-1
+    Numeric difference exceeds tolerance: abs=2.855e-1, rel=16.595468%
 
   root.results[9].prediction_error:
     Type: value
     Python:     0.056654181440492835
-    TypeScript: 0.2908289128672408
-    Difference: 2.342e-1
-    Numeric difference exceeds tolerance: abs=2.342e-1, rel=80.519756%
+    TypeScript: -0.058953988913742705
+    Difference: 1.156e-1
+    Numeric difference exceeds tolerance: abs=1.156e-1, rel=196.098979%
 
   root.results[9].preprocessing.timestamp:
     Type: value
@@ -1331,37 +1123,23 @@ Found 192 difference(s):
   root.results[9].quality_score:
     Type: value
     Python:     0.782962178012945
-    TypeScript: 0.7685288239225214
-    Difference: 1.443e-2
-    Numeric difference exceeds tolerance: abs=1.443e-2, rel=1.843429%
+    TypeScript: 0.7815486827473337
+    Difference: 1.413e-3
+    Numeric difference exceeds tolerance: abs=1.413e-3, rel=0.180532%
 
   root.results[9].quality_components.kalman_fit:
     Type: value
     Python:     0.9986162613355426
-    TypeScript: 0.9734779172854322
-    Difference: 2.514e-2
-    Numeric difference exceeds tolerance: abs=2.514e-2, rel=2.517318%
+    TypeScript: 0.9982271286418527
+    Difference: 3.891e-4
+    Numeric difference exceeds tolerance: abs=3.891e-4, rel=0.038967%
 
   root.results[9].quality_components.temporal_consistency:
     Type: value
     Python:     0.9740183066335732
-    TypeScript: 0.9077644069412598
-    Difference: 6.625e-2
-    Numeric difference exceeds tolerance: abs=6.625e-2, rel=6.802121%
-
-  root.results[9].quality_components.anomaly_detection:
-    Type: value
-    Python:     0.4406212906963603
-    TypeScript: 0.4487909869929939
-    Difference: 8.170e-3
-    Numeric difference exceeds tolerance: abs=8.170e-3, rel=1.820379%
-
-  root.results[9].quality_components.trend_alignment:
-    Type: value
-    Python:     0.9571267564259217
-    TypeScript: 0.9677631928271441
-    Difference: 1.064e-2
-    Numeric difference exceeds tolerance: abs=1.064e-2, rel=1.099074%
+    TypeScript: 0.9672545572606939
+    Difference: 6.764e-3
+    Numeric difference exceeds tolerance: abs=6.764e-3, rel=0.694417%
 
   root.finalState.adaptation_state:
     Type: extra
@@ -1375,39 +1153,25 @@ Found 192 difference(s):
     TypeScript: 1
     Extra key in TypeScript output
 
-  root.finalState.kalman_params.initial_state_covariance[0][0]:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.finalState.kalman_params.transition_covariance[0][0]:
     Type: value
     Python:     0.04209952319851201
-    TypeScript: 0.018
-    Difference: 2.410e-2
-    Numeric difference exceeds tolerance: abs=2.410e-2, rel=57.244171%
+    TypeScript: 0.8999999999999999
+    Difference: 8.579e-1
+    Numeric difference exceeds tolerance: abs=8.579e-1, rel=95.322275%
 
   root.finalState.kalman_params.transition_covariance[1][1]:
     Type: value
     Python:     0.0002806634879900801
-    TypeScript: 0.00012
-    Difference: 1.607e-4
-    Numeric difference exceeds tolerance: abs=1.607e-4, rel=57.244171%
-
-  root.finalState.kalman_params.observation_covariance[0][0]:
-    Type: value
-    Python:     100
-    TypeScript: 5
-    Difference: 9.500e+1
-    Numeric difference exceeds tolerance: abs=9.500e+1, rel=95.000000%
+    TypeScript: 0.006
+    Difference: 5.719e-3
+    Numeric difference exceeds tolerance: abs=5.719e-3, rel=95.322275%
 
   root.finalState.last_state[0][0]:
     Type: type
     Python:     69.96010854415746
     TypeScript: [
-  69.71942404571614
+  70.11980241024361
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -1415,7 +1179,7 @@ Found 192 difference(s):
     Type: type
     Python:     0.00042842827197489227
     TypeScript: [
-  0.00023168310981248007
+  0.0007577391197213973
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -1423,7 +1187,7 @@ Found 192 difference(s):
     Type: type
     Python:     69.97334581855951
     TypeScript: [
-  69.73917108713276
+  70.08895398891374
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -1431,72 +1195,65 @@ Found 192 difference(s):
     Type: type
     Python:     0.0004667853739103754
     TypeScript: [
-  0.0002859686575619165
+  0.0006281076661637135
 ]
     Type mismatch: Python number, TypeScript object
 
   root.finalState.last_covariance[0][0][0]:
     Type: value
     Python:     1.7260133273761955
-    TypeScript: 0.32092926710920067
-    Difference: 1.405e+0
-    Numeric difference exceeds tolerance: abs=1.405e+0, rel=81.406327%
+    TypeScript: 1.7210307158577463
+    Difference: 4.983e-3
+    Numeric difference exceeds tolerance: abs=4.983e-3, rel=0.288677%
 
   root.finalState.last_covariance[0][0][1]:
     Type: value
     Python:     0.003800286133368291
-    TypeScript: 0.0007493224069523752
-    Difference: 3.051e-3
-    Numeric difference exceeds tolerance: abs=3.051e-3, rel=80.282474%
+    TypeScript: 0.006097079738770134
+    Difference: 2.297e-3
+    Numeric difference exceeds tolerance: abs=2.297e-3, rel=37.670388%
 
   root.finalState.last_covariance[0][1][0]:
     Type: value
     Python:     0.0038002861333682903
-    TypeScript: 0.0007493224069523752
-    Difference: 3.051e-3
-    Numeric difference exceeds tolerance: abs=3.051e-3, rel=80.282474%
+    TypeScript: 0.006097079738770133
+    Difference: 2.297e-3
+    Numeric difference exceeds tolerance: abs=2.297e-3, rel=37.670388%
 
   root.finalState.last_covariance[0][1][1]:
     Type: value
     Python:     0.01342336863742711
-    TypeScript: 0.0018396767095361507
-    Difference: 1.158e-2
-    Numeric difference exceeds tolerance: abs=1.158e-2, rel=86.294970%
+    TypeScript: 0.04897210549826418
+    Difference: 3.555e-2
+    Numeric difference exceeds tolerance: abs=3.555e-2, rel=72.589766%
 
   root.finalState.last_covariance[1][0][0]:
     Type: value
     Python:     1.4348409687298243
-    TypeScript: 0.3175607174776533
-    Difference: 1.117e+0
-    Numeric difference exceeds tolerance: abs=1.117e+0, rel=77.867881%
+    TypeScript: 1.7203393422092734
+    Difference: 2.855e-1
+    Numeric difference exceeds tolerance: abs=2.855e-1, rel=16.595468%
 
   root.finalState.last_covariance[1][0][1]:
     Type: value
     Python:     0.004171179409022243
-    TypeScript: 0.00087401482455507
-    Difference: 3.297e-3
-    Numeric difference exceeds tolerance: abs=3.297e-3, rel=79.046338%
+    TypeScript: 0.007211508263968155
+    Difference: 3.040e-3
+    Numeric difference exceeds tolerance: abs=3.040e-3, rel=42.159403%
 
   root.finalState.last_covariance[1][1][0]:
     Type: value
     Python:     0.004171179409022243
-    TypeScript: 0.00087401482455507
-    Difference: 3.297e-3
-    Numeric difference exceeds tolerance: abs=3.297e-3, rel=79.046338%
+    TypeScript: 0.007211508263968154
+    Difference: 3.040e-3
+    Numeric difference exceeds tolerance: abs=3.040e-3, rel=42.159403%
 
   root.finalState.last_covariance[1][1][1]:
     Type: value
     Python:     0.013701208073428174
-    TypeScript: 0.0019595135676634106
-    Difference: 1.174e-2
-    Numeric difference exceeds tolerance: abs=1.174e-2, rel=85.698242%
-
-  root.finalState.measurements_since_reset:
-    Type: value
-    Python:     10
-    TypeScript: 9
-    Difference: 1.000e+0
-    Numeric difference exceeds tolerance: abs=1.000e+0, rel=10.000000%
+    TypeScript: 0.054956248415209644
+    Difference: 4.126e-2
+    Numeric difference exceeds tolerance: abs=4.126e-2, rel=75.068880%
 
   root.finalState.reset_parameters.quality_acceptance_threshold:
     Type: missing
@@ -1563,19 +1320,121 @@ Found 192 difference(s):
     TypeScript: 2025-11-10T10:37:30.310Z
     Type mismatch: Python number, TypeScript string
 
-  root.finalState.measurement_history:
-    Type: missing
-    Python:     [
-  {
-    "weight": 69.56,
-    "timestamp": "2025-11-10T11:24:32.710000",
-    "quality_score": 0.975
-    TypeScript: [
-  {
-    "weight": 69.56,
-    "timestamp": "2025-11-10T10:24:32.710Z",
-    "quality_score": 0.97560
-    Array length mismatch: Python 10, TypeScript 9
+  root.finalState.measurement_history[0].timestamp:
+    Type: value
+    Python:     2025-11-10T11:24:32.710000
+    TypeScript: 2025-11-10T10:24:32.710Z
+    Value mismatch: 2025-11-10T11:24:32.710000 !== 2025-11-10T10:24:32.710Z
+
+  root.finalState.measurement_history[1].timestamp:
+    Type: value
+    Python:     2025-11-10T11:25:59.110000
+    TypeScript: 2025-11-10T10:25:59.110Z
+    Value mismatch: 2025-11-10T11:25:59.110000 !== 2025-11-10T10:25:59.110Z
+
+  root.finalState.measurement_history[2].timestamp:
+    Type: value
+    Python:     2025-11-10T11:27:25.510000
+    TypeScript: 2025-11-10T10:27:25.510Z
+    Value mismatch: 2025-11-10T11:27:25.510000 !== 2025-11-10T10:27:25.510Z
+
+  root.finalState.measurement_history[2].quality_score:
+    Type: value
+    Python:     0.8901620889765289
+    TypeScript: 0.9199841300071664
+    Difference: 2.982e-2
+    Numeric difference exceeds tolerance: abs=2.982e-2, rel=3.241582%
+
+  root.finalState.measurement_history[3].timestamp:
+    Type: value
+    Python:     2025-11-10T11:28:51.910000
+    TypeScript: 2025-11-10T10:28:51.910Z
+    Value mismatch: 2025-11-10T11:28:51.910000 !== 2025-11-10T10:28:51.910Z
+
+  root.finalState.measurement_history[3].quality_score:
+    Type: value
+    Python:     0.8935392243805096
+    TypeScript: 0.9071352730793679
+    Difference: 1.360e-2
+    Numeric difference exceeds tolerance: abs=1.360e-2, rel=1.498790%
+
+  root.finalState.measurement_history[4].timestamp:
+    Type: value
+    Python:     2025-11-10T11:30:18.310000
+    TypeScript: 2025-11-10T10:30:18.310Z
+    Value mismatch: 2025-11-10T11:30:18.310000 !== 2025-11-10T10:30:18.310Z
+
+  root.finalState.measurement_history[4].quality_score:
+    Type: value
+    Python:     0.909561513787953
+    TypeScript: 0.8946202982577565
+    Difference: 1.494e-2
+    Numeric difference exceeds tolerance: abs=1.494e-2, rel=1.642683%
+
+  root.finalState.measurement_history[5].timestamp:
+    Type: value
+    Python:     2025-11-10T11:31:44.710000
+    TypeScript: 2025-11-10T10:31:44.710Z
+    Value mismatch: 2025-11-10T11:31:44.710000 !== 2025-11-10T10:31:44.710Z
+
+  root.finalState.measurement_history[5].quality_score:
+    Type: value
+    Python:     0.4661584533390423
+    TypeScript: 0.49399895241721303
+    Difference: 2.784e-2
+    Numeric difference exceeds tolerance: abs=2.784e-2, rel=5.635741%
+
+  root.finalState.measurement_history[6].timestamp:
+    Type: value
+    Python:     2025-11-10T11:33:11.110000
+    TypeScript: 2025-11-10T10:33:11.110Z
+    Value mismatch: 2025-11-10T11:33:11.110000 !== 2025-11-10T10:33:11.110Z
+
+  root.finalState.measurement_history[6].quality_score:
+    Type: value
+    Python:     0.7612391154514953
+    TypeScript: 0.816385406237894
+    Difference: 5.515e-2
+    Numeric difference exceeds tolerance: abs=5.515e-2, rel=6.754933%
+
+  root.finalState.measurement_history[7].timestamp:
+    Type: value
+    Python:     2025-11-10T11:34:37.510000
+    TypeScript: 2025-11-10T10:34:37.510Z
+    Value mismatch: 2025-11-10T11:34:37.510000 !== 2025-11-10T10:34:37.510Z
+
+  root.finalState.measurement_history[7].quality_score:
+    Type: value
+    Python:     0.7773749829236973
+    TypeScript: 0.7927475133667357
+    Difference: 1.537e-2
+    Numeric difference exceeds tolerance: abs=1.537e-2, rel=1.939146%
+
+  root.finalState.measurement_history[8].timestamp:
+    Type: value
+    Python:     2025-11-10T11:36:03.910000
+    TypeScript: 2025-11-10T10:36:03.910Z
+    Value mismatch: 2025-11-10T11:36:03.910000 !== 2025-11-10T10:36:03.910Z
+
+  root.finalState.measurement_history[8].quality_score:
+    Type: value
+    Python:     0.7743640699347982
+    TypeScript: 0.7860241689480075
+    Difference: 1.166e-2
+    Numeric difference exceeds tolerance: abs=1.166e-2, rel=1.483428%
+
+  root.finalState.measurement_history[9].timestamp:
+    Type: value
+    Python:     2025-11-10T11:37:30.310000
+    TypeScript: 2025-11-10T10:37:30.310Z
+    Value mismatch: 2025-11-10T11:37:30.310000 !== 2025-11-10T10:37:30.310Z
+
+  root.finalState.measurement_history[9].quality_score:
+    Type: value
+    Python:     0.782962178012945
+    TypeScript: 0.7815486827473337
+    Difference: 1.413e-3
+    Numeric difference exceeds tolerance: abs=1.413e-3, rel=0.180532%
 
   root.finalState.temporal_baseline.last_timestamp:
     Type: value
@@ -1583,47 +1442,16 @@ Found 192 difference(s):
     TypeScript: 2025-11-10T10:37:30.310Z
     Value mismatch: 2025-11-10T11:37:30.310000 !== 2025-11-10T10:37:30.310Z
 
-  root.finalState.temporal_baseline.rolling_avg_change_rate:
-    Type: value
-    Python:     2.0115946270000307
-    TypeScript: 2.217216610000003
-    Difference: 2.056e-1
-    Numeric difference exceeds tolerance: abs=2.056e-1, rel=9.273879%
-
 ```
 
 ### Test 3: Reset Scenario
 **Description**: Process measurements with a large change that triggers reset
 
-**Comparison**: ✗ Found 189 difference(s): 145 numeric, 44 structural
+**Comparison**: ✗ Found 176 difference(s): 136 numeric, 40 structural
 
 **Differences**:
 ```
-Found 189 difference(s):
-
-  root.results[0].was_reset:
-    Type: missing
-    Python:     true
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_reason:
-    Type: missing
-    Python:     initial_measurement
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_type:
-    Type: missing
-    Python:     initial
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].gap_days:
-    Type: missing
-    Python:     null
-    TypeScript: undefined
-    Key missing in TypeScript output
+Found 176 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -1631,32 +1459,23 @@ Found 189 difference(s):
     TypeScript: 2025-11-10T10:24:32.710Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[0].kalman_confidence_upper:
-    Type: value
-    Python:     73.69737903624514
-    TypeScript: 71.08827048089722
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.540300%
-
-  root.results[0].kalman_confidence_lower:
-    Type: value
-    Python:     66.06586542490956
-    TypeScript: 68.67497398025748
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.799213%
-
-  root.results[0].kalman_variance:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.results[0].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:24:32.710000
     TypeScript: 2025-11-10T10:24:32.710Z
     Value mismatch: 2025-11-10T11:24:32.710000 !== 2025-11-10T10:24:32.710Z
+
+  root.results[0].reset_reason:
+    Type: value
+    Python:     initial_measurement
+    TypeScript: initial reset triggered
+    Value mismatch: initial_measurement !== initial reset triggered
+
+  root.results[0].gap_days:
+    Type: value
+    Python:     null
+    TypeScript: 0
+    Python value is null, TypeScript value is 0
 
   root.results[0].reset_event.gap_days:
     Type: missing
@@ -1679,92 +1498,78 @@ Found 189 difference(s):
   root.results[1].filtered_weight:
     Type: value
     Python:     69.88855472219821
-    TypeScript: 69.89006749325993
-    Difference: 1.513e-3
-    Numeric difference exceeds tolerance: abs=1.513e-3, rel=0.002165%
+    TypeScript: 69.93824497440752
+    Difference: 4.969e-2
+    Numeric difference exceeds tolerance: abs=4.969e-2, rel=0.071049%
 
   root.results[1].trend:
     Type: value
     Python:     1.6314692073911941e-7
-    TypeScript: 0.0000022107438764924537
-    Difference: 2.048e-6
-    Numeric difference exceeds tolerance: abs=2.048e-6, rel=92.620270%
+    TypeScript: 0.0000012471942535407356
+    Difference: 1.084e-6
+    Numeric difference exceeds tolerance: abs=1.084e-6, rel=86.918885%
 
   root.results[1].trend_weekly:
     Type: value
     Python:     0.000001142028445173836
-    TypeScript: 0.000015475207135447175
-    Difference: 1.433e-5
-    Numeric difference exceeds tolerance: abs=1.433e-5, rel=92.620270%
+    TypeScript: 0.000008730359774785148
+    Difference: 7.588e-6
+    Numeric difference exceeds tolerance: abs=7.588e-6, rel=86.918885%
 
   root.results[1].confidence:
     Type: value
     Python:     0.9999136330673903
-    TypeScript: 0.9988597812498967
-    Difference: 1.054e-3
-    Numeric difference exceeds tolerance: abs=1.054e-3, rel=0.105394%
+    TypeScript: 0.9997365509991943
+    Difference: 1.771e-4
+    Numeric difference exceeds tolerance: abs=1.771e-4, rel=0.017710%
 
   root.results[1].innovation:
     Type: value
     Python:     0.11204996488635288
-    TypeScript: 0.11053719382462646
-    Difference: 1.513e-3
-    Numeric difference exceeds tolerance: abs=1.513e-3, rel=1.350086%
+    TypeScript: 0.06235971267703633
+    Difference: 4.969e-2
+    Numeric difference exceeds tolerance: abs=4.969e-2, rel=44.346513%
 
   root.results[1].normalized_innovation:
     Type: value
     Python:     0.013143109407436756
-    TypeScript: 0.047767547436678034
-    Difference: 3.462e-2
-    Numeric difference exceeds tolerance: abs=3.462e-2, rel=72.485275%
+    TypeScript: 0.022955770934116628
+    Difference: 9.813e-3
+    Numeric difference exceeds tolerance: abs=9.813e-3, rel=42.745946%
 
   root.results[1].kalman_confidence_upper:
     Type: value
     Python:     73.88938039656139
-    TypeScript: 71.0815292678035
-    Difference: 2.808e+0
-    Numeric difference exceeds tolerance: abs=2.808e+0, rel=3.800074%
+    TypeScript: 73.02334314044663
+    Difference: 8.660e-1
+    Numeric difference exceeds tolerance: abs=8.660e-1, rel=1.172073%
 
   root.results[1].kalman_confidence_lower:
     Type: value
     Python:     65.88772904783502
-    TypeScript: 68.69860571871637
-    Difference: 2.811e+0
-    Numeric difference exceeds tolerance: abs=2.811e+0, rel=4.091607%
+    TypeScript: 66.85314680836842
+    Difference: 9.654e-1
+    Numeric difference exceeds tolerance: abs=9.654e-1, rel=1.444087%
 
   root.results[1].kalman_variance:
     Type: value
     Python:     4.0016515191608955
-    TypeScript: 0.35489529004962833
-    Difference: 3.647e+0
-    Numeric difference exceeds tolerance: abs=3.647e+0, rel=91.131279%
+    TypeScript: 2.3794576735244517
+    Difference: 1.622e+0
+    Numeric difference exceeds tolerance: abs=1.622e+0, rel=40.538109%
 
   root.results[1].prediction_error:
     Type: value
     Python:     0.11204996488635288
-    TypeScript: 0.11053719382462646
-    Difference: 1.513e-3
-    Numeric difference exceeds tolerance: abs=1.513e-3, rel=1.350086%
+    TypeScript: 0.06235971267703633
+    Difference: 4.969e-2
+    Numeric difference exceeds tolerance: abs=4.969e-2, rel=44.346513%
 
   root.results[1].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:25:59.110000
     TypeScript: 2025-11-10T10:25:59.110Z
     Value mismatch: 2025-11-10T11:25:59.110000 !== 2025-11-10T10:25:59.110Z
-
-  root.results[1].quality_score:
-    Type: value
-    Python:     0.9483375916895864
-    TypeScript: 0.9454754935198453
-    Difference: 2.862e-3
-    Numeric difference exceeds tolerance: abs=2.862e-3, rel=0.301802%
-
-  root.results[1].quality_components.kalman_fit:
-    Type: value
-    Python:     0.9976753029370461
-    TypeScript: 0.9897949485862356
-    Difference: 7.880e-3
-    Numeric difference exceeds tolerance: abs=7.880e-3, rel=0.789872%
 
   root.results[2].timestamp:
     Type: type
@@ -1775,72 +1580,72 @@ Found 189 difference(s):
   root.results[2].filtered_weight:
     Type: value
     Python:     69.89917473309745
-    TypeScript: 69.89865950971816
-    Difference: 5.152e-4
-    Numeric difference exceeds tolerance: abs=5.152e-4, rel=0.000737%
+    TypeScript: 69.96819397178386
+    Difference: 6.902e-2
+    Numeric difference exceeds tolerance: abs=6.902e-2, rel=0.098644%
 
   root.results[2].trend:
     Type: value
     Python:     0.0000016068450810693616
-    TypeScript: 0.000006931465035199739
-    Difference: 5.325e-6
-    Numeric difference exceeds tolerance: abs=5.325e-6, rel=76.818103%
+    TypeScript: 0.000008118239022466214
+    Difference: 6.511e-6
+    Numeric difference exceeds tolerance: abs=6.511e-6, rel=80.206975%
 
   root.results[2].trend_weekly:
     Type: value
     Python:     0.000011247915567485531
-    TypeScript: 0.00004852025524639817
-    Difference: 3.727e-5
-    Numeric difference exceeds tolerance: abs=3.727e-5, rel=76.818103%
+    TypeScript: 0.000056827673157263496
+    Difference: 4.558e-5
+    Numeric difference exceeds tolerance: abs=4.558e-5, rel=80.206975%
 
   root.results[2].confidence:
     Type: value
     Python:     0.9998728876085181
-    TypeScript: 0.9987599141050354
-    Difference: 1.113e-3
-    Numeric difference exceeds tolerance: abs=1.113e-3, rel=0.111311%
+    TypeScript: 0.9998506771931183
+    Difference: 2.221e-5
+    Numeric difference exceeds tolerance: abs=2.221e-5, rel=0.002221%
 
   root.results[2].innovation:
     Type: value
     Python:     0.11467943721925167
-    TypeScript: 0.11519466059854722
-    Difference: 5.152e-4
-    Numeric difference exceeds tolerance: abs=5.152e-4, rel=0.447263%
+    TypeScript: 0.04566019853284331
+    Difference: 6.902e-2
+    Numeric difference exceeds tolerance: abs=6.902e-2, rel=60.184494%
 
   root.results[2].normalized_innovation:
     Type: value
     Python:     0.015944934678235004
-    TypeScript: 0.049816773033654185
-    Difference: 3.387e-2
-    Numeric difference exceeds tolerance: abs=3.387e-2, rel=67.992839%
+    TypeScript: 0.017282011262701166
+    Difference: 1.337e-3
+    Numeric difference exceeds tolerance: abs=1.337e-3, rel=7.736811%
 
   root.results[2].kalman_confidence_upper:
     Type: value
     Python:     73.91999060309242
-    TypeScript: 71.07686324711212
-    Difference: 2.843e+0
-    Numeric difference exceeds tolerance: abs=2.843e+0, rel=3.846223%
+    TypeScript: 72.7828043578723
+    Difference: 1.137e+0
+    Numeric difference exceeds tolerance: abs=1.137e+0, rel=1.538402%
 
   root.results[2].kalman_confidence_lower:
     Type: value
     Python:     65.87835886310249
-    TypeScript: 68.7204557723242
-    Difference: 2.842e+0
-    Numeric difference exceeds tolerance: abs=2.842e+0, rel=4.135736%
+    TypeScript: 67.15358358569543
+    Difference: 1.275e+0
+    Numeric difference exceeds tolerance: abs=1.275e+0, rel=1.898967%
 
   root.results[2].kalman_variance:
     Type: value
     Python:     4.041740065100835
-    TypeScript: 0.34704101170227364
-    Difference: 3.695e+0
-    Numeric difference exceeds tolerance: abs=3.695e+0, rel=91.413574%
+    TypeScript: 1.9805079063692226
+    Difference: 2.061e+0
+    Numeric difference exceeds tolerance: abs=2.061e+0, rel=50.998632%
 
   root.results[2].prediction_error:
     Type: value
     Python:     0.11467943721925167
-    TypeScript: 0.11519466059854722
-    Difference: 5.152e-4
-    Numeric difference exceeds tolerance: abs=5.152e-4, rel=0.447263%
+    TypeScript: 0.04566019853284331
+    Difference: 6.902e-2
+    Numeric difference exceeds tolerance: abs=6.902e-2, rel=60.184494%
 
   root.results[2].preprocessing.timestamp:
     Type: value
@@ -1851,23 +1656,23 @@ Found 189 difference(s):
   root.results[2].quality_score:
     Type: value
     Python:     0.9477124619928798
-    TypeScript: 0.9448830987236454
-    Difference: 2.829e-3
-    Numeric difference exceeds tolerance: abs=2.829e-3, rel=0.298547%
+    TypeScript: 0.9527858133476765
+    Difference: 5.073e-3
+    Numeric difference exceeds tolerance: abs=5.073e-3, rel=0.532476%
 
   root.results[2].quality_components.kalman_fit:
     Type: value
     Python:     0.997552861181671
-    TypeScript: 0.9893761844180352
-    Difference: 8.177e-3
-    Numeric difference exceeds tolerance: abs=8.177e-3, rel=0.819674%
+    TypeScript: 0.9985131276522633
+    Difference: 9.603e-4
+    Numeric difference exceeds tolerance: abs=9.603e-4, rel=0.096170%
 
   root.results[2].quality_components.temporal_consistency:
     Type: value
     Python:     0.9558417133453186
-    TypeScript: 0.9563118148844911
-    Difference: 4.701e-4
-    Numeric difference exceeds tolerance: abs=4.701e-4, rel=0.049158%
+    TypeScript: 0.9720484701765703
+    Difference: 1.621e-2
+    Numeric difference exceeds tolerance: abs=1.621e-2, rel=1.667279%
 
   root.results[3].timestamp:
     Type: type
@@ -1878,72 +1683,72 @@ Found 189 difference(s):
   root.results[3].filtered_weight:
     Type: value
     Python:     69.92231645736025
-    TypeScript: 69.91250730728238
-    Difference: 9.809e-3
-    Numeric difference exceeds tolerance: abs=9.809e-3, rel=0.014029%
+    TypeScript: 70.01715947165995
+    Difference: 9.484e-2
+    Numeric difference exceeds tolerance: abs=9.484e-2, rel=0.135457%
 
   root.results[3].trend:
     Type: value
     Python:     0.0000087318470573641
-    TypeScript: 0.0000188665370520033
-    Difference: 1.013e-5
-    Numeric difference exceeds tolerance: abs=1.013e-5, rel=53.717807%
+    TypeScript: 0.00003793788509685788
+    Difference: 2.921e-5
+    Numeric difference exceeds tolerance: abs=2.921e-5, rel=76.983833%
 
   root.results[3].trend_weekly:
     Type: value
     Python:     0.0000611229294015487
-    TypeScript: 0.0001320657593640231
-    Difference: 7.094e-5
-    Numeric difference exceeds tolerance: abs=7.094e-5, rel=53.717807%
+    TypeScript: 0.00026556519567800515
+    Difference: 2.044e-4
+    Numeric difference exceeds tolerance: abs=2.044e-4, rel=76.983833%
 
   root.results[3].confidence:
     Type: value
     Python:     0.9995682870458482
-    TypeScript: 0.9966385081655432
-    Difference: 2.930e-3
-    Numeric difference exceeds tolerance: abs=2.930e-3, rel=0.293104%
+    TypeScript: 0.9994712118879342
+    Difference: 9.708e-5
+    Numeric difference exceeds tolerance: abs=9.708e-5, rel=0.009712%
 
   root.results[3].innovation:
     Type: value
     Python:     0.17982964748230756
-    TypeScript: 0.18963879756017832
-    Difference: 9.809e-3
-    Numeric difference exceeds tolerance: abs=9.809e-3, rel=5.172544%
+    TypeScript: 0.08498663318260924
+    Difference: 9.484e-2
+    Numeric difference exceeds tolerance: abs=9.484e-2, rel=52.740477%
 
   root.results[3].normalized_innovation:
     Type: value
     Python:     0.029387281909636038
-    TypeScript: 0.08206283374758021
-    Difference: 5.268e-2
-    Numeric difference exceeds tolerance: abs=5.268e-2, rel=64.189292%
+    TypeScript: 0.03252469737922591
+    Difference: 3.137e-3
+    Numeric difference exceeds tolerance: abs=3.137e-3, rel=9.646256%
 
   root.results[3].kalman_confidence_upper:
     Type: value
     Python:     73.8376220916935
-    TypeScript: 71.07912166915582
-    Difference: 2.759e+0
-    Numeric difference exceeds tolerance: abs=2.759e+0, rel=3.735901%
+    TypeScript: 72.72101195075624
+    Difference: 1.117e+0
+    Numeric difference exceeds tolerance: abs=1.117e+0, rel=1.512251%
 
   root.results[3].kalman_confidence_lower:
     Type: value
     Python:     66.007010823027
-    TypeScript: 68.74589294540894
-    Difference: 2.739e+0
-    Numeric difference exceeds tolerance: abs=2.739e+0, rel=3.984067%
+    TypeScript: 67.31330699256367
+    Difference: 1.306e+0
+    Numeric difference exceeds tolerance: abs=1.306e+0, rel=1.940621%
 
   root.results[3].kalman_variance:
     Type: value
     Python:     3.8324045525604276
-    TypeScript: 0.3402472673323422
-    Difference: 3.492e+0
-    Numeric difference exceeds tolerance: abs=3.492e+0, rel=91.121833%
+    TypeScript: 1.827704557178785
+    Difference: 2.005e+0
+    Numeric difference exceeds tolerance: abs=2.005e+0, rel=52.309196%
 
   root.results[3].prediction_error:
     Type: value
     Python:     0.17982964748230756
-    TypeScript: 0.18963879756017832
-    Difference: 9.809e-3
-    Numeric difference exceeds tolerance: abs=9.809e-3, rel=5.172544%
+    TypeScript: 0.08498663318260924
+    Difference: 9.484e-2
+    Numeric difference exceeds tolerance: abs=9.484e-2, rel=52.740477%
 
   root.results[3].preprocessing.timestamp:
     Type: value
@@ -1954,23 +1759,23 @@ Found 189 difference(s):
   root.results[3].quality_score:
     Type: value
     Python:     0.9181140831089427
-    TypeScript: 0.913463369176142
-    Difference: 4.651e-3
-    Numeric difference exceeds tolerance: abs=4.651e-3, rel=0.506551%
+    TypeScript: 0.9241937239986877
+    Difference: 6.080e-3
+    Numeric difference exceeds tolerance: abs=6.080e-3, rel=0.657832%
 
   root.results[3].quality_components.kalman_fit:
     Type: value
     Python:     0.9960359871626436
-    TypeScript: 0.982583293755753
-    Difference: 1.345e-2
-    Numeric difference exceeds tolerance: abs=1.345e-2, rel=1.350623%
+    TypeScript: 0.9973622321734481
+    Difference: 1.326e-3
+    Numeric difference exceeds tolerance: abs=1.326e-3, rel=0.132975%
 
   root.results[3].quality_components.temporal_consistency:
     Type: value
     Python:     0.933512182633808
-    TypeScript: 0.9333752918340021
-    Difference: 1.369e-4
-    Numeric difference exceeds tolerance: abs=1.369e-4, rel=0.014664%
+    TypeScript: 0.953179888138847
+    Difference: 1.967e-2
+    Numeric difference exceeds tolerance: abs=1.967e-2, rel=2.063378%
 
   root.results[4].timestamp:
     Type: type
@@ -1981,72 +1786,72 @@ Found 189 difference(s):
   root.results[4].filtered_weight:
     Type: value
     Python:     69.95256501595752
-    TypeScript: 69.92732773096515
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.036078%
+    TypeScript: 70.05844543507864
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=0.151132%
 
   root.results[4].trend:
     Type: value
     Python:     0.000024884229398918055
-    TypeScript: 0.000036618967884249657
-    Difference: 1.173e-5
-    Numeric difference exceeds tolerance: abs=1.173e-5, rel=32.045519%
+    TypeScript: 0.00008353141306498834
+    Difference: 5.865e-5
+    Numeric difference exceeds tolerance: abs=5.865e-5, rel=70.209735%
 
   root.results[4].trend_weekly:
     Type: value
     Python:     0.0001741896057924264
-    TypeScript: 0.0002563327751897476
-    Difference: 8.214e-5
-    Numeric difference exceeds tolerance: abs=8.214e-5, rel=32.045519%
+    TypeScript: 0.0005847198914549184
+    Difference: 4.105e-4
+    Numeric difference exceeds tolerance: abs=4.105e-4, rel=70.209735%
 
   root.results[4].confidence:
     Type: value
     Python:     0.999403854042189
-    TypeScript: 0.9960002983806998
-    Difference: 3.404e-3
-    Numeric difference exceeds tolerance: abs=3.404e-3, rel=0.340559%
+    TypeScript: 0.9995769949821603
+    Difference: 1.731e-4
+    Numeric difference exceeds tolerance: abs=1.731e-4, rel=0.017321%
 
   root.results[4].innovation:
     Type: value
     Python:     0.18154097012779857
-    TypeScript: 0.20677825512017023
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=12.204999%
+    TypeScript: 0.07566055100667768
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=58.323154%
 
   root.results[4].normalized_innovation:
     Type: value
     Python:     0.034534728128812156
-    TypeScript: 0.08952901003102655
-    Difference: 5.499e-2
-    Numeric difference exceeds tolerance: abs=5.499e-2, rel=61.426215%
+    TypeScript: 0.02908932827344348
+    Difference: 5.445e-3
+    Numeric difference exceeds tolerance: abs=5.445e-3, rel=15.767896%
 
   root.results[4].kalman_confidence_upper:
     Type: value
     Python:     73.66923833988415
-    TypeScript: 71.08380187669908
-    Difference: 2.585e+0
-    Numeric difference exceeds tolerance: abs=2.585e+0, rel=3.509520%
+    TypeScript: 72.71555619569034
+    Difference: 9.537e-1
+    Numeric difference exceeds tolerance: abs=9.537e-1, rel=1.294546%
 
   root.results[4].kalman_confidence_lower:
     Type: value
     Python:     66.23589169203089
-    TypeScript: 68.77085358523121
-    Difference: 2.535e+0
-    Numeric difference exceeds tolerance: abs=2.535e+0, rel=3.686099%
+    TypeScript: 67.40133467446694
+    Difference: 1.165e+0
+    Numeric difference exceeds tolerance: abs=1.165e+0, rel=1.729110%
 
   root.results[4].kalman_variance:
     Type: value
     Python:     3.453415149196944
-    TypeScript: 0.33435811243776226
-    Difference: 3.119e+0
-    Numeric difference exceeds tolerance: abs=3.119e+0, rel=90.318045%
+    TypeScript: 1.7650593985396297
+    Difference: 1.688e+0
+    Numeric difference exceeds tolerance: abs=1.688e+0, rel=48.889452%
 
   root.results[4].prediction_error:
     Type: value
     Python:     0.18154097012779857
-    TypeScript: 0.20677825512017023
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=12.204999%
+    TypeScript: 0.07566055100667768
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=58.323154%
 
   root.results[4].preprocessing.timestamp:
     Type: value
@@ -2057,23 +1862,23 @@ Found 189 difference(s):
   root.results[4].quality_score:
     Type: value
     Python:     0.915025196010972
-    TypeScript: 0.909244155629429
-    Difference: 5.781e-3
-    Numeric difference exceeds tolerance: abs=5.781e-3, rel=0.631790%
+    TypeScript: 0.9233942774026027
+    Difference: 8.369e-3
+    Numeric difference exceeds tolerance: abs=8.369e-3, rel=0.906339%
 
   root.results[4].quality_components.kalman_fit:
     Type: value
     Python:     0.9958574092838801
-    TypeScript: 0.9810360726506892
-    Difference: 1.482e-2
-    Numeric difference exceeds tolerance: abs=1.482e-2, rel=1.488299%
+    TypeScript: 0.9976950710932042
+    Difference: 1.838e-3
+    Numeric difference exceeds tolerance: abs=1.838e-3, rel=0.184191%
 
   root.results[4].quality_components.temporal_consistency:
     Type: value
     Python:     0.9311885240584878
-    TypeScript: 0.9286512131397915
-    Difference: 2.537e-3
-    Numeric difference exceeds tolerance: abs=2.537e-3, rel=0.272481%
+    TypeScript: 0.9584551963484061
+    Difference: 2.727e-2
+    Numeric difference exceeds tolerance: abs=2.727e-2, rel=2.844856%
 
   root.results[5].timestamp:
     Type: type
@@ -2084,9 +1889,9 @@ Found 189 difference(s):
   root.results[5].quality_components.kalman_fit:
     Type: value
     Python:     0.8224108364823537
-    TypeScript: 0.4239264931245335
-    Difference: 3.985e-1
-    Numeric difference exceeds tolerance: abs=3.985e-1, rel=48.453197%
+    TypeScript: 0.8199267787143306
+    Difference: 2.484e-3
+    Numeric difference exceeds tolerance: abs=2.484e-3, rel=0.302046%
 
   root.results[5].quality_details.rejection_reason:
     Type: missing
@@ -2103,58 +1908,58 @@ Found 189 difference(s):
   root.results[5].quality_details.components.kalman_fit:
     Type: value
     Python:     0.8224108364823537
-    TypeScript: 0.4239264931245335
-    Difference: 3.985e-1
-    Numeric difference exceeds tolerance: abs=3.985e-1, rel=48.453197%
+    TypeScript: 0.8199267787143306
+    Difference: 2.484e-3
+    Numeric difference exceeds tolerance: abs=2.484e-3, rel=0.302046%
 
   root.results[5].quality_details.metadata.kalman_fit.innovation:
     Type: value
     Python:     -9.952567504380454
-    TypeScript: -9.92733139286193
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.253564%
+    TypeScript: -10.05845378821995
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.052709%
 
   root.results[5].quality_details.metadata.kalman_fit.prediction:
     Type: value
     Python:     69.95256750438045
-    TypeScript: 69.92733139286193
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.036076%
+    TypeScript: 70.05845378821995
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=0.151140%
 
   root.results[5].quality_details.metadata.kalman_fit.normalized_innovation:
     Type: value
     Python:     0.9775760385574465
-    TypeScript: 4.290976020260009
-    Difference: 3.313e+0
-    Numeric difference exceeds tolerance: abs=3.313e+0, rel=77.217863%
+    TypeScript: 0.9927011848081173
+    Difference: 1.513e-2
+    Numeric difference exceeds tolerance: abs=1.513e-2, rel=1.523635%
 
   root.results[5].quality_details.metadata.kalman_fit.chi_squared:
     Type: value
     Python:     0.95565491116167
-    TypeScript: 18.412475206446427
-    Difference: 1.746e+1
-    Numeric difference exceeds tolerance: abs=1.746e+1, rel=94.809742%
+    TypeScript: 0.9854556423194398
+    Difference: 2.980e-2
+    Numeric difference exceeds tolerance: abs=2.980e-2, rel=3.024056%
 
   root.results[5].quality_details.metadata.kalman_fit.p_value:
     Type: value
     Python:     0.32828405313327047
-    TypeScript: 0.000017788952555441995
-    Difference: 3.283e-1
-    Numeric difference exceeds tolerance: abs=3.283e-1, rel=99.994581%
+    TypeScript: 0.3208555973831103
+    Difference: 7.428e-3
+    Numeric difference exceeds tolerance: abs=7.428e-3, rel=2.262813%
 
   root.results[5].quality_details.metadata.kalman_fit.score:
     Type: value
     Python:     0.8224108364823537
-    TypeScript: 0.4239264931245335
-    Difference: 3.985e-1
-    Numeric difference exceeds tolerance: abs=3.985e-1, rel=48.453197%
+    TypeScript: 0.8199267787143306
+    Difference: 2.484e-3
+    Numeric difference exceeds tolerance: abs=2.484e-3, rel=0.302046%
 
   root.results[5].quality_details.metadata.temporal_consistency.actual_change:
     Type: value
     Python:     9.952565015957518
-    TypeScript: 9.927327730965146
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.253576%
+    TypeScript: 10.058445435078639
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.052652%
 
   root.results[6].timestamp:
     Type: type
@@ -2165,9 +1970,9 @@ Found 189 difference(s):
   root.results[6].quality_components.kalman_fit:
     Type: value
     Python:     0.8248052640992843
-    TypeScript: 0.4293848406418379
-    Difference: 3.954e-1
-    Numeric difference exceeds tolerance: abs=3.954e-1, rel=47.941064%
+    TypeScript: 0.8223254066037136
+    Difference: 2.480e-3
+    Numeric difference exceeds tolerance: abs=2.480e-3, rel=0.300660%
 
   root.results[6].quality_details.rejection_reason:
     Type: missing
@@ -2184,58 +1989,58 @@ Found 189 difference(s):
   root.results[6].quality_details.components.kalman_fit:
     Type: value
     Python:     0.8248052640992843
-    TypeScript: 0.4293848406418379
-    Difference: 3.954e-1
-    Numeric difference exceeds tolerance: abs=3.954e-1, rel=47.941064%
+    TypeScript: 0.8223254066037136
+    Difference: 2.480e-3
+    Numeric difference exceeds tolerance: abs=2.480e-3, rel=0.300660%
 
   root.results[6].quality_details.metadata.kalman_fit.innovation:
     Type: value
     Python:     -9.80457625925483
-    TypeScript: -9.779340147736306
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.257391%
+    TypeScript: -9.910462543094326
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.068429%
 
   root.results[6].quality_details.metadata.kalman_fit.prediction:
     Type: value
     Python:     69.95256750438045
-    TypeScript: 69.92733139286193
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.036076%
+    TypeScript: 70.05845378821995
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=0.151140%
 
   root.results[6].quality_details.metadata.kalman_fit.normalized_innovation:
     Type: value
     Python:     0.9630398201306519
-    TypeScript: 4.2270084887138095
-    Difference: 3.264e+0
-    Numeric difference exceeds tolerance: abs=3.264e+0, rel=77.216989%
+    TypeScript: 0.978095452409218
+    Difference: 1.506e-2
+    Numeric difference exceeds tolerance: abs=1.506e-2, rel=1.539280%
 
   root.results[6].quality_details.metadata.kalman_fit.chi_squared:
     Type: value
     Python:     0.9274456951572784
-    TypeScript: 17.867600763658604
-    Difference: 1.694e+1
-    Numeric difference exceeds tolerance: abs=1.694e+1, rel=94.809344%
+    TypeScript: 0.9566707140235928
+    Difference: 2.923e-2
+    Numeric difference exceeds tolerance: abs=2.923e-2, rel=3.054867%
 
   root.results[6].quality_details.metadata.kalman_fit.p_value:
     Type: value
     Python:     0.3355275403554654
-    TypeScript: 0.000023681873678738086
-    Difference: 3.355e-1
-    Numeric difference exceeds tolerance: abs=3.355e-1, rel=99.992942%
+    TypeScript: 0.32802711682101293
+    Difference: 7.500e-3
+    Numeric difference exceeds tolerance: abs=7.500e-3, rel=2.235412%
 
   root.results[6].quality_details.metadata.kalman_fit.score:
     Type: value
     Python:     0.8248052640992843
-    TypeScript: 0.4293848406418379
-    Difference: 3.954e-1
-    Numeric difference exceeds tolerance: abs=3.954e-1, rel=47.941064%
+    TypeScript: 0.8223254066037136
+    Difference: 2.480e-3
+    Numeric difference exceeds tolerance: abs=2.480e-3, rel=0.300660%
 
   root.results[6].quality_details.metadata.temporal_consistency.actual_change:
     Type: value
     Python:     9.804573770831894
-    TypeScript: 9.779336485839522
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.257403%
+    TypeScript: 9.910454189953015
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.068371%
 
   root.results[7].timestamp:
     Type: type
@@ -2246,9 +2051,9 @@ Found 189 difference(s):
   root.results[7].quality_components.kalman_fit:
     Type: value
     Python:     0.8184182995940397
-    TypeScript: 0.41494449081587526
-    Difference: 4.035e-1
-    Numeric difference exceeds tolerance: abs=4.035e-1, rel=49.299216%
+    TypeScript: 0.8159273124883419
+    Difference: 2.491e-3
+    Numeric difference exceeds tolerance: abs=2.491e-3, rel=0.304366%
 
   root.results[7].quality_details.rejection_reason:
     Type: missing
@@ -2265,58 +2070,58 @@ Found 189 difference(s):
   root.results[7].quality_details.components.kalman_fit:
     Type: value
     Python:     0.8184182995940397
-    TypeScript: 0.41494449081587526
-    Difference: 4.035e-1
-    Numeric difference exceeds tolerance: abs=4.035e-1, rel=49.299216%
+    TypeScript: 0.8159273124883419
+    Difference: 2.491e-3
+    Numeric difference exceeds tolerance: abs=2.491e-3, rel=0.304366%
 
   root.results[7].quality_details.metadata.kalman_fit.innovation:
     Type: value
     Python:     -10.200293178711064
-    TypeScript: -10.17505706719254
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.247406%
+    TypeScript: -10.30617946255056
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.027406%
 
   root.results[7].quality_details.metadata.kalman_fit.prediction:
     Type: value
     Python:     69.95256750438045
-    TypeScript: 69.92733139286193
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.036076%
+    TypeScript: 70.05845378821995
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=0.151140%
 
   root.results[7].quality_details.metadata.kalman_fit.normalized_innovation:
     Type: value
     Python:     1.0019085219346757
-    TypeScript: 4.398052623839467
-    Difference: 3.396e+0
-    Numeric difference exceeds tolerance: abs=3.396e+0, rel=77.219269%
+    TypeScript: 1.0171500290930506
+    Difference: 1.524e-2
+    Numeric difference exceeds tolerance: abs=1.524e-2, rel=1.498452%
 
   root.results[7].quality_details.metadata.kalman_fit.chi_squared:
     Type: value
     Python:     1.0038206863253265
-    TypeScript: 19.34286688206122
-    Difference: 1.834e+1
-    Numeric difference exceeds tolerance: abs=1.834e+1, rel=94.810383%
+    TypeScript: 1.0345941816839936
+    Difference: 3.077e-2
+    Numeric difference exceeds tolerance: abs=3.077e-2, rel=2.974451%
 
   root.results[7].quality_details.metadata.kalman_fit.p_value:
     Type: value
     Python:     0.3163877763595022
-    TypeScript: 0.000010922649883005064
-    Difference: 3.164e-1
-    Numeric difference exceeds tolerance: abs=3.164e-1, rel=99.996548%
+    TypeScript: 0.3090820637317666
+    Difference: 7.306e-3
+    Numeric difference exceeds tolerance: abs=7.306e-3, rel=2.309101%
 
   root.results[7].quality_details.metadata.kalman_fit.score:
     Type: value
     Python:     0.8184182995940397
-    TypeScript: 0.41494449081587526
-    Difference: 4.035e-1
-    Numeric difference exceeds tolerance: abs=4.035e-1, rel=49.299216%
+    TypeScript: 0.8159273124883419
+    Difference: 2.491e-3
+    Numeric difference exceeds tolerance: abs=2.491e-3, rel=0.304366%
 
   root.results[7].quality_details.metadata.temporal_consistency.actual_change:
     Type: value
     Python:     10.200290690288128
-    TypeScript: 10.175053405295756
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.247417%
+    TypeScript: 10.306171109409249
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.027350%
 
   root.results[8].timestamp:
     Type: type
@@ -2324,25 +2129,19 @@ Found 189 difference(s):
     TypeScript: 2025-11-10T10:36:03.910Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[8].reason:
-    Type: value
-    Python:     Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
-    TypeScript: Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
-    Value mismatch: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20) !== Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
-
   root.results[8].quality_score:
     Type: value
     Python:     0.3108894486276372
-    TypeScript: 0.27162088167720494
-    Difference: 3.927e-2
-    Numeric difference exceeds tolerance: abs=3.927e-2, rel=12.631039%
+    TypeScript: 0.3107463108713578
+    Difference: 1.431e-4
+    Numeric difference exceeds tolerance: abs=1.431e-4, rel=0.046041%
 
   root.results[8].quality_components.kalman_fit:
     Type: value
     Python:     0.8206629541503064
-    TypeScript: 0.4199759888892275
-    Difference: 4.007e-1
-    Numeric difference exceeds tolerance: abs=4.007e-1, rel=48.824790%
+    TypeScript: 0.8181758513523245
+    Difference: 2.487e-3
+    Numeric difference exceeds tolerance: abs=2.487e-3, rel=0.303060%
 
   root.results[8].quality_details.rejection_reason:
     Type: missing
@@ -2353,71 +2152,71 @@ Found 189 difference(s):
   root.results[8].quality_details.rejectionReason:
     Type: extra
     Python:     undefined
-    TypeScript: Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
+    TypeScript: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
     Extra key in TypeScript output
 
   root.results[8].quality_details.overall:
     Type: value
     Python:     0.3108894486276372
-    TypeScript: 0.27162088167720494
-    Difference: 3.927e-2
-    Numeric difference exceeds tolerance: abs=3.927e-2, rel=12.631039%
+    TypeScript: 0.3107463108713578
+    Difference: 1.431e-4
+    Numeric difference exceeds tolerance: abs=1.431e-4, rel=0.046041%
 
   root.results[8].quality_details.components.kalman_fit:
     Type: value
     Python:     0.8206629541503064
-    TypeScript: 0.4199759888892275
-    Difference: 4.007e-1
-    Numeric difference exceeds tolerance: abs=4.007e-1, rel=48.824790%
+    TypeScript: 0.8181758513523245
+    Difference: 2.487e-3
+    Numeric difference exceeds tolerance: abs=2.487e-3, rel=0.303060%
 
   root.results[8].quality_details.metadata.kalman_fit.innovation:
     Type: value
     Python:     -10.060870351093804
-    TypeScript: -10.03563423957528
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.250834%
+    TypeScript: -10.1667566349333
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.041495%
 
   root.results[8].quality_details.metadata.kalman_fit.prediction:
     Type: value
     Python:     69.95256750438045
-    TypeScript: 69.92733139286193
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.036076%
+    TypeScript: 70.05845378821995
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=0.151140%
 
   root.results[8].quality_details.metadata.kalman_fit.normalized_innovation:
     Type: value
     Python:     0.9882139234859267
-    TypeScript: 4.337788693251568
-    Difference: 3.350e+0
-    Numeric difference exceeds tolerance: abs=3.350e+0, rel=77.218486%
+    TypeScript: 1.003389941401735
+    Difference: 1.518e-2
+    Numeric difference exceeds tolerance: abs=1.518e-2, rel=1.512475%
 
   root.results[8].quality_details.metadata.kalman_fit.chi_squared:
     Type: value
     Python:     0.976566758571449
-    TypeScript: 18.816410747301145
-    Difference: 1.784e+1
-    Numeric difference exceeds tolerance: abs=1.784e+1, rel=94.810026%
+    TypeScript: 1.0067913745061774
+    Difference: 3.022e-2
+    Numeric difference exceeds tolerance: abs=3.022e-2, rel=3.002073%
 
   root.results[8].quality_details.metadata.kalman_fit.p_value:
     Type: value
     Python:     0.3230478905699903
-    TypeScript: 0.000014392342337576913
-    Difference: 3.230e-1
-    Numeric difference exceeds tolerance: abs=3.230e-1, rel=99.995545%
+    TypeScript: 0.31567275535911143
+    Difference: 7.375e-3
+    Numeric difference exceeds tolerance: abs=7.375e-3, rel=2.282985%
 
   root.results[8].quality_details.metadata.kalman_fit.score:
     Type: value
     Python:     0.8206629541503064
-    TypeScript: 0.4199759888892275
-    Difference: 4.007e-1
-    Numeric difference exceeds tolerance: abs=4.007e-1, rel=48.824790%
+    TypeScript: 0.8181758513523245
+    Difference: 2.487e-3
+    Numeric difference exceeds tolerance: abs=2.487e-3, rel=0.303060%
 
   root.results[8].quality_details.metadata.temporal_consistency.actual_change:
     Type: value
     Python:     10.060867862670868
-    TypeScript: 10.035630577678496
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.250846%
+    TypeScript: 10.166748281791989
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.041438%
 
   root.results[9].timestamp:
     Type: type
@@ -2425,25 +2224,19 @@ Found 189 difference(s):
     TypeScript: 2025-11-10T10:37:30.310Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[9].reason:
-    Type: value
-    Python:     Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
-    TypeScript: Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
-    Value mismatch: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20) !== Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
-
   root.results[9].quality_score:
     Type: value
     Python:     0.3111106221270487
-    TypeScript: 0.27306775063363475
-    Difference: 3.804e-2
-    Numeric difference exceeds tolerance: abs=3.804e-2, rel=12.228085%
+    TypeScript: 0.31096901104378943
+    Difference: 1.416e-4
+    Numeric difference exceeds tolerance: abs=1.416e-4, rel=0.045518%
 
   root.results[9].quality_components.kalman_fit:
     Type: value
     Python:     0.8245312906625418
-    TypeScript: 0.42875755317717884
-    Difference: 3.958e-1
-    Numeric difference exceeds tolerance: abs=3.958e-1, rel=47.999845%
+    TypeScript: 0.8220509508775709
+    Difference: 2.480e-3
+    Numeric difference exceeds tolerance: abs=2.480e-3, rel=0.300818%
 
   root.results[9].quality_details.rejection_reason:
     Type: missing
@@ -2454,71 +2247,71 @@ Found 189 difference(s):
   root.results[9].quality_details.rejectionReason:
     Type: extra
     Python:     undefined
-    TypeScript: Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
+    TypeScript: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
     Extra key in TypeScript output
 
   root.results[9].quality_details.overall:
     Type: value
     Python:     0.3111106221270487
-    TypeScript: 0.27306775063363475
-    Difference: 3.804e-2
-    Numeric difference exceeds tolerance: abs=3.804e-2, rel=12.228085%
+    TypeScript: 0.31096901104378943
+    Difference: 1.416e-4
+    Numeric difference exceeds tolerance: abs=1.416e-4, rel=0.045518%
 
   root.results[9].quality_details.components.kalman_fit:
     Type: value
     Python:     0.8245312906625418
-    TypeScript: 0.42875755317717884
-    Difference: 3.958e-1
-    Numeric difference exceeds tolerance: abs=3.958e-1, rel=47.999845%
+    TypeScript: 0.8220509508775709
+    Difference: 2.480e-3
+    Numeric difference exceeds tolerance: abs=2.480e-3, rel=0.300818%
 
   root.results[9].quality_details.metadata.kalman_fit.innovation:
     Type: value
     Python:     -9.82148782276871
-    TypeScript: -9.796251711250186
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.256948%
+    TypeScript: -9.927374106608205
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.066609%
 
   root.results[9].quality_details.metadata.kalman_fit.prediction:
     Type: value
     Python:     69.95256750438045
-    TypeScript: 69.92733139286193
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.036076%
+    TypeScript: 70.05845378821995
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=0.151140%
 
   root.results[9].quality_details.metadata.kalman_fit.normalized_innovation:
     Type: value
     Python:     0.964700933130733
-    TypeScript: 4.234318319586922
-    Difference: 3.270e+0
-    Numeric difference exceeds tolerance: abs=3.270e+0, rel=77.217090%
+    TypeScript: 0.9797645090545691
+    Difference: 1.506e-2
+    Numeric difference exceeds tolerance: abs=1.506e-2, rel=1.537469%
 
   root.results[9].quality_details.metadata.kalman_fit.chi_squared:
     Type: value
     Python:     0.930647890383307
-    TypeScript: 17.929451631589416
-    Difference: 1.700e+1
-    Numeric difference exceeds tolerance: abs=1.700e+1, rel=94.809390%
+    TypeScript: 0.9599384932029409
+    Difference: 2.929e-2
+    Numeric difference exceeds tolerance: abs=2.929e-2, rel=3.051300%
 
   root.results[9].quality_details.metadata.kalman_fit.p_value:
     Type: value
     Python:     0.33469462774573233
-    TypeScript: 0.000022924603160445756
-    Difference: 3.347e-1
-    Numeric difference exceeds tolerance: abs=3.347e-1, rel=99.993151%
+    TypeScript: 0.3272023748692141
+    Difference: 7.492e-3
+    Numeric difference exceeds tolerance: abs=7.492e-3, rel=2.238534%
 
   root.results[9].quality_details.metadata.kalman_fit.score:
     Type: value
     Python:     0.8245312906625418
-    TypeScript: 0.42875755317717884
-    Difference: 3.958e-1
-    Numeric difference exceeds tolerance: abs=3.958e-1, rel=47.999845%
+    TypeScript: 0.8220509508775709
+    Difference: 2.480e-3
+    Numeric difference exceeds tolerance: abs=2.480e-3, rel=0.300818%
 
   root.results[9].quality_details.metadata.temporal_consistency.actual_change:
     Type: value
     Python:     9.821485334345773
-    TypeScript: 9.796248049353402
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.256960%
+    TypeScript: 9.927365753466894
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.066551%
 
   root.results[10].timestamp:
     Type: type
@@ -2526,25 +2319,19 @@ Found 189 difference(s):
     TypeScript: 2025-11-10T10:38:56.710Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[10].reason:
-    Type: value
-    Python:     Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
-    TypeScript: Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
-    Value mismatch: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20) !== Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
-
   root.results[10].quality_score:
     Type: value
     Python:     0.31120596722967214
-    TypeScript: 0.2736884294047871
-    Difference: 3.752e-2
-    Numeric difference exceeds tolerance: abs=3.752e-2, rel=12.055533%
+    TypeScript: 0.3110650134482761
+    Difference: 1.410e-4
+    Numeric difference exceeds tolerance: abs=1.410e-4, rel=0.045293%
 
   root.results[10].quality_components.kalman_fit:
     Type: value
     Python:     0.8262084426231454
-    TypeScript: 0.43260867321946955
-    Difference: 3.936e-1
-    Numeric difference exceeds tolerance: abs=3.936e-1, rel=47.639282%
+    TypeScript: 0.8237310620453411
+    Difference: 2.477e-3
+    Numeric difference exceeds tolerance: abs=2.477e-3, rel=0.299849%
 
   root.results[10].quality_details.rejection_reason:
     Type: missing
@@ -2555,71 +2342,71 @@ Found 189 difference(s):
   root.results[10].quality_details.rejectionReason:
     Type: extra
     Python:     undefined
-    TypeScript: Quality score 0.27 below threshold 0.46 (weakest: temporal_consistency=0.20)
+    TypeScript: Quality score 0.31 below threshold 0.46 (weakest: temporal_consistency=0.20)
     Extra key in TypeScript output
 
   root.results[10].quality_details.overall:
     Type: value
     Python:     0.31120596722967214
-    TypeScript: 0.2736884294047871
-    Difference: 3.752e-2
-    Numeric difference exceeds tolerance: abs=3.752e-2, rel=12.055533%
+    TypeScript: 0.3110650134482761
+    Difference: 1.410e-4
+    Numeric difference exceeds tolerance: abs=1.410e-4, rel=0.045293%
 
   root.results[10].quality_details.components.kalman_fit:
     Type: value
     Python:     0.8262084426231454
-    TypeScript: 0.43260867321946955
-    Difference: 3.936e-1
-    Numeric difference exceeds tolerance: abs=3.936e-1, rel=47.639282%
+    TypeScript: 0.8237310620453411
+    Difference: 2.477e-3
+    Numeric difference exceeds tolerance: abs=2.477e-3, rel=0.299849%
 
   root.results[10].quality_details.metadata.kalman_fit.innovation:
     Type: value
     Python:     -9.718050197194025
-    TypeScript: -9.6928140856755
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.259683%
+    TypeScript: -9.82393648103352
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.077840%
 
   root.results[10].quality_details.metadata.kalman_fit.prediction:
     Type: value
     Python:     69.95256750438045
-    TypeScript: 69.92733139286193
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.036076%
+    TypeScript: 70.05845378821995
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=0.151140%
 
   root.results[10].quality_details.metadata.kalman_fit.normalized_innovation:
     Type: value
     Python:     0.9545409272626408
-    TypeScript: 4.18960858306571
-    Difference: 3.235e+0
-    Numeric difference exceeds tolerance: abs=3.235e+0, rel=77.216465%
+    TypeScript: 0.969555916797379
+    Difference: 1.501e-2
+    Numeric difference exceeds tolerance: abs=1.501e-2, rel=1.548646%
 
   root.results[10].quality_details.metadata.kalman_fit.chi_squared:
     Type: value
     Python:     0.9111483818194221
-    TypeScript: 17.552820079297867
-    Difference: 1.664e+1
-    Numeric difference exceeds tolerance: abs=1.664e+1, rel=94.809105%
+    TypeScript: 0.940038675796806
+    Difference: 2.889e-2
+    Numeric difference exceeds tolerance: abs=2.889e-2, rel=3.073309%
 
   root.results[10].quality_details.metadata.kalman_fit.p_value:
     Type: value
     Python:     0.3398099027482664
-    TypeScript: 0.000027943604420710422
-    Difference: 3.398e-1
-    Numeric difference exceeds tolerance: abs=3.398e-1, rel=99.991777%
+    TypeScript: 0.33226789543047386
+    Difference: 7.542e-3
+    Numeric difference exceeds tolerance: abs=7.542e-3, rel=2.219478%
 
   root.results[10].quality_details.metadata.kalman_fit.score:
     Type: value
     Python:     0.8262084426231454
-    TypeScript: 0.43260867321946955
-    Difference: 3.936e-1
-    Numeric difference exceeds tolerance: abs=3.936e-1, rel=47.639282%
+    TypeScript: 0.8237310620453411
+    Difference: 2.477e-3
+    Numeric difference exceeds tolerance: abs=2.477e-3, rel=0.299849%
 
   root.results[10].quality_details.metadata.temporal_consistency.actual_change:
     Type: value
     Python:     9.718047708771088
-    TypeScript: 9.692810423778717
-    Difference: 2.524e-2
-    Numeric difference exceeds tolerance: abs=2.524e-2, rel=0.259695%
+    TypeScript: 9.82392812789221
+    Difference: 1.059e-1
+    Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.077781%
 
   root.finalState.adaptation_state:
     Type: extra
@@ -2633,39 +2420,25 @@ Found 189 difference(s):
     TypeScript: 1
     Extra key in TypeScript output
 
-  root.finalState.kalman_params.initial_state_covariance[0][0]:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.finalState.kalman_params.transition_covariance[0][0]:
     Type: value
     Python:     0.19607272887128602
-    TypeScript: 0.018
-    Difference: 1.781e-1
-    Numeric difference exceeds tolerance: abs=1.781e-1, rel=90.819733%
+    TypeScript: 0.8999999999999999
+    Difference: 7.039e-1
+    Numeric difference exceeds tolerance: abs=7.039e-1, rel=78.214141%
 
   root.finalState.kalman_params.transition_covariance[1][1]:
     Type: value
     Python:     0.0013071515258085737
-    TypeScript: 0.00012
-    Difference: 1.187e-3
-    Numeric difference exceeds tolerance: abs=1.187e-3, rel=90.819733%
-
-  root.finalState.kalman_params.observation_covariance[0][0]:
-    Type: value
-    Python:     100
-    TypeScript: 5
-    Difference: 9.500e+1
-    Numeric difference exceeds tolerance: abs=9.500e+1, rel=95.000000%
+    TypeScript: 0.006
+    Difference: 4.693e-3
+    Numeric difference exceeds tolerance: abs=4.693e-3, rel=78.214141%
 
   root.finalState.last_state[0][0]:
     Type: type
     Python:     69.92231645736025
     TypeScript: [
-  69.91250730728238
+  70.01715947165995
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -2673,7 +2446,7 @@ Found 189 difference(s):
     Type: type
     Python:     0.0000087318470573641
     TypeScript: [
-  0.0000188665370520033
+  0.00003793788509685788
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -2681,7 +2454,7 @@ Found 189 difference(s):
     Type: type
     Python:     69.95256501595752
     TypeScript: [
-  69.92732773096515
+  70.05844543507864
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -2689,65 +2462,65 @@ Found 189 difference(s):
     Type: type
     Python:     0.000024884229398918055
     TypeScript: [
-  0.000036618967884249657
+  0.00008353141306498834
 ]
     Type mismatch: Python number, TypeScript object
 
   root.finalState.last_covariance[0][0][0]:
     Type: value
     Python:     3.8324045525604276
-    TypeScript: 0.3402472673323422
-    Difference: 3.492e+0
-    Numeric difference exceeds tolerance: abs=3.492e+0, rel=91.121833%
+    TypeScript: 1.827704557178785
+    Difference: 2.005e+0
+    Numeric difference exceeds tolerance: abs=2.005e+0, rel=52.309196%
 
   root.finalState.last_covariance[0][0][1]:
     Type: value
     Python:     0.0011799500893092253
-    TypeScript: 0.00029326532946001945
-    Difference: 8.867e-4
-    Numeric difference exceeds tolerance: abs=8.867e-4, rel=75.145955%
+    TypeScript: 0.0011130777135867397
+    Difference: 6.687e-5
+    Numeric difference exceeds tolerance: abs=6.687e-5, rel=5.667390%
 
   root.finalState.last_covariance[0][1][0]:
     Type: value
     Python:     0.0011799500893092255
-    TypeScript: 0.00029326532946001945
-    Difference: 8.867e-4
-    Numeric difference exceeds tolerance: abs=8.867e-4, rel=75.145955%
+    TypeScript: 0.0011130777135867397
+    Difference: 6.687e-5
+    Numeric difference exceeds tolerance: abs=6.687e-5, rel=5.667390%
 
   root.finalState.last_covariance[0][1][1]:
     Type: value
     Python:     0.009714504341111076
-    TypeScript: 0.0013599718709253784
-    Difference: 8.355e-3
-    Numeric difference exceeds tolerance: abs=8.355e-3, rel=86.000605%
+    TypeScript: 0.018999540025122084
+    Difference: 9.285e-3
+    Numeric difference exceeds tolerance: abs=9.285e-3, rel=48.869792%
 
   root.finalState.last_covariance[1][0][0]:
     Type: value
     Python:     3.453415149196944
-    TypeScript: 0.33435811243776226
-    Difference: 3.119e+0
-    Numeric difference exceeds tolerance: abs=3.119e+0, rel=90.318045%
+    TypeScript: 1.7650593985396297
+    Difference: 1.688e+0
+    Numeric difference exceeds tolerance: abs=1.688e+0, rel=48.889452%
 
   root.finalState.last_covariance[1][0][1]:
     Type: value
     Python:     0.001844137199694154
-    TypeScript: 0.00040055703559759796
-    Difference: 1.444e-3
-    Numeric difference exceeds tolerance: abs=1.444e-3, rel=78.279434%
+    TypeScript: 0.0019493957263792606
+    Difference: 1.053e-4
+    Numeric difference exceeds tolerance: abs=1.053e-4, rel=5.399546%
 
   root.finalState.last_covariance[1][1][0]:
     Type: value
     Python:     0.001844137199694154
-    TypeScript: 0.00040055703559759796
-    Difference: 1.444e-3
-    Numeric difference exceeds tolerance: abs=1.444e-3, rel=78.279434%
+    TypeScript: 0.0019493957263792606
+    Difference: 1.053e-4
+    Numeric difference exceeds tolerance: abs=1.053e-4, rel=5.399546%
 
   root.finalState.last_covariance[1][1][1]:
     Type: value
     Python:     0.011021491787102742
-    TypeScript: 0.0014799374821011539
-    Difference: 9.542e-3
-    Numeric difference exceeds tolerance: abs=9.542e-3, rel=86.572258%
+    TypeScript: 0.024998365306891923
+    Difference: 1.398e-2
+    Numeric difference exceeds tolerance: abs=1.398e-2, rel=55.911150%
 
   root.finalState.reset_parameters.quality_acceptance_threshold:
     Type: missing
@@ -2826,13 +2599,6 @@ Found 189 difference(s):
     TypeScript: 2025-11-10T10:25:59.110Z
     Value mismatch: 2025-11-10T11:25:59.110000 !== 2025-11-10T10:25:59.110Z
 
-  root.finalState.measurement_history[1].quality_score:
-    Type: value
-    Python:     0.9483375916895864
-    TypeScript: 0.9454754935198453
-    Difference: 2.862e-3
-    Numeric difference exceeds tolerance: abs=2.862e-3, rel=0.301802%
-
   root.finalState.measurement_history[2].timestamp:
     Type: value
     Python:     2025-11-10T11:27:25.510000
@@ -2842,9 +2608,9 @@ Found 189 difference(s):
   root.finalState.measurement_history[2].quality_score:
     Type: value
     Python:     0.9477124619928798
-    TypeScript: 0.9448830987236454
-    Difference: 2.829e-3
-    Numeric difference exceeds tolerance: abs=2.829e-3, rel=0.298547%
+    TypeScript: 0.9527858133476765
+    Difference: 5.073e-3
+    Numeric difference exceeds tolerance: abs=5.073e-3, rel=0.532476%
 
   root.finalState.measurement_history[3].timestamp:
     Type: value
@@ -2855,9 +2621,9 @@ Found 189 difference(s):
   root.finalState.measurement_history[3].quality_score:
     Type: value
     Python:     0.9181140831089427
-    TypeScript: 0.913463369176142
-    Difference: 4.651e-3
-    Numeric difference exceeds tolerance: abs=4.651e-3, rel=0.506551%
+    TypeScript: 0.9241937239986877
+    Difference: 6.080e-3
+    Numeric difference exceeds tolerance: abs=6.080e-3, rel=0.657832%
 
   root.finalState.measurement_history[4].timestamp:
     Type: value
@@ -2868,9 +2634,9 @@ Found 189 difference(s):
   root.finalState.measurement_history[4].quality_score:
     Type: value
     Python:     0.915025196010972
-    TypeScript: 0.909244155629429
-    Difference: 5.781e-3
-    Numeric difference exceeds tolerance: abs=5.781e-3, rel=0.631790%
+    TypeScript: 0.9233942774026027
+    Difference: 8.369e-3
+    Numeric difference exceeds tolerance: abs=8.369e-3, rel=0.906339%
 
   root.finalState.temporal_baseline.last_timestamp:
     Type: value
@@ -2883,35 +2649,11 @@ Found 189 difference(s):
 ### Test 4: Quality Rejection
 **Description**: Mix of good and bad measurements - verify rejection logic
 
-**Comparison**: ✗ Found 88 difference(s): 59 numeric, 29 structural
+**Comparison**: ✗ Found 78 difference(s): 53 numeric, 25 structural
 
 **Differences**:
 ```
-Found 88 difference(s):
-
-  root.results[0].was_reset:
-    Type: missing
-    Python:     true
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_reason:
-    Type: missing
-    Python:     initial_measurement
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_type:
-    Type: missing
-    Python:     initial
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].gap_days:
-    Type: missing
-    Python:     null
-    TypeScript: undefined
-    Key missing in TypeScript output
+Found 78 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -2919,32 +2661,23 @@ Found 88 difference(s):
     TypeScript: 2025-11-10T10:24:32.710Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[0].kalman_confidence_upper:
-    Type: value
-    Python:     73.81575680566779
-    TypeScript: 71.20664825031987
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.534623%
-
-  root.results[0].kalman_confidence_lower:
-    Type: value
-    Python:     66.18424319433221
-    TypeScript: 68.79335174968013
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.792675%
-
-  root.results[0].kalman_variance:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.results[0].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:24:32.710000
     TypeScript: 2025-11-10T10:24:32.710Z
     Value mismatch: 2025-11-10T11:24:32.710000 !== 2025-11-10T10:24:32.710Z
+
+  root.results[0].reset_reason:
+    Type: value
+    Python:     initial_measurement
+    TypeScript: initial reset triggered
+    Value mismatch: initial_measurement !== initial reset triggered
+
+  root.results[0].gap_days:
+    Type: value
+    Python:     null
+    TypeScript: 0
+    Python value is null, TypeScript value is 0
 
   root.results[0].reset_event.gap_days:
     Type: missing
@@ -2967,92 +2700,78 @@ Found 88 difference(s):
   root.results[1].filtered_weight:
     Type: value
     Python:     70.01165296435182
-    TypeScript: 70.01419581160198
-    Difference: 2.543e-3
-    Numeric difference exceeds tolerance: abs=2.543e-3, rel=0.003632%
+    TypeScript: 70.09517830694098
+    Difference: 8.353e-2
+    Numeric difference exceeds tolerance: abs=8.353e-2, rel=0.119160%
 
   root.results[1].trend:
     Type: value
     Python:     2.742369346345332e-7
-    TypeScript: 0.0000037160837679603503
-    Difference: 3.442e-6
-    Numeric difference exceeds tolerance: abs=3.442e-6, rel=92.620270%
+    TypeScript: 0.000002096433861180469
+    Difference: 1.822e-6
+    Numeric difference exceeds tolerance: abs=1.822e-6, rel=86.918885%
 
   root.results[1].trend_weekly:
     Type: value
     Python:     0.000001919658542441732
-    TypeScript: 0.00002601258637572245
-    Difference: 2.409e-5
-    Numeric difference exceeds tolerance: abs=2.409e-5, rel=92.620270%
+    TypeScript: 0.000014675037028263284
+    Difference: 1.276e-5
+    Numeric difference exceeds tolerance: abs=1.276e-5, rel=86.918885%
 
   root.results[1].confidence:
     Type: value
     Python:     0.9997559901329914
-    TypeScript: 0.9967816725409628
-    Difference: 2.974e-3
-    Numeric difference exceeds tolerance: abs=2.974e-3, rel=0.297504%
+    TypeScript: 0.9992558058555713
+    Difference: 5.002e-4
+    Numeric difference exceeds tolerance: abs=5.002e-4, rel=0.050031%
 
   root.results[1].innovation:
     Type: value
     Python:     0.188347035648178
-    TypeScript: 0.18580418839802348
-    Difference: 2.543e-3
-    Numeric difference exceeds tolerance: abs=2.543e-3, rel=1.350086%
+    TypeScript: 0.10482169305902289
+    Difference: 8.353e-2
+    Numeric difference exceeds tolerance: abs=8.353e-2, rel=44.346513%
 
   root.results[1].normalized_innovation:
     Type: value
     Python:     0.022092516482277752
-    TypeScript: 0.08029342953393039
-    Difference: 5.820e-2
-    Numeric difference exceeds tolerance: abs=5.820e-2, rel=72.485275%
+    TypeScript: 0.03858681625509329
+    Difference: 1.649e-2
+    Numeric difference exceeds tolerance: abs=1.649e-2, rel=42.745946%
 
   root.results[1].kalman_confidence_upper:
     Type: value
     Python:     74.01247863871501
-    TypeScript: 71.20565758614555
-    Difference: 2.807e+0
-    Numeric difference exceeds tolerance: abs=2.807e+0, rel=3.792362%
+    TypeScript: 73.18027647298008
+    Difference: 8.322e-1
+    Numeric difference exceeds tolerance: abs=8.322e-1, rel=1.124408%
 
   root.results[1].kalman_confidence_lower:
     Type: value
     Python:     66.01082728998864
-    TypeScript: 68.82273403705841
-    Difference: 2.812e+0
-    Numeric difference exceeds tolerance: abs=2.812e+0, rel=4.085724%
+    TypeScript: 67.01008014090188
+    Difference: 9.993e-1
+    Numeric difference exceeds tolerance: abs=9.993e-1, rel=1.491198%
 
   root.results[1].kalman_variance:
     Type: value
     Python:     4.0016515191608955
-    TypeScript: 0.35489529004962833
-    Difference: 3.647e+0
-    Numeric difference exceeds tolerance: abs=3.647e+0, rel=91.131279%
+    TypeScript: 2.3794576735244517
+    Difference: 1.622e+0
+    Numeric difference exceeds tolerance: abs=1.622e+0, rel=40.538109%
 
   root.results[1].prediction_error:
     Type: value
     Python:     0.188347035648178
-    TypeScript: 0.18580418839802348
-    Difference: 2.543e-3
-    Numeric difference exceeds tolerance: abs=2.543e-3, rel=1.350086%
+    TypeScript: 0.10482169305902289
+    Difference: 8.353e-2
+    Numeric difference exceeds tolerance: abs=8.353e-2, rel=44.346513%
 
   root.results[1].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:25:59.110000
     TypeScript: 2025-11-10T10:25:59.110Z
     Value mismatch: 2025-11-10T11:25:59.110000 !== 2025-11-10T10:25:59.110Z
-
-  root.results[1].quality_score:
-    Type: value
-    Python:     0.9407390439689578
-    TypeScript: 0.9359941824316373
-    Difference: 4.745e-3
-    Numeric difference exceeds tolerance: abs=4.745e-3, rel=0.504376%
-
-  root.results[1].quality_components.kalman_fit:
-    Type: value
-    Python:     0.9960954635563457
-    TypeScript: 0.9829057887319245
-    Difference: 1.319e-2
-    Numeric difference exceeds tolerance: abs=1.319e-2, rel=1.324138%
 
   root.results[2].quality_score:
     Type: extra
@@ -3081,9 +2800,9 @@ Found 88 difference(s):
   root.results[3].quality_components.kalman_fit:
     Type: value
     Python:     0.0296130733009591
-    TypeScript: 1.8011100717405372e-7
-    Difference: 2.961e-2
-    Numeric difference exceeds tolerance: abs=2.961e-2, rel=99.999392%
+    TypeScript: 0.028998574394115302
+    Difference: 6.145e-4
+    Numeric difference exceeds tolerance: abs=6.145e-4, rel=2.075093%
 
   root.results[3].quality_details.rejection_reason:
     Type: missing
@@ -3100,51 +2819,51 @@ Found 88 difference(s):
   root.results[3].quality_details.components.kalman_fit:
     Type: value
     Python:     0.0296130733009591
-    TypeScript: 1.8011100717405372e-7
-    Difference: 2.961e-2
-    Numeric difference exceeds tolerance: abs=2.961e-2, rel=99.999392%
+    TypeScript: 0.028998574394115302
+    Difference: 6.145e-4
+    Numeric difference exceeds tolerance: abs=6.145e-4, rel=2.075093%
 
   root.results[3].quality_details.metadata.kalman_fit.innovation:
     Type: value
     Python:     179.98834700822448
-    TypeScript: 179.98580381678966
-    Difference: 2.543e-3
-    Numeric difference exceeds tolerance: abs=2.543e-3, rel=0.001413%
+    TypeScript: 179.90482148341562
+    Difference: 8.353e-2
+    Numeric difference exceeds tolerance: abs=8.353e-2, rel=0.046406%
 
   root.results[3].quality_details.metadata.kalman_fit.prediction:
     Type: value
     Python:     70.01165299177552
-    TypeScript: 70.01419618321036
-    Difference: 2.543e-3
-    Numeric difference exceeds tolerance: abs=2.543e-3, rel=0.003632%
+    TypeScript: 70.09517851658437
+    Difference: 8.353e-2
+    Numeric difference exceeds tolerance: abs=8.353e-2, rel=0.119160%
 
   root.results[3].quality_details.metadata.kalman_fit.normalized_innovation:
     Type: value
     Python:     17.59769674792355
-    TypeScript: 77.648462348095
-    Difference: 6.005e+1
-    Numeric difference exceeds tolerance: abs=6.005e+1, rel=77.336709%
+    TypeScript: 17.70254304513804
+    Difference: 1.048e-1
+    Numeric difference exceeds tolerance: abs=1.048e-1, rel=0.592267%
 
   root.results[3].quality_details.metadata.kalman_fit.chi_squared:
     Type: value
     Python:     309.6789308318791
-    TypeScript: 6029.283705023526
-    Difference: 5.720e+3
-    Numeric difference exceeds tolerance: abs=5.720e+3, rel=94.863753%
+    TypeScript: 313.38003026496517
+    Difference: 3.701e+0
+    Numeric difference exceeds tolerance: abs=3.701e+0, rel=1.181026%
 
   root.results[3].quality_details.metadata.kalman_fit.score:
     Type: value
     Python:     0.0296130733009591
-    TypeScript: 1.8011100717405372e-7
-    Difference: 2.961e-2
-    Numeric difference exceeds tolerance: abs=2.961e-2, rel=99.999392%
+    TypeScript: 0.028998574394115302
+    Difference: 6.145e-4
+    Numeric difference exceeds tolerance: abs=6.145e-4, rel=2.075093%
 
   root.results[3].quality_details.metadata.temporal_consistency.actual_change:
     Type: value
     Python:     179.9883470356482
-    TypeScript: 179.98580418839802
-    Difference: 2.543e-3
-    Numeric difference exceeds tolerance: abs=2.543e-3, rel=0.001413%
+    TypeScript: 179.90482169305903
+    Difference: 8.353e-2
+    Numeric difference exceeds tolerance: abs=8.353e-2, rel=0.046406%
 
   root.results[4].timestamp:
     Type: type
@@ -3155,72 +2874,72 @@ Found 88 difference(s):
   root.results[4].filtered_weight:
     Type: value
     Python:     70.01914101255421
-    TypeScript: 70.02015167188767
-    Difference: 1.011e-3
-    Numeric difference exceeds tolerance: abs=1.011e-3, rel=0.001443%
+    TypeScript: 70.09708831378938
+    Difference: 7.795e-2
+    Numeric difference exceeds tolerance: abs=7.795e-2, rel=0.111199%
 
   root.results[4].trend:
     Type: value
     Python:     0.0000012921698287282735
-    TypeScript: 0.000006988298730430238
-    Difference: 5.696e-6
-    Numeric difference exceeds tolerance: abs=5.696e-6, rel=81.509522%
+    TypeScript: 0.0000025345906574496616
+    Difference: 1.242e-6
+    Numeric difference exceeds tolerance: abs=1.242e-6, rel=49.018599%
 
   root.results[4].trend_weekly:
     Type: value
     Python:     0.000009045188801097915
-    TypeScript: 0.00004891809111301166
-    Difference: 3.987e-5
-    Numeric difference exceeds tolerance: abs=3.987e-5, rel=81.509522%
+    TypeScript: 0.000017742134602147632
+    Difference: 8.697e-6
+    Numeric difference exceeds tolerance: abs=8.697e-6, rel=49.018599%
 
   root.results[4].confidence:
     Type: value
     Python:     0.9999368043389365
-    TypeScript: 0.9994039829440177
-    Difference: 5.328e-4
-    Numeric difference exceeds tolerance: abs=5.328e-4, rel=0.053286%
+    TypeScript: 0.9999993927437567
+    Difference: 6.259e-5
+    Numeric difference exceeds tolerance: abs=6.259e-5, rel=0.006259%
 
   root.results[4].innovation:
     Type: value
     Python:     0.08085898744577946
-    TypeScript: 0.07984832811231968
-    Difference: 1.011e-3
-    Numeric difference exceeds tolerance: abs=1.011e-3, rel=1.249904%
+    TypeScript: 0.002911686210609332
+    Difference: 7.795e-2
+    Numeric difference exceeds tolerance: abs=7.795e-2, rel=96.399057%
 
   root.results[4].normalized_innovation:
     Type: value
     Python:     0.011242567143979145
-    TypeScript: 0.034530993172945244
-    Difference: 2.329e-2
-    Numeric difference exceeds tolerance: abs=2.329e-2, rel=67.442097%
+    TypeScript: 0.0011020493887911418
+    Difference: 1.014e-2
+    Numeric difference exceeds tolerance: abs=1.014e-2, rel=90.197529%
 
   root.results[4].kalman_confidence_upper:
     Type: value
     Python:     74.03995688254918
-    TypeScript: 71.19835540928163
-    Difference: 2.842e+0
-    Numeric difference exceeds tolerance: abs=2.842e+0, rel=3.837930%
+    TypeScript: 72.91169869987782
+    Difference: 1.128e+0
+    Numeric difference exceeds tolerance: abs=1.128e+0, rel=1.523850%
 
   root.results[4].kalman_confidence_lower:
     Type: value
     Python:     65.99832514255925
-    TypeScript: 68.84194793449372
-    Difference: 2.844e+0
-    Numeric difference exceeds tolerance: abs=2.844e+0, rel=4.130654%
+    TypeScript: 67.28247792770095
+    Difference: 1.284e+0
+    Numeric difference exceeds tolerance: abs=1.284e+0, rel=1.908599%
 
   root.results[4].kalman_variance:
     Type: value
     Python:     4.041740065100835
-    TypeScript: 0.34704101170227364
-    Difference: 3.695e+0
-    Numeric difference exceeds tolerance: abs=3.695e+0, rel=91.413574%
+    TypeScript: 1.9805079063692226
+    Difference: 2.061e+0
+    Numeric difference exceeds tolerance: abs=2.061e+0, rel=50.998632%
 
   root.results[4].prediction_error:
     Type: value
     Python:     0.08085898744577946
-    TypeScript: 0.07984832811231968
-    Difference: 1.011e-3
-    Numeric difference exceeds tolerance: abs=1.011e-3, rel=1.249904%
+    TypeScript: 0.002911686210609332
+    Difference: 7.795e-2
+    Numeric difference exceeds tolerance: abs=7.795e-2, rel=96.399057%
 
   root.results[4].preprocessing.timestamp:
     Type: value
@@ -3231,23 +2950,23 @@ Found 88 difference(s):
   root.results[4].quality_score:
     Type: value
     Python:     0.9630516768743426
-    TypeScript: 0.961190717010834
-    Difference: 1.861e-3
-    Numeric difference exceeds tolerance: abs=1.861e-3, rel=0.193236%
+    TypeScript: 0.9724176355122152
+    Difference: 9.366e-3
+    Numeric difference exceeds tolerance: abs=9.366e-3, rel=0.963162%
 
   root.results[4].quality_components.kalman_fit:
     Type: value
     Python:     0.9982739308009785
-    TypeScript: 0.9926239377293191
-    Difference: 5.650e-3
-    Numeric difference exceeds tolerance: abs=5.650e-3, rel=0.565976%
+    TypeScript: 0.999905118197791
+    Difference: 1.631e-3
+    Numeric difference exceeds tolerance: abs=1.631e-3, rel=0.163134%
 
   root.results[4].quality_components.temporal_consistency:
     Type: value
     Python:     0.9680018768103804
-    TypeScript: 0.9688470293216866
-    Difference: 8.452e-4
-    Numeric difference exceeds tolerance: abs=8.452e-4, rel=0.087233%
+    TypeScript: 0.9981060190295834
+    Difference: 3.010e-2
+    Numeric difference exceeds tolerance: abs=3.010e-2, rel=3.016127%
 
   root.finalState.adaptation_state:
     Type: extra
@@ -3261,39 +2980,25 @@ Found 88 difference(s):
     TypeScript: 1
     Extra key in TypeScript output
 
-  root.finalState.kalman_params.initial_state_covariance[0][0]:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.finalState.kalman_params.transition_covariance[0][0]:
     Type: value
     Python:     0.41430814635138935
-    TypeScript: 0.018
-    Difference: 3.963e-1
-    Numeric difference exceeds tolerance: abs=3.963e-1, rel=95.655408%
+    TypeScript: 0.8999999999999999
+    Difference: 4.857e-1
+    Numeric difference exceeds tolerance: abs=4.857e-1, rel=53.965762%
 
   root.finalState.kalman_params.transition_covariance[1][1]:
     Type: value
     Python:     0.002762054309009263
-    TypeScript: 0.00012
-    Difference: 2.642e-3
-    Numeric difference exceeds tolerance: abs=2.642e-3, rel=95.655408%
-
-  root.finalState.kalman_params.observation_covariance[0][0]:
-    Type: value
-    Python:     100
-    TypeScript: 5
-    Difference: 9.500e+1
-    Numeric difference exceeds tolerance: abs=9.500e+1, rel=95.000000%
+    TypeScript: 0.006
+    Difference: 3.238e-3
+    Numeric difference exceeds tolerance: abs=3.238e-3, rel=53.965762%
 
   root.finalState.last_state[0][0]:
     Type: type
     Python:     70.01165296435182
     TypeScript: [
-  70.01419581160198
+  70.09517830694098
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -3301,7 +3006,7 @@ Found 88 difference(s):
     Type: type
     Python:     2.742369346345332e-7
     TypeScript: [
-  0.0000037160837679603503
+  0.000002096433861180469
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -3309,7 +3014,7 @@ Found 88 difference(s):
     Type: type
     Python:     70.01914101255421
     TypeScript: [
-  70.02015167188767
+  70.09708831378938
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -3317,65 +3022,65 @@ Found 88 difference(s):
     Type: type
     Python:     0.0000012921698287282735
     TypeScript: [
-  0.000006988298730430238
+  0.0000025345906574496616
 ]
     Type mismatch: Python number, TypeScript object
 
   root.finalState.last_covariance[0][0][0]:
     Type: value
     Python:     4.0016515191608955
-    TypeScript: 0.35489529004962833
-    Difference: 3.647e+0
-    Numeric difference exceeds tolerance: abs=3.647e+0, rel=91.131279%
+    TypeScript: 2.3794576735244517
+    Difference: 1.622e+0
+    Numeric difference exceeds tolerance: abs=1.622e+0, rel=40.538109%
 
   root.finalState.last_covariance[0][0][1]:
     Type: value
     Python:     0.00009417351782408612
-    TypeScript: 0.00009290209419900744
-    Difference: 1.271e-6
-    Numeric difference exceeds tolerance: abs=1.271e-6, rel=1.350086%
+    TypeScript: 0.00005241084652951098
+    Difference: 4.176e-5
+    Numeric difference exceeds tolerance: abs=4.176e-5, rel=44.346513%
 
   root.finalState.last_covariance[0][1][0]:
     Type: value
     Python:     0.00009417351782408611
-    TypeScript: 0.00009290209419900744
-    Difference: 1.271e-6
-    Numeric difference exceeds tolerance: abs=1.271e-6, rel=1.350086%
+    TypeScript: 0.00005241084652951098
+    Difference: 4.176e-5
+    Numeric difference exceeds tolerance: abs=4.176e-5, rel=44.346513%
 
   root.finalState.last_covariance[0][1][1]:
     Type: value
     Python:     0.0050614817335710915
-    TypeScript: 0.0011199981419581161
-    Difference: 3.941e-3
-    Numeric difference exceeds tolerance: abs=3.941e-3, rel=77.872129%
+    TypeScript: 0.006999998951783069
+    Difference: 1.939e-3
+    Numeric difference exceeds tolerance: abs=1.939e-3, rel=27.693107%
 
   root.finalState.last_covariance[1][0][0]:
     Type: value
     Python:     4.041740065100835
-    TypeScript: 0.34704101170227364
-    Difference: 3.695e+0
-    Numeric difference exceeds tolerance: abs=3.695e+0, rel=91.413574%
+    TypeScript: 1.9805079063692226
+    Difference: 2.061e+0
+    Numeric difference exceeds tolerance: abs=2.061e+0, rel=50.998632%
 
   root.finalState.last_covariance[1][0][1]:
     Type: value
     Python:     0.0005494402704312545
-    TypeScript: 0.00019068003527700613
-    Difference: 3.588e-4
-    Numeric difference exceeds tolerance: abs=3.588e-4, rel=65.295584%
+    TypeScript: 0.00045437965714992517
+    Difference: 9.506e-5
+    Numeric difference exceeds tolerance: abs=9.506e-5, rel=17.301355%
 
   root.finalState.last_covariance[1][1][0]:
     Type: value
     Python:     0.0005494402704312545
-    TypeScript: 0.00019068003527700613
-    Difference: 3.588e-4
-    Numeric difference exceeds tolerance: abs=3.588e-4, rel=65.295584%
+    TypeScript: 0.00045437965714992517
+    Difference: 9.506e-5
+    Numeric difference exceeds tolerance: abs=9.506e-5, rel=17.301355%
 
   root.finalState.last_covariance[1][1][1]:
     Type: value
     Python:     0.007823529125682899
-    TypeScript: 0.001239990327817492
-    Difference: 6.584e-3
-    Numeric difference exceeds tolerance: abs=6.584e-3, rel=84.150499%
+    TypeScript: 0.012999930575756099
+    Difference: 5.176e-3
+    Numeric difference exceeds tolerance: abs=5.176e-3, rel=39.818685%
 
   root.finalState.reset_parameters.quality_acceptance_threshold:
     Type: missing
@@ -3454,13 +3159,6 @@ Found 88 difference(s):
     TypeScript: 2025-11-10T10:25:59.110Z
     Value mismatch: 2025-11-10T11:25:59.110000 !== 2025-11-10T10:25:59.110Z
 
-  root.finalState.measurement_history[1].quality_score:
-    Type: value
-    Python:     0.9407390439689578
-    TypeScript: 0.9359941824316373
-    Difference: 4.745e-3
-    Numeric difference exceeds tolerance: abs=4.745e-3, rel=0.504376%
-
   root.finalState.measurement_history[2].timestamp:
     Type: value
     Python:     2025-11-10T11:30:18.310000
@@ -3470,9 +3168,9 @@ Found 88 difference(s):
   root.finalState.measurement_history[2].quality_score:
     Type: value
     Python:     0.9630516768743426
-    TypeScript: 0.961190717010834
-    Difference: 1.861e-3
-    Numeric difference exceeds tolerance: abs=1.861e-3, rel=0.193236%
+    TypeScript: 0.9724176355122152
+    Difference: 9.366e-3
+    Numeric difference exceeds tolerance: abs=9.366e-3, rel=0.963162%
 
   root.finalState.temporal_baseline.last_timestamp:
     Type: value
@@ -3485,35 +3183,11 @@ Found 88 difference(s):
 ### Test 5: State Persistence
 **Description**: Process in batches - verify state persistence works correctly
 
-**Comparison**: ✗ Found 178 difference(s): 142 numeric, 36 structural
+**Comparison**: ✗ Found 161 difference(s): 133 numeric, 28 structural
 
 **Differences**:
 ```
-Found 178 difference(s):
-
-  root.results[0].was_reset:
-    Type: missing
-    Python:     true
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_reason:
-    Type: missing
-    Python:     initial_measurement
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].reset_type:
-    Type: missing
-    Python:     initial
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[0].gap_days:
-    Type: missing
-    Python:     null
-    TypeScript: undefined
-    Key missing in TypeScript output
+Found 161 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -3521,32 +3195,23 @@ Found 178 difference(s):
     TypeScript: 2025-11-10T10:24:32.710Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[0].kalman_confidence_upper:
-    Type: value
-    Python:     73.81575680566779
-    TypeScript: 71.20664825031987
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.534623%
-
-  root.results[0].kalman_confidence_lower:
-    Type: value
-    Python:     66.18424319433221
-    TypeScript: 68.79335174968013
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.792675%
-
-  root.results[0].kalman_variance:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.results[0].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:24:32.710000
     TypeScript: 2025-11-10T10:24:32.710Z
     Value mismatch: 2025-11-10T11:24:32.710000 !== 2025-11-10T10:24:32.710Z
+
+  root.results[0].reset_reason:
+    Type: value
+    Python:     initial_measurement
+    TypeScript: initial reset triggered
+    Value mismatch: initial_measurement !== initial reset triggered
+
+  root.results[0].gap_days:
+    Type: value
+    Python:     null
+    TypeScript: 0
+    Python value is null, TypeScript value is 0
 
   root.results[0].reset_event.gap_days:
     Type: missing
@@ -3569,92 +3234,78 @@ Found 178 difference(s):
   root.results[1].filtered_weight:
     Type: value
     Python:     70.00582648217592
-    TypeScript: 70.00709790580099
-    Difference: 1.271e-3
-    Numeric difference exceeds tolerance: abs=1.271e-3, rel=0.001816%
+    TypeScript: 70.04758915347048
+    Difference: 4.176e-2
+    Numeric difference exceeds tolerance: abs=4.176e-2, rel=0.059620%
 
   root.results[1].trend:
     Type: value
     Python:     1.3711846731725685e-7
-    TypeScript: 0.000001858041883980043
-    Difference: 1.721e-6
-    Numeric difference exceeds tolerance: abs=1.721e-6, rel=92.620270%
+    TypeScript: 0.00000104821693059016
+    Difference: 9.111e-7
+    Numeric difference exceeds tolerance: abs=9.111e-7, rel=86.918885%
 
   root.results[1].trend_weekly:
     Type: value
     Python:     9.598292712207979e-7
-    TypeScript: 0.0000130062931878603
-    Difference: 1.205e-5
-    Numeric difference exceeds tolerance: abs=1.205e-5, rel=92.620270%
+    TypeScript: 0.00000733751851413112
+    Difference: 6.378e-6
+    Numeric difference exceeds tolerance: abs=6.378e-6, rel=86.918885%
 
   root.results[1].confidence:
     Type: value
     Python:     0.9999389919505018
-    TypeScript: 0.9991944452802651
-    Difference: 7.445e-4
-    Numeric difference exceeds tolerance: abs=7.445e-4, rel=0.074459%
+    TypeScript: 0.999813899520255
+    Difference: 1.251e-4
+    Numeric difference exceeds tolerance: abs=1.251e-4, rel=0.012510%
 
   root.results[1].innovation:
     Type: value
     Python:     0.09417351782407479
-    TypeScript: 0.09290209419900464
-    Difference: 1.271e-3
-    Numeric difference exceeds tolerance: abs=1.271e-3, rel=1.350086%
+    TypeScript: 0.052410846529511446
+    Difference: 4.176e-2
+    Numeric difference exceeds tolerance: abs=4.176e-2, rel=44.346513%
 
   root.results[1].normalized_innovation:
     Type: value
     Python:     0.011046258241137209
-    TypeScript: 0.04014671476696212
-    Difference: 2.910e-2
-    Numeric difference exceeds tolerance: abs=2.910e-2, rel=72.485275%
+    TypeScript: 0.019293408127546645
+    Difference: 8.247e-3
+    Numeric difference exceeds tolerance: abs=8.247e-3, rel=42.745946%
 
   root.results[1].kalman_confidence_upper:
     Type: value
     Python:     74.0066521565391
-    TypeScript: 71.19855968034456
-    Difference: 2.808e+0
-    Numeric difference exceeds tolerance: abs=2.808e+0, rel=3.794378%
+    TypeScript: 73.13268731950959
+    Difference: 8.740e-1
+    Numeric difference exceeds tolerance: abs=8.740e-1, rel=1.180927%
 
   root.results[1].kalman_confidence_lower:
     Type: value
     Python:     66.00500080781273
-    TypeScript: 68.81563613125742
-    Difference: 2.811e+0
-    Numeric difference exceeds tolerance: abs=2.811e+0, rel=4.084298%
+    TypeScript: 66.96249098743138
+    Difference: 9.575e-1
+    Numeric difference exceeds tolerance: abs=9.575e-1, rel=1.429890%
 
   root.results[1].kalman_variance:
     Type: value
     Python:     4.0016515191608955
-    TypeScript: 0.35489529004962833
-    Difference: 3.647e+0
-    Numeric difference exceeds tolerance: abs=3.647e+0, rel=91.131279%
+    TypeScript: 2.3794576735244517
+    Difference: 1.622e+0
+    Numeric difference exceeds tolerance: abs=1.622e+0, rel=40.538109%
 
   root.results[1].prediction_error:
     Type: value
     Python:     0.09417351782407479
-    TypeScript: 0.09290209419900464
-    Difference: 1.271e-3
-    Numeric difference exceeds tolerance: abs=1.271e-3, rel=1.350086%
+    TypeScript: 0.052410846529511446
+    Difference: 4.176e-2
+    Numeric difference exceeds tolerance: abs=4.176e-2, rel=44.346513%
 
   root.results[1].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:25:59.110000
     TypeScript: 2025-11-10T10:25:59.110Z
     Value mismatch: 2025-11-10T11:25:59.110000 !== 2025-11-10T10:25:59.110Z
-
-  root.results[1].quality_score:
-    Type: value
-    Python:     0.9502517432046031
-    TypeScript: 0.9478378128444289
-    Difference: 2.414e-3
-    Numeric difference exceeds tolerance: abs=2.414e-3, rel=0.254031%
-
-  root.results[1].quality_components.kalman_fit:
-    Type: value
-    Python:     0.9980458223730743
-    TypeScript: 0.9914160522867913
-    Difference: 6.630e-3
-    Numeric difference exceeds tolerance: abs=6.630e-3, rel=0.664275%
 
   root.results[2].timestamp:
     Type: type
@@ -3665,72 +3316,72 @@ Found 178 difference(s):
   root.results[2].filtered_weight:
     Type: value
     Python:     70.02228404507574
-    TypeScript: 70.0204870662949
-    Difference: 1.797e-3
-    Numeric difference exceeds tolerance: abs=1.797e-3, rel=0.002566%
+    TypeScript: 70.10795939408577
+    Difference: 8.568e-2
+    Numeric difference exceeds tolerance: abs=8.568e-2, rel=0.122205%
 
   root.results[2].trend:
     Type: value
     Python:     0.000002374382648296539
-    TypeScript: 0.000009214550423525659
-    Difference: 6.840e-6
-    Numeric difference exceeds tolerance: abs=6.840e-6, rel=74.232246%
+    TypeScript: 0.000014898685043223674
+    Difference: 1.252e-5
+    Numeric difference exceeds tolerance: abs=1.252e-5, rel=84.063140%
 
   root.results[2].trend_weekly:
     Type: value
     Python:     0.00001662067853807577
-    TypeScript: 0.00006450185296467961
-    Difference: 4.788e-5
-    Numeric difference exceeds tolerance: abs=4.788e-5, rel=74.232246%
+    TypeScript: 0.00010429079530256571
+    Difference: 8.767e-5
+    Numeric difference exceeds tolerance: abs=8.767e-5, rel=84.063140%
 
   root.results[2].confidence:
     Type: value
     Python:     0.9996947673850899
-    TypeScript: 0.9969911966481986
-    Difference: 2.704e-3
-    Numeric difference exceeds tolerance: abs=2.704e-3, rel=0.270440%
+    TypeScript: 0.9993933891668693
+    Difference: 3.014e-4
+    Numeric difference exceeds tolerance: abs=3.014e-4, rel=0.030147%
 
   root.results[2].innovation:
     Type: value
     Python:     0.17771595492426684
-    TypeScript: 0.17951293370509802
-    Difference: 1.797e-3
-    Numeric difference exceeds tolerance: abs=1.797e-3, rel=1.001030%
+    TypeScript: 0.09204060591423513
+    Difference: 8.568e-2
+    Numeric difference exceeds tolerance: abs=8.568e-2, rel=48.209149%
 
   root.results[2].normalized_innovation:
     Type: value
     Python:     0.024709480280496986
-    TypeScript: 0.07763168039669593
-    Difference: 5.292e-2
-    Numeric difference exceeds tolerance: abs=5.292e-2, rel=68.170881%
+    TypeScript: 0.03483661567725119
+    Difference: 1.013e-2
+    Numeric difference exceeds tolerance: abs=1.013e-2, rel=29.070377%
 
   root.results[2].kalman_confidence_upper:
     Type: value
     Python:     74.0430999150707
-    TypeScript: 71.19869080368886
-    Difference: 2.844e+0
-    Numeric difference exceeds tolerance: abs=2.844e+0, rel=3.841559%
+    TypeScript: 72.9225697801742
+    Difference: 1.121e+0
+    Numeric difference exceeds tolerance: abs=1.121e+0, rel=1.513348%
 
   root.results[2].kalman_confidence_lower:
     Type: value
     Python:     66.00146817508077
-    TypeScript: 68.84228332890095
-    Difference: 2.841e+0
-    Numeric difference exceeds tolerance: abs=2.841e+0, rel=4.126556%
+    TypeScript: 67.29334900799734
+    Difference: 1.292e+0
+    Numeric difference exceeds tolerance: abs=1.292e+0, rel=1.919775%
 
   root.results[2].kalman_variance:
     Type: value
     Python:     4.041740065100835
-    TypeScript: 0.34704101170227364
-    Difference: 3.695e+0
-    Numeric difference exceeds tolerance: abs=3.695e+0, rel=91.413574%
+    TypeScript: 1.9805079063692226
+    Difference: 2.061e+0
+    Numeric difference exceeds tolerance: abs=2.061e+0, rel=50.998632%
 
   root.results[2].prediction_error:
     Type: value
     Python:     0.17771595492426684
-    TypeScript: 0.17951293370509802
-    Difference: 1.797e-3
-    Numeric difference exceeds tolerance: abs=1.797e-3, rel=1.001030%
+    TypeScript: 0.09204060591423513
+    Difference: 8.568e-2
+    Numeric difference exceeds tolerance: abs=8.568e-2, rel=48.209149%
 
   root.results[2].preprocessing.timestamp:
     Type: value
@@ -3741,23 +3392,23 @@ Found 178 difference(s):
   root.results[2].quality_score:
     Type: value
     Python:     0.9412561190105361
-    TypeScript: 0.9367822904471772
-    Difference: 4.474e-3
-    Numeric difference exceeds tolerance: abs=4.474e-3, rel=0.475304%
+    TypeScript: 0.9450858309686435
+    Difference: 3.830e-3
+    Numeric difference exceeds tolerance: abs=3.830e-3, rel=0.405224%
 
   root.results[2].quality_components.kalman_fit:
     Type: value
     Python:     0.9962102795524286
-    TypeScript: 0.9834936171616375
-    Difference: 1.272e-2
-    Numeric difference exceeds tolerance: abs=1.272e-2, rel=1.276504%
+    TypeScript: 0.9970050658774887
+    Difference: 7.948e-4
+    Numeric difference exceeds tolerance: abs=7.948e-4, rel=0.079717%
 
   root.results[2].quality_components.temporal_consistency:
     Type: value
     Python:     0.9358715060747236
-    TypeScript: 0.9362158948773998
-    Difference: 3.444e-4
-    Numeric difference exceeds tolerance: abs=3.444e-4, rel=0.036785%
+    TypeScript: 0.9476524034852276
+    Difference: 1.178e-2
+    Numeric difference exceeds tolerance: abs=1.178e-2, rel=1.243167%
 
   root.results[3].timestamp:
     Type: type
@@ -3768,72 +3419,72 @@ Found 178 difference(s):
   root.results[3].filtered_weight:
     Type: value
     Python:     70.05394776769158
-    TypeScript: 70.03950862742087
-    Difference: 1.444e-2
-    Numeric difference exceeds tolerance: abs=1.444e-2, rel=0.020611%
+    TypeScript: 70.17815903746495
+    Difference: 1.242e-1
+    Numeric difference exceeds tolerance: abs=1.242e-1, rel=0.176994%
 
   root.results[3].trend:
     Type: value
     Python:     0.000012123179167744857
-    TypeScript: 0.00002560878689563456
-    Difference: 1.349e-5
-    Numeric difference exceeds tolerance: abs=1.349e-5, rel=52.660080%
+    TypeScript: 0.0000576495770847014
+    Difference: 4.553e-5
+    Numeric difference exceeds tolerance: abs=4.553e-5, rel=78.970914%
 
   root.results[3].trend_weekly:
     Type: value
     Python:     0.000084862254174214
-    TypeScript: 0.00017926150826944192
-    Difference: 9.440e-5
-    Numeric difference exceeds tolerance: abs=9.440e-5, rel=52.660080%
+    TypeScript: 0.00040354703959290977
+    Difference: 3.187e-4
+    Numeric difference exceeds tolerance: abs=3.187e-4, rel=78.970914%
 
   root.results[3].confidence:
     Type: value
     Python:     0.9991919367647333
-    TypeScript: 0.9936668982182464
-    Difference: 5.525e-3
-    Numeric difference exceeds tolerance: abs=5.525e-3, rel=0.552951%
+    TypeScript: 0.998913459596839
+    Difference: 2.785e-4
+    Numeric difference exceeds tolerance: abs=2.785e-4, rel=0.027870%
 
   root.results[3].innovation:
     Type: value
     Python:     0.2460522323084149
-    TypeScript: 0.2604913725791249
-    Difference: 1.444e-2
-    Numeric difference exceeds tolerance: abs=1.444e-2, rel=5.543040%
+    TypeScript: 0.12184096253504606
+    Difference: 1.242e-1
+    Numeric difference exceeds tolerance: abs=1.242e-1, rel=50.481667%
 
   root.results[3].normalized_innovation:
     Type: value
     Python:     0.04020920029915558
-    TypeScript: 0.1127230317617692
-    Difference: 7.251e-2
-    Numeric difference exceeds tolerance: abs=7.251e-2, rel=64.329206%
+    TypeScript: 0.04662898489379019
+    Difference: 6.420e-3
+    Numeric difference exceeds tolerance: abs=6.420e-3, rel=13.767798%
 
   root.results[3].kalman_confidence_upper:
     Type: value
     Python:     73.96925340202483
-    TypeScript: 71.20612298929431
-    Difference: 2.763e+0
-    Numeric difference exceeds tolerance: abs=2.763e+0, rel=3.735512%
+    TypeScript: 72.88201151656123
+    Difference: 1.087e+0
+    Numeric difference exceeds tolerance: abs=1.087e+0, rel=1.469857%
 
   root.results[3].kalman_confidence_lower:
     Type: value
     Python:     66.13864213335833
-    TypeScript: 68.87289426554743
-    Difference: 2.734e+0
-    Numeric difference exceeds tolerance: abs=2.734e+0, rel=3.969997%
+    TypeScript: 67.47430655836867
+    Difference: 1.336e+0
+    Numeric difference exceeds tolerance: abs=1.336e+0, rel=1.979516%
 
   root.results[3].kalman_variance:
     Type: value
     Python:     3.8324045525604276
-    TypeScript: 0.3402472673323422
-    Difference: 3.492e+0
-    Numeric difference exceeds tolerance: abs=3.492e+0, rel=91.121833%
+    TypeScript: 1.827704557178785
+    Difference: 2.005e+0
+    Numeric difference exceeds tolerance: abs=2.005e+0, rel=52.309196%
 
   root.results[3].prediction_error:
     Type: value
     Python:     0.2460522323084149
-    TypeScript: 0.2604913725791249
-    Difference: 1.444e-2
-    Numeric difference exceeds tolerance: abs=1.444e-2, rel=5.543040%
+    TypeScript: 0.12184096253504606
+    Difference: 1.242e-1
+    Numeric difference exceeds tolerance: abs=1.242e-1, rel=50.481667%
 
   root.results[3].preprocessing.timestamp:
     Type: value
@@ -3844,23 +3495,23 @@ Found 178 difference(s):
   root.results[3].quality_score:
     Type: value
     Python:     0.9342633391947578
-    TypeScript: 0.9275569702102858
-    Difference: 6.706e-3
-    Numeric difference exceeds tolerance: abs=6.706e-3, rel=0.717824%
+    TypeScript: 0.941435178044982
+    Difference: 7.172e-3
+    Numeric difference exceeds tolerance: abs=7.172e-3, rel=0.761798%
 
   root.results[3].quality_components.kalman_fit:
     Type: value
     Python:     0.9945801944395222
-    TypeScript: 0.9761542129758899
-    Difference: 1.843e-2
-    Numeric difference exceeds tolerance: abs=1.843e-2, rel=1.852639%
+    TypeScript: 0.9962205319228531
+    Difference: 1.640e-3
+    Numeric difference exceeds tolerance: abs=1.640e-3, rel=0.164656%
 
   root.results[3].quality_components.temporal_consistency:
     Type: value
     Python:     0.9150507210816894
-    TypeScript: 0.9146398210793958
-    Difference: 4.109e-4
-    Numeric difference exceeds tolerance: abs=4.109e-4, rel=0.044905%
+    TypeScript: 0.9364497410261658
+    Difference: 2.140e-2
+    Numeric difference exceeds tolerance: abs=2.140e-2, rel=2.285122%
 
   root.results[4].timestamp:
     Type: type
@@ -3871,72 +3522,72 @@ Found 178 difference(s):
   root.results[4].filtered_weight:
     Type: value
     Python:     70.10337203509553
-    TypeScript: 70.06361766002658
-    Difference: 3.975e-2
-    Numeric difference exceeds tolerance: abs=3.975e-2, rel=0.056708%
+    TypeScript: 70.25647526250482
+    Difference: 1.531e-1
+    Numeric difference exceeds tolerance: abs=1.531e-1, rel=0.217920%
 
   root.results[4].trend:
     Type: value
     Python:     0.00003851528393043969
-    TypeScript: 0.00005448805285180108
-    Difference: 1.597e-5
-    Numeric difference exceeds tolerance: abs=1.597e-5, rel=29.314259%
+    TypeScript: 0.0001441384943082579
+    Difference: 1.056e-4
+    Numeric difference exceeds tolerance: abs=1.056e-4, rel=73.278974%
 
   root.results[4].trend_weekly:
     Type: value
     Python:     0.00026960698751307785
-    TypeScript: 0.00038141636996260757
-    Difference: 1.118e-4
-    Numeric difference exceeds tolerance: abs=1.118e-4, rel=29.314259%
+    TypeScript: 0.0010089694601578053
+    Difference: 7.394e-4
+    Numeric difference exceeds tolerance: abs=7.394e-4, rel=73.278974%
 
   root.results[4].confidence:
     Type: value
     Python:     0.998409215670912
-    TypeScript: 0.98944998276146
-    Difference: 8.959e-3
-    Numeric difference exceeds tolerance: abs=8.959e-3, rel=0.897351%
+    TypeScript: 0.9984786772772689
+    Difference: 6.946e-5
+    Numeric difference exceeds tolerance: abs=6.946e-5, rel=0.006957%
 
   root.results[4].innovation:
     Type: value
     Python:     0.29662796490447363
-    TypeScript: 0.3363823399734258
-    Difference: 3.975e-2
-    Numeric difference exceeds tolerance: abs=3.975e-2, rel=11.818211%
+    TypeScript: 0.14352473749518424
+    Difference: 1.531e-1
+    Numeric difference exceeds tolerance: abs=1.531e-1, rel=51.614563%
 
   root.results[4].normalized_innovation:
     Type: value
     Python:     0.056427847202575994
-    TypeScript: 0.14564383412675075
-    Difference: 8.922e-2
-    Numeric difference exceeds tolerance: abs=8.922e-2, rel=61.256275%
+    TypeScript: 0.05518117630399935
+    Difference: 1.247e-3
+    Numeric difference exceeds tolerance: abs=1.247e-3, rel=2.209319%
 
   root.results[4].kalman_confidence_upper:
     Type: value
     Python:     73.82004535902216
-    TypeScript: 71.22009180576052
-    Difference: 2.600e+0
-    Numeric difference exceeds tolerance: abs=2.600e+0, rel=3.522016%
+    TypeScript: 72.91358602311652
+    Difference: 9.065e-1
+    Numeric difference exceeds tolerance: abs=9.065e-1, rel=1.227931%
 
   root.results[4].kalman_confidence_lower:
     Type: value
     Python:     66.3866987111689
-    TypeScript: 68.90714351429264
-    Difference: 2.520e+0
-    Numeric difference exceeds tolerance: abs=2.520e+0, rel=3.657741%
+    TypeScript: 67.59936450189312
+    Difference: 1.213e+0
+    Numeric difference exceeds tolerance: abs=1.213e+0, rel=1.793901%
 
   root.results[4].kalman_variance:
     Type: value
     Python:     3.453415149196944
-    TypeScript: 0.33435811243776226
-    Difference: 3.119e+0
-    Numeric difference exceeds tolerance: abs=3.119e+0, rel=90.318045%
+    TypeScript: 1.7650593985396297
+    Difference: 1.688e+0
+    Numeric difference exceeds tolerance: abs=1.688e+0, rel=48.889452%
 
   root.results[4].prediction_error:
     Type: value
     Python:     0.29662796490447363
-    TypeScript: 0.3363823399734258
-    Difference: 3.975e-2
-    Numeric difference exceeds tolerance: abs=3.975e-2, rel=11.818211%
+    TypeScript: 0.14352473749518424
+    Difference: 1.531e-1
+    Numeric difference exceeds tolerance: abs=1.531e-1, rel=51.614563%
 
   root.results[4].preprocessing.timestamp:
     Type: value
@@ -3947,47 +3598,23 @@ Found 178 difference(s):
   root.results[4].quality_score:
     Type: value
     Python:     0.9291662865760396
-    TypeScript: 0.9197751759991581
-    Difference: 9.391e-3
-    Numeric difference exceeds tolerance: abs=9.391e-3, rel=1.010703%
+    TypeScript: 0.938828596578805
+    Difference: 9.662e-3
+    Numeric difference exceeds tolerance: abs=9.662e-3, rel=1.029188%
 
   root.results[4].quality_components.kalman_fit:
     Type: value
     Python:     0.993240126989953
-    TypeScript: 0.969333678272057
-    Difference: 2.391e-2
-    Numeric difference exceeds tolerance: abs=2.391e-2, rel=2.406915%
+    TypeScript: 0.9956321713394507
+    Difference: 2.392e-3
+    Numeric difference exceeds tolerance: abs=2.392e-3, rel=0.240254%
 
   root.results[4].quality_components.temporal_consistency:
     Type: value
     Python:     0.9004151054030848
-    TypeScript: 0.8975693791061289
-    Difference: 2.846e-3
-    Numeric difference exceeds tolerance: abs=2.846e-3, rel=0.316046%
-
-  root.results[5].was_reset:
-    Type: missing
-    Python:     true
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].reset_reason:
-    Type: missing
-    Python:     initial_measurement
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].reset_type:
-    Type: missing
-    Python:     initial
-    TypeScript: undefined
-    Key missing in TypeScript output
-
-  root.results[5].gap_days:
-    Type: missing
-    Python:     null
-    TypeScript: undefined
-    Key missing in TypeScript output
+    TypeScript: 0.9285891671189228
+    Difference: 2.817e-2
+    Numeric difference exceeds tolerance: abs=2.817e-2, rel=3.034072%
 
   root.results[5].timestamp:
     Type: type
@@ -3995,32 +3622,23 @@ Found 178 difference(s):
     TypeScript: 2025-11-10T10:31:44.710Z
     Type mismatch: Python number, TypeScript string
 
-  root.results[5].kalman_confidence_upper:
-    Type: value
-    Python:     74.31575680566779
-    TypeScript: 71.70664825031987
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.510842%
-
-  root.results[5].kalman_confidence_lower:
-    Type: value
-    Python:     66.68424319433221
-    TypeScript: 69.29335174968013
-    Difference: 2.609e+0
-    Numeric difference exceeds tolerance: abs=2.609e+0, rel=3.765309%
-
-  root.results[5].kalman_variance:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.results[5].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:31:44.710000
     TypeScript: 2025-11-10T10:31:44.710Z
     Value mismatch: 2025-11-10T11:31:44.710000 !== 2025-11-10T10:31:44.710Z
+
+  root.results[5].reset_reason:
+    Type: value
+    Python:     initial_measurement
+    TypeScript: initial reset triggered
+    Value mismatch: initial_measurement !== initial reset triggered
+
+  root.results[5].gap_days:
+    Type: value
+    Python:     null
+    TypeScript: 0
+    Python value is null, TypeScript value is 0
 
   root.results[5].reset_event.gap_days:
     Type: missing
@@ -4043,92 +3661,78 @@ Found 178 difference(s):
   root.results[6].filtered_weight:
     Type: value
     Python:     70.50582648217592
-    TypeScript: 70.50709790580099
-    Difference: 1.271e-3
-    Numeric difference exceeds tolerance: abs=1.271e-3, rel=0.001803%
+    TypeScript: 70.54758915347048
+    Difference: 4.176e-2
+    Numeric difference exceeds tolerance: abs=4.176e-2, rel=0.059198%
 
   root.results[6].trend:
     Type: value
     Python:     1.3711846731725685e-7
-    TypeScript: 0.000001858041883980043
-    Difference: 1.721e-6
-    Numeric difference exceeds tolerance: abs=1.721e-6, rel=92.620270%
+    TypeScript: 0.00000104821693059016
+    Difference: 9.111e-7
+    Numeric difference exceeds tolerance: abs=9.111e-7, rel=86.918885%
 
   root.results[6].trend_weekly:
     Type: value
     Python:     9.598292712207979e-7
-    TypeScript: 0.0000130062931878603
-    Difference: 1.205e-5
-    Numeric difference exceeds tolerance: abs=1.205e-5, rel=92.620270%
+    TypeScript: 0.00000733751851413112
+    Difference: 6.378e-6
+    Numeric difference exceeds tolerance: abs=6.378e-6, rel=86.918885%
 
   root.results[6].confidence:
     Type: value
     Python:     0.9999389919505018
-    TypeScript: 0.9991944452802651
-    Difference: 7.445e-4
-    Numeric difference exceeds tolerance: abs=7.445e-4, rel=0.074459%
+    TypeScript: 0.999813899520255
+    Difference: 1.251e-4
+    Numeric difference exceeds tolerance: abs=1.251e-4, rel=0.012510%
 
   root.results[6].innovation:
     Type: value
     Python:     0.09417351782407479
-    TypeScript: 0.09290209419900464
-    Difference: 1.271e-3
-    Numeric difference exceeds tolerance: abs=1.271e-3, rel=1.350086%
+    TypeScript: 0.052410846529511446
+    Difference: 4.176e-2
+    Numeric difference exceeds tolerance: abs=4.176e-2, rel=44.346513%
 
   root.results[6].normalized_innovation:
     Type: value
     Python:     0.011046258241137209
-    TypeScript: 0.04014671476696212
-    Difference: 2.910e-2
-    Numeric difference exceeds tolerance: abs=2.910e-2, rel=72.485275%
+    TypeScript: 0.019293408127546645
+    Difference: 8.247e-3
+    Numeric difference exceeds tolerance: abs=8.247e-3, rel=42.745946%
 
   root.results[6].kalman_confidence_upper:
     Type: value
     Python:     74.5066521565391
-    TypeScript: 71.69855968034456
-    Difference: 2.808e+0
-    Numeric difference exceeds tolerance: abs=2.808e+0, rel=3.768915%
+    TypeScript: 73.63268731950959
+    Difference: 8.740e-1
+    Numeric difference exceeds tolerance: abs=8.740e-1, rel=1.173002%
 
   root.results[6].kalman_confidence_lower:
     Type: value
     Python:     66.50500080781273
-    TypeScript: 69.31563613125742
-    Difference: 2.811e+0
-    Numeric difference exceeds tolerance: abs=2.811e+0, rel=4.054836%
+    TypeScript: 67.46249098743138
+    Difference: 9.575e-1
+    Numeric difference exceeds tolerance: abs=9.575e-1, rel=1.419293%
 
   root.results[6].kalman_variance:
     Type: value
     Python:     4.0016515191608955
-    TypeScript: 0.35489529004962833
-    Difference: 3.647e+0
-    Numeric difference exceeds tolerance: abs=3.647e+0, rel=91.131279%
+    TypeScript: 2.3794576735244517
+    Difference: 1.622e+0
+    Numeric difference exceeds tolerance: abs=1.622e+0, rel=40.538109%
 
   root.results[6].prediction_error:
     Type: value
     Python:     0.09417351782407479
-    TypeScript: 0.09290209419900464
-    Difference: 1.271e-3
-    Numeric difference exceeds tolerance: abs=1.271e-3, rel=1.350086%
+    TypeScript: 0.052410846529511446
+    Difference: 4.176e-2
+    Numeric difference exceeds tolerance: abs=4.176e-2, rel=44.346513%
 
   root.results[6].preprocessing.timestamp:
     Type: value
     Python:     2025-11-10T11:33:11.110000
     TypeScript: 2025-11-10T10:33:11.110Z
     Value mismatch: 2025-11-10T11:33:11.110000 !== 2025-11-10T10:33:11.110Z
-
-  root.results[6].quality_score:
-    Type: value
-    Python:     0.9502517432046031
-    TypeScript: 0.9478378128444289
-    Difference: 2.414e-3
-    Numeric difference exceeds tolerance: abs=2.414e-3, rel=0.254031%
-
-  root.results[6].quality_components.kalman_fit:
-    Type: value
-    Python:     0.9980458223730743
-    TypeScript: 0.9914160522867913
-    Difference: 6.630e-3
-    Numeric difference exceeds tolerance: abs=6.630e-3, rel=0.664275%
 
   root.results[7].timestamp:
     Type: type
@@ -4139,72 +3743,72 @@ Found 178 difference(s):
   root.results[7].filtered_weight:
     Type: value
     Python:     70.52228404507574
-    TypeScript: 70.5204870662949
-    Difference: 1.797e-3
-    Numeric difference exceeds tolerance: abs=1.797e-3, rel=0.002548%
+    TypeScript: 70.60795939408577
+    Difference: 8.568e-2
+    Numeric difference exceeds tolerance: abs=8.568e-2, rel=0.121340%
 
   root.results[7].trend:
     Type: value
     Python:     0.000002374382648296539
-    TypeScript: 0.000009214550423525659
-    Difference: 6.840e-6
-    Numeric difference exceeds tolerance: abs=6.840e-6, rel=74.232246%
+    TypeScript: 0.000014898685043223674
+    Difference: 1.252e-5
+    Numeric difference exceeds tolerance: abs=1.252e-5, rel=84.063140%
 
   root.results[7].trend_weekly:
     Type: value
     Python:     0.00001662067853807577
-    TypeScript: 0.00006450185296467961
-    Difference: 4.788e-5
-    Numeric difference exceeds tolerance: abs=4.788e-5, rel=74.232246%
+    TypeScript: 0.00010429079530256571
+    Difference: 8.767e-5
+    Numeric difference exceeds tolerance: abs=8.767e-5, rel=84.063140%
 
   root.results[7].confidence:
     Type: value
     Python:     0.9996947673850899
-    TypeScript: 0.9969911966481986
-    Difference: 2.704e-3
-    Numeric difference exceeds tolerance: abs=2.704e-3, rel=0.270440%
+    TypeScript: 0.9993933891668693
+    Difference: 3.014e-4
+    Numeric difference exceeds tolerance: abs=3.014e-4, rel=0.030147%
 
   root.results[7].innovation:
     Type: value
     Python:     0.17771595492426684
-    TypeScript: 0.17951293370509802
-    Difference: 1.797e-3
-    Numeric difference exceeds tolerance: abs=1.797e-3, rel=1.001030%
+    TypeScript: 0.09204060591423513
+    Difference: 8.568e-2
+    Numeric difference exceeds tolerance: abs=8.568e-2, rel=48.209149%
 
   root.results[7].normalized_innovation:
     Type: value
     Python:     0.024709480280496986
-    TypeScript: 0.07763168039669593
-    Difference: 5.292e-2
-    Numeric difference exceeds tolerance: abs=5.292e-2, rel=68.170881%
+    TypeScript: 0.03483661567725119
+    Difference: 1.013e-2
+    Numeric difference exceeds tolerance: abs=1.013e-2, rel=29.070377%
 
   root.results[7].kalman_confidence_upper:
     Type: value
     Python:     74.5430999150707
-    TypeScript: 71.69869080368886
-    Difference: 2.844e+0
-    Numeric difference exceeds tolerance: abs=2.844e+0, rel=3.815791%
+    TypeScript: 73.4225697801742
+    Difference: 1.121e+0
+    Numeric difference exceeds tolerance: abs=1.121e+0, rel=1.503198%
 
   root.results[7].kalman_confidence_lower:
     Type: value
     Python:     66.50146817508077
-    TypeScript: 69.34228332890095
-    Difference: 2.841e+0
-    Numeric difference exceeds tolerance: abs=2.841e+0, rel=4.096801%
+    TypeScript: 67.79334900799734
+    Difference: 1.292e+0
+    Numeric difference exceeds tolerance: abs=1.292e+0, rel=1.905616%
 
   root.results[7].kalman_variance:
     Type: value
     Python:     4.041740065100835
-    TypeScript: 0.34704101170227364
-    Difference: 3.695e+0
-    Numeric difference exceeds tolerance: abs=3.695e+0, rel=91.413574%
+    TypeScript: 1.9805079063692226
+    Difference: 2.061e+0
+    Numeric difference exceeds tolerance: abs=2.061e+0, rel=50.998632%
 
   root.results[7].prediction_error:
     Type: value
     Python:     0.17771595492426684
-    TypeScript: 0.17951293370509802
-    Difference: 1.797e-3
-    Numeric difference exceeds tolerance: abs=1.797e-3, rel=1.001030%
+    TypeScript: 0.09204060591423513
+    Difference: 8.568e-2
+    Numeric difference exceeds tolerance: abs=8.568e-2, rel=48.209149%
 
   root.results[7].preprocessing.timestamp:
     Type: value
@@ -4215,23 +3819,23 @@ Found 178 difference(s):
   root.results[7].quality_score:
     Type: value
     Python:     0.9412561190105361
-    TypeScript: 0.9367822904471772
-    Difference: 4.474e-3
-    Numeric difference exceeds tolerance: abs=4.474e-3, rel=0.475304%
+    TypeScript: 0.9450858309686435
+    Difference: 3.830e-3
+    Numeric difference exceeds tolerance: abs=3.830e-3, rel=0.405224%
 
   root.results[7].quality_components.kalman_fit:
     Type: value
     Python:     0.9962102795524286
-    TypeScript: 0.9834936171616375
-    Difference: 1.272e-2
-    Numeric difference exceeds tolerance: abs=1.272e-2, rel=1.276504%
+    TypeScript: 0.9970050658774887
+    Difference: 7.948e-4
+    Numeric difference exceeds tolerance: abs=7.948e-4, rel=0.079717%
 
   root.results[7].quality_components.temporal_consistency:
     Type: value
     Python:     0.9358715060747236
-    TypeScript: 0.9362158948773998
-    Difference: 3.444e-4
-    Numeric difference exceeds tolerance: abs=3.444e-4, rel=0.036785%
+    TypeScript: 0.9476524034852276
+    Difference: 1.178e-2
+    Numeric difference exceeds tolerance: abs=1.178e-2, rel=1.243167%
 
   root.results[8].timestamp:
     Type: type
@@ -4242,72 +3846,72 @@ Found 178 difference(s):
   root.results[8].filtered_weight:
     Type: value
     Python:     70.55394776769158
-    TypeScript: 70.53950862742087
-    Difference: 1.444e-2
-    Numeric difference exceeds tolerance: abs=1.444e-2, rel=0.020465%
+    TypeScript: 70.67815903746495
+    Difference: 1.242e-1
+    Numeric difference exceeds tolerance: abs=1.242e-1, rel=0.175742%
 
   root.results[8].trend:
     Type: value
     Python:     0.000012123179167744857
-    TypeScript: 0.00002560878689563456
-    Difference: 1.349e-5
-    Numeric difference exceeds tolerance: abs=1.349e-5, rel=52.660080%
+    TypeScript: 0.0000576495770847014
+    Difference: 4.553e-5
+    Numeric difference exceeds tolerance: abs=4.553e-5, rel=78.970914%
 
   root.results[8].trend_weekly:
     Type: value
     Python:     0.000084862254174214
-    TypeScript: 0.00017926150826944192
-    Difference: 9.440e-5
-    Numeric difference exceeds tolerance: abs=9.440e-5, rel=52.660080%
+    TypeScript: 0.00040354703959290977
+    Difference: 3.187e-4
+    Numeric difference exceeds tolerance: abs=3.187e-4, rel=78.970914%
 
   root.results[8].confidence:
     Type: value
     Python:     0.9991919367647333
-    TypeScript: 0.9936668982182464
-    Difference: 5.525e-3
-    Numeric difference exceeds tolerance: abs=5.525e-3, rel=0.552951%
+    TypeScript: 0.998913459596839
+    Difference: 2.785e-4
+    Numeric difference exceeds tolerance: abs=2.785e-4, rel=0.027870%
 
   root.results[8].innovation:
     Type: value
     Python:     0.2460522323084149
-    TypeScript: 0.2604913725791249
-    Difference: 1.444e-2
-    Numeric difference exceeds tolerance: abs=1.444e-2, rel=5.543040%
+    TypeScript: 0.12184096253504606
+    Difference: 1.242e-1
+    Numeric difference exceeds tolerance: abs=1.242e-1, rel=50.481667%
 
   root.results[8].normalized_innovation:
     Type: value
     Python:     0.04020920029915558
-    TypeScript: 0.1127230317617692
-    Difference: 7.251e-2
-    Numeric difference exceeds tolerance: abs=7.251e-2, rel=64.329206%
+    TypeScript: 0.04662898489379019
+    Difference: 6.420e-3
+    Numeric difference exceeds tolerance: abs=6.420e-3, rel=13.767798%
 
   root.results[8].kalman_confidence_upper:
     Type: value
     Python:     74.46925340202483
-    TypeScript: 71.70612298929431
-    Difference: 2.763e+0
-    Numeric difference exceeds tolerance: abs=2.763e+0, rel=3.710431%
+    TypeScript: 73.38201151656123
+    Difference: 1.087e+0
+    Numeric difference exceeds tolerance: abs=1.087e+0, rel=1.459988%
 
   root.results[8].kalman_confidence_lower:
     Type: value
     Python:     66.63864213335833
-    TypeScript: 69.37289426554743
-    Difference: 2.734e+0
-    Numeric difference exceeds tolerance: abs=2.734e+0, rel=3.941384%
+    TypeScript: 67.97430655836867
+    Difference: 1.336e+0
+    Numeric difference exceeds tolerance: abs=1.336e+0, rel=1.964955%
 
   root.results[8].kalman_variance:
     Type: value
     Python:     3.8324045525604276
-    TypeScript: 0.3402472673323422
-    Difference: 3.492e+0
-    Numeric difference exceeds tolerance: abs=3.492e+0, rel=91.121833%
+    TypeScript: 1.827704557178785
+    Difference: 2.005e+0
+    Numeric difference exceeds tolerance: abs=2.005e+0, rel=52.309196%
 
   root.results[8].prediction_error:
     Type: value
     Python:     0.2460522323084149
-    TypeScript: 0.2604913725791249
-    Difference: 1.444e-2
-    Numeric difference exceeds tolerance: abs=1.444e-2, rel=5.543040%
+    TypeScript: 0.12184096253504606
+    Difference: 1.242e-1
+    Numeric difference exceeds tolerance: abs=1.242e-1, rel=50.481667%
 
   root.results[8].preprocessing.timestamp:
     Type: value
@@ -4318,23 +3922,23 @@ Found 178 difference(s):
   root.results[8].quality_score:
     Type: value
     Python:     0.9342633391947578
-    TypeScript: 0.9275569702102858
-    Difference: 6.706e-3
-    Numeric difference exceeds tolerance: abs=6.706e-3, rel=0.717824%
+    TypeScript: 0.941435178044982
+    Difference: 7.172e-3
+    Numeric difference exceeds tolerance: abs=7.172e-3, rel=0.761798%
 
   root.results[8].quality_components.kalman_fit:
     Type: value
     Python:     0.9945801944395222
-    TypeScript: 0.9761542129758899
-    Difference: 1.843e-2
-    Numeric difference exceeds tolerance: abs=1.843e-2, rel=1.852639%
+    TypeScript: 0.9962205319228531
+    Difference: 1.640e-3
+    Numeric difference exceeds tolerance: abs=1.640e-3, rel=0.164656%
 
   root.results[8].quality_components.temporal_consistency:
     Type: value
     Python:     0.9150507210816894
-    TypeScript: 0.9146398210793958
-    Difference: 4.109e-4
-    Numeric difference exceeds tolerance: abs=4.109e-4, rel=0.044905%
+    TypeScript: 0.9364497410261658
+    Difference: 2.140e-2
+    Numeric difference exceeds tolerance: abs=2.140e-2, rel=2.285122%
 
   root.results[9].timestamp:
     Type: type
@@ -4345,72 +3949,72 @@ Found 178 difference(s):
   root.results[9].filtered_weight:
     Type: value
     Python:     70.60337203509553
-    TypeScript: 70.56361766002658
-    Difference: 3.975e-2
-    Numeric difference exceeds tolerance: abs=3.975e-2, rel=0.056307%
+    TypeScript: 70.75647526250482
+    Difference: 1.531e-1
+    Numeric difference exceeds tolerance: abs=1.531e-1, rel=0.216381%
 
   root.results[9].trend:
     Type: value
     Python:     0.00003851528393043969
-    TypeScript: 0.00005448805285180108
-    Difference: 1.597e-5
-    Numeric difference exceeds tolerance: abs=1.597e-5, rel=29.314259%
+    TypeScript: 0.0001441384943082579
+    Difference: 1.056e-4
+    Numeric difference exceeds tolerance: abs=1.056e-4, rel=73.278974%
 
   root.results[9].trend_weekly:
     Type: value
     Python:     0.00026960698751307785
-    TypeScript: 0.00038141636996260757
-    Difference: 1.118e-4
-    Numeric difference exceeds tolerance: abs=1.118e-4, rel=29.314259%
+    TypeScript: 0.0010089694601578053
+    Difference: 7.394e-4
+    Numeric difference exceeds tolerance: abs=7.394e-4, rel=73.278974%
 
   root.results[9].confidence:
     Type: value
     Python:     0.998409215670912
-    TypeScript: 0.98944998276146
-    Difference: 8.959e-3
-    Numeric difference exceeds tolerance: abs=8.959e-3, rel=0.897351%
+    TypeScript: 0.9984786772772689
+    Difference: 6.946e-5
+    Numeric difference exceeds tolerance: abs=6.946e-5, rel=0.006957%
 
   root.results[9].innovation:
     Type: value
     Python:     0.29662796490447363
-    TypeScript: 0.3363823399734258
-    Difference: 3.975e-2
-    Numeric difference exceeds tolerance: abs=3.975e-2, rel=11.818211%
+    TypeScript: 0.14352473749518424
+    Difference: 1.531e-1
+    Numeric difference exceeds tolerance: abs=1.531e-1, rel=51.614563%
 
   root.results[9].normalized_innovation:
     Type: value
     Python:     0.056427847202575994
-    TypeScript: 0.14564383412675075
-    Difference: 8.922e-2
-    Numeric difference exceeds tolerance: abs=8.922e-2, rel=61.256275%
+    TypeScript: 0.05518117630399935
+    Difference: 1.247e-3
+    Numeric difference exceeds tolerance: abs=1.247e-3, rel=2.209319%
 
   root.results[9].kalman_confidence_upper:
     Type: value
     Python:     74.32004535902216
-    TypeScript: 71.72009180576052
-    Difference: 2.600e+0
-    Numeric difference exceeds tolerance: abs=2.600e+0, rel=3.498321%
+    TypeScript: 73.41358602311652
+    Difference: 9.065e-1
+    Numeric difference exceeds tolerance: abs=9.065e-1, rel=1.219670%
 
   root.results[9].kalman_confidence_lower:
     Type: value
     Python:     66.8866987111689
-    TypeScript: 69.40714351429264
-    Difference: 2.520e+0
-    Numeric difference exceeds tolerance: abs=2.520e+0, rel=3.631391%
+    TypeScript: 68.09936450189312
+    Difference: 1.213e+0
+    Numeric difference exceeds tolerance: abs=1.213e+0, rel=1.780730%
 
   root.results[9].kalman_variance:
     Type: value
     Python:     3.453415149196944
-    TypeScript: 0.33435811243776226
-    Difference: 3.119e+0
-    Numeric difference exceeds tolerance: abs=3.119e+0, rel=90.318045%
+    TypeScript: 1.7650593985396297
+    Difference: 1.688e+0
+    Numeric difference exceeds tolerance: abs=1.688e+0, rel=48.889452%
 
   root.results[9].prediction_error:
     Type: value
     Python:     0.29662796490447363
-    TypeScript: 0.3363823399734258
-    Difference: 3.975e-2
-    Numeric difference exceeds tolerance: abs=3.975e-2, rel=11.818211%
+    TypeScript: 0.14352473749518424
+    Difference: 1.531e-1
+    Numeric difference exceeds tolerance: abs=1.531e-1, rel=51.614563%
 
   root.results[9].preprocessing.timestamp:
     Type: value
@@ -4421,23 +4025,23 @@ Found 178 difference(s):
   root.results[9].quality_score:
     Type: value
     Python:     0.9291662865760396
-    TypeScript: 0.9197751759991581
-    Difference: 9.391e-3
-    Numeric difference exceeds tolerance: abs=9.391e-3, rel=1.010703%
+    TypeScript: 0.938828596578805
+    Difference: 9.662e-3
+    Numeric difference exceeds tolerance: abs=9.662e-3, rel=1.029188%
 
   root.results[9].quality_components.kalman_fit:
     Type: value
     Python:     0.993240126989953
-    TypeScript: 0.969333678272057
-    Difference: 2.391e-2
-    Numeric difference exceeds tolerance: abs=2.391e-2, rel=2.406915%
+    TypeScript: 0.9956321713394507
+    Difference: 2.392e-3
+    Numeric difference exceeds tolerance: abs=2.392e-3, rel=0.240254%
 
   root.results[9].quality_components.temporal_consistency:
     Type: value
     Python:     0.9004151054030848
-    TypeScript: 0.8975693791061289
-    Difference: 2.846e-3
-    Numeric difference exceeds tolerance: abs=2.846e-3, rel=0.316046%
+    TypeScript: 0.9285891671189228
+    Difference: 2.817e-2
+    Numeric difference exceeds tolerance: abs=2.817e-2, rel=3.034072%
 
   root.finalState.adaptation_state:
     Type: extra
@@ -4451,39 +4055,25 @@ Found 178 difference(s):
     TypeScript: 1
     Extra key in TypeScript output
 
-  root.finalState.kalman_params.initial_state_covariance[0][0]:
-    Type: value
-    Python:     3.6399999999999997
-    TypeScript: 0.364
-    Difference: 3.276e+0
-    Numeric difference exceeds tolerance: abs=3.276e+0, rel=90.000000%
-
   root.finalState.kalman_params.transition_covariance[0][0]:
     Type: value
     Python:     0.19607272887128602
-    TypeScript: 0.018
-    Difference: 1.781e-1
-    Numeric difference exceeds tolerance: abs=1.781e-1, rel=90.819733%
+    TypeScript: 0.8999999999999999
+    Difference: 7.039e-1
+    Numeric difference exceeds tolerance: abs=7.039e-1, rel=78.214141%
 
   root.finalState.kalman_params.transition_covariance[1][1]:
     Type: value
     Python:     0.0013071515258085737
-    TypeScript: 0.00012
-    Difference: 1.187e-3
-    Numeric difference exceeds tolerance: abs=1.187e-3, rel=90.819733%
-
-  root.finalState.kalman_params.observation_covariance[0][0]:
-    Type: value
-    Python:     100
-    TypeScript: 5
-    Difference: 9.500e+1
-    Numeric difference exceeds tolerance: abs=9.500e+1, rel=95.000000%
+    TypeScript: 0.006
+    Difference: 4.693e-3
+    Numeric difference exceeds tolerance: abs=4.693e-3, rel=78.214141%
 
   root.finalState.last_state[0][0]:
     Type: type
     Python:     70.55394776769158
     TypeScript: [
-  70.53950862742087
+  70.67815903746495
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -4491,7 +4081,7 @@ Found 178 difference(s):
     Type: type
     Python:     0.000012123179167744857
     TypeScript: [
-  0.00002560878689563456
+  0.0000576495770847014
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -4499,7 +4089,7 @@ Found 178 difference(s):
     Type: type
     Python:     70.60337203509553
     TypeScript: [
-  70.56361766002658
+  70.75647526250482
 ]
     Type mismatch: Python number, TypeScript object
 
@@ -4507,65 +4097,65 @@ Found 178 difference(s):
     Type: type
     Python:     0.00003851528393043969
     TypeScript: [
-  0.00005448805285180108
+  0.0001441384943082579
 ]
     Type mismatch: Python number, TypeScript object
 
   root.finalState.last_covariance[0][0][0]:
     Type: value
     Python:     3.8324045525604276
-    TypeScript: 0.3402472673323422
-    Difference: 3.492e+0
-    Numeric difference exceeds tolerance: abs=3.492e+0, rel=91.121833%
+    TypeScript: 1.827704557178785
+    Difference: 2.005e+0
+    Numeric difference exceeds tolerance: abs=2.005e+0, rel=52.309196%
 
   root.finalState.last_covariance[0][0][1]:
     Type: value
     Python:     0.0011799500893092253
-    TypeScript: 0.00029326532946001945
-    Difference: 8.867e-4
-    Numeric difference exceeds tolerance: abs=8.867e-4, rel=75.145955%
+    TypeScript: 0.0011130777135867397
+    Difference: 6.687e-5
+    Numeric difference exceeds tolerance: abs=6.687e-5, rel=5.667390%
 
   root.finalState.last_covariance[0][1][0]:
     Type: value
     Python:     0.0011799500893092255
-    TypeScript: 0.00029326532946001945
-    Difference: 8.867e-4
-    Numeric difference exceeds tolerance: abs=8.867e-4, rel=75.145955%
+    TypeScript: 0.0011130777135867397
+    Difference: 6.687e-5
+    Numeric difference exceeds tolerance: abs=6.687e-5, rel=5.667390%
 
   root.finalState.last_covariance[0][1][1]:
     Type: value
     Python:     0.009714504341111076
-    TypeScript: 0.0013599718709253784
-    Difference: 8.355e-3
-    Numeric difference exceeds tolerance: abs=8.355e-3, rel=86.000605%
+    TypeScript: 0.018999540025122084
+    Difference: 9.285e-3
+    Numeric difference exceeds tolerance: abs=9.285e-3, rel=48.869792%
 
   root.finalState.last_covariance[1][0][0]:
     Type: value
     Python:     3.453415149196944
-    TypeScript: 0.33435811243776226
-    Difference: 3.119e+0
-    Numeric difference exceeds tolerance: abs=3.119e+0, rel=90.318045%
+    TypeScript: 1.7650593985396297
+    Difference: 1.688e+0
+    Numeric difference exceeds tolerance: abs=1.688e+0, rel=48.889452%
 
   root.finalState.last_covariance[1][0][1]:
     Type: value
     Python:     0.001844137199694154
-    TypeScript: 0.00040055703559759796
-    Difference: 1.444e-3
-    Numeric difference exceeds tolerance: abs=1.444e-3, rel=78.279434%
+    TypeScript: 0.0019493957263792606
+    Difference: 1.053e-4
+    Numeric difference exceeds tolerance: abs=1.053e-4, rel=5.399546%
 
   root.finalState.last_covariance[1][1][0]:
     Type: value
     Python:     0.001844137199694154
-    TypeScript: 0.00040055703559759796
-    Difference: 1.444e-3
-    Numeric difference exceeds tolerance: abs=1.444e-3, rel=78.279434%
+    TypeScript: 0.0019493957263792606
+    Difference: 1.053e-4
+    Numeric difference exceeds tolerance: abs=1.053e-4, rel=5.399546%
 
   root.finalState.last_covariance[1][1][1]:
     Type: value
     Python:     0.011021491787102742
-    TypeScript: 0.0014799374821011539
-    Difference: 9.542e-3
-    Numeric difference exceeds tolerance: abs=9.542e-3, rel=86.572258%
+    TypeScript: 0.024998365306891923
+    Difference: 1.398e-2
+    Numeric difference exceeds tolerance: abs=1.398e-2, rel=55.911150%
 
   root.finalState.reset_parameters.quality_acceptance_threshold:
     Type: missing
@@ -4644,13 +4234,6 @@ Found 178 difference(s):
     TypeScript: 2025-11-10T10:33:11.110Z
     Value mismatch: 2025-11-10T11:33:11.110000 !== 2025-11-10T10:33:11.110Z
 
-  root.finalState.measurement_history[1].quality_score:
-    Type: value
-    Python:     0.9502517432046031
-    TypeScript: 0.9478378128444289
-    Difference: 2.414e-3
-    Numeric difference exceeds tolerance: abs=2.414e-3, rel=0.254031%
-
   root.finalState.measurement_history[2].timestamp:
     Type: value
     Python:     2025-11-10T11:34:37.510000
@@ -4660,9 +4243,9 @@ Found 178 difference(s):
   root.finalState.measurement_history[2].quality_score:
     Type: value
     Python:     0.9412561190105361
-    TypeScript: 0.9367822904471772
-    Difference: 4.474e-3
-    Numeric difference exceeds tolerance: abs=4.474e-3, rel=0.475304%
+    TypeScript: 0.9450858309686435
+    Difference: 3.830e-3
+    Numeric difference exceeds tolerance: abs=3.830e-3, rel=0.405224%
 
   root.finalState.measurement_history[3].timestamp:
     Type: value
@@ -4673,9 +4256,9 @@ Found 178 difference(s):
   root.finalState.measurement_history[3].quality_score:
     Type: value
     Python:     0.9342633391947578
-    TypeScript: 0.9275569702102858
-    Difference: 6.706e-3
-    Numeric difference exceeds tolerance: abs=6.706e-3, rel=0.717824%
+    TypeScript: 0.941435178044982
+    Difference: 7.172e-3
+    Numeric difference exceeds tolerance: abs=7.172e-3, rel=0.761798%
 
   root.finalState.measurement_history[4].timestamp:
     Type: value
@@ -4686,9 +4269,9 @@ Found 178 difference(s):
   root.finalState.measurement_history[4].quality_score:
     Type: value
     Python:     0.9291662865760396
-    TypeScript: 0.9197751759991581
-    Difference: 9.391e-3
-    Numeric difference exceeds tolerance: abs=9.391e-3, rel=1.010703%
+    TypeScript: 0.938828596578805
+    Difference: 9.662e-3
+    Numeric difference exceeds tolerance: abs=9.662e-3, rel=1.029188%
 
   root.finalState.temporal_baseline.last_timestamp:
     Type: value
@@ -4702,8 +4285,8 @@ Found 178 difference(s):
 
 | Test Name | Status | Py Time | TS Time | Differences |
 |-----------|--------|---------|---------|-------------|
-| Test 1: Single Measurement Processing | ❌ | 348.59ms | 2921.76ms | 35 |
-| Test 2: Multi-Measurement Sequence | ❌ | 148.90ms | 3.92ms | 192 |
-| Test 3: Reset Scenario | ❌ | 129.16ms | 2.18ms | 189 |
-| Test 4: Quality Rejection | ❌ | 106.38ms | 0.94ms | 88 |
-| Test 5: State Persistence | ❌ | 206.97ms | 1.77ms | 178 |
+| Test 1: Single Measurement Processing | ❌ | 304.76ms | 3840.46ms | 24 |
+| Test 2: Multi-Measurement Sequence | ❌ | 152.46ms | 4.50ms | 183 |
+| Test 3: Reset Scenario | ❌ | 128.78ms | 1.94ms | 176 |
+| Test 4: Quality Rejection | ❌ | 121.36ms | 1.01ms | 78 |
+| Test 5: State Persistence | ❌ | 296.09ms | 2.30ms | 161 |

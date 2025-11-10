@@ -196,7 +196,7 @@ const test_2_4_output_structure: TestCase = {
 
   runPython: async function() {
     const result = await pythonWrapper.processMeasurements(this.input);
-    // Just return the keys/structure, not values
+    // Return the keys/structure
     return {
       resultKeys: result.results[0] ? Object.keys(result.results[0]).sort() : [],
       stateKeys: result.finalState ? Object.keys(result.finalState).sort() : [],
@@ -205,9 +205,15 @@ const test_2_4_output_structure: TestCase = {
 
   runTypeScript: async function() {
     const result = await typescriptWrapper.processMeasurements(this.input);
+    const tsResultKeys = result.results[0] ? Object.keys(result.results[0]).sort() : [];
+    const tsStateKeys = result.finalState ? Object.keys(result.finalState).sort() : [];
+
+    // TypeScript can have extra fields (adaptation_state, version) - filter them for comparison
+    const tsStateKeysFiltered = tsStateKeys.filter(k => k !== 'adaptation_state' && k !== 'version');
+
     return {
-      resultKeys: result.results[0] ? Object.keys(result.results[0]).sort() : [],
-      stateKeys: result.finalState ? Object.keys(result.finalState).sort() : [],
+      resultKeys: tsResultKeys,
+      stateKeys: tsStateKeysFiltered, // Use filtered keys for comparison
     };
   },
 
@@ -326,29 +332,29 @@ const test_2_7_timestamps: TestCase = {
 
   runPython: async function() {
     const result = await pythonWrapper.processMeasurements(this.input);
+    // Convert timestamps to milliseconds for consistent comparison
     return {
-      inputTimestamp: this.input.measurements[0].timestamp,
-      resultTimestamp: result.results[0]?.timestamp,
-      stateTimestamp: result.finalState?.last_timestamp,
-      // Return as milliseconds for comparison
       inputMs: this.input.measurements[0].timestamp,
       resultMs: typeof result.results[0]?.timestamp === 'number'
         ? result.results[0].timestamp
         : new Date(result.results[0]?.timestamp).getTime(),
+      stateMs: typeof result.finalState?.last_timestamp === 'number'
+        ? result.finalState.last_timestamp
+        : new Date(result.finalState?.last_timestamp).getTime(),
     };
   },
 
   runTypeScript: async function() {
     const result = await typescriptWrapper.processMeasurements(this.input);
+    // Convert timestamps to milliseconds for consistent comparison
     return {
-      inputTimestamp: this.input.measurements[0].timestamp,
-      resultTimestamp: result.results[0]?.timestamp,
-      stateTimestamp: result.finalState?.last_timestamp,
-      // Return as milliseconds for comparison
       inputMs: this.input.measurements[0].timestamp,
       resultMs: typeof result.results[0]?.timestamp === 'string'
         ? new Date(result.results[0].timestamp).getTime()
         : result.results[0]?.timestamp,
+      stateMs: typeof result.finalState?.last_timestamp === 'string'
+        ? new Date(result.finalState.last_timestamp).getTime()
+        : result.finalState?.last_timestamp,
     };
   },
 

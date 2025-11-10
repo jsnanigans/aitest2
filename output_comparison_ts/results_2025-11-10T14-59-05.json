@@ -1,20 +1,20 @@
 {
-  "startTime": "2025-11-09T20:21:06.257Z",
-  "endTime": "2025-11-09T20:21:06.280Z",
-  "durationSeconds": 0.023,
+  "startTime": "2025-11-10T14:59:05.041Z",
+  "endTime": "2025-11-10T14:59:05.069Z",
+  "durationSeconds": 0.028,
   "csvFile": "test_user.csv",
   "storageType": "in-memory",
   "usersLoaded": 1,
   "totalMeasurements": 120,
-  "acceptedCount": 29,
-  "rejectedCount": 81,
-  "filteredCsvPath": "output_comparison_ts/filtered_2025-11-09T20-21-06.csv",
+  "acceptedCount": 30,
+  "rejectedCount": 80,
+  "filteredCsvPath": "output_comparison_ts/filtered_2025-11-10T14-59-05.csv",
   "replayMode": "automatic",
   "processingResults": {
     "ADC64C0B-CB46-41F9-BDA0-CC11A35942D7": {
       "measurementsProcessed": 120,
-      "measurementsAccepted": 39,
-      "measurementsRejected": 81,
+      "measurementsAccepted": 40,
+      "measurementsRejected": 80,
       "errors": [],
       "replayMetadata": [
         {
@@ -24,7 +24,7 @@
           "replay_to": "2025-03-08T00:00:00.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.264Z"
+          "timestamp": "2025-11-10T14:59:05.048Z"
         },
         {
           "trigger": "time_gap",
@@ -33,7 +33,7 @@
           "replay_to": "2025-03-26T23:21:08.000Z",
           "measurements_replayed": 3,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.264Z"
+          "timestamp": "2025-11-10T14:59:05.048Z"
         },
         {
           "trigger": "time_gap",
@@ -42,7 +42,7 @@
           "replay_to": "2025-05-15T01:30:46.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.265Z"
+          "timestamp": "2025-11-10T14:59:05.050Z"
         },
         {
           "trigger": "time_gap",
@@ -51,7 +51,7 @@
           "replay_to": "2025-06-11T23:10:14.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.267Z"
+          "timestamp": "2025-11-10T14:59:05.052Z"
         },
         {
           "trigger": "time_gap",
@@ -60,7 +60,7 @@
           "replay_to": "2025-06-14T17:40:03.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.267Z"
+          "timestamp": "2025-11-10T14:59:05.052Z"
         },
         {
           "trigger": "time_gap",
@@ -69,7 +69,7 @@
           "replay_to": "2025-06-15T22:17:37.000Z",
           "measurements_replayed": 5,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.268Z"
+          "timestamp": "2025-11-10T14:59:05.052Z"
         },
         {
           "trigger": "time_gap",
@@ -78,7 +78,7 @@
           "replay_to": "2025-06-17T00:41:49.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.268Z"
+          "timestamp": "2025-11-10T14:59:05.052Z"
         },
         {
           "trigger": "time_gap",
@@ -87,7 +87,7 @@
           "replay_to": "2025-06-19T01:11:15.000Z",
           "measurements_replayed": 3,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.268Z"
+          "timestamp": "2025-11-10T14:59:05.054Z"
         },
         {
           "trigger": "time_window",
@@ -96,7 +96,7 @@
           "replay_to": "2025-07-09T22:34:31.000Z",
           "measurements_replayed": 4,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.269Z"
+          "timestamp": "2025-11-10T14:59:05.054Z"
         },
         {
           "trigger": "time_gap",
@@ -105,7 +105,7 @@
           "replay_to": "2025-07-10T20:19:11.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.269Z"
+          "timestamp": "2025-11-10T14:59:05.054Z"
         },
         {
           "trigger": "time_gap",
@@ -114,7 +114,7 @@
           "replay_to": "2025-07-11T23:23:01.000Z",
           "measurements_replayed": 3,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.270Z"
+          "timestamp": "2025-11-10T14:59:05.055Z"
         },
         {
           "trigger": "time_window",
@@ -123,7 +123,7 @@
           "replay_to": "2025-07-23T20:43:43.000Z",
           "measurements_replayed": 8,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.271Z"
+          "timestamp": "2025-11-10T14:59:05.056Z"
         },
         {
           "trigger": "time_window",
@@ -132,7 +132,7 @@
           "replay_to": "2025-07-27T00:02:22.000Z",
           "measurements_replayed": 8,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.272Z"
+          "timestamp": "2025-11-10T14:59:05.057Z"
         },
         {
           "trigger": "time_gap",
@@ -141,7 +141,7 @@
           "replay_to": "2025-08-02T01:21:30.000Z",
           "measurements_replayed": 3,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.272Z"
+          "timestamp": "2025-11-10T14:59:05.058Z"
         },
         {
           "trigger": "time_window",
@@ -150,7 +150,7 @@
           "replay_to": "2025-08-05T05:55:42.000Z",
           "measurements_replayed": 4,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.273Z"
+          "timestamp": "2025-11-10T14:59:05.059Z"
         },
         {
           "trigger": "time_window",
@@ -159,7 +159,7 @@
           "replay_to": "2025-08-07T17:19:32.000Z",
           "measurements_replayed": 3,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.273Z"
+          "timestamp": "2025-11-10T14:59:05.059Z"
         },
         {
           "trigger": "time_gap",
@@ -168,7 +168,7 @@
           "replay_to": "2025-08-08T19:27:00.000Z",
           "measurements_replayed": 6,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.273Z"
+          "timestamp": "2025-11-10T14:59:05.059Z"
         },
         {
           "trigger": "time_gap",
@@ -177,7 +177,7 @@
           "replay_to": "2025-08-11T08:17:28.000Z",
           "measurements_replayed": 4,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.274Z"
+          "timestamp": "2025-11-10T14:59:05.059Z"
         },
         {
           "trigger": "time_gap",
@@ -186,7 +186,7 @@
           "replay_to": "2025-08-13T21:49:25.000Z",
           "measurements_replayed": 4,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.274Z"
+          "timestamp": "2025-11-10T14:59:05.060Z"
         },
         {
           "trigger": "time_gap",
@@ -195,7 +195,7 @@
           "replay_to": "2025-08-19T21:49:11.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.274Z"
+          "timestamp": "2025-11-10T14:59:05.060Z"
         },
         {
           "trigger": "time_gap",
@@ -204,7 +204,7 @@
           "replay_to": "2025-08-24T19:08:10.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.275Z"
+          "timestamp": "2025-11-10T14:59:05.061Z"
         },
         {
           "trigger": "time_gap",
@@ -213,7 +213,7 @@
           "replay_to": "2025-08-27T00:02:43.000Z",
           "measurements_replayed": 3,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.275Z"
+          "timestamp": "2025-11-10T14:59:05.061Z"
         },
         {
           "trigger": "time_window",
@@ -222,7 +222,7 @@
           "replay_to": "2025-08-31T18:08:11.000Z",
           "measurements_replayed": 4,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.276Z"
+          "timestamp": "2025-11-10T14:59:05.062Z"
         },
         {
           "trigger": "time_window",
@@ -231,7 +231,7 @@
           "replay_to": "2025-09-13T22:42:44.000Z",
           "measurements_replayed": 4,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.277Z"
+          "timestamp": "2025-11-10T14:59:05.063Z"
         },
         {
           "trigger": "batch_end",
@@ -240,7 +240,7 @@
           "replay_to": "2025-09-28T22:20:14.000Z",
           "measurements_replayed": 2,
           "duration_seconds": 0,
-          "timestamp": "2025-11-09T20:21:06.277Z"
+          "timestamp": "2025-11-10T14:59:05.064Z"
         }
       ]
     }

@@ -696,7 +696,9 @@ export async function processMeasurement(
 
   if (!state.kalman_params) {
     // Check if this is a post-reset initialization
-    const resetTimestamp = resetOccurred ? getResetTimestamp(state) : timestamp;
+    // FIX: Use state.reset_timestamp directly instead of getResetTimestamp
+    // which relies on reset_events that may not be populated yet
+    const resetTimestamp = resetOccurred ? state.reset_timestamp : timestamp;
 
     // Get adaptive Kalman config if within post-reset period
     const adaptiveKalmanConfig = getAdaptiveKalmanParams(
@@ -977,8 +979,12 @@ export async function processMeasurement(
     finalResult.noise_multiplier = getNoiseMultiplier(source);
   }
 
-  // Add reset event info if it occurred
+  // Add reset event info if it occurred (flattened for visualization + nested for compatibility)
   if (resetOccurred && resetEvent) {
+    finalResult.was_reset = true;
+    finalResult.reset_reason = resetEvent.reason;
+    finalResult.reset_type = resetEvent.type;
+    finalResult.gap_days = resetEvent.gap_days || 0;
     finalResult.reset_event = {
       type: resetEvent.type,
       gap_days: resetEvent.gap_days,

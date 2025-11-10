@@ -229,14 +229,16 @@ export class KalmanFilter {
       .mmul(this.H.transpose())
       .mmul(innovationCovInverse);
 
+
     // x̂_{k|k} = x̂_{k|k-1} + K_k * ỹ_k  (updated state estimate)
     const filteredStateMean = predictedStateMean.add(kalmanGain.mmul(innovation));
 
     // P_{k|k} = (I - K_k * H) * P_{k|k-1}  (updated covariance)
-    // Using Joseph form for numerical stability:
-    // P_{k|k} = (I - K*H) * P_{k|k-1} * (I - K*H)^T + K * R * K^T
+    // Using Joseph form for numerical stability (matches Python implementation)
     const I_KH = Matrix.eye(this.nStates).sub(kalmanGain.mmul(this.H));
 
+    // Joseph form: P = (I - K*H) * P_pred * (I - K*H)^T + K * R * K^T
+    // This matches the Python implementation for numerical stability
     const filteredStateCovariance = I_KH
       .mmul(predictedStateCovariance)
       .mmul(I_KH.transpose())
