@@ -10,6 +10,13 @@ This is a Weight Processor Service that processes weight measurements using Kalm
 - **`be_implementation_service/`**: AWS Lambda/API implementation layer (minimal, infrastructure-specific)
 - **`weight_values/`**: ⚠️ **DEPRECATED** - Old implementation, use `be_implementation_service/` instead
 
+### TypeScript Browser Library (In Progress)
+
+The TypeScript implementation (`typescript_lib/`) is being developed for browser-only usage with improved immutability patterns:
+
+- **`memory_store_improved.ts`**: New immutable state store using `Object.freeze()` for zero-cost snapshots
+- See TempDoc: `/Users/brendanmullins/Documents/Log/TempDoc/strem_process_anchor/2025-11/10/memory-store-immutability-improvement.md`
+
 ## Key Commands
 
 ### python_lib (Core Library)

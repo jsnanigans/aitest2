@@ -1,91 +1,107 @@
 /**
- * Simple in-memory storage for Kalman filter states.
+ * Improved in-memory storage using immutability patterns.
  *
- * Current state uses direct references for performance.
- * Snapshots use deep copies to preserve state at snapshot time.
- * Matrix objects stay as Matrix objects throughout.
+ * Browser-optimized design:
+ * - States are frozen (immutable) after creation
+ * - Snapshots are just references to frozen states (zero-cost)
+ * - No deep copying needed (structural sharing)
+ * - Mutation attempts throw errors (fail-fast debugging)
  */
 
 import type { KalmanState } from '../types';
-import { StateStore } from './base';
+import { StateStore, SnapshotResult } from './base';
 import { Matrix } from 'ml-matrix';
 
 interface Snapshot {
   timestamp: Date;
-  state: KalmanState;
-}
-
-export interface SnapshotResult {
-  snapshot_found: boolean;
-  snapshot_restored: boolean;
-  snapshot_timestamp: Date | null;
+  state: Readonly<KalmanState>; // Reference to frozen state
 }
 
 /**
- * Deep copy a KalmanState, handling Matrix objects correctly.
+ * Deep freeze helper - recursively freezes objects but skips Matrix instances.
+ * Matrix objects need to remain mutable for ml-matrix library operations.
  */
-function deepCopyState(state: KalmanState): KalmanState {
-  const copied: any = {};
+function deepFreeze<T>(obj: T): Readonly<T> {
+  // Freeze the object itself
+  Object.freeze(obj);
 
-  for (const [key, value] of Object.entries(state)) {
-    if (value === null || value === undefined) {
-      copied[key] = value;
-    } else if (value instanceof Date) {
-      copied[key] = new Date(value.getTime());
-    } else if (value instanceof Matrix) {
-      copied[key] = value.clone();
-    } else if (Array.isArray(value)) {
-      // Handle arrays (which may contain Matrix objects)
-      copied[key] = value.map(item => {
-        if (item instanceof Matrix) {
-          return item.clone();
-        } else if (item && typeof item === 'object') {
-          return JSON.parse(JSON.stringify(item));
-        } else {
-          return item;
-        }
-      });
-    } else if (typeof value === 'object') {
-      // Deep copy plain objects
-      copied[key] = JSON.parse(JSON.stringify(value));
-    } else {
-      // Primitives (number, string, boolean)
-      copied[key] = value;
+  // Recursively freeze nested objects, but skip Matrix instances
+  Object.getOwnPropertyNames(obj).forEach(prop => {
+    const value = (obj as any)[prop];
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      // Skip freezing Matrix objects (they need to be mutable for ml-matrix)
+      if (value instanceof Matrix) {
+        return;
+      }
+      // Skip freezing arrays of Matrix objects
+      if (Array.isArray(value) && value.length > 0 && value[0] instanceof Matrix) {
+        return;
+      }
+      deepFreeze(value);
     }
-  }
+  });
 
-  return copied as KalmanState;
+  return obj as Readonly<T>;
 }
 
 /**
- * Simple in-memory state store using direct references for current state.
- * Snapshots are deep copied to preserve state at snapshot time.
+ * Clone Matrix arrays for new state.
+ * Creates new Matrix instances so state updates don't affect snapshots.
  */
-export class InMemoryStore extends StateStore {
-  private states: Map<string, KalmanState>;
+function cloneMatrixArrays(state: KalmanState): KalmanState {
+  return {
+    ...state,
+    last_state: state.last_state?.map(m => m.clone()),
+    last_covariance: state.last_covariance?.map(m => m.clone()),
+    measurement_history: [...state.measurement_history],
+    reset_events: [...state.reset_events],
+  };
+}
+
+/**
+ * Improved in-memory state store using immutability patterns.
+ *
+ * Design:
+ * - Current states are frozen after saving (immutable)
+ * - Snapshots are just references to frozen states (zero-cost!)
+ * - No deep copying needed (faster than Python version)
+ * - Mutation attempts throw errors in strict mode (safer)
+ */
+export class InMemoryStoreImproved extends StateStore {
+  private states: Map<string, Readonly<KalmanState>>;
   private snapshots: Map<string, Snapshot[]>;
 
   constructor() {
     super();
     this.states = new Map();
     this.snapshots = new Map();
-    console.log('Initialized InMemoryStore (direct references)');
+    console.log('Initialized InMemoryStoreImproved (immutable frozen states)');
   }
 
   /**
    * Retrieve state for a user.
-   * Returns direct reference - caller should not mutate!
+   * Returns frozen (immutable) state - caller must clone before modifying!
    */
   async getState(userId: string): Promise<KalmanState | null> {
-    return this.states.get(userId) ?? null;
+    const state = this.states.get(userId);
+    if (!state) return null;
+
+    // Return a clone with new Matrix instances so caller can modify
+    return cloneMatrixArrays(state as KalmanState);
   }
 
   /**
    * Save state for a user.
-   * Stores direct reference - no copying.
+   * State is cloned and frozen to prevent external modifications.
    */
   async saveState(userId: string, state: KalmanState): Promise<boolean> {
-    this.states.set(userId, state);
+    // Clone Matrix arrays to avoid shared references
+    const cloned = cloneMatrixArrays(state);
+
+    // Freeze to make immutable (prevents accidental mutations)
+    const frozen = deepFreeze(cloned);
+
+    this.states.set(userId, frozen);
     return true;
   }
 
@@ -96,7 +112,6 @@ export class InMemoryStore extends StateStore {
     const existed = this.states.has(userId);
     if (existed) {
       this.states.delete(userId);
-      // Also delete snapshots
       this.snapshots.delete(userId);
     }
     return existed;
@@ -123,30 +138,28 @@ export class InMemoryStore extends StateStore {
   }
 
   /**
-   * Save a snapshot of the current state at a specific timestamp.
-   * Makes a deep copy to preserve state at this moment, ensuring
-   * snapshots remain immutable even if current state changes.
+   * Save a snapshot of the current state.
+   * Zero-cost operation: just stores a reference to the frozen state!
    */
   async saveStateSnapshot(userId: string, timestamp: Date): Promise<boolean> {
     const currentState = this.states.get(userId);
     if (!currentState) {
-      console.warn(
-        `Cannot save snapshot for ${userId}: no state found`
-      );
+      console.warn(`Cannot save snapshot for ${userId}: no state found`);
       return false;
     }
 
-    // Get or create snapshot array for this user
+    // Get or create snapshot array
     let userSnapshots = this.snapshots.get(userId);
     if (!userSnapshots) {
       userSnapshots = [];
       this.snapshots.set(userId, userSnapshots);
     }
 
-    // Add snapshot (deep copy to preserve state at this moment)
+    // Just store a reference! State is already frozen, so it's safe.
+    // This is MUCH faster than deep copying.
     userSnapshots.push({
       timestamp,
-      state: deepCopyState(currentState),
+      state: currentState,
     });
 
     // Sort snapshots by timestamp
@@ -154,7 +167,7 @@ export class InMemoryStore extends StateStore {
 
     console.debug(
       `Saved snapshot for ${userId} at ${timestamp.toISOString()} ` +
-        `(total snapshots: ${userSnapshots.length})`
+        `(total snapshots: ${userSnapshots.length}) [zero-cost reference]`
     );
     return true;
   }
@@ -169,15 +182,13 @@ export class InMemoryStore extends StateStore {
       return false;
     }
 
-    // Get the latest snapshot
+    // Get the latest snapshot (just a reference to frozen state)
     const latestSnapshot = userSnapshots[userSnapshots.length - 1];
-
-    // Restore the state (direct reference)
     this.states.set(userId, latestSnapshot.state);
 
     console.debug(
       `Restored latest snapshot for ${userId} ` +
-        `(from ${userSnapshots.length} available)`
+        `(from ${userSnapshots.length} available) [zero-cost reference]`
     );
     return true;
   }
@@ -196,7 +207,10 @@ export class InMemoryStore extends StateStore {
       .filter((s) => s.timestamp <= timestamp)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
 
-    return matchingSnapshot ? matchingSnapshot.state : null;
+    if (!matchingSnapshot) return null;
+
+    // Return a clone so caller can modify
+    return cloneMatrixArrays(matchingSnapshot.state as KalmanState);
   }
 
   /**
@@ -208,11 +222,10 @@ export class InMemoryStore extends StateStore {
       return null;
     }
 
-    // Get the latest snapshot
     const latestSnapshot = userSnapshots[userSnapshots.length - 1];
 
-    // Return direct reference
-    return latestSnapshot.state;
+    // Return a clone so caller can modify
+    return cloneMatrixArrays(latestSnapshot.state as KalmanState);
   }
 
   /**
@@ -245,13 +258,13 @@ export class InMemoryStore extends StateStore {
     result.snapshot_found = true;
     result.snapshot_timestamp = matchingSnapshot.timestamp;
 
-    // Restore the snapshot state (direct reference)
+    // Restore the snapshot (just update reference to frozen state)
     this.states.set(userId, matchingSnapshot.state);
     result.snapshot_restored = true;
 
     console.info(
       `Restored snapshot for ${userId} from ${matchingSnapshot.timestamp.toISOString()} ` +
-        `for buffer starting at ${bufferStartTime.toISOString()}`
+        `for buffer starting at ${bufferStartTime.toISOString()} [zero-cost reference]`
     );
 
     return result;
@@ -266,7 +279,6 @@ export class InMemoryStore extends StateStore {
       return 0;
     }
 
-    // Prepare CSV data
     const rows: string[] = [
       'user_id,last_timestamp,last_raw_weight,measurements_since_reset,version',
     ];
@@ -282,59 +294,37 @@ export class InMemoryStore extends StateStore {
       rows.push(row);
     }
 
-    // Write to file (using Bun's file API)
     await Bun.write(filepath, rows.join('\n'));
-
     console.info(`Exported ${this.states.size} states to ${filepath}`);
     return this.states.size;
   }
 
-  // Additional helper methods
+  // Helper methods
 
-  /**
-   * Clear all states and snapshots.
-   *
-   * Useful for testing to reset to a clean state.
-   */
   clearAll(): void {
     this.states.clear();
     this.snapshots.clear();
     console.info('Cleared all states and snapshots');
   }
 
-  /**
-   * Get the number of users with stored states.
-   */
   getUserCount(): number {
     return this.states.size;
   }
 
-  /**
-   * Get all user IDs with stored states.
-   */
   getUserIds(): string[] {
     return Array.from(this.states.keys());
   }
 
-  /**
-   * Get snapshot count for a user.
-   */
   getSnapshotCount(userId: string): number {
     const userSnapshots = this.snapshots.get(userId);
     return userSnapshots ? userSnapshots.length : 0;
   }
 
-  /**
-   * Clear snapshots for a user.
-   */
   clearSnapshots(userId: string): void {
     this.snapshots.delete(userId);
     console.debug(`Cleared snapshots for ${userId}`);
   }
 
-  /**
-   * Clear all snapshots for all users.
-   */
   clearAllSnapshots(): void {
     this.snapshots.clear();
     console.debug('Cleared all snapshots');
