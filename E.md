@@ -263,3 +263,35 @@ for measurement in measurements:
 2. **Test API without replay** - Match reference dataset creation process
 3. **Investigate API quality scoring** - Why 100% acceptance rate?
 4. **Review quality threshold configuration** - Default is 0.6, API may use 0.0
+
+----still
+
+⏺ Summary
+
+  I've found the root cause of the 40.5% kalman_variance divergence:
+
+  The Problem
+
+  TypeScript is NOT applying the adaptive reset multipliers, while Python IS.
+
+  Evidence
+
+  When I manually calculated the Kalman filter steps with the correct multipliers:
+  - Manual calculation: P[0,0] = 4.344
+  - Python actual: 4.003 (matches ✓)
+  - TypeScript: 2.380 (does NOT match ✗)
+
+  The multipliers that should be applied after an initial reset:
+  - initial_variance_multiplier: 10× → (0.364 → 3.64)
+  - weight_noise_multiplier: 50× → (0.018 → 0.9)
+  - trend_noise_multiplier: 50× → (0.00012 → 0.006)
+  - observation_noise_multiplier: 20× → (5 → 100)
+
+  Root Cause
+
+  In kalman.ts:705-707, TypeScript only applies multipliers if state?.reset_parameters exists. If these parameters aren't being set during
+   the initial reset, TypeScript falls back to base config values without multipliers.
+
+  Next Step
+
+  I need to verify that reset_parameters are being properly set in the TypeScript reset logic, and if not, fix it.

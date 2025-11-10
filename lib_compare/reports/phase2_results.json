@@ -3,7 +3,11 @@
   "totalTests": 7,
   "passed": 6,
   "failed": 1,
+<<<<<<< Updated upstream
   "duration": 1894.952291,
+=======
+  "duration": 1859.617333,
+>>>>>>> Stashed changes
   "results": [
     {
       "testName": "Test 2.1: Kalman Filter Initialization",
@@ -28,8 +32,13 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
+<<<<<<< Updated upstream
       "pythonDuration": 103.474833,
       "typescriptDuration": 1037.993958
+=======
+      "pythonDuration": 101.920375,
+      "typescriptDuration": 969.00425
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 2.2: Kalman Filter Prediction",
@@ -61,8 +70,13 @@
         "numericDifferences": 1,
         "structuralDifferences": 0
       },
+<<<<<<< Updated upstream
       "pythonDuration": 173.883875,
       "typescriptDuration": 1.9397919999998976
+=======
+      "pythonDuration": 159.14854100000002,
+      "typescriptDuration": 3.4645000000000437
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 2.3: Quality Scoring",
@@ -119,8 +133,13 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
+<<<<<<< Updated upstream
       "pythonDuration": 120.24512499999992,
       "typescriptDuration": 0.9080830000000333
+=======
+      "pythonDuration": 143.753917,
+      "typescriptDuration": 0.8476250000001073
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 2.4: Output Structure",
@@ -223,8 +242,13 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
+<<<<<<< Updated upstream
       "pythonDuration": 123.84375,
       "typescriptDuration": 0.5905410000000302
+=======
+      "pythonDuration": 123.56612500000006,
+      "typescriptDuration": 0.5644999999999527
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 2.5: Reset Detection",
@@ -243,8 +267,13 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
+<<<<<<< Updated upstream
       "pythonDuration": 115.84254199999987,
       "typescriptDuration": 0.9655829999999241
+=======
+      "pythonDuration": 115.0530839999999,
+      "typescriptDuration": 0.8779170000000249
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 2.6: Acceptance/Rejection Logic",
@@ -289,8 +318,13 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
+<<<<<<< Updated upstream
       "pythonDuration": 107.1667080000002,
       "typescriptDuration": 0.8834170000000086
+=======
+      "pythonDuration": 109.27895900000021,
+      "typescriptDuration": 0.8129999999998745
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 2.7: Timestamp Handling",
@@ -313,8 +347,13 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
+<<<<<<< Updated upstream
       "pythonDuration": 105.60833400000001,
       "typescriptDuration": 0.5506249999998545
+=======
+      "pythonDuration": 129.26641699999982,
+      "typescriptDuration": 0.5230830000000424
+>>>>>>> Stashed changes
     }
   ]
 }

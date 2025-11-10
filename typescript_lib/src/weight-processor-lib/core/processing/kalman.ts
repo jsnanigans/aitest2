@@ -212,8 +212,6 @@ export class KalmanFilterManager {
       measurement_history: [],
       reset_events: [],
       measurements_since_reset: 0,
-      adaptation_state: {},
-      version: 1,
     };
   }
 
@@ -1058,8 +1056,6 @@ export class ResetManager {
       last_raw_weight: state.last_raw_weight,
       last_accepted_timestamp: state.last_accepted_timestamp,
       measurement_history: [],
-      adaptation_state: {},
-      version: (state.version ?? 0) + 1,
     };
 
     return [newState, resetEvent];

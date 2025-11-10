@@ -432,63 +432,8 @@ function validateStateShapes(state: KalmanState, userId: string): void {
   }
 }
 
-/**
- * Create periodic snapshot if interval has elapsed.
- */
-async function maybeCreatePeriodicSnapshot(
-  db: StateStore,
-  userId: string,
-  timestamp: Date,
-  config: Record<string, any>
-): Promise<boolean> {
-  try {
-    const snapshotConfig = config.snapshot || {};
-    const snapshotIntervalHours = snapshotConfig.interval_hours || 24;
-    const periodicEnabled = snapshotConfig.periodic_enabled !== false;
-
-    if (!periodicEnabled) {
-      return false;
-    }
-
-    // Get latest snapshot
-    const latestSnapshot = await db.getLatestSnapshot(userId);
-
-    // Create snapshot if none exists
-    if (!latestSnapshot) {
-      await db.saveStateSnapshot(userId, timestamp);
-      console.debug(`Created initial periodic snapshot for user ${userId}`);
-      return true;
-    }
-
-    // Check time since last snapshot
-    let lastSnapshotTime = latestSnapshot.last_timestamp;
-    if (!lastSnapshotTime) {
-      await db.saveStateSnapshot(userId, timestamp);
-      console.debug(`Created periodic snapshot for user ${userId} (no timestamp in last snapshot)`);
-      return true;
-    }
-
-    // Ensure lastSnapshotTime is a Date
-    if (typeof lastSnapshotTime === 'string') {
-      lastSnapshotTime = new Date(lastSnapshotTime);
-    }
-
-    // Calculate hours since last snapshot
-    const hoursSince = (timestamp.getTime() - lastSnapshotTime.getTime()) / (1000 * 60 * 60);
-
-    // Create snapshot if interval elapsed
-    if (hoursSince >= snapshotIntervalHours) {
-      await db.saveStateSnapshot(userId, timestamp);
-      console.debug(`Created periodic snapshot for user ${userId} (${hoursSince.toFixed(1)} hours since last)`);
-      return true;
-    }
-
-    return false;
-  } catch (e) {
-    console.warn(`Failed to create periodic snapshot for ${userId}:`, e);
-    return false;
-  }
-}
+// Snapshot functionality removed - browser version keeps all data in memory
+// Snapshots are for server-side database persistence only
 
 /**
  * Handle reset with transaction safety and circuit breaker.
@@ -1014,8 +959,8 @@ export async function processMeasurement(
     source,
   });
 
-  // Keep only last 30 measurements
-  state.measurement_history = state.measurement_history.slice(-30);
+  // Keep ALL measurements in memory (browser version for real-time graphing)
+  // No limit - this is for in-browser analytics
 
   // Save updated state - Main successful processing path
   state.measurements_since_reset = (state.measurements_since_reset || 0) + 1;
@@ -1051,18 +996,7 @@ export async function processMeasurement(
         null
       );
 
-      // Save snapshot after reset for replay functionality
-      if (resetOccurred) {
-        try {
-          await db.saveStateSnapshot(userId, timestamp);
-          console.debug(`Saved post-reset snapshot for user ${userId} at ${timestamp}`);
-        } catch (e) {
-          console.warn(`Failed to save post-reset snapshot for ${userId}:`, e);
-        }
-      }
-
-      // Create periodic snapshot if interval has elapsed
-      await maybeCreatePeriodicSnapshot(db, userId, timestamp, config);
+      // No snapshot functionality in browser version
     } else {
       PersistenceValidator.createAuditLog(userId, 'skip', state, true, auditMsg, null);
     }

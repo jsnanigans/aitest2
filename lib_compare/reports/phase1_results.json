@@ -3,7 +3,11 @@
   "totalTests": 5,
   "passed": 0,
   "failed": 5,
+<<<<<<< Updated upstream
   "duration": 3699.205958,
+=======
+  "duration": 3648.3277909999997,
+>>>>>>> Stashed changes
   "results": [
     {
       "testName": "Test 1: Single Measurement Processing",
@@ -338,8 +342,6 @@
           ],
           "reset_events": [],
           "measurements_since_reset": 1,
-          "adaptation_state": {},
-          "version": 1,
           "reset_timestamp": "2025-11-10T10:24:32.710Z",
           "reset_type": "initial",
           "reset_parameters": {
@@ -401,18 +403,6 @@
             "typescriptValue": "initial reset triggered",
             "type": "value",
             "message": "Value mismatch: initial_measurement !== initial reset triggered"
-          },
-          {
-            "path": "root.finalState.adaptation_state",
-            "typescriptValue": {},
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
-            "path": "root.finalState.version",
-            "typescriptValue": 1,
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
           },
           {
             "path": "root.finalState.last_state[0][0]",
@@ -553,12 +543,17 @@
             "message": "Value mismatch: 2025-11-10T11:24:32.710000 !== 2025-11-10T10:24:32.710Z"
           }
         ],
-        "summary": "✗ Found 24 difference(s): 6 numeric, 18 structural",
+        "summary": "✗ Found 22 difference(s): 6 numeric, 16 structural",
         "numericDifferences": 6,
-        "structuralDifferences": 18
+        "structuralDifferences": 16
       },
+<<<<<<< Updated upstream
       "pythonDuration": 204.738333,
       "typescriptDuration": 2798.097583
+=======
+      "pythonDuration": 234.21979200000004,
+      "typescriptDuration": 2792.0933750000004
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 2: Multi-Measurement Sequence",
@@ -1866,8 +1861,6 @@
           ],
           "reset_events": [],
           "measurements_since_reset": 10,
-          "adaptation_state": {},
-          "version": 1,
           "reset_timestamp": "2025-11-10T10:24:32.710Z",
           "reset_type": "initial",
           "reset_parameters": {
@@ -2970,18 +2963,6 @@
             "message": "Numeric difference exceeds tolerance: abs=6.764e-3, rel=0.694417%"
           },
           {
-            "path": "root.finalState.adaptation_state",
-            "typescriptValue": {},
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
-            "path": "root.finalState.version",
-            "typescriptValue": 1,
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
             "path": "root.finalState.kalman_params.transition_covariance[0][0]",
             "pythonValue": 0.04209952319851201,
             "typescriptValue": 0.8999999999999999,
@@ -3327,12 +3308,17 @@
             "message": "Value mismatch: 2025-11-10T11:37:30.310000 !== 2025-11-10T10:37:30.310Z"
           }
         ],
-        "summary": "✗ Found 183 difference(s): 156 numeric, 27 structural",
+        "summary": "✗ Found 181 difference(s): 156 numeric, 25 structural",
         "numericDifferences": 156,
-        "structuralDifferences": 27
+        "structuralDifferences": 25
       },
+<<<<<<< Updated upstream
       "pythonDuration": 148.19333300000017,
       "typescriptDuration": 4.001832999999806
+=======
+      "pythonDuration": 146.5621659999997,
+      "typescriptDuration": 4.584667000000081
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 3: Reset Scenario",
@@ -4958,8 +4944,6 @@
           ],
           "reset_events": [],
           "measurements_since_reset": 5,
-          "adaptation_state": {},
-          "version": 1,
           "reset_timestamp": "2025-11-10T10:24:32.710Z",
           "reset_type": "initial",
           "reset_parameters": {
@@ -6066,18 +6050,6 @@
             "message": "Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.077781%"
           },
           {
-            "path": "root.finalState.adaptation_state",
-            "typescriptValue": {},
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
-            "path": "root.finalState.version",
-            "typescriptValue": 1,
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
             "path": "root.finalState.kalman_params.transition_covariance[0][0]",
             "pythonValue": 0.19607272887128602,
             "typescriptValue": 0.8999999999999999,
@@ -6348,12 +6320,17 @@
             "message": "Value mismatch: 2025-11-10T11:30:18.310000 !== 2025-11-10T10:30:18.310Z"
           }
         ],
-        "summary": "✗ Found 176 difference(s): 136 numeric, 40 structural",
+        "summary": "✗ Found 174 difference(s): 136 numeric, 38 structural",
         "numericDifferences": 136,
-        "structuralDifferences": 40
+        "structuralDifferences": 38
       },
+<<<<<<< Updated upstream
       "pythonDuration": 119.33704200000011,
       "typescriptDuration": 1.6965829999999187
+=======
+      "pythonDuration": 122.17858299999989,
+      "typescriptDuration": 1.6411249999996471
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 4: Quality Rejection",
@@ -7066,8 +7043,6 @@
           ],
           "reset_events": [],
           "measurements_since_reset": 3,
-          "adaptation_state": {},
-          "version": 1,
           "reset_timestamp": "2025-11-10T10:24:32.710Z",
           "reset_type": "initial",
           "reset_parameters": {
@@ -7447,18 +7422,6 @@
             "message": "Numeric difference exceeds tolerance: abs=3.010e-2, rel=3.016127%"
           },
           {
-            "path": "root.finalState.adaptation_state",
-            "typescriptValue": {},
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
-            "path": "root.finalState.version",
-            "typescriptValue": 1,
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
             "path": "root.finalState.kalman_params.transition_covariance[0][0]",
             "pythonValue": 0.41430814635138935,
             "typescriptValue": 0.8999999999999999,
@@ -7699,12 +7662,17 @@
             "message": "Value mismatch: 2025-11-10T11:30:18.310000 !== 2025-11-10T10:30:18.310Z"
           }
         ],
-        "summary": "✗ Found 78 difference(s): 53 numeric, 25 structural",
+        "summary": "✗ Found 76 difference(s): 53 numeric, 23 structural",
         "numericDifferences": 53,
-        "structuralDifferences": 25
+        "structuralDifferences": 23
       },
+<<<<<<< Updated upstream
       "pythonDuration": 122.3125829999999,
       "typescriptDuration": 0.9239999999999782
+=======
+      "pythonDuration": 112.15720800000008,
+      "typescriptDuration": 0.8844579999999951
+>>>>>>> Stashed changes
     },
     {
       "testName": "Test 5: State Persistence",
@@ -8969,8 +8937,6 @@
           ],
           "reset_events": [],
           "measurements_since_reset": 5,
-          "adaptation_state": {},
-          "version": 1,
           "reset_timestamp": "2025-11-10T10:31:44.710Z",
           "reset_type": "initial",
           "reset_parameters": {
@@ -9972,18 +9938,6 @@
             "message": "Numeric difference exceeds tolerance: abs=2.817e-2, rel=3.034072%"
           },
           {
-            "path": "root.finalState.adaptation_state",
-            "typescriptValue": {},
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
-            "path": "root.finalState.version",
-            "typescriptValue": 1,
-            "type": "extra",
-            "message": "Extra key in TypeScript output"
-          },
-          {
             "path": "root.finalState.kalman_params.transition_covariance[0][0]",
             "pythonValue": 0.19607272887128602,
             "typescriptValue": 0.8999999999999999,
@@ -10254,12 +10208,17 @@
             "message": "Value mismatch: 2025-11-10T11:37:30.310000 !== 2025-11-10T10:37:30.310Z"
           }
         ],
-        "summary": "✗ Found 161 difference(s): 133 numeric, 28 structural",
+        "summary": "✗ Found 159 difference(s): 133 numeric, 26 structural",
         "numericDifferences": 133,
-        "structuralDifferences": 28
+        "structuralDifferences": 26
       },
+<<<<<<< Updated upstream
       "pythonDuration": 289.09608400000025,
       "typescriptDuration": 1.9110419999997248
+=======
+      "pythonDuration": 224.93100000000004,
+      "typescriptDuration": 1.9862910000001648
+>>>>>>> Stashed changes
     }
   ]
 }
