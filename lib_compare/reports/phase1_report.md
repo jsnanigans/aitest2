@@ -1,11 +1,11 @@
 # Cross-Language Test Report
 **Test Suite**: Phase 1: Integration Tests
-**Date**: 2025-11-10T14:59:47.211Z
+**Date**: 2025-11-10T16:03:59.381Z
 **Total Tests**: 5
 **Passed**: 0
 **Failed**: 5
 **Success Rate**: 0.0%
-**Duration**: 4.86s
+**Duration**: 3.70s
 
 ## Summary
 
@@ -16,9 +16,9 @@
 
 ## Performance Comparison
 
-- **Python avg**: 200.69ms
-- **TypeScript avg**: 770.04ms
-- **Speed ratio**: Python is 0.74x faster
+- **Python avg**: 176.74ms
+- **TypeScript avg**: 561.33ms
+- **Speed ratio**: Python is 0.69x faster
 
 ## Failed Tests
 
@@ -4285,8 +4285,8 @@ Found 161 difference(s):
 
 | Test Name | Status | Py Time | TS Time | Differences |
 |-----------|--------|---------|---------|-------------|
-| Test 1: Single Measurement Processing | ❌ | 304.76ms | 3840.46ms | 24 |
-| Test 2: Multi-Measurement Sequence | ❌ | 152.46ms | 4.50ms | 183 |
-| Test 3: Reset Scenario | ❌ | 128.78ms | 1.94ms | 176 |
-| Test 4: Quality Rejection | ❌ | 121.36ms | 1.01ms | 78 |
-| Test 5: State Persistence | ❌ | 296.09ms | 2.30ms | 161 |
+| Test 1: Single Measurement Processing | ❌ | 204.74ms | 2798.10ms | 24 |
+| Test 2: Multi-Measurement Sequence | ❌ | 148.19ms | 4.00ms | 183 |
+| Test 3: Reset Scenario | ❌ | 119.34ms | 1.70ms | 176 |
+| Test 4: Quality Rejection | ❌ | 122.31ms | 0.92ms | 78 |
+| Test 5: State Persistence | ❌ | 289.10ms | 1.91ms | 161 |

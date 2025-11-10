@@ -1,11 +1,11 @@
 # Cross-Language Test Report
 **Test Suite**: Phase 2: Component Tests
-**Date**: 2025-11-10T14:59:49.288Z
+**Date**: 2025-11-10T16:04:01.365Z
 **Total Tests**: 7
 **Passed**: 6
 **Failed**: 1
 **Success Rate**: 85.7%
-**Duration**: 1.98s
+**Duration**: 1.89s
 
 ## Summary
 
@@ -16,9 +16,9 @@
 
 ## Performance Comparison
 
-- **Python avg**: 122.86ms
-- **TypeScript avg**: 160.24ms
-- **Speed ratio**: Python is 0.23x faster
+- **Python avg**: 121.44ms
+- **TypeScript avg**: 149.12ms
+- **Speed ratio**: Python is 0.19x faster
 
 ## Failed Tests
 
@@ -44,10 +44,10 @@ Found 1 difference(s):
 
 | Test Name | Status | Py Time | TS Time | Differences |
 |-----------|--------|---------|---------|-------------|
-| Test 2.1: Kalman Filter Initialization | ✅ | 121.75ms | 1114.61ms | 0 |
-| Test 2.2: Kalman Filter Prediction | ❌ | 137.85ms | 2.32ms | 1 |
-| Test 2.3: Quality Scoring | ✅ | 127.88ms | 1.01ms | 0 |
-| Test 2.4: Output Structure | ✅ | 117.90ms | 1.09ms | 0 |
-| Test 2.5: Reset Detection | ✅ | 118.93ms | 1.06ms | 0 |
-| Test 2.6: Acceptance/Rejection Logic | ✅ | 119.84ms | 0.93ms | 0 |
-| Test 2.7: Timestamp Handling | ✅ | 115.87ms | 0.68ms | 0 |
+| Test 2.1: Kalman Filter Initialization | ✅ | 103.47ms | 1037.99ms | 0 |
+| Test 2.2: Kalman Filter Prediction | ❌ | 173.88ms | 1.94ms | 1 |
+| Test 2.3: Quality Scoring | ✅ | 120.25ms | 0.91ms | 0 |
+| Test 2.4: Output Structure | ✅ | 123.84ms | 0.59ms | 0 |
+| Test 2.5: Reset Detection | ✅ | 115.84ms | 0.97ms | 0 |
+| Test 2.6: Acceptance/Rejection Logic | ✅ | 107.17ms | 0.88ms | 0 |
+| Test 2.7: Timestamp Handling | ✅ | 105.61ms | 0.55ms | 0 |

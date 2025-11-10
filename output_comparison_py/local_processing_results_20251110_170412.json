@@ -1,5 +1,5 @@
 {
-  "start_time": "2025-11-10T15:59:05.777330",
+  "start_time": "2025-11-10T17:04:12.472744",
   "csv_file": "test_user.csv",
   "storage_type": "in-memory",
   "users_loaded": 1,
@@ -18,7 +18,7 @@
           "replay_to": "2025-03-08T00:00:00+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.780269+00:00"
+          "timestamp": "2025-11-10T16:04:12.475622+00:00"
         },
         {
           "trigger": "time_gap",
@@ -27,7 +27,7 @@
           "replay_to": "2025-03-26T23:21:08+00:00",
           "measurements_replayed": 3,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.781287+00:00"
+          "timestamp": "2025-11-10T16:04:12.476627+00:00"
         },
         {
           "trigger": "time_gap",
@@ -36,7 +36,7 @@
           "replay_to": "2025-05-15T01:30:46+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.784002+00:00"
+          "timestamp": "2025-11-10T16:04:12.479368+00:00"
         },
         {
           "trigger": "time_gap",
@@ -45,7 +45,7 @@
           "replay_to": "2025-06-11T23:10:14+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.788956+00:00"
+          "timestamp": "2025-11-10T16:04:12.484215+00:00"
         },
         {
           "trigger": "time_gap",
@@ -54,7 +54,7 @@
           "replay_to": "2025-06-14T17:40:03+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.789494+00:00"
+          "timestamp": "2025-11-10T16:04:12.484716+00:00"
         },
         {
           "trigger": "time_gap",
@@ -63,7 +63,7 @@
           "replay_to": "2025-06-15T22:17:37+00:00",
           "measurements_replayed": 5,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.791746+00:00"
+          "timestamp": "2025-11-10T16:04:12.486893+00:00"
         },
         {
           "trigger": "time_gap",
@@ -72,7 +72,7 @@
           "replay_to": "2025-06-17T00:41:49+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.792190+00:00"
+          "timestamp": "2025-11-10T16:04:12.487358+00:00"
         },
         {
           "trigger": "time_gap",
@@ -81,7 +81,7 @@
           "replay_to": "2025-06-19T01:11:15+00:00",
           "measurements_replayed": 3,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.794274+00:00"
+          "timestamp": "2025-11-10T16:04:12.489403+00:00"
         },
         {
           "trigger": "time_window",
@@ -90,7 +90,7 @@
           "replay_to": "2025-07-09T22:34:31+00:00",
           "measurements_replayed": 4,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.796575+00:00"
+          "timestamp": "2025-11-10T16:04:12.491720+00:00"
         },
         {
           "trigger": "time_gap",
@@ -99,7 +99,7 @@
           "replay_to": "2025-07-10T20:19:11+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.797902+00:00"
+          "timestamp": "2025-11-10T16:04:12.493062+00:00"
         },
         {
           "trigger": "time_gap",
@@ -108,7 +108,7 @@
           "replay_to": "2025-07-11T23:23:01+00:00",
           "measurements_replayed": 3,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.800273+00:00"
+          "timestamp": "2025-11-10T16:04:12.495195+00:00"
         },
         {
           "trigger": "time_window",
@@ -117,7 +117,7 @@
           "replay_to": "2025-07-23T20:43:43+00:00",
           "measurements_replayed": 8,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.805526+00:00"
+          "timestamp": "2025-11-10T16:04:12.500508+00:00"
         },
         {
           "trigger": "time_window",
@@ -126,7 +126,7 @@
           "replay_to": "2025-07-27T00:02:22+00:00",
           "measurements_replayed": 8,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.811792+00:00"
+          "timestamp": "2025-11-10T16:04:12.506449+00:00"
         },
         {
           "trigger": "time_gap",
@@ -135,7 +135,7 @@
           "replay_to": "2025-08-02T01:21:30+00:00",
           "measurements_replayed": 3,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.815462+00:00"
+          "timestamp": "2025-11-10T16:04:12.509900+00:00"
         },
         {
           "trigger": "time_window",
@@ -144,7 +144,7 @@
           "replay_to": "2025-08-05T05:55:42+00:00",
           "measurements_replayed": 4,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.818582+00:00"
+          "timestamp": "2025-11-10T16:04:12.512604+00:00"
         },
         {
           "trigger": "time_window",
@@ -153,7 +153,7 @@
           "replay_to": "2025-08-07T17:19:32+00:00",
           "measurements_replayed": 3,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.819267+00:00"
+          "timestamp": "2025-11-10T16:04:12.513277+00:00"
         },
         {
           "trigger": "time_gap",
@@ -162,7 +162,7 @@
           "replay_to": "2025-08-08T19:27:00+00:00",
           "measurements_replayed": 6,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.820153+00:00"
+          "timestamp": "2025-11-10T16:04:12.513988+00:00"
         },
         {
           "trigger": "time_gap",
@@ -171,7 +171,7 @@
           "replay_to": "2025-08-11T08:17:28+00:00",
           "measurements_replayed": 4,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.825420+00:00"
+          "timestamp": "2025-11-10T16:04:12.517658+00:00"
         },
         {
           "trigger": "time_gap",
@@ -180,7 +180,7 @@
           "replay_to": "2025-08-13T21:49:25+00:00",
           "measurements_replayed": 4,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.829165+00:00"
+          "timestamp": "2025-11-10T16:04:12.520420+00:00"
         },
         {
           "trigger": "time_gap",
@@ -189,7 +189,7 @@
           "replay_to": "2025-08-19T21:49:11+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.831285+00:00"
+          "timestamp": "2025-11-10T16:04:12.522396+00:00"
         },
         {
           "trigger": "time_gap",
@@ -198,7 +198,7 @@
           "replay_to": "2025-08-24T19:08:10+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.834417+00:00"
+          "timestamp": "2025-11-10T16:04:12.525349+00:00"
         },
         {
           "trigger": "time_gap",
@@ -207,7 +207,7 @@
           "replay_to": "2025-08-27T00:02:43+00:00",
           "measurements_replayed": 3,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.837134+00:00"
+          "timestamp": "2025-11-10T16:04:12.527737+00:00"
         },
         {
           "trigger": "time_window",
@@ -216,7 +216,7 @@
           "replay_to": "2025-08-31T18:08:11+00:00",
           "measurements_replayed": 4,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.840440+00:00"
+          "timestamp": "2025-11-10T16:04:12.530270+00:00"
         },
         {
           "trigger": "time_window",
@@ -225,7 +225,7 @@
           "replay_to": "2025-09-13T22:42:44+00:00",
           "measurements_replayed": 4,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.851104+00:00"
+          "timestamp": "2025-11-10T16:04:12.539202+00:00"
         },
         {
           "trigger": "batch_end",
@@ -234,15 +234,15 @@
           "replay_to": "2025-09-28T22:20:14+00:00",
           "measurements_replayed": 2,
           "duration_seconds": 0.0,
-          "timestamp": "2025-11-10T14:59:05.854186+00:00"
+          "timestamp": "2025-11-10T16:04:12.542136+00:00"
         }
       ]
     }
   },
   "replay_mode": "automatic",
-  "end_time": "2025-11-10T15:59:05.857496",
-  "duration_seconds": 0.080166,
-  "filtered_csv_path": "output_comparison_py/filtered_20251110_155905.csv",
+  "end_time": "2025-11-10T17:04:12.545369",
+  "duration_seconds": 0.072625,
+  "filtered_csv_path": "output_comparison_py/filtered_20251110_170412.csv",
   "accepted_measurements": 30,
   "total_original_measurements": 120
 }

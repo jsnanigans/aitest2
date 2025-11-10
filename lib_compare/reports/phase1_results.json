@@ -3,7 +3,7 @@
   "totalTests": 5,
   "passed": 0,
   "failed": 5,
-  "duration": 4862.518458,
+  "duration": 3699.205958,
   "results": [
     {
       "testName": "Test 1: Single Measurement Processing",
@@ -557,8 +557,8 @@
         "numericDifferences": 6,
         "structuralDifferences": 18
       },
-      "pythonDuration": 304.764458,
-      "typescriptDuration": 3840.463792
+      "pythonDuration": 204.738333,
+      "typescriptDuration": 2798.097583
     },
     {
       "testName": "Test 2: Multi-Measurement Sequence",
@@ -3331,8 +3331,8 @@
         "numericDifferences": 156,
         "structuralDifferences": 27
       },
-      "pythonDuration": 152.45929199999955,
-      "typescriptDuration": 4.4950419999995574
+      "pythonDuration": 148.19333300000017,
+      "typescriptDuration": 4.001832999999806
     },
     {
       "testName": "Test 3: Reset Scenario",
@@ -6352,8 +6352,8 @@
         "numericDifferences": 136,
         "structuralDifferences": 40
       },
-      "pythonDuration": 128.77650000000085,
-      "typescriptDuration": 1.9444579999999405
+      "pythonDuration": 119.33704200000011,
+      "typescriptDuration": 1.6965829999999187
     },
     {
       "testName": "Test 4: Quality Rejection",
@@ -7703,8 +7703,8 @@
         "numericDifferences": 53,
         "structuralDifferences": 25
       },
-      "pythonDuration": 121.35900000000038,
-      "typescriptDuration": 1.0089579999994385
+      "pythonDuration": 122.3125829999999,
+      "typescriptDuration": 0.9239999999999782
     },
     {
       "testName": "Test 5: State Persistence",
@@ -10258,8 +10258,8 @@
         "numericDifferences": 133,
         "structuralDifferences": 28
       },
-      "pythonDuration": 296.08925,
-      "typescriptDuration": 2.303458000000319
+      "pythonDuration": 289.09608400000025,
+      "typescriptDuration": 1.9110419999997248
     }
   ]
 }
