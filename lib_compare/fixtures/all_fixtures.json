@@ -1,0 +1,1006 @@
+{
+  "singleMeasurement": {
+    "deviceId": "test-device-single",
+    "userId": "test-user-single",
+    "measurements": [
+      {
+        "weight_kg": 70,
+        "timestamp": 1762770272710,
+        "source": "withings"
+      }
+    ],
+    "description": "Single measurement at 70 kg",
+    "expectedBehavior": "First measurement should initialize Kalman filter"
+  },
+  "basicSequence": {
+    "deviceId": "test-device-001",
+    "userId": "test-user-001",
+    "measurements": [
+      {
+        "weight_kg": 69.56,
+        "timestamp": 1762770272710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.6,
+        "timestamp": 1762770359110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.07,
+        "timestamp": 1762770445510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.89,
+        "timestamp": 1762770531910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.55,
+        "timestamp": 1762770618310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.43,
+        "timestamp": 1762770704710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.32,
+        "timestamp": 1762770791110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.1,
+        "timestamp": 1762770877510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.17,
+        "timestamp": 1762770963910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.03,
+        "timestamp": 1762771050310,
+        "source": "withings"
+      }
+    ],
+    "description": "Basic sequence of 10 measurements around 70 kg",
+    "expectedBehavior": "All measurements should be accepted and processed"
+  },
+  "resetScenario": {
+    "deviceId": "test-device-reset",
+    "userId": "test-user-reset",
+    "measurements": [
+      {
+        "weight_kg": 69.88162223057735,
+        "timestamp": 1762770272710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.00060468708456,
+        "timestamp": 1762770359110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.0138541703167,
+        "timestamp": 1762770445510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.10214610484256,
+        "timestamp": 1762770531910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.13410598608532,
+        "timestamp": 1762770618310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 60,
+        "timestamp": 1762770704710,
+        "source": "withings",
+        "metadata": {
+          "expected_reset": true
+        }
+      },
+      {
+        "weight_kg": 60.147991245125624,
+        "timestamp": 1762770791110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 59.75227432566939,
+        "timestamp": 1762770877510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 59.89169715328665,
+        "timestamp": 1762770963910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 60.131079681611745,
+        "timestamp": 1762771050310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 60.23451730718643,
+        "timestamp": 1762771136710,
+        "source": "withings"
+      }
+    ],
+    "description": "Reset scenario: 5 measurements @ 70kg → sudden drop to 60kg → 5 measurements @ 60kg",
+    "expectedBehavior": "Should trigger reset after large weight change"
+  },
+  "qualityRejection": {
+    "deviceId": "test-device-quality",
+    "userId": "test-user-quality",
+    "measurements": [
+      {
+        "weight_kg": 70,
+        "timestamp": 1762770272710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.2,
+        "timestamp": 1762770359110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 30,
+        "timestamp": 1762770445510,
+        "source": "withings",
+        "metadata": {
+          "expected_rejection": true
+        }
+      },
+      {
+        "weight_kg": 250,
+        "timestamp": 1762770531910,
+        "source": "withings",
+        "metadata": {
+          "expected_rejection": true
+        }
+      },
+      {
+        "weight_kg": 70.1,
+        "timestamp": 1762770618310,
+        "source": "withings"
+      }
+    ],
+    "description": "Quality rejection: good measurements interspersed with bad ones",
+    "expectedBehavior": "Bad measurements should be rejected based on quality score"
+  },
+  "statePersistence": {
+    "deviceId": "test-device-persist",
+    "userId": "test-user-persist",
+    "measurements": [
+      {
+        "weight_kg": 70,
+        "timestamp": 1762770272710,
+        "source": "withings",
+        "metadata": {
+          "batch": "first"
+        }
+      },
+      {
+        "weight_kg": 70.1,
+        "timestamp": 1762770359110,
+        "source": "withings",
+        "metadata": {
+          "batch": "first"
+        }
+      },
+      {
+        "weight_kg": 70.2,
+        "timestamp": 1762770445510,
+        "source": "withings",
+        "metadata": {
+          "batch": "first"
+        }
+      },
+      {
+        "weight_kg": 70.3,
+        "timestamp": 1762770531910,
+        "source": "withings",
+        "metadata": {
+          "batch": "first"
+        }
+      },
+      {
+        "weight_kg": 70.4,
+        "timestamp": 1762770618310,
+        "source": "withings",
+        "metadata": {
+          "batch": "first"
+        }
+      },
+      {
+        "weight_kg": 70.5,
+        "timestamp": 1762770704710,
+        "source": "withings",
+        "metadata": {
+          "batch": "second"
+        }
+      },
+      {
+        "weight_kg": 70.6,
+        "timestamp": 1762770791110,
+        "source": "withings",
+        "metadata": {
+          "batch": "second"
+        }
+      },
+      {
+        "weight_kg": 70.7,
+        "timestamp": 1762770877510,
+        "source": "withings",
+        "metadata": {
+          "batch": "second"
+        }
+      },
+      {
+        "weight_kg": 70.8,
+        "timestamp": 1762770963910,
+        "source": "withings",
+        "metadata": {
+          "batch": "second"
+        }
+      },
+      {
+        "weight_kg": 70.9,
+        "timestamp": 1762771050310,
+        "source": "withings",
+        "metadata": {
+          "batch": "second"
+        }
+      }
+    ],
+    "description": "State persistence: process first batch, save state, restore, process second batch",
+    "expectedBehavior": "Results should be identical whether processed together or in two batches"
+  },
+  "edgeVerySmall": {
+    "deviceId": "test-device-edge",
+    "userId": "test-user-edge",
+    "measurements": [
+      {
+        "weight_kg": 40.020630202462534,
+        "timestamp": 1762770272710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.08194124814492,
+        "timestamp": 1762770359110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.05450428934813,
+        "timestamp": 1762770445510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.034341081703836,
+        "timestamp": 1762770531910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.09992997415015,
+        "timestamp": 1762770618310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.04994866407164,
+        "timestamp": 1762770704710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.03009209864225,
+        "timestamp": 1762770791110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.03336361194809,
+        "timestamp": 1762770877510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.05649299841891,
+        "timestamp": 1762770963910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 40.08452501138705,
+        "timestamp": 1762771050310,
+        "source": "withings"
+      }
+    ],
+    "description": "Edge case: very small weight values (40 kg)",
+    "expectedBehavior": "Should handle near-minimum physiological weights"
+  },
+  "edgeVeryLarge": {
+    "deviceId": "test-device-edge",
+    "userId": "test-user-edge",
+    "measurements": [
+      {
+        "weight_kg": 200.10461321307324,
+        "timestamp": 1762770272710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.37244689962083,
+        "timestamp": 1762770359110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.51050881575853,
+        "timestamp": 1762770445510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.15047296983698,
+        "timestamp": 1762770531910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.91723281580516,
+        "timestamp": 1762770618310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.81419103735473,
+        "timestamp": 1762770704710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.50894746324562,
+        "timestamp": 1762770791110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.97940780409937,
+        "timestamp": 1762770877510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.23611862345166,
+        "timestamp": 1762770963910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 200.11973511903517,
+        "timestamp": 1762771050310,
+        "source": "withings"
+      }
+    ],
+    "description": "Edge case: very large weight values (200 kg)",
+    "expectedBehavior": "Should handle near-maximum physiological weights"
+  },
+  "edgeRapid": {
+    "deviceId": "test-device-edge",
+    "userId": "test-user-edge",
+    "measurements": [
+      {
+        "weight_kg": 69.9541254748562,
+        "timestamp": 1762770272710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.04630941076321,
+        "timestamp": 1762770272770,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.00501683276251,
+        "timestamp": 1762770272830,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.00302733235984,
+        "timestamp": 1762770272890,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.99193705003316,
+        "timestamp": 1762770272950,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.99004891697368,
+        "timestamp": 1762770273010,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.97167274193089,
+        "timestamp": 1762770273070,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.96096999858163,
+        "timestamp": 1762770273130,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.03043948856165,
+        "timestamp": 1762770273190,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.95106694073165,
+        "timestamp": 1762770273250,
+        "source": "withings"
+      }
+    ],
+    "description": "Edge case: rapid measurements (1 minute apart)",
+    "expectedBehavior": "Should handle very small time deltas"
+  },
+  "edgeLongGap": {
+    "deviceId": "test-device-edge",
+    "userId": "test-user-edge",
+    "measurements": [
+      {
+        "weight_kg": 70.76966143962424,
+        "timestamp": 1762770272710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.23963342109425,
+        "timestamp": 1762772864710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.5804553369771,
+        "timestamp": 1762775456710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.27384941897688,
+        "timestamp": 1762778048710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.29283411988398,
+        "timestamp": 1762780640710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.77482011438235,
+        "timestamp": 1762783232710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.89486061729025,
+        "timestamp": 1762785824710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.21682649382616,
+        "timestamp": 1762788416710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.37844989126219,
+        "timestamp": 1762791008710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 70.24226967520457,
+        "timestamp": 1762793600710,
+        "source": "withings"
+      }
+    ],
+    "description": "Edge case: long gaps between measurements (30 days)",
+    "expectedBehavior": "Should handle large time gaps with increased uncertainty"
+  },
+  "stressTest": {
+    "deviceId": "test-device-stress",
+    "userId": "test-user-stress",
+    "measurements": [
+      {
+        "weight_kg": 70.04,
+        "timestamp": 1762770272710,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.98,
+        "timestamp": 1762770359110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.98,
+        "timestamp": 1762770445510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.91,
+        "timestamp": 1762770531910,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.98,
+        "timestamp": 1762770618310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.9,
+        "timestamp": 1762770704710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.82,
+        "timestamp": 1762770791110,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.78,
+        "timestamp": 1762770877510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.7,
+        "timestamp": 1762770963910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.67,
+        "timestamp": 1762771050310,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.59,
+        "timestamp": 1762771136710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.49,
+        "timestamp": 1762771223110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.41,
+        "timestamp": 1762771309510,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.39,
+        "timestamp": 1762771395910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.32,
+        "timestamp": 1762771482310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.24,
+        "timestamp": 1762771568710,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.16,
+        "timestamp": 1762771655110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.19,
+        "timestamp": 1762771741510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.28,
+        "timestamp": 1762771827910,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.26,
+        "timestamp": 1762771914310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.26,
+        "timestamp": 1762772000710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.24,
+        "timestamp": 1762772087110,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.19,
+        "timestamp": 1762772173510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.16,
+        "timestamp": 1762772259910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.13,
+        "timestamp": 1762772346310,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.12,
+        "timestamp": 1762772432710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.1,
+        "timestamp": 1762772519110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.04,
+        "timestamp": 1762772605510,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69,
+        "timestamp": 1762772691910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69,
+        "timestamp": 1762772778310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.99,
+        "timestamp": 1762772864710,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.07,
+        "timestamp": 1762772951110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.16,
+        "timestamp": 1762773037510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.07,
+        "timestamp": 1762773123910,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.14,
+        "timestamp": 1762773210310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.13,
+        "timestamp": 1762773296710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.23,
+        "timestamp": 1762773383110,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.32,
+        "timestamp": 1762773469510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.28,
+        "timestamp": 1762773555910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.38,
+        "timestamp": 1762773642310,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.33,
+        "timestamp": 1762773728710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.42,
+        "timestamp": 1762773815110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.36,
+        "timestamp": 1762773901510,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.32,
+        "timestamp": 1762773987910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.25,
+        "timestamp": 1762774074310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.17,
+        "timestamp": 1762774160710,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.2,
+        "timestamp": 1762774247110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.18,
+        "timestamp": 1762774333510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.1,
+        "timestamp": 1762774419910,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.18,
+        "timestamp": 1762774506310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.22,
+        "timestamp": 1762774592710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.15,
+        "timestamp": 1762774679110,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 69.16,
+        "timestamp": 1762774765510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.11,
+        "timestamp": 1762774851910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 69.06,
+        "timestamp": 1762774938310,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.99,
+        "timestamp": 1762775024710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.98,
+        "timestamp": 1762775111110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.97,
+        "timestamp": 1762775197510,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.98,
+        "timestamp": 1762775283910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.9,
+        "timestamp": 1762775370310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.87,
+        "timestamp": 1762775456710,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.81,
+        "timestamp": 1762775543110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.75,
+        "timestamp": 1762775629510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.68,
+        "timestamp": 1762775715910,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.59,
+        "timestamp": 1762775802310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.59,
+        "timestamp": 1762775888710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.61,
+        "timestamp": 1762775975110,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.58,
+        "timestamp": 1762776061510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.51,
+        "timestamp": 1762776147910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.45,
+        "timestamp": 1762776234310,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.39,
+        "timestamp": 1762776320710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.33,
+        "timestamp": 1762776407110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.28,
+        "timestamp": 1762776493510,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.23,
+        "timestamp": 1762776579910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.13,
+        "timestamp": 1762776666310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.18,
+        "timestamp": 1762776752710,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.11,
+        "timestamp": 1762776839110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.11,
+        "timestamp": 1762776925510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.08,
+        "timestamp": 1762777011910,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.1,
+        "timestamp": 1762777098310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.14,
+        "timestamp": 1762777184710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.11,
+        "timestamp": 1762777271110,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.18,
+        "timestamp": 1762777357510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.08,
+        "timestamp": 1762777443910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.17,
+        "timestamp": 1762777530310,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.08,
+        "timestamp": 1762777616710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.09,
+        "timestamp": 1762777703110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.16,
+        "timestamp": 1762777789510,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.26,
+        "timestamp": 1762777875910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.31,
+        "timestamp": 1762777962310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.27,
+        "timestamp": 1762778048710,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.25,
+        "timestamp": 1762778135110,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.16,
+        "timestamp": 1762778221510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.24,
+        "timestamp": 1762778307910,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.15,
+        "timestamp": 1762778394310,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.25,
+        "timestamp": 1762778480710,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.25,
+        "timestamp": 1762778567110,
+        "source": "fitbit"
+      },
+      {
+        "weight_kg": 68.27,
+        "timestamp": 1762778653510,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.2,
+        "timestamp": 1762778739910,
+        "source": "withings"
+      },
+      {
+        "weight_kg": 68.24,
+        "timestamp": 1762778826310,
+        "source": "fitbit"
+      }
+    ],
+    "description": "Stress test: 100 measurements with random walk",
+    "expectedBehavior": "Should process large sequences efficiently"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["bun-types"],
+    "paths": {
+      "@/*": ["./utils/*"],
+      "@fixtures/*": ["./fixtures/*"],
+      "@tests/*": ["./tests/*"],
+      "@typescript-lib/*": ["../typescript_lib/src/*"],
+      "@python-lib/*": ["../python_lib/src/*"]
+    }
+  },
+  "include": [
+    "utils/**/*",
+    "tests/**/*",
+    "fixtures/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "reports"
+  ]
+}

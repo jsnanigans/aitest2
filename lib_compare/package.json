@@ -1,0 +1,26 @@
+{
+  "name": "lib-compare",
+  "version": "1.0.0",
+  "description": "Cross-language comparison tests for TypeScript and Python weight processor libraries",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "test:phase1": "bun run tests/phase1_integration/integration_tests.ts",
+    "test:phase2": "bun run tests/phase2_components/component_tests.ts",
+    "test:phase3": "bun run tests/phase3_subcomponents/runner.ts",
+    "test:phase4": "bun run tests/phase4_edge_cases/runner.ts",
+    "test:all": "bun run utils/run_all_phases.ts",
+    "report": "bun run utils/generate_report.ts"
+  },
+  "dependencies": {
+    "@stdlib/assert": "^0.3.3",
+    "@stdlib/math": "^0.3.3",
+    "@stdlib/stats": "^0.3.3",
+    "ml-matrix": "^6.11.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
