@@ -1,13 +1,9 @@
 {
   "suiteName": "Phase 2: Component Tests",
   "totalTests": 7,
-  "passed": 6,
-  "failed": 1,
-<<<<<<< Updated upstream
-  "duration": 1894.952291,
-=======
-  "duration": 1859.617333,
->>>>>>> Stashed changes
+  "passed": 7,
+  "failed": 0,
+  "duration": 4964.340666,
   "results": [
     {
       "testName": "Test 2.1: Kalman Filter Initialization",
@@ -32,18 +28,13 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-<<<<<<< Updated upstream
-      "pythonDuration": 103.474833,
-      "typescriptDuration": 1037.993958
-=======
-      "pythonDuration": 101.920375,
-      "typescriptDuration": 969.00425
->>>>>>> Stashed changes
+      "pythonDuration": 1261.021125,
+      "typescriptDuration": 3011.7911670000003
     },
     {
       "testName": "Test 2.2: Kalman Filter Prediction",
       "description": "Verify Kalman filter prediction step (state extrapolation)",
-      "passed": false,
+      "passed": true,
       "pythonResult": {
         "secondMeasurement": {
           "kalman_variance": 4.00252950373697
@@ -51,32 +42,18 @@
       },
       "typescriptResult": {
         "secondMeasurement": {
-          "kalman_variance": 2.379729588093491
+          "kalman_variance": 4.00252950373697
         }
       },
       "comparison": {
-        "passed": false,
-        "differences": [
-          {
-            "path": "root.secondMeasurement.kalman_variance",
-            "pythonValue": 4.00252950373697,
-            "typescriptValue": 2.379729588093491,
-            "difference": 1.6227999156434794,
-            "type": "value",
-            "message": "Numeric difference exceeds tolerance: abs=1.623e+0, rel=40.544359%"
-          }
-        ],
-        "summary": "✗ Found 1 difference(s): 1 numeric, 0 structural",
-        "numericDifferences": 1,
+        "passed": true,
+        "differences": [],
+        "summary": "✓ Values match within tolerance",
+        "numericDifferences": 0,
         "structuralDifferences": 0
       },
-<<<<<<< Updated upstream
-      "pythonDuration": 173.883875,
-      "typescriptDuration": 1.9397919999998976
-=======
-      "pythonDuration": 159.14854100000002,
-      "typescriptDuration": 3.4645000000000437
->>>>>>> Stashed changes
+      "pythonDuration": 132.28941699999996,
+      "typescriptDuration": 2.70325000000048
     },
     {
       "testName": "Test 2.3: Quality Scoring",
@@ -133,13 +110,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-<<<<<<< Updated upstream
-      "pythonDuration": 120.24512499999992,
-      "typescriptDuration": 0.9080830000000333
-=======
-      "pythonDuration": 143.753917,
-      "typescriptDuration": 0.8476250000001073
->>>>>>> Stashed changes
+      "pythonDuration": 113.94129100000009,
+      "typescriptDuration": 0.8169170000001031
     },
     {
       "testName": "Test 2.4: Output Structure",
@@ -242,13 +214,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-<<<<<<< Updated upstream
-      "pythonDuration": 123.84375,
-      "typescriptDuration": 0.5905410000000302
-=======
-      "pythonDuration": 123.56612500000006,
-      "typescriptDuration": 0.5644999999999527
->>>>>>> Stashed changes
+      "pythonDuration": 110.78283300000021,
+      "typescriptDuration": 0.5712079999993875
     },
     {
       "testName": "Test 2.5: Reset Detection",
@@ -267,13 +234,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-<<<<<<< Updated upstream
-      "pythonDuration": 115.84254199999987,
-      "typescriptDuration": 0.9655829999999241
-=======
-      "pythonDuration": 115.0530839999999,
-      "typescriptDuration": 0.8779170000000249
->>>>>>> Stashed changes
+      "pythonDuration": 109.61149999999998,
+      "typescriptDuration": 0.9724159999996118
     },
     {
       "testName": "Test 2.6: Acceptance/Rejection Logic",
@@ -318,13 +280,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-<<<<<<< Updated upstream
-      "pythonDuration": 107.1667080000002,
-      "typescriptDuration": 0.8834170000000086
-=======
-      "pythonDuration": 109.27895900000021,
-      "typescriptDuration": 0.8129999999998745
->>>>>>> Stashed changes
+      "pythonDuration": 108.49254199999996,
+      "typescriptDuration": 0.8426250000002256
     },
     {
       "testName": "Test 2.7: Timestamp Handling",
@@ -347,13 +304,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-<<<<<<< Updated upstream
-      "pythonDuration": 105.60833400000001,
-      "typescriptDuration": 0.5506249999998545
-=======
-      "pythonDuration": 129.26641699999982,
-      "typescriptDuration": 0.5230830000000424
->>>>>>> Stashed changes
+      "pythonDuration": 109.04033400000026,
+      "typescriptDuration": 0.5260829999997441
     }
   ]
 }

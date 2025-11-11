@@ -270,6 +270,9 @@ class ResetManager {
       parameters: resetConfig as ResetParameters,
     };
 
+    // Add reset event to the array so getResetTimestamp() can find it
+    newState.reset_events = [...(state.reset_events || []), resetEvent];
+
     return [newState, resetEvent];
   }
 }
@@ -499,6 +502,10 @@ function performTransactionalReset(
       config
     );
 
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[handleReset] performReset returned newState with reset_events length=${newState.reset_events?.length}`);
+    }
+
     // Save checkpoint and validate
     txn.saveCheckpoint(ResetOperation.STATE_UPDATE, newState);
     if (!txn.validateCheckpoint(ResetOperation.STATE_UPDATE)) {
@@ -670,8 +677,34 @@ export async function processMeasurement(
       observationCovariance
     );
 
+    // Preserve reset-related fields before merging
+    const savedResetEvents = state.reset_events;
+    const savedResetTimestamp = state.reset_timestamp;
+    const savedResetType = state.reset_type;
+    const savedResetParameters = state.reset_parameters;
+    const savedMeasurementsSinceReset = state.measurements_since_reset;
+
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[processor] Before merge: savedResetEvents length=${savedResetEvents?.length}, savedResetTimestamp=${savedResetTimestamp}, savedMeasurementsSinceReset=${savedMeasurementsSinceReset}`);
+    }
+
     // Merge Kalman state with existing state
     Object.assign(state, kalmanState);
+
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[processor] After merge: reset_events length=${state.reset_events?.length}`);
+    }
+
+    // Restore reset-related fields (don't let initializeImmediate overwrite them)
+    if (savedResetEvents !== undefined) state.reset_events = savedResetEvents;
+    if (savedResetTimestamp !== undefined) state.reset_timestamp = savedResetTimestamp;
+    if (savedResetType !== undefined) state.reset_type = savedResetType;
+    if (savedResetParameters !== undefined) state.reset_parameters = savedResetParameters;
+    if (savedMeasurementsSinceReset !== undefined) state.measurements_since_reset = savedMeasurementsSinceReset;
+
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[processor] After restore: reset_events length=${state.reset_events?.length}, measurements_since_reset=${state.measurements_since_reset}`);
+    }
 
     result = KalmanFilterManager.createResult(
       state,
@@ -832,9 +865,18 @@ export async function processMeasurement(
   const qualityComponents = qualityScore.components;
 
   // Only do Kalman update if not already done during initialization
+  if (process.env.DEBUG_ADAPTIVE) {
+    console.log(`[processor] Checking Kalman update: kalmanAlreadyUpdated=${kalmanAlreadyUpdated}`);
+  }
   if (!kalmanAlreadyUpdated) {
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[processor] Entering Kalman update block for measurement 2+`);
+    }
     // Check if we should use adaptive parameters
     const resetTimestamp = getResetTimestamp(state);
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[processor] resetTimestamp=${resetTimestamp}, state.reset_timestamp=${state?.reset_timestamp}`);
+    }
     const adaptiveKalmanConfig = getAdaptiveKalmanParams(
       resetTimestamp,
       timestamp,
@@ -846,11 +888,19 @@ export async function processMeasurement(
     // Update state's kalman_params with adaptive values if within 7 days of reset
     if (resetTimestamp) {
       const daysSinceReset = (timestamp.getTime() - resetTimestamp.getTime()) / (1000 * 60 * 60 * 24);
+      if (process.env.DEBUG_ADAPTIVE) {
+        console.log(`[processor] daysSinceReset=${daysSinceReset}, measurements_since_reset=${state.measurements_since_reset}`);
+        console.log(`[processor] adaptiveKalmanConfig.transition_covariance_weight=${adaptiveKalmanConfig.transition_covariance_weight}`);
+        console.log(`[processor] adaptiveKalmanConfig.transition_covariance_trend=${adaptiveKalmanConfig.transition_covariance_trend}`);
+      }
       if (daysSinceReset < 7) {
         if (
           'transition_covariance_weight' in adaptiveKalmanConfig &&
           'transition_covariance_trend' in adaptiveKalmanConfig
         ) {
+          if (process.env.DEBUG_ADAPTIVE) {
+            console.log(`[processor] UPDATING transition_covariance from [${state.kalman_params!.transition_covariance[0][0]}, ${state.kalman_params!.transition_covariance[1][1]}] to [${adaptiveKalmanConfig.transition_covariance_weight}, ${adaptiveKalmanConfig.transition_covariance_trend}]`);
+          }
           state.kalman_params!.transition_covariance = [
             [adaptiveKalmanConfig.transition_covariance_weight, 0],
             [0, adaptiveKalmanConfig.transition_covariance_trend],

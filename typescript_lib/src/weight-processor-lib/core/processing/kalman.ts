@@ -748,12 +748,22 @@ export function getAdaptiveKalmanParams(
     const decayRate = resetParams.adaptation_decay_rate ?? 2.5;
     const measurementsSince = state?.measurements_since_reset ?? 0;
 
+    // DEBUG logging
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[getAdaptiveKalmanParams] measurements_since_reset=${measurementsSince}, decay_rate=${decayRate}`);
+    }
+
     // Use measurement-based decay if available, otherwise time-based
     let decayFactor: number;
     if (measurementsSince > 0) {
       decayFactor = 1.0 - Math.exp(-measurementsSince / decayRate);
     } else {
       decayFactor = Math.min(1.0, daysSinceReset / adaptationDaysValue);
+    }
+
+    // DEBUG logging
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[getAdaptiveKalmanParams] decay_factor=${decayFactor}`);
     }
 
     // Interpolate between adaptive and base parameters
@@ -1057,6 +1067,10 @@ export class ResetManager {
       last_accepted_timestamp: state.last_accepted_timestamp,
       measurement_history: [],
     };
+
+    if (process.env.DEBUG_ADAPTIVE) {
+      console.log(`[performReset] Created newState with reset_events length=${newState.reset_events.length}`);
+    }
 
     return [newState, resetEvent];
   }

@@ -1,19 +1,11 @@
 # Cross-Language Test Report
 **Test Suite**: Phase 1: Integration Tests
-<<<<<<< Updated upstream
-**Date**: 2025-11-10T16:03:59.381Z
-=======
-**Date**: 2025-11-10T16:02:02.991Z
->>>>>>> Stashed changes
+**Date**: 2025-11-11T08:54:59.957Z
 **Total Tests**: 5
 **Passed**: 0
 **Failed**: 5
 **Success Rate**: 0.0%
-<<<<<<< Updated upstream
-**Duration**: 3.70s
-=======
-**Duration**: 3.65s
->>>>>>> Stashed changes
+**Duration**: 2.57s
 
 ## Summary
 
@@ -24,26 +16,20 @@
 
 ## Performance Comparison
 
-<<<<<<< Updated upstream
-- **Python avg**: 176.74ms
-- **TypeScript avg**: 561.33ms
-- **Speed ratio**: Python is 0.69x faster
-=======
-- **Python avg**: 168.01ms
-- **TypeScript avg**: 560.24ms
-- **Speed ratio**: Python is 0.70x faster
->>>>>>> Stashed changes
+- **Python avg**: 158.57ms
+- **TypeScript avg**: 352.97ms
+- **Speed ratio**: Python is 0.55x faster
 
 ## Failed Tests
 
 ### Test 1: Single Measurement Processing
 **Description**: Process a single measurement and verify initialization
 
-**Comparison**: ✗ Found 22 difference(s): 6 numeric, 16 structural
+**Comparison**: ✗ Found 24 difference(s): 6 numeric, 18 structural
 
 **Differences**:
 ```
-Found 22 difference(s):
+Found 24 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -80,6 +66,18 @@ Found 22 difference(s):
     Python:     initial_measurement
     TypeScript: initial reset triggered
     Value mismatch: initial_measurement !== initial reset triggered
+
+  root.finalState.adaptation_state:
+    Type: extra
+    Python:     undefined
+    TypeScript: null
+    Extra key in TypeScript output
+
+  root.finalState.version:
+    Type: extra
+    Python:     undefined
+    TypeScript: 1
+    Extra key in TypeScript output
 
   root.finalState.last_state[0][0]:
     Type: type
@@ -195,11 +193,11 @@ Found 22 difference(s):
 ### Test 2: Multi-Measurement Sequence
 **Description**: Process 10 measurements and verify state evolution
 
-**Comparison**: ✗ Found 181 difference(s): 156 numeric, 25 structural
+**Comparison**: ✗ Found 183 difference(s): 156 numeric, 27 structural
 
 **Differences**:
 ```
-Found 181 difference(s):
+Found 183 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -1143,6 +1141,18 @@ Found 181 difference(s):
     Difference: 6.764e-3
     Numeric difference exceeds tolerance: abs=6.764e-3, rel=0.694417%
 
+  root.finalState.adaptation_state:
+    Type: extra
+    Python:     undefined
+    TypeScript: null
+    Extra key in TypeScript output
+
+  root.finalState.version:
+    Type: extra
+    Python:     undefined
+    TypeScript: 1
+    Extra key in TypeScript output
+
   root.finalState.kalman_params.transition_covariance[0][0]:
     Type: value
     Python:     0.04209952319851201
@@ -1437,11 +1447,11 @@ Found 181 difference(s):
 ### Test 3: Reset Scenario
 **Description**: Process measurements with a large change that triggers reset
 
-**Comparison**: ✗ Found 174 difference(s): 136 numeric, 38 structural
+**Comparison**: ✗ Found 176 difference(s): 136 numeric, 40 structural
 
 **Differences**:
 ```
-Found 174 difference(s):
+Found 176 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -2398,6 +2408,18 @@ Found 174 difference(s):
     Difference: 1.059e-1
     Numeric difference exceeds tolerance: abs=1.059e-1, rel=1.077781%
 
+  root.finalState.adaptation_state:
+    Type: extra
+    Python:     undefined
+    TypeScript: null
+    Extra key in TypeScript output
+
+  root.finalState.version:
+    Type: extra
+    Python:     undefined
+    TypeScript: 1
+    Extra key in TypeScript output
+
   root.finalState.kalman_params.transition_covariance[0][0]:
     Type: value
     Python:     0.19607272887128602
@@ -2627,11 +2649,11 @@ Found 174 difference(s):
 ### Test 4: Quality Rejection
 **Description**: Mix of good and bad measurements - verify rejection logic
 
-**Comparison**: ✗ Found 76 difference(s): 53 numeric, 23 structural
+**Comparison**: ✗ Found 78 difference(s): 53 numeric, 25 structural
 
 **Differences**:
 ```
-Found 76 difference(s):
+Found 78 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -2946,6 +2968,18 @@ Found 76 difference(s):
     Difference: 3.010e-2
     Numeric difference exceeds tolerance: abs=3.010e-2, rel=3.016127%
 
+  root.finalState.adaptation_state:
+    Type: extra
+    Python:     undefined
+    TypeScript: null
+    Extra key in TypeScript output
+
+  root.finalState.version:
+    Type: extra
+    Python:     undefined
+    TypeScript: 1
+    Extra key in TypeScript output
+
   root.finalState.kalman_params.transition_covariance[0][0]:
     Type: value
     Python:     0.41430814635138935
@@ -3149,11 +3183,11 @@ Found 76 difference(s):
 ### Test 5: State Persistence
 **Description**: Process in batches - verify state persistence works correctly
 
-**Comparison**: ✗ Found 159 difference(s): 133 numeric, 26 structural
+**Comparison**: ✗ Found 161 difference(s): 133 numeric, 28 structural
 
 **Differences**:
 ```
-Found 159 difference(s):
+Found 161 difference(s):
 
   root.results[0].timestamp:
     Type: type
@@ -4009,6 +4043,18 @@ Found 159 difference(s):
     Difference: 2.817e-2
     Numeric difference exceeds tolerance: abs=2.817e-2, rel=3.034072%
 
+  root.finalState.adaptation_state:
+    Type: extra
+    Python:     undefined
+    TypeScript: null
+    Extra key in TypeScript output
+
+  root.finalState.version:
+    Type: extra
+    Python:     undefined
+    TypeScript: 1
+    Extra key in TypeScript output
+
   root.finalState.kalman_params.transition_covariance[0][0]:
     Type: value
     Python:     0.19607272887128602
@@ -4239,16 +4285,8 @@ Found 159 difference(s):
 
 | Test Name | Status | Py Time | TS Time | Differences |
 |-----------|--------|---------|---------|-------------|
-<<<<<<< Updated upstream
-| Test 1: Single Measurement Processing | ❌ | 204.74ms | 2798.10ms | 24 |
-| Test 2: Multi-Measurement Sequence | ❌ | 148.19ms | 4.00ms | 183 |
-| Test 3: Reset Scenario | ❌ | 119.34ms | 1.70ms | 176 |
-| Test 4: Quality Rejection | ❌ | 122.31ms | 0.92ms | 78 |
-| Test 5: State Persistence | ❌ | 289.10ms | 1.91ms | 161 |
-=======
-| Test 1: Single Measurement Processing | ❌ | 234.22ms | 2792.09ms | 22 |
-| Test 2: Multi-Measurement Sequence | ❌ | 146.56ms | 4.58ms | 181 |
-| Test 3: Reset Scenario | ❌ | 122.18ms | 1.64ms | 174 |
-| Test 4: Quality Rejection | ❌ | 112.16ms | 0.88ms | 76 |
-| Test 5: State Persistence | ❌ | 224.93ms | 1.99ms | 159 |
->>>>>>> Stashed changes
+| Test 1: Single Measurement Processing | ❌ | 206.74ms | 1755.69ms | 24 |
+| Test 2: Multi-Measurement Sequence | ❌ | 139.31ms | 4.87ms | 183 |
+| Test 3: Reset Scenario | ❌ | 118.17ms | 1.64ms | 176 |
+| Test 4: Quality Rejection | ❌ | 111.70ms | 0.93ms | 78 |
+| Test 5: State Persistence | ❌ | 216.92ms | 1.72ms | 161 |
