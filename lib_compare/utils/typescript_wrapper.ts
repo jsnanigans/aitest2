@@ -133,11 +133,8 @@ export class TypeScriptWrapper {
   private serializeResult(result: any): any {
     if (!result) return null;
 
-    // First convert all Date objects to milliseconds
-    const converted = this.convertDatesToMilliseconds(result);
-
-    // Then convert to plain object, handling any special types
-    return JSON.parse(JSON.stringify(converted));
+    // Convert all Date objects to milliseconds and create plain objects
+    return this.convertDatesToMilliseconds(result);
   }
 
   /**
@@ -146,11 +143,8 @@ export class TypeScriptWrapper {
   private serializeState(state: any): any {
     if (!state) return null;
 
-    // First convert all Date objects to milliseconds
-    const converted = this.convertDatesToMilliseconds(state);
-
-    // Convert to plain object
-    return JSON.parse(JSON.stringify(converted));
+    // Convert all Date objects to milliseconds and create plain objects
+    return this.convertDatesToMilliseconds(state);
   }
 
   /**

@@ -212,6 +212,16 @@ const test5: TestCase = {
  * Run all Phase 1 tests
  */
 async function runPhase1Tests() {
+  // Pre-initialize both wrappers to measure only processing time (fair comparison)
+  console.log('🔥 Warming up wrappers...');
+  console.log('   → Starting Python server...');
+  await pythonWrapper.initialize();
+  console.log('   ✓ Python server ready');
+
+  console.log('   → Loading TypeScript modules...');
+  await typescriptWrapper.initialize();
+  console.log('   ✓ TypeScript modules ready\n');
+
   const runner = new TestRunner('Phase 1: Integration Tests');
 
   const tests = [test1, test2, test3, test4, test5];
@@ -222,6 +232,9 @@ async function runPhase1Tests() {
   const reportDir = resolve(import.meta.dir, '../../reports');
   await runner.generateReport(`${reportDir}/phase1_report.md`, results);
   await runner.saveResults(`${reportDir}/phase1_results.json`, results);
+
+  // Cleanup
+  await pythonWrapper.cleanup();
 
   // Exit with appropriate code
   process.exit(results.failed > 0 ? 1 : 0);

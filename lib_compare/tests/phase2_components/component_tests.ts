@@ -368,6 +368,16 @@ const test_2_7_timestamps: TestCase = {
  * Run all Phase 2 tests
  */
 async function runPhase2Tests() {
+  // Pre-initialize both wrappers to measure only processing time (fair comparison)
+  console.log('🔥 Warming up wrappers...');
+  console.log('   → Starting Python server...');
+  await pythonWrapper.initialize();
+  console.log('   ✓ Python server ready');
+
+  console.log('   → Loading TypeScript modules...');
+  await typescriptWrapper.initialize();
+  console.log('   ✓ TypeScript modules ready\n');
+
   const runner = new TestRunner('Phase 2: Component Tests');
 
   const tests = [
@@ -386,6 +396,9 @@ async function runPhase2Tests() {
   const reportDir = `${import.meta.dir}/../../reports`;
   await runner.generateReport(`${reportDir}/phase2_report.md`, results);
   await runner.saveResults(`${reportDir}/phase2_results.json`, results);
+
+  // Cleanup
+  await pythonWrapper.cleanup();
 
   // Exit with appropriate code
   process.exit(results.failed > 0 ? 1 : 0);
