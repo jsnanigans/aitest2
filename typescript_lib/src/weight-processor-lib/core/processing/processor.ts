@@ -257,16 +257,36 @@ class ResetManager {
     const resetConfig = { ...defaults, ...resetConfigFromFile };
     newState.reset_parameters = resetConfig;
 
+    const gapDays = state.last_timestamp
+      ? (timestamp.getTime() - state.last_timestamp.getTime()) / (1000 * 60 * 60 * 24)
+      : null;
+
+    // Generate reset reason
+    let resetReason: string;
+    if (resetType === ResetType.INITIAL) {
+      resetReason = 'initial_measurement';
+    } else if (resetType === ResetType.HARD) {
+      resetReason = gapDays !== null ? `gap_exceeded_${Math.floor(gapDays)}_days` : 'gap_exceeded';
+    } else if (resetType === ResetType.SOFT) {
+      const lastWeight = state.last_raw_weight;
+      if (lastWeight !== undefined && lastWeight !== null) {
+        const change = Math.abs(weight - lastWeight);
+        resetReason = `manual_entry_change_${change.toFixed(1)}kg`;
+      } else {
+        resetReason = 'manual_entry';
+      }
+    } else {
+      resetReason = 'unknown';
+    }
+
     const resetEvent: ResetEvent = {
       timestamp,
       type: resetType,
       source,
       weight,
       last_weight: state.last_raw_weight || undefined,
-      gap_days: state.last_timestamp
-        ? (timestamp.getTime() - state.last_timestamp.getTime()) / (1000 * 60 * 60 * 24)
-        : undefined,
-      reason: `${resetType} reset triggered`,
+      gap_days: gapDays !== null ? gapDays : undefined,
+      reason: resetReason,
       parameters: resetConfig as ResetParameters,
     };
 
@@ -592,7 +612,7 @@ export async function processMeasurement(
       reason: preprocessMetadata.rejected || 'Preprocessing failed',
       stage: 'preprocessing',
       metadata: preprocessMetadata,
-      quality_score: 0.0,  // Rejected during preprocessing
+      // Note: quality_score intentionally omitted to match Python implementation
     };
   }
 
@@ -733,7 +753,7 @@ export async function processMeasurement(
       processingResult.was_reset = true;
       processingResult.reset_reason = resetEvent.reason;
       processingResult.reset_type = resetEvent.type;
-      processingResult.gap_days = resetEvent.gap_days || 0;
+      processingResult.gap_days = resetEvent.gap_days;  // Keep null as-is for Python compatibility
       processingResult.reset_event = {
         type: resetEvent.type,
         gap_days: resetEvent.gap_days,
@@ -979,7 +999,7 @@ export async function processMeasurement(
     finalResult.was_reset = true;
     finalResult.reset_reason = resetEvent.reason;
     finalResult.reset_type = resetEvent.type;
-    finalResult.gap_days = resetEvent.gap_days || 0;
+    finalResult.gap_days = resetEvent.gap_days;  // Keep null as-is for Python compatibility
     finalResult.reset_event = {
       type: resetEvent.type,
       gap_days: resetEvent.gap_days,
@@ -1004,7 +1024,7 @@ export async function processMeasurement(
 
   state.measurement_history.push({
     weight: cleanedWeight,
-    timestamp: timestamp.toISOString(),
+    timestamp: timestamp.getTime(),  // Store as milliseconds, not ISO string
     quality_score: qualityScoreValue,
     source,
   });

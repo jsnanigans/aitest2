@@ -13,7 +13,12 @@
         "observation_noise_multiplier": 20,
         "adaptation_measurements": 10,
         "adaptation_days": 10,
-        "adaptation_decay_rate": 2.5
+        "adaptation_decay_rate": 2.5,
+        "quality_acceptance_threshold": 0.25,
+        "quality_safety_weight": 0.50,
+        "quality_plausibility_weight": 0.05,
+        "quality_consistency_weight": 0.05,
+        "quality_reliability_weight": 0.40
       },
       "hard": {
         "enabled": true,
@@ -24,7 +29,12 @@
         "observation_noise_multiplier": 0.7,
         "adaptation_measurements": 10,
         "adaptation_days": 7,
-        "adaptation_decay_rate": 2.5
+        "adaptation_decay_rate": 2.5,
+        "quality_acceptance_threshold": 0.35,
+        "quality_safety_weight": 0.45,
+        "quality_plausibility_weight": 0.10,
+        "quality_consistency_weight": 0.10,
+        "quality_reliability_weight": 0.35
       },
       "soft": {
         "enabled": true,
@@ -37,7 +47,12 @@
         "observation_noise_multiplier": 0.7,
         "adaptation_measurements": 15,
         "adaptation_days": 10,
-        "adaptation_decay_rate": 2.5
+        "adaptation_decay_rate": 2.5,
+        "quality_acceptance_threshold": 0.35,
+        "quality_safety_weight": 0.45,
+        "quality_plausibility_weight": 0.10,
+        "quality_consistency_weight": 0.10,
+        "quality_reliability_weight": 0.35
       }
     }
   },

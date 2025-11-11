@@ -82,13 +82,62 @@ export class TypeScriptWrapper {
   }
 
   /**
+   * Convert special objects (Date, Matrix) to serializable formats
+   * Also unify null/undefined: convert undefined to null for Python compatibility
+   */
+  private convertDatesToMilliseconds(obj: any): any {
+    if (obj === undefined) {
+      return null;  // Unify: convert undefined to null for Python compatibility
+    }
+
+    if (obj === null) {
+      return null;
+    }
+
+    if (obj instanceof Date) {
+      return obj.getTime();  // Convert to milliseconds
+    }
+
+    // Handle ml-matrix Matrix objects - convert to plain arrays
+    if (obj && typeof obj === 'object' && 'rows' in obj && 'columns' in obj && 'data' in obj) {
+      // This is a Matrix object - convert to 2D array
+      const matrix: number[][] = [];
+      for (let i = 0; i < obj.rows; i++) {
+        const row: number[] = [];
+        for (let j = 0; j < obj.columns; j++) {
+          row.push(obj.data[i]?.[j] ?? 0);
+        }
+        matrix.push(row);
+      }
+      return matrix;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.convertDatesToMilliseconds(item));
+    }
+
+    if (typeof obj === 'object') {
+      const result: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        result[key] = this.convertDatesToMilliseconds(value);
+      }
+      return result;
+    }
+
+    return obj;
+  }
+
+  /**
    * Serialize result for comparison
    */
   private serializeResult(result: any): any {
     if (!result) return null;
 
-    // Convert to plain object, handling any special types
-    return JSON.parse(JSON.stringify(result));
+    // First convert all Date objects to milliseconds
+    const converted = this.convertDatesToMilliseconds(result);
+
+    // Then convert to plain object, handling any special types
+    return JSON.parse(JSON.stringify(converted));
   }
 
   /**
@@ -97,8 +146,11 @@ export class TypeScriptWrapper {
   private serializeState(state: any): any {
     if (!state) return null;
 
+    // First convert all Date objects to milliseconds
+    const converted = this.convertDatesToMilliseconds(state);
+
     // Convert to plain object
-    return JSON.parse(JSON.stringify(state));
+    return JSON.parse(JSON.stringify(converted));
   }
 
   /**

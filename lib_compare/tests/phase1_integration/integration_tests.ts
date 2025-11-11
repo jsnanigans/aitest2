@@ -40,7 +40,7 @@ const test1: TestCase = {
   comparisonConfig: {
     absoluteTolerance: 1e-10,
     relativeTolerance: 1e-8,
-    ignoreKeys: ['created_at', 'updated_at'], // Timestamps will differ
+    ignoreKeys: ['created_at', 'updated_at', 'enabled', 'adaptation_state', 'version'], // Timestamps will differ, TS-only fields
   },
 };
 
@@ -71,7 +71,7 @@ const test2: TestCase = {
   comparisonConfig: {
     absoluteTolerance: 1e-10,
     relativeTolerance: 1e-8,
-    ignoreKeys: ['created_at', 'updated_at'],
+    ignoreKeys: ['created_at', 'updated_at', 'enabled', 'adaptation_state', 'version'],
   },
 };
 
@@ -102,7 +102,7 @@ const test3: TestCase = {
   comparisonConfig: {
     absoluteTolerance: 1e-10,
     relativeTolerance: 1e-8,
-    ignoreKeys: ['created_at', 'updated_at'],
+    ignoreKeys: ['created_at', 'updated_at', 'enabled', 'adaptation_state', 'version'],
   },
 };
 
@@ -133,7 +133,7 @@ const test4: TestCase = {
   comparisonConfig: {
     absoluteTolerance: 1e-10,
     relativeTolerance: 1e-8,
-    ignoreKeys: ['created_at', 'updated_at'],
+    ignoreKeys: ['created_at', 'updated_at', 'enabled', 'adaptation_state', 'version'],
   },
 };
 
@@ -204,7 +204,7 @@ const test5: TestCase = {
   comparisonConfig: {
     absoluteTolerance: 1e-10,
     relativeTolerance: 1e-8,
-    ignoreKeys: ['created_at', 'updated_at'],
+    ignoreKeys: ['created_at', 'updated_at', 'enabled', 'adaptation_state', 'version'],
   },
 };
 

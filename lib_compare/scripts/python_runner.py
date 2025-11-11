@@ -35,6 +35,21 @@ def make_json_serializable(obj):
         return bool(obj)
     elif isinstance(obj, datetime):
         return obj.timestamp() * 1000  # milliseconds
+    elif isinstance(obj, str):
+        # Check if it's an ISO timestamp string and convert to milliseconds
+        # Format: "2025-11-10T10:24:32.710000" or "2025-11-10T10:24:32.710Z"
+        if len(obj) >= 19 and 'T' in obj and (':' in obj):
+            try:
+                # Try to parse as ISO format
+                if obj.endswith('Z'):
+                    dt = datetime.fromisoformat(obj.replace('Z', '+00:00'))
+                else:
+                    dt = datetime.fromisoformat(obj)
+                return dt.timestamp() * 1000  # Convert to milliseconds
+            except ValueError:
+                # Not a timestamp, return as is
+                return obj
+        return obj
     elif isinstance(obj, dict):
         return {k: make_json_serializable(v) for k, v in obj.items()}
     elif isinstance(obj, (list, tuple)):
@@ -104,7 +119,8 @@ def main():
     for measurement in measurements:
         # Convert timestamp from milliseconds to datetime
         # JavaScript Date.now() returns milliseconds, Python expects seconds
-        timestamp = datetime.fromtimestamp(measurement["timestamp"] / 1000)
+        # Use UTC to match JavaScript Date behavior
+        timestamp = datetime.utcfromtimestamp(measurement["timestamp"] / 1000)
 
         result = process_measurement(
             user_id=combined_user_id,

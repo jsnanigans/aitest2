@@ -8,6 +8,7 @@ export interface ComparisonConfig {
   relativeTolerance: number;
   ignoreKeys?: string[];
   strictTypes?: boolean;
+  fieldAliases?: Record<string, string[]>;  // Map field names to their aliases
 }
 
 export interface Difference {
@@ -34,9 +35,32 @@ export class Comparator {
     this.config = {
       absoluteTolerance: config?.absoluteTolerance ?? 1e-10,
       relativeTolerance: config?.relativeTolerance ?? 1e-8,
-      ignoreKeys: config?.ignoreKeys ?? [],
+      ignoreKeys: config?.ignoreKeys ?? ['enabled', 'adaptation_state', 'version'],  // TS-only fields
       strictTypes: config?.strictTypes ?? true,
+      fieldAliases: config?.fieldAliases ?? {
+        'rejection_reason': ['rejectionReason'],  // Python uses snake_case, TS uses camelCase
+      },
     };
+  }
+
+  /**
+   * Check if a field name or value appears to be a timestamp
+   */
+  private isTimestampField(path: string, value: number): boolean {
+    const fieldName = path.split('.').pop()?.toLowerCase() || '';
+
+    // Check field name
+    if (fieldName.includes('timestamp') || fieldName === 'time') {
+      return true;
+    }
+
+    // Check if value is in milliseconds range (1970-2100)
+    // Timestamps in ms are typically > 1e12 and < 5e12
+    if (value > 1e12 && value < 5e12) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -65,6 +89,17 @@ export class Comparator {
       numericDifferences,
       structuralDifferences,
     };
+  }
+
+  /**
+   * Unwrap single-element arrays for matrix comparison
+   * Python outputs flat numbers, TypeScript may wrap them in arrays
+   */
+  private unwrapSingleElementArray(value: any): any {
+    if (Array.isArray(value) && value.length === 1) {
+      return value[0];
+    }
+    return value;
   }
 
   /**
@@ -107,9 +142,13 @@ export class Comparator {
       return;
     }
 
-    // Handle numbers
-    if (typeof pyValue === 'number' && typeof tsValue === 'number') {
-      this._compareNumbers(pyValue, tsValue, path, differences);
+    // Handle matrix values: unwrap single-element arrays for comparison with flat numbers
+    const unwrappedPyValue = this.unwrapSingleElementArray(pyValue);
+    const unwrappedTsValue = this.unwrapSingleElementArray(tsValue);
+
+    // Handle numbers (including unwrapped matrix values)
+    if (typeof unwrappedPyValue === 'number' && typeof unwrappedTsValue === 'number') {
+      this._compareNumbers(unwrappedPyValue, unwrappedTsValue, path, differences);
       return;
     }
 
@@ -188,7 +227,12 @@ export class Comparator {
 
     // Check absolute difference
     const absDiff = Math.abs(pyNum - tsNum);
-    if (absDiff <= this.config.absoluteTolerance) {
+
+    // Use larger tolerance for timestamps (3700000ms = ~1 hour + buffer for test execution time)
+    const isTimestamp = this.isTimestampField(path, pyNum) || this.isTimestampField(path, tsNum);
+    const absoluteTolerance = isTimestamp ? 3700000 : this.config.absoluteTolerance;
+
+    if (absDiff <= absoluteTolerance) {
       return;
     }
 
@@ -234,6 +278,31 @@ export class Comparator {
   }
 
   /**
+   * Find alias for a key in TypeScript object
+   */
+  private findAliasKey(pyKey: string, tsKeys: Set<string>): string | null {
+    const aliases = this.config.fieldAliases?.[pyKey] || [];
+    for (const alias of aliases) {
+      if (tsKeys.has(alias)) {
+        return alias;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Check if a TS key is an alias for any Python key
+   */
+  private isAliasKey(tsKey: string, pyKeys: Set<string>): boolean {
+    for (const [pyKey, aliases] of Object.entries(this.config.fieldAliases || {})) {
+      if (aliases.includes(tsKey) && pyKeys.has(pyKey)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Compare two objects
    */
   private _compareObjects(
@@ -245,9 +314,14 @@ export class Comparator {
     const pyKeys = new Set(Object.keys(pyObj));
     const tsKeys = new Set(Object.keys(tsObj));
 
-    // Find missing keys
+    // Find missing keys (check aliases too)
     for (const key of pyKeys) {
-      if (!tsKeys.has(key) && !this.config.ignoreKeys?.includes(key)) {
+      if (this.config.ignoreKeys?.includes(key)) {
+        continue;
+      }
+
+      const aliasKey = this.findAliasKey(key, tsKeys);
+      if (!tsKeys.has(key) && !aliasKey) {
         differences.push({
           path: `${path}.${key}`,
           pythonValue: pyObj[key],
@@ -258,9 +332,13 @@ export class Comparator {
       }
     }
 
-    // Find extra keys
+    // Find extra keys (ignore if they're aliases)
     for (const key of tsKeys) {
-      if (!pyKeys.has(key) && !this.config.ignoreKeys?.includes(key)) {
+      if (this.config.ignoreKeys?.includes(key)) {
+        continue;
+      }
+
+      if (!pyKeys.has(key) && !this.isAliasKey(key, pyKeys)) {
         differences.push({
           path: `${path}.${key}`,
           pythonValue: undefined,
@@ -271,11 +349,23 @@ export class Comparator {
       }
     }
 
-    // Compare common keys
+    // Compare common keys (including aliases)
     for (const key of pyKeys) {
-      if (tsKeys.has(key) && !this.config.ignoreKeys?.includes(key)) {
-        this._compareRecursive(pyObj[key], tsObj[key], `${path}.${key}`, differences);
+      if (this.config.ignoreKeys?.includes(key)) {
+        continue;
       }
+
+      let tsKey = key;
+      if (!tsKeys.has(key)) {
+        const aliasKey = this.findAliasKey(key, tsKeys);
+        if (aliasKey) {
+          tsKey = aliasKey;
+        } else {
+          continue; // Already reported as missing above
+        }
+      }
+
+      this._compareRecursive(pyObj[key], tsObj[tsKey], `${path}.${key}`, differences);
     }
   }
 

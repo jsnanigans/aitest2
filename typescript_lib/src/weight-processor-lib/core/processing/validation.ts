@@ -718,7 +718,7 @@ export class DataQualityPreprocessor {
       original_weight: weight,
       original_unit: unit,
       source: source,
-      timestamp: timestamp.toISOString(),
+      timestamp: timestamp.getTime(),  // Convert to milliseconds for Python compatibility
       corrections: [],
       warnings: [],
       checks_passed: [],

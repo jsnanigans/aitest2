@@ -3,7 +3,7 @@
   "totalTests": 7,
   "passed": 7,
   "failed": 0,
-  "duration": 4964.340666,
+  "duration": 1793.869292,
   "results": [
     {
       "testName": "Test 2.1: Kalman Filter Initialization",
@@ -28,8 +28,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-      "pythonDuration": 1261.021125,
-      "typescriptDuration": 3011.7911670000003
+      "pythonDuration": 104.485,
+      "typescriptDuration": 985.950333
     },
     {
       "testName": "Test 2.2: Kalman Filter Prediction",
@@ -52,8 +52,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-      "pythonDuration": 132.28941699999996,
-      "typescriptDuration": 2.70325000000048
+      "pythonDuration": 133.59045800000013,
+      "typescriptDuration": 2.7451249999999163
     },
     {
       "testName": "Test 2.3: Quality Scoring",
@@ -110,8 +110,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-      "pythonDuration": 113.94129100000009,
-      "typescriptDuration": 0.8169170000001031
+      "pythonDuration": 118.4580840000001,
+      "typescriptDuration": 0.910457999999835
     },
     {
       "testName": "Test 2.4: Output Structure",
@@ -214,8 +214,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-      "pythonDuration": 110.78283300000021,
-      "typescriptDuration": 0.5712079999993875
+      "pythonDuration": 117.40329199999996,
+      "typescriptDuration": 0.5826250000000073
     },
     {
       "testName": "Test 2.5: Reset Detection",
@@ -234,8 +234,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-      "pythonDuration": 109.61149999999998,
-      "typescriptDuration": 0.9724159999996118
+      "pythonDuration": 109.03054100000008,
+      "typescriptDuration": 0.9142079999999169
     },
     {
       "testName": "Test 2.6: Acceptance/Rejection Logic",
@@ -280,8 +280,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-      "pythonDuration": 108.49254199999996,
-      "typescriptDuration": 0.8426250000002256
+      "pythonDuration": 105.79308399999991,
+      "typescriptDuration": 0.9174579999998969
     },
     {
       "testName": "Test 2.7: Timestamp Handling",
@@ -289,8 +289,8 @@
       "passed": true,
       "pythonResult": {
         "inputMs": 1699632000000,
-        "resultMs": 1699632000000,
-        "stateMs": 1699632000000
+        "resultMs": 1699628400000,
+        "stateMs": 1699628400000
       },
       "typescriptResult": {
         "inputMs": 1699632000000,
@@ -304,8 +304,8 @@
         "numericDifferences": 0,
         "structuralDifferences": 0
       },
-      "pythonDuration": 109.04033400000026,
-      "typescriptDuration": 0.5260829999997441
+      "pythonDuration": 111.44970899999998,
+      "typescriptDuration": 0.5805420000001504
     }
   ]
 }

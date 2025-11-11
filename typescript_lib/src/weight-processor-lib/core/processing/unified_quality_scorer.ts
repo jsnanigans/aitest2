@@ -1078,7 +1078,7 @@ export class UnifiedQualityScorer {
     }
 
     baseline.last_weight = weight;
-    baseline.last_timestamp = timestamp.toISOString();
+    baseline.last_timestamp = timestamp.getTime();
 
     state.temporal_baseline = baseline;
     return state;
